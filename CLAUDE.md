@@ -111,7 +111,7 @@ useInfiniteQuery({
 ```
 
 ### Push Token Registration
-After every login: `await api.patch('/users/me/push-token', { pushToken })`. Re-register on app foreground if token changed.
+After every login: `await api.patch('/auth/push-token', { pushToken })`. Re-register on app foreground if token changed.
 
 ### i18n / RTL
 `I18nManager.forceRTL(true/false)` on language switch + restart prompt. No hardcoded strings ever.
@@ -158,6 +158,11 @@ app/
 │   ├── forgot-password.tsx
 │   ├── reset-password.tsx            ← receives token via deep link
 │   └── accept-invitation.tsx         ← merchant/admin invite → name + password setup
+├── (admin)/                          ← [admin role guard]
+│   ├── _layout.tsx
+│   ├── announcements/new.tsx         ← Create announcement form
+│   ├── polls/new.tsx                 ← Create poll form
+│   └── elections/new.tsx             ← Create election form
 ├── (merchant)/                       ← [merchant role guard]
 │   ├── dashboard.tsx
 │   ├── menu/
@@ -252,7 +257,7 @@ Full reference: `DESIGN.md`. Core rules:
 - Merchant/Admin: admin sends email invite → one-time signed token → `accept-invitation` screen → name + password
 - JWT: two secrets — `JWT_SECRET` (access 15min) + `JWT_REFRESH_SECRET` (refresh 7d)
 - Logout: blacklist refresh token in Redis
-- After login (FE): immediately `PATCH /users/me/push-token`
+- After login (FE): immediately `PATCH /auth/push-token` (NOT `/users/me/push-token` — auth module owns this)
 
 ### Shops & Products
 - `ShopPhoto[]` gallery model (not single `coverUrl`)
