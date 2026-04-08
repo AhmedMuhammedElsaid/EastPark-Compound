@@ -30,10 +30,11 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 **Implementation: 100% complete. Both FE and BE are built, audited, and production-ready.**
 
-- **Backend** (`eastpark-backend/` — NestJS + Fastify) — all 8 phases + all 6 gaps + wiring fixes done. Last commit: `eae0da7`
+- **Backend** (`eastpark-backend/` — NestJS + Fastify) — all 8 phases + all 6 gaps + wiring fixes + 2 full security/logic audit passes done. Last commit: `c7dfb01`
   - Auth, shops, products, orders, payments (Paymob), community (announcements, polls, elections, feedback), notifications, invitations
   - Paymob 3-step initiation + HMAC-SHA512 webhook, Socket.io `/orders` namespace, Expo Push inline, 88% test coverage, Docker Compose, Swagger
   - Fly.io `cdg` region, `auto_stop_machines = false`
+  - Security audit 2 (2026-04-08): 8 bugs fixed — passwordHash leak, photo ownership, merchant feedback access, Paymob guards, averageRating in list, isPrimary on ShopPhoto
 
 - **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `a498a15`
   - Full navigation, auth-wall, marketplace (shops/orders/cart/checkout/Paymob), community hub, governance, feedback, merchant tools, admin
@@ -42,6 +43,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
   - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items resolved — see `eastpark-frontend/Documentation/FixedBugs.md`
   - Review pass + TS fixes (April 2026): FlashList v2 prop removal, isPrimary photo type, formatRelativeTime cast, icon fixes — commits `2ab46a8`–`1e8a72a`
   - Jest fix pass (April 2026): global `@/store` mock in `jest-setup.ts` to avoid RTK/react-redux ESM errors — commits `23a39fe`, `a498a15`
+  - API response shape fix (2026-04-08): `CursorPage.data` → `items`, `.data.data.data` → `.data.data.items` across 15 screens + 8 service files
   - `EAS_PROJECT_ID` populated: `062399ed-48df-4d4f-ba1a-a0801a86b1bc` (already in `app.config.ts`)
 
 **Remaining user actions (cannot be automated — CLIs not in WSL):**
