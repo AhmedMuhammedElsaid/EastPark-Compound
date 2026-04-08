@@ -35,11 +35,13 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
   - Paymob 3-step initiation + HMAC-SHA512 webhook, Socket.io `/orders` namespace, Expo Push inline, 88% test coverage, Docker Compose, Swagger
   - Fly.io `cdg` region, `auto_stop_machines = false`
 
-- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass done. Last commit: `1a27086`
+- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `a498a15`
   - Full navigation, auth-wall, marketplace (shops/orders/cart/checkout/Paymob), community hub, governance, feedback, merchant tools, admin
   - Redux Toolkit (authSlice + cartSlice + preferencesSlice), TanStack Query v5, expo-secure-store JWT, FlashList everywhere, i18n AR+EN
   - Deep audit fixed: Paymob 3-step flow, push token endpoint/projectId, token persist blacklist, admin redirect guards, 30+ emoji→Phosphor icons, all ← arrows replaced, formatCurrency everywhere, N+1 fetch fixed via TanStack Query cache initialData, rgba→token colors
   - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items resolved — see `eastpark-frontend/Documentation/FixedBugs.md`
+  - Review pass + TS fixes (April 2026): FlashList v2 prop removal, isPrimary photo type, formatRelativeTime cast, icon fixes — commits `2ab46a8`–`1e8a72a`
+  - Jest fix pass (April 2026): global `@/store` mock in `jest-setup.ts` to avoid RTK/react-redux ESM errors — commits `23a39fe`, `a498a15`
   - `EAS_PROJECT_ID` populated: `062399ed-48df-4d4f-ba1a-a0801a86b1bc` (already in `app.config.ts`)
 
 **Remaining user actions (cannot be automated — CLIs not in WSL):**
