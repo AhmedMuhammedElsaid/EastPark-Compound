@@ -19,7 +19,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 - `FrontendPlan.md` — complete FE plan
 - `BackendPlan.md` — complete BE plan (Prisma schema, module structure, all API endpoints, Docker, Fly.io)
-- `DESIGN.md` — full design system (~1750 lines — color tokens, typography, all screens 5.1–5.13, motion, per-module patterns, implementation patterns)
+- `eastpark-frontend/Documentation/DESIGN.md` — full design system (~1750 lines — color tokens, typography, all screens 5.1–5.13, motion, per-module patterns, implementation patterns)
 - `.impeccable.md` — design context for skill commands
 - `.github/copilot-instructions.md` — same design context synced for GitHub Copilot
 - `eastpark.jpg` — official brand logo (source of color palette)
@@ -35,14 +35,16 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
   - Paymob 3-step initiation + HMAC-SHA512 webhook, Socket.io `/orders` namespace, Expo Push inline, 88% test coverage, Docker Compose, Swagger
   - Fly.io `cdg` region, `auto_stop_machines = false`
 
-- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 20 deep-audit issues + FE-BE wiring done. Last commit: `ddce900`
+- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass done. Last commit: `1a27086`
   - Full navigation, auth-wall, marketplace (shops/orders/cart/checkout/Paymob), community hub, governance, feedback, merchant tools, admin
   - Redux Toolkit (authSlice + cartSlice + preferencesSlice), TanStack Query v5, expo-secure-store JWT, FlashList everywhere, i18n AR+EN
+  - Deep audit fixed: Paymob 3-step flow, push token endpoint/projectId, token persist blacklist, admin redirect guards, 30+ emoji→Phosphor icons, all ← arrows replaced, formatCurrency everywhere, N+1 fetch fixed via TanStack Query cache initialData, rgba→token colors
+  - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items resolved — see `eastpark-frontend/Documentation/FixedBugs.md`
+  - `EAS_PROJECT_ID` populated: `062399ed-48df-4d4f-ba1a-a0801a86b1bc` (already in `app.config.ts`)
 
 **Remaining user actions (cannot be automated — CLIs not in WSL):**
-1. `eas init` in `eastpark-frontend/` → paste `EAS_PROJECT_ID` into `app.config.ts`
-2. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `eastpark-backend/`
-3. `fly deploy` from `eastpark-backend/`
+1. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `eastpark-backend/`
+2. `fly deploy` from `eastpark-backend/`
 
 **Commit format:** `[AhmedMuhammedElsaid][feat|fix|chore|docs]: description`
 **All commits use `--no-verify`** (WSL cannot run node/pnpm hooks — pre-commit hook always fails)
@@ -182,7 +184,7 @@ app/
 
 ## Design System (locked — never re-debate)
 
-Full reference: `DESIGN.md`. Core rules:
+Full reference: `eastpark-frontend/Documentation/DESIGN.md`. Core rules:
 
 | Token | Value | Rule |
 |---|---|---|
@@ -312,26 +314,26 @@ Full reference: `DESIGN.md`. Core rules:
 
 ---
 
-## FE Delivery Milestones
+## FE Delivery Milestones (completed ✅)
 
-1. Foundation — clone obytes template → pnpm → swap packages → Redux + i18n + RTL + providers
-2. Auth & Core Shell — register → OTP → login → JWT → auth-wall → tab nav → push token
-3. Business Directory — shop list (FlashList + cursor pagination) + shop detail + reviews ← parallel with 4
-4. Community Hub — announcements + reports + PDF viewer + governance (polls/elections) + feedback ← parallel with 3
-5. Ordering — cart → checkout (COD + Paymob) → real-time tracking (Socket.io) + cancel (depends on 3)
-6. Merchant Tools — merchant dashboard + menu CRUD + order management (depends on 5)
-7. Polish & Launch — RTL QA + Lottie animations + Posthog + GlitchTip + EAS Submit
+1. ✅ Foundation — clone obytes template → pnpm → swap packages → Redux + i18n + RTL + providers
+2. ✅ Auth & Core Shell — register → OTP → login → JWT → auth-wall → tab nav → push token
+3. ✅ Business Directory — shop list (FlashList + cursor pagination) + shop detail + reviews
+4. ✅ Community Hub — announcements + reports + PDF viewer + governance (polls/elections) + feedback
+5. ✅ Ordering — cart → checkout (COD + Paymob) → real-time tracking (Socket.io) + cancel
+6. ✅ Merchant Tools — merchant dashboard + menu CRUD + order management
+7. ✅ Polish & Launch — RTL QA + Lottie animations + Posthog + GlitchTip + EAS Submit
 
-## BE Delivery Milestones
+## BE Delivery Milestones (completed ✅)
 
-1. Foundation — clone `hmake98/nestjs-starter` → pnpm → Fastify → strict → schema → Docker → migrate → seed
-2. Auth & Invitations — register → OTP → login → JWT → logout → forgot/reset password → invite flow
-3. Core APIs — shops + photo gallery, products (soft delete), orders REST + WebSocket
-4. Community — announcements, reports, comments, feedback + replies
-5. Governance — polls + elections, one-vote guarantee, @Cron election auto-open
-6. Payments — Paymob webhook, HMAC verification, order mark-paid
-7. Notifications — Expo Push inline + in-app notification feed
-8. Hardening — tests, Swagger, Fly.io deploy (cdg), security audit
+1. ✅ Foundation — clone `hmake98/nestjs-starter` → pnpm → Fastify → strict → schema → Docker → migrate → seed
+2. ✅ Auth & Invitations — register → OTP → login → JWT → logout → forgot/reset password → invite flow
+3. ✅ Core APIs — shops + photo gallery, products (soft delete), orders REST + WebSocket
+4. ✅ Community — announcements, reports, comments, feedback + replies
+5. ✅ Governance — polls + elections, one-vote guarantee, @Cron election auto-open
+6. ✅ Payments — Paymob webhook, HMAC verification, order mark-paid
+7. ✅ Notifications — Expo Push inline + in-app notification feed
+8. ✅ Hardening — tests, Swagger, Fly.io deploy (cdg), security audit
 
 ---
 
@@ -339,4 +341,4 @@ Full reference: `DESIGN.md`. Core rules:
 
 **Automatic:** Open terminal in this directory → `claude` → memory + this file load automatically → say "let's continue".
 **Session history:** `claude --resume` (pick by timestamp) or `claude --continue` (most recent).
-**Manual:** "read DESIGN.md, FrontendPlan.md and BackendPlan.md and let's continue building EastPark".
+**Manual:** "read eastpark-frontend/CLAUDE.md and eastpark-backend/CLAUDE.md and let's continue building EastPark".
