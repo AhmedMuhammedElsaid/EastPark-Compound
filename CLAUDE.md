@@ -28,7 +28,30 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
-**Implementation: 100% complete. Both FE and BE are built, audited, and production-ready.**
+**Audited 2026-07-19, re-verified + fixed 2026-07-26. All backend blockers fixed & verified (Node v24 via nvm: `pnpm typecheck` exit 0, 62/62 tests green, coverage 81.11%). Merchant module (the biggest cross-repo blocker) fixed backend-side. Remaining: prod deploy steps + a couple of non-blocking FE items. Full detail in `eastpark-frontend/frontend_review.md` and `eastpark-backend/backend_review.md`.**
+
+### Audit 2026-07-19 → fixed 2026-07-26
+
+**Backend — all fixed (branch main, commits `42d6eaa`→`b293bba`):**
+- ✅ BE-1: added `Election.descriptionAr` (was runtime Prisma crash + tsc error).
+- ✅ BE-2: full baseline migration `00000000000000_init` — `prisma migrate deploy` now builds a fresh Neon DB.
+- ✅ BE-3: 6 tsc errors fixed (UserResponseDto optional passwordHash/pushToken; invitation DTO `typeof Role.*`). `pnpm typecheck` exits 0.
+- ✅ BE-4/5/6: `CacheService` mock added to payments spec — 62/62 pass, coverage 81.11% stmts / 77.5% funcs (payments 29.87%→64.5%).
+- ✅ BE-7: `test.yml` rewritten for pnpm + Prisma generate + typecheck/lint/test.
+- ✅ `DELETE /user` self-delete confirmed implemented (old "pending" note was wrong).
+
+**Merchant module (FE-1 / B-7) — fixed backend-side (`988e7c6`):**
+- The mobile app's entire Merchant Tools module called `/merchant/*` routes that didn't exist (would 404 in prod), and no endpoint let a merchant discover its own `shopId`. Fixed by adding a `MerchantModule` (`src/modules/merchant/`) that resolves the shop from the JWT and delegates to shops/products/orders services. **Frontend `merchant.ts` works unchanged** — no FE edits needed.
+
+**Frontend — remaining (non-blocking, being addressed):**
+- FE-3: real auth tests (was `it.todo`) — in progress.
+- FE-6: dead obytes route stubs (`app/login.tsx`, `app/onboarding.tsx`, `app/[...messing].tsx`) — in progress.
+- FE-2: Posthog + Sentry/GlitchTip never wired — **descoped** for now (needs product decision).
+- FE-4: WSL Node v12 can't run FE tooling here (modern Node available via nvm for verification).
+
+---
+
+**Older completion notes (pre-audit — kept for history):**
 
 - **Backend** (`eastpark-backend/` — NestJS + Fastify) — all 8 phases + all 6 gaps + wiring fixes + 2 full security/logic audit passes done. Last commit: `c7dfb01`
   - Auth, shops, products, orders, payments (Paymob), community (announcements, polls, elections, feedback), notifications, invitations
@@ -36,7 +59,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
   - Fly.io `cdg` region, `auto_stop_machines = false`
   - Security audit 2 (2026-04-08): 8 bugs fixed — passwordHash leak, photo ownership, merchant feedback access, Paymob guards, averageRating in list, isPrimary on ShopPhoto
 
-- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `a498a15`
+- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `41cc16e`
   - Full navigation, auth-wall, marketplace (shops/orders/cart/checkout/Paymob), community hub, governance, feedback, merchant tools, admin
   - Redux Toolkit (authSlice + cartSlice + preferencesSlice), TanStack Query v5, expo-secure-store JWT, FlashList everywhere, i18n AR+EN
   - Deep audit fixed: Paymob 3-step flow, push token endpoint/projectId, token persist blacklist, admin redirect guards, 30+ emoji→Phosphor icons, all ← arrows replaced, formatCurrency everywhere, N+1 fetch fixed via TanStack Query cache initialData, rgba→token colors
@@ -46,9 +69,19 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
   - API response shape fix (2026-04-08): `CursorPage.data` → `items`, `.data.data.data` → `.data.data.items` across 15 screens + 8 service files
   - `EAS_PROJECT_ID` populated: `062399ed-48df-4d4f-ba1a-a0801a86b1bc` (already in `app.config.ts`)
 
-**Remaining user actions (cannot be automated — CLIs not in WSL):**
-1. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `eastpark-backend/`
-2. `fly deploy` from `eastpark-backend/`
+**Remaining work to reach production (updated 2026-07-26):**
+
+_Code fixes — BE all done (2026-07-26). FE in progress:_
+1. ✅ **BE:** `Election.descriptionAr` + baseline migration + 6 tsc errors + payments spec + CI pnpm — all fixed & verified.
+2. ✅ **BE:** merchant module added (fixes FE-1/B-7; FE unchanged).
+3. **FE:** real auth tests (FE-3) + remove dead route stubs (FE-6) — in progress.
+4. **FE:** Posthog/Sentry — descoped (product decision needed).
+
+_Deploy steps (CLIs not in WSL — run by user; modern Node available via nvm):_
+5. Run `pnpm type-check && pnpm lint && pnpm test` on the FE for a full signal.
+6. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `eastpark-backend/`
+7. `fly deploy` from `eastpark-backend/` (baseline migration now in place — safe).
+8. `eas build` / `eas submit` from `eastpark-frontend/`
 
 **Commit format:** `[AhmedMuhammedElsaid][feat|fix|chore|docs]: description`
 **All commits use `--no-verify`** (WSL cannot run node/pnpm hooks — pre-commit hook always fails)
