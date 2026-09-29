@@ -25,14 +25,16 @@ This is the trap. `email.service.ts:23-32` and `files.service.ts:26-29` call `co
 ```
  1. ✅ ME   SUPABASE_URL + SMTP_HOST in fly.toml           → B3   done, commit e4bb326
  2. ✅ ME   directUrl in schema.prisma                     → B2   done, commit e4bb326
- 3. YOU  Supabase transaction(6543) + session(5432) URLs  → B2   ⚠️ see traps, README step 5
- 4. YOU  Supabase SECRET key (sb_secret_…) → fly secrets         NOT the publishable one
- 5. YOU  docker build                                           ← never run, may fail
- 6. YOU  fly deploy  (runs prisma migrate deploy on boot)       ← never run, may fail
- 7. YOU  Deploy web app — eastpark-web-app/DEPLOY.md
- 8. YOU  Send me the Vercel domain
- 9. ME   Swap it into APP_CORS_ORIGINS, redeploy backend  → B5-CORS
-10. YOU  curl POST /v1/residents/leads to confirm end-to-end
+ 3. ✅ ME   Brevo SMTP credentials verified                       auth OK 2026-09-30
+ 4. YOU  Supabase transaction(6543) + session(5432) URLs  → B2   ⚠️ see traps, README step 5
+ 5. YOU  Supabase SECRET key (sb_secret_…) → fly secrets         NOT the publishable one
+ 6. YOU  fly secrets set SMTP_USER + SMTP_PASS                   values in the Brevo section below
+ 7. YOU  docker build                                           ← never run, may fail
+ 8. YOU  fly deploy  (runs prisma migrate deploy on boot)       ← never run, may fail
+ 9. YOU  Deploy web app — eastpark-web-app/DEPLOY.md
+10. YOU  Send me the Vercel domain
+11. ME   Swap it into APP_CORS_ORIGINS, redeploy backend  → B5-CORS
+12. YOU  curl POST /v1/residents/leads to confirm end-to-end
 ```
 
 Steps 3, 4 and 9 are ~5 minutes of my work combined. Everything else is yours, and steps 5–6 are the two that have never been executed anywhere.
@@ -90,16 +92,53 @@ Neither could run in this environment — no Docker daemon, no reachable databas
 
 ---
 
-## ⛔ Blocked on you — 2 values
-
-Everything else can proceed without these, but the deploy cannot.
+## ⛔ Blocked on you — 1 value
 
 | Need | Where it goes | Note |
 |---|---|---|
-| **Brevo SMTP host** | `fly.toml [env] SMTP_HOST` | Probably `smtp-relay.brevo.com` — confirm |
+| ~~Brevo SMTP host~~ | ~~`fly.toml [env] SMTP_HOST`~~ | ✅ **DONE** — `smtp-relay.brevo.com`, credentials verified 2026-09-30, see below |
 | **Supabase project URL** | `fly.toml [env] SUPABASE_URL` | `https://<ref>.supabase.co` |
 
 Deliberately left blank rather than guessed. Both factories default to `''` and `getOrThrow` only throws on `undefined`, so a wrong value means the app **boots fine and fails at the first email or upload** instead of at startup.
+
+### ✅ Brevo SMTP — credentials verified by execution 2026-09-30
+
+`smtp-relay.brevo.com:587` authenticated successfully via `scripts/brevo-check.js`.
+
+> #### ⚠️ The SMTP login is NOT the account email
+> This cost a round of `535 5.7.8 Authentication failed`. Brevo's dashboard identity (a Google
+> sign-in, `ahmed.muhammed.elsaid@gmail.com`) and the SMTP login are **different credentials**.
+> The SMTP login is the generated `bbc337001@smtp-brevo.com` shown in the **Login** field at
+> app.brevo.com/settings/keys/smtp. Signing up via Google OAuth with no password set does not
+> affect SMTP at all — the key is independent of the dashboard login method.
+
+```
+SMTP_HOST  smtp-relay.brevo.com     ✅ already in fly.toml [env]
+SMTP_PORT  587                      ✅ already in fly.toml [env]
+SMTP_USER  bbc337001@smtp-brevo.com ← fly secrets, NOT the gmail address
+SMTP_PASS  xsmtpsib-…               ← fly secrets
+```
+
+Local `.env` keeps Mailpit active; the working Brevo values sit commented below it at
+`eastpark-backend/.env:58-66`. **Rotate the key before launch** — it has been in plaintext
+in `.env` and in a chat transcript.
+
+```
+YOU  fly secrets set SMTP_USER=bbc337001@smtp-brevo.com SMTP_PASS=<key> -a eastpark-backend
+```
+
+**`EMAIL_FROM` is still unsettled.** A `--send` test had the relay *accept* mail from both
+`noreply@eastpark.app` and the gmail address — but relay acceptance is not delivery, and Brevo
+can drop or bounce an unverified sender asynchronously. `eastpark.app` is almost certainly not
+verified, so treat that result as unconfirmed until an inbox check says otherwise.
+
+- **For production:** verify the `eastpark.app` domain (DKIM/SPF DNS records under *Senders,
+  Domains & Dedicated IPs*) and keep `EMAIL_FROM=noreply@eastpark.app`.
+- **Do not ship the gmail address as `EMAIL_FROM`** even though it authenticates — sending as
+  `@gmail.com` through a third-party relay fails Gmail's DMARC policy, so OTPs land in spam.
+
+`scripts/brevo-check.js` (untracked, imports nothing) re-runs both checks:
+`node scripts/brevo-check.js [--send]`.
 
 ---
 
@@ -300,7 +339,7 @@ Two gaps in the verification, both needing a real browser:
  3. ME    B1  Float → Decimal + .toNumber() boundary (same commit)        P0 · cheap only while DB is empty
  4. ME    F1  EAS env vars  ·  F2 submit block  ·  F3 preview profile     needs your store IDs
  5. YOU   Supabase pooler URLs (6543 + 5432) + sb_secret_ key            ⛔ blocks deploy
- 6. YOU   Brevo SMTP user + key → fly secrets
+ 6. YOU   Brevo SMTP user + key → fly secrets                            ✅ values verified, just set them
  7. YOU   docker build          ← never run
  8. YOU   prisma migrate deploy ← never run
  9. YOU   Deploy web app (DEPLOY.md) → send me the Vercel domain
