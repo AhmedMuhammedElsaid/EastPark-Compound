@@ -6,6 +6,60 @@ Authoritative detail lives in `eastpark-backend/COMPLETION-ROADMAP.md` (every it
 
 ---
 
+# 🚀 FAST PATH — just get the web form live
+
+**Goal: a working public registration form. Nothing else.** The marketplace, orders, payments, governance and the mobile app all stay untouched and unshipped.
+
+## What the form actually touches
+
+Verified by reading the code, not assumed: `POST /v1/residents/leads` hits the **database and nothing else**. `residents.service.ts` imports only `DatabaseService` and `InvitationsService`. No email, no file upload, no payments on the public path.
+
+## ⚠️ But the app still won't boot without SMTP + Supabase
+
+This is the trap. `email.service.ts:23-32` and `files.service.ts:26-29` call `config.getOrThrow()` **in their constructors**, and `common.module.ts` loads both eagerly — so NestJS instantiates them at startup regardless of which endpoint you call. Missing values crash the app on boot, not on first use.
+
+**So the two config values are required even for a form-only launch.** They cannot be postponed. (`SMTP_PORT`, `EMAIL_FROM` and `SUPABASE_BUCKET` are already set in `fly.toml`; only the host and project URL are missing.)
+
+## Minimum steps
+
+```
+ 1. YOU  Brevo SMTP host + Supabase project URL          → B3   ⛔ app won't boot without these
+ 2. YOU  Neon pooled + unpooled connection strings       → B2
+ 3. ME   Add directUrl to schema.prisma                  → B2   ~2 min
+ 4. ME   Add SMTP_HOST + SUPABASE_URL to fly.toml        → B3   ~2 min
+ 5. YOU  docker build                                           ← never run, may fail
+ 6. YOU  fly deploy  (runs prisma migrate deploy on boot)       ← never run, may fail
+ 7. YOU  Deploy web app — eastpark-web-app/DEPLOY.md
+ 8. YOU  Send me the Vercel domain
+ 9. ME   Swap it into APP_CORS_ORIGINS, redeploy backend  → B5-CORS
+10. YOU  curl POST /v1/residents/leads to confirm end-to-end
+```
+
+Steps 3, 4 and 9 are ~5 minutes of my work combined. Everything else is yours, and steps 5–6 are the two that have never been executed anywhere.
+
+## Safe to postpone for a form-only launch
+
+| Item | Why it can wait |
+|---|---|
+| **B0** Paymob amount verification | The form takes no payments. **Becomes P0 the instant you enable ordering.** |
+| **B1** Float → Decimal | No money flows through the form. ⚠️ **Gets dramatically more expensive once real orders exist** — see the warning below. |
+| **B4** Prisma seed hook | Only affects `migrate reset` in dev. |
+| **B5** Test coverage | No new risk from shipping a form. |
+| **F1–F5** All mobile work | You are not shipping the mobile app. |
+
+> ### ⚠️ The one judgement call in postponing B1
+> Float→Decimal is nearly free **right now** because the database holds only whole-integer values, so the conversion is lossless. It stays cheap for exactly as long as no real fractional order exists. The web form creates no orders, so shipping it does not start that clock — but **do B1 before you enable ordering**, not after. After is a data migration with rounding risk.
+>
+> If you want it de-risked permanently, the cheapest moment is *before* step 6 above, while the production database is still empty. It adds one migration to the same deploy.
+
+## What this gets you
+
+A live, bilingual, accessible registration form collecting resident leads into `resident_leads`, viewable by admins via `GET /v1/admin/residents/leads`. Residents can be invited into real accounts later via the existing invitation flow.
+
+**Not included:** ordering, payments, the directory, governance, notifications, and the mobile app — all of which need the full list below.
+
+---
+
 ## State right now
 
 | Repo | Branch | Commits | Verified | Pushed |
