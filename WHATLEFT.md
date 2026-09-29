@@ -109,8 +109,20 @@ Deliberately left blank rather than guessed. Both factories default to `''` and 
 > This cost a round of `535 5.7.8 Authentication failed`. Brevo's dashboard identity (a Google
 > sign-in, `ahmed.muhammed.elsaid@gmail.com`) and the SMTP login are **different credentials**.
 > The SMTP login is the generated `bbc337001@smtp-brevo.com` shown in the **Login** field at
-> app.brevo.com/settings/keys/smtp. Signing up via Google OAuth with no password set does not
-> affect SMTP at all — the key is independent of the dashboard login method.
+> app.brevo.com/settings/keys/smtp.
+>
+> Per Brevo's docs: *"Depending on when your account was created, your SMTP login is either your
+> Brevo account login email address or an automatically generated address in the format
+> `[ID]@smtp-brevo.com`."* It is assigned at account creation — not a choice. Always copy the
+> literal **Login** field value. *"Changing your account's login email does not change your
+> SMTP login."*
+
+> #### ⚠️ The key dies after 90 days of no successful send
+> Brevo deactivates an SMTP key after **90 days with no successful send — even keys created with
+> "no expiration."** Reminder emails go out 7 days before and on the day. If the backend sits
+> undeployed past that window, the verified key above stops working and email fails in
+> production with a `535`. Re-check `scripts/brevo-check.js` right before launch if the deploy
+> slips.
 
 ```
 SMTP_HOST  smtp-relay.brevo.com     ✅ already in fly.toml [env]
@@ -131,6 +143,13 @@ YOU  fly secrets set SMTP_USER=bbc337001@smtp-brevo.com SMTP_PASS=<key> -a eastp
 `noreply@eastpark.app` and the gmail address — but relay acceptance is not delivery, and Brevo
 can drop or bounce an unverified sender asynchronously. `eastpark.app` is almost certainly not
 verified, so treat that result as unconfirmed until an inbox check says otherwise.
+
+Brevo's docs confirm these are **independent gates**: SMTP AUTH (`535`) turns purely on
+login/key/IP, while an unverified sender or unauthenticated domain is *"a later-stage failure,
+occurring after successful authentication."* So `AUTH OK` says nothing about whether OTPs will
+actually arrive. Domain authentication is also *"mandatory as part of Gmail, Yahoo, and
+Microsoft's requirements for email senders"* — which is the second, independent reason the
+gmail-as-`EMAIL_FROM` shortcut is a dead end.
 
 - **For production:** verify the `eastpark.app` domain (DKIM/SPF DNS records under *Senders,
   Domains & Dedicated IPs*) and keep `EMAIL_FROM=noreply@eastpark.app`.
