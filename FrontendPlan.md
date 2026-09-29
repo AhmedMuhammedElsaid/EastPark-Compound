@@ -12,7 +12,7 @@ Every technology in this plan is either **open-source**, **self-hostable**, or o
 | Error Monitoring | GlitchTip self-hosted or Sentry free tier |
 | Payment | Cash on Delivery (free) + Paymob (no platform fee) |
 
-> Backend infrastructure (NestJS, Neon, Upstash, Supabase Storage, Fly.io, Brevo) is documented in **BackendPlan.md**.
+> Backend infrastructure (NestJS, Supabase Postgres + Storage, Upstash, Fly.io, Brevo) is documented in **BackendPlan.md**.
 
 ---
 

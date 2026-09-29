@@ -421,16 +421,29 @@ SUPABASE_SERVICE_KEY=your-service-role-key
 SUPABASE_BUCKET=eastpark-uploads
 ```
 
-### 5 — Production database (Neon PostgreSQL)
+### 5 — Production database (Supabase PostgreSQL)
 
-Local dev uses Docker postgres. For production, create a free project at [neon.tech](https://neon.tech) (3 GB free):
+Local dev uses Docker postgres. Production uses the **same Supabase project** as Storage
+(step 4) — one free tier, 500 MB.
 
-1. Create a new project → copy the connection string
-2. Set in production secrets:
+Dashboard → **Connect**. Copy both strings; they differ only in the port:
 
 ```env
-DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/eastpark?sslmode=require
+# Transaction pooler — runtime queries
+DATABASE_URL=postgresql://postgres.<ref>:<url-encoded-pw>@<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+# Session pooler — migrations only (schema.prisma `directUrl`)
+DIRECT_DATABASE_URL=postgresql://postgres.<ref>:<url-encoded-pw>@<region>.pooler.supabase.com:5432/postgres
 ```
+
+Three things that will silently bite you:
+
+- **Use the pooler host, not `db.<ref>.supabase.co`.** The direct host is IPv6-only and Fly
+  VMs have no public IPv4 egress, so it is simply unreachable. The pooler resolves to IPv4.
+- **Percent-encode the password.** A literal `#` truncates the URL at the fragment and `@`
+  splits the authority — both produce a *valid-looking* string pointing at the wrong host.
+  `#` → `%23`, `@` → `%40`, `:` → `%3A`, `/` → `%2F`.
+- **Free projects pause after 1 week idle** and need a manual dashboard restore. The Fly
+  health check queries the DB every 15s, which keeps it awake — don't remove it.
 
 ### 6 — Production cache (Upstash Redis)
 

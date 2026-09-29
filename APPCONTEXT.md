@@ -315,7 +315,7 @@ app/
 
 | Concern | Dev | Prod |
 |---|---|---|
-| Database | Docker PostgreSQL | Neon (3GB free) |
+| Database | Docker PostgreSQL | Supabase (500MB free) |
 | Cache | Docker Redis | Upstash (10K req/day free) |
 | File storage | Docker MinIO | Supabase Storage (1GB free) |
 | Email | Docker Mailpit | Brevo SMTP (300/day free) |

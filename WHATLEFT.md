@@ -23,10 +23,10 @@ This is the trap. `email.service.ts:23-32` and `files.service.ts:26-29` call `co
 ## Minimum steps
 
 ```
- 1. YOU  Brevo SMTP host + Supabase project URL          → B3   ⛔ app won't boot without these
- 2. YOU  Neon pooled + unpooled connection strings       → B2
- 3. ME   Add directUrl to schema.prisma                  → B2   ~2 min
- 4. ME   Add SMTP_HOST + SUPABASE_URL to fly.toml        → B3   ~2 min
+ 1. ✅ ME   SUPABASE_URL + SMTP_HOST in fly.toml           → B3   done, commit e4bb326
+ 2. ✅ ME   directUrl in schema.prisma                     → B2   done, commit e4bb326
+ 3. YOU  Supabase transaction(6543) + session(5432) URLs  → B2   ⚠️ see traps, README step 5
+ 4. YOU  Supabase SECRET key (sb_secret_…) → fly secrets         NOT the publishable one
  5. YOU  docker build                                           ← never run, may fail
  6. YOU  fly deploy  (runs prisma migrate deploy on boot)       ← never run, may fail
  7. YOU  Deploy web app — eastpark-web-app/DEPLOY.md
@@ -150,20 +150,41 @@ Verify  pnpm typecheck surfaces every arithmetic site as TS2362
 
 ---
 
-### ✅ B2 — P1: Add `directUrl` for Neon  ← needs you
+### ✅ B2 — DONE (commit `e4bb326`) — `directUrl` added · **Postgres moved Neon → Supabase**
 
-`grep directUrl prisma/schema.prisma` → **0 matches**. Without it `migrate deploy` runs through pgbouncer, where advisory locks and prepared statements misbehave.
+**Why the vendor changed.** Neon's free tier cannot host this app. `fly.toml` health-checks
+`/health` every 15s and that endpoint runs a real DB query (terminus, `health.controller.ts:24`),
+so Neon's compute never scale-to-zeros. Always-on at the smallest 0.25 CU is ~183 CU-hours/month
+against a **100 CU-hour** free allowance — compute suspends around **day 16 of every month**, and
+stays suspended until the next billing period. Supabase free is capacity-limited (500 MB), not
+clock-limited, so a constant trickle of queries costs nothing. It also collapses two free tiers
+into one, since Storage was already there.
+
+Both strings come from Supabase Dashboard → **Connect**. They differ only in the port.
 
 ```
-schema.prisma:8-11   add  directUrl = env("DIRECT_DATABASE_URL")
+schema.prisma:8-15   directUrl = env("DIRECT_DATABASE_URL")          ✅ added
 
-DATABASE_URL         Neon POOLED endpoint (-pooler) + ?pgbouncer=true&connection_limit=1
-DIRECT_DATABASE_URL  Neon UNPOOLED endpoint
+DATABASE_URL         transaction pooler :6543 + ?pgbouncer=true&connection_limit=1
+DIRECT_DATABASE_URL  session pooler     :5432  (no query params)
 
 Verify  pnpm prisma migrate deploy succeeds AND the app still serves traffic
 ```
 
-Both strings come from the Neon dashboard. The Fly VM is 256MB / 1 shared CPU, so a low `connection_limit` is correct.
+The Fly VM is 256MB / 1 shared CPU, so a low `connection_limit` is correct.
+
+> #### ⚠️ Three traps — all three fail *silently*
+>
+> 1. **Use the pooler host, never `db.<ref>.supabase.co`.** Verified by DNS: the direct host
+>    has **0 A records and 3 AAAA records** — IPv6-only. Fly VMs have no public IPv4 egress,
+>    so it is unreachable. `<region>.pooler.supabase.com` resolves to IPv4.
+> 2. **Percent-encode the password.** Verified with `new URL()`: a password containing a
+>    literal `#` and `@` throws `Invalid URL` outright, and subtler combinations parse to the
+>    *wrong host* without erroring. `#`→`%23` `@`→`%40` `:`→`%3A` `/`→`%2F`.
+> 3. **The pooler username is `postgres.<project-ref>`**, not `postgres`.
+>
+> Free projects also **pause after 1 week idle** and need a manual dashboard restore — the 15s
+> health check is what keeps that from ever happening. Don't remove it.
 
 ---
 
@@ -274,12 +295,12 @@ Two gaps in the verification, both needing a real browser:
 # THE ORDER
 
 ```
- 1. YOU   Brevo SMTP host + Supabase project URL                        ⛔ blocks deploy
+ 1. ✅ ME  B2 directUrl + B3 fly.toml env                                 done, commit e4bb326
  2. ME    B0  Paymob amount verification                                  P0 · no deploy needed
  3. ME    B1  Float → Decimal + .toNumber() boundary (same commit)        P0 · cheap only while DB is empty
- 4. ME    B2  directUrl + B3 fly.toml env                                 needs step 1
- 5. ME    F1  EAS env vars  ·  F2 submit block  ·  F3 preview profile     needs your store IDs
- 6. YOU   Neon pooled + unpooled connection strings
+ 4. ME    F1  EAS env vars  ·  F2 submit block  ·  F3 preview profile     needs your store IDs
+ 5. YOU   Supabase pooler URLs (6543 + 5432) + sb_secret_ key            ⛔ blocks deploy
+ 6. YOU   Brevo SMTP user + key → fly secrets
  7. YOU   docker build          ← never run
  8. YOU   prisma migrate deploy ← never run
  9. YOU   Deploy web app (DEPLOY.md) → send me the Vercel domain

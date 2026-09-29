@@ -21,7 +21,7 @@
 
 | Layer | Dev (local) | Production |
 |---|---|---|
-| Database | Docker — `postgres:16-alpine` | Neon PostgreSQL (3GB free, DB branching) |
+| Database | Docker — `postgres:16-alpine` | Supabase PostgreSQL (500MB free) — same project as Storage |
 | Cache | Docker — `redis:7-alpine` | Upstash Redis (10K req/day, 256MB) |
 | Email | Docker — Mailpit (catches all mail) | Brevo SMTP (300 emails/day free) |
 | File Storage | Docker — MinIO | Supabase Storage (1GB, 2GB bandwidth) |
@@ -47,8 +47,8 @@ Mobile App (Expo RN)
                   │
        ┌──────────┼────────────┐
        ▼          ▼            ▼
-  Neon DB    Upstash Redis  Supabase Storage
-  (Prisma)   (OTP/sessions/ (images/PDFs)
+  Supabase   Upstash Redis  Supabase Storage
+  Postgres   (OTP/sessions/ (images/PDFs)
               rate-limit)
                   │
             Brevo SMTP      Expo Push Service
@@ -1114,8 +1114,10 @@ NODE_ENV=production
 PORT=3000
 APP_URL=https://eastpark.app   # your production domain
 
-# Neon PostgreSQL
-DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/eastpark?sslmode=require
+# Supabase PostgreSQL — pooler host only (db.<ref>.supabase.co is IPv6-only;
+# Fly has no public IPv4 egress). Percent-encode the password.
+DATABASE_URL=postgresql://postgres.<ref>:<url-encoded-pw>@<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+DIRECT_DATABASE_URL=postgresql://postgres.<ref>:<url-encoded-pw>@<region>.pooler.supabase.com:5432/postgres
 
 # JWT — two separate secrets
 JWT_SECRET=your-access-secret-min-32-chars

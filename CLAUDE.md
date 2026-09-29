@@ -295,7 +295,7 @@ Full reference: `eastpark-frontend/Documentation/DESIGN.md`. Core rules:
 | Boilerplate | `hmake98/nestjs-starter` — clone, migrate Yarn→pnpm, swap Express→Fastify, enable TS strict, remove Bull queues, add ioredis + Socket.io + @nestjs/schedule + Supabase client + Expo Push SDK, replace docker-compose.yml + Prisma schema |
 | Framework | NestJS + Fastify adapter (NOT Express) |
 | Package manager | pnpm |
-| ORM | Prisma + Neon PostgreSQL (free: 3GB, DB branching) |
+| ORM | Prisma + Supabase PostgreSQL (free: 500MB) — same project as Storage |
 | Cache | Upstash Redis (10K req/day free) — OTP, rate limiting, token blacklist |
 | File storage | Supabase Storage (prod: 1GB free) / MinIO Docker (dev) |
 | Hosting | Fly.io `cdg` (Paris) — `auto_stop_machines = false`, min 1 machine always on, WebSocket-friendly |
