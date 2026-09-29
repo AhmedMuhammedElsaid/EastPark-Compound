@@ -24,9 +24,9 @@ EastPark-App/
 ├── eastpark-frontend/    Expo 54 React Native — in active development ✅
 ├── BackendPlan.md        Canonical backend design document
 ├── FrontendPlan.md       Canonical frontend design document
-├── DESIGN.md             Complete design system (~1750 lines)
+│   (DESIGN.md moved to eastpark-frontend/Documentation/DESIGN.md)
 ├── CLAUDE.md             AI session context + all locked decisions
-├── HOWTORUN.md           Step-by-step setup guide
+├── README.md             Step-by-step setup guide (local dev + production deploy)
 └── eastpark.jpg          Brand logo (source of color palette)
 ```
 
@@ -128,7 +128,7 @@ MinIO default credentials: `minioadmin` / `minioadmin`. Bucket name: `eastpark-u
 
 ## Frontend — eastpark-frontend/
 
-### Status: In Active Development ✅
+### Status: Fully Complete ✅
 
 ### Technology Stack
 
@@ -220,7 +220,7 @@ app/
 
 - **Auth-wall:** Global `useAuthGuard()` + `AuthWallSheet`. Guest action → `dispatch(showAuthWall({ redirectAction }))` → replays after login.
 - **Cursor pagination:** All lists use `useInfiniteQuery` with `cursor` + `limit`. FlashList `onEndReached` → `fetchNextPage()`.
-- **Push tokens:** After every login: `PATCH /users/me/push-token`. Re-register on foreground if token changed.
+- **Push tokens:** After every login: `PATCH /auth/push-token`. Re-register on foreground if token changed.
 - **RTL:** `I18nManager.forceRTL(true/false)` on language switch + restart prompt. No hardcoded strings ever.
 - **Offline:** TanStack Query + AsyncStorage persister. Directory + announcements readable offline. Cart persisted locally.
 
@@ -341,7 +341,7 @@ app/
 7. Notifications — Expo Push inline + in-app feed
 8. Hardening — tests, Swagger, Fly.io deploy, security audit
 
-### Frontend (in progress)
+### Frontend (completed ✅)
 
 1. ✅ Foundation — template, pnpm, Redux, i18n, RTL, providers
 2. ✅ Auth & Core Shell — register, OTP, login, JWT, auth-wall, tab nav, push token
