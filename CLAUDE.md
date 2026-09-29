@@ -28,6 +28,37 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-09-29 — READ THIS FIRST; everything below it is older
+>
+> **Shipping order changed: `eastpark-web-app` ships FIRST** — a new Next.js lead-capture site at
+> the repo root, its own git repo, build/lint/tsc green. The backend deploy and the mobile store
+> build come after it.
+>
+> **A monorepo + `shared-logic` package was requested and deliberately DEFERRED** until the web
+> app ships. Converting two live repos mid-flight (mobile has 786 commits, backend 35) risked the
+> fragile mobile Metro/Jest/EAS config for ~100 lines of duplication. Plan, agreed scope, and the
+> traps are in **`restructure.md`** at the repo root.
+>
+> **All three repos committed and clean; NOTHING PUSHED.** Backend 8 commits (tests 62/62 →
+> **101/101**), frontend 3 commits (**41/41**), web app 2 commits.
+>
+> **Two steps never verified by execution** — no Docker daemon and no database were reachable:
+> `docker build` and `prisma migrate deploy`. First place to look if a deploy fails.
+>
+> **Three corrections to the claims below:**
+> 1. Backend whole-repo test coverage is **12.44%**, not 81.11% — that figure averages only the 5
+>    files listed in `test/jest.json`'s `collectCoverageFrom`. Every controller is at 0%.
+> 2. Frontend **type-checking had never actually run** — an invalid `tsconfig.json` value aborted
+>    `tsc` before it read a file. Fixed; it now runs and passes.
+> 3. The stack table below is wrong in two places: the app uses **uniwind + `StyleSheet.create`**
+>    (not NativeWind v4 + Gluestack UI v2) and **AsyncStorage** for theme (not MMKV).
+>
+> **Authoritative task list:** `eastpark-backend/COMPLETION-ROADMAP.md`. Highest-value open items:
+> the Paymob webhook does not verify the paid amount, and money is still `Float` (cheap to migrate
+> while the DB is empty, expensive once real orders exist).
+>
+> Remaining work handed off to session `eastpark-app-7b` on 2026-09-29.
+
 **Audited 2026-07-19, re-verified + fixed 2026-07-26. All backend blockers fixed & verified (Node v24 via nvm: `pnpm typecheck` exit 0, 62/62 tests green, coverage 81.11%). Merchant module (the biggest cross-repo blocker) fixed backend-side. Remaining: prod deploy steps + a couple of non-blocking FE items. Full detail in `eastpark-frontend/frontend_review.md` and `eastpark-backend/backend_review.md`.**
 
 ### Audit 2026-07-19 → fixed 2026-07-26
