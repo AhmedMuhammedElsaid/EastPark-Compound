@@ -197,9 +197,20 @@
     "cafe_food": "Café & Food",
     "call": "Call",
     "closed_now": "Closed",
+    "contact": "Contact",
+    "days": {
+      "fri": "Friday",
+      "mon": "Monday",
+      "sat": "Saturday",
+      "sun": "Sunday",
+      "thu": "Thursday",
+      "tue": "Tuesday",
+      "wed": "Wednesday"
+    },
     "grocery": "Grocery",
     "location": "Location",
     "menu": "Menu",
+    "no_reviews": "No reviews yet",
     "no_shops": "No shops found",
     "no_shops_subtitle": "Try a different category or search term",
     "open_now": "Open now",
@@ -211,6 +222,7 @@
     "saved": "Saved",
     "search_placeholder": "Search shops...",
     "services": "Services",
+    "shop_unavailable": "This shop could not be loaded. Please try again shortly.",
     "title": "Directory",
     "working_hours": "Working hours",
     "write_review": "Write a review"
