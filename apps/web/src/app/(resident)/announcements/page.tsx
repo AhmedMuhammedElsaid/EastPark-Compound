@@ -1,0 +1,22 @@
+import type { Metadata } from 'next';
+
+import { AnnouncementFeed } from '@/components/app/AnnouncementFeed';
+import { isAnnouncementCategory } from '@/lib/api/announcements';
+import { getAnnouncements } from '@/lib/api/announcements.server';
+
+export const metadata: Metadata = { title: 'Announcements' };
+
+type AnnouncementsPageProps = {
+  searchParams: Promise<{ category?: string }>;
+};
+
+export default async function AnnouncementsPage({ searchParams }: AnnouncementsPageProps) {
+  const { category: categoryValue } = await searchParams;
+  const category = categoryValue && isAnnouncementCategory(categoryValue) ? categoryValue : undefined;
+  const initialPage = await getAnnouncements({ category }).catch((error) => {
+    console.error('Announcements page failed', error);
+    return null;
+  });
+
+  return <AnnouncementFeed category={category} initialPage={initialPage} />;
+}

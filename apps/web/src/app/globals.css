@@ -1,0 +1,389 @@
+/* EastPark Design System — token authority: DESIGN.md */
+@import 'tailwindcss';
+
+@theme {
+  /* ─── Typography ───────────────────────────────────────────────── */
+  --font-family-sans:    'Alexandria', ui-sans-serif, system-ui, sans-serif;
+  --font-family-display: 'CormorantGaramond', Georgia, serif;
+
+  /* ─── Gold palette (derived from eastpark.jpg brand logo) ──────── */
+  --color-gold-400: #c4a07a;
+  --color-gold-500: #b8966a;
+  --color-gold-600: #9e7d52;
+  --color-gold-700: #7a5e38;
+  --color-gold-800: #5c4628;
+
+  /* ─── Dark surfaces (flagship mode) ────────────────────────────── */
+  --color-dark-bg:       #0d0c0b;
+  --color-dark-card:     #221f1c;
+  --color-dark-elevated: #2e2a26;
+  --color-dark-border:   #3d3830;
+  --color-dark-text:     #faf8f5;
+  --color-dark-muted:    #a89880;
+
+  /* ─── Light surfaces ────────────────────────────────────────────── */
+  --color-light-bg:     #faf8f5;
+  --color-light-card:   #ffffff;
+  --color-light-border: #e4ceae;
+  --color-light-text:   #1a1714;
+  --color-light-muted:  #7a6e62;
+
+  /* ─── Semantic (muted, premium — never neon) ────────────────────── */
+  --color-success: #5A7A52;
+  --color-warning: #C48B2F;
+  --color-error:   #B03A2E;
+  --color-info:    #4A6B8A;
+
+  /* ─── Design-system surface tokens (dark-first) ─────────────────── */
+  --color-background:           #0d0c0b;
+  --color-foreground:           #faf8f5;
+  --color-card:                 #221f1c;
+  --color-card-foreground:      #faf8f5;
+  --color-muted:                #2e2a26;
+  --color-muted-foreground:     #a89880;
+  --color-border:               #3d3830;
+  --color-input:                #3d3830;
+  --color-ring:                 #b8966a;
+  --color-primary:              #b8966a;
+  --color-primary-foreground:   #0d0c0b;
+  --color-destructive:          #B03A2E;
+  --color-destructive-foreground: #faf8f5;
+
+  /* ─── Radius tokens ─────────────────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────────────────────────
+     TOKEN → TAILWIND MAPPING ADDENDUM
+     Everything below already exists in src/theme/tokens.ts or DESIGN.md but
+     had no CSS custom property, so it could not be reached from a utility.
+     Adding them makes "no hand-picked hex values anywhere" enforceable —
+     there is now a utility for every token.
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Gold scale completion (DESIGN.md §2) — global.css shipped only 400–800 */
+  --color-gold-50:  #faf6f0;  /* lightest tint — light-mode wash, hover */
+  --color-gold-100: #f2e8d8;  /* BRAND.goldTint — input bg, selected chip */
+  --color-gold-200: #e4ceae;  /* LIGHT.border / LIGHT.divider */
+  --color-gold-300: #d4b286;
+  --color-gold-900: #382a14;
+
+  /* Brand tokens with no custom property (tokens.ts BRAND) */
+  --color-gold-light: #c9ab84; /* BRAND.goldLight — dark-mode hover */
+
+  /* Dark surfaces (tokens.ts DARK) */
+  --color-dark-surface:  #171614; /* DARK.surface — one step above dark-bg */
+  --color-dark-disabled: #4a4642;
+
+  /* Light surfaces (tokens.ts LIGHT) */
+  --color-light-surface:  #faf8f5;
+  --color-light-elevated: #f2e8d8; /* modals, sheets, segment controls */
+  --color-light-input:    #f2e8d8;
+  --color-light-disabled: #c4b49e;
+
+  /* Semantic foregrounds — the four SEMANTIC colors had no paired text color,
+     so any status banner would have forced a hand-picked hex for its label. */
+  --color-success-foreground: #faf8f5;
+  --color-warning-foreground: #0d0c0b; /* amber is light — needs dark text for AA */
+  --color-error-foreground:   #faf8f5;
+  --color-info-foreground:    #faf8f5;
+
+  /* Spacing (tokens.ts SPACING, verbatim). Tailwind's default 4px ramp has no
+     sane 20px or 40px step, so expose the real tokens to keep web spacing
+     identical to the mobile app. */
+  --spacing-xs:   4px;
+  --spacing-sm:   8px;
+  --spacing-md:   12px;
+  --spacing-base: 16px;
+  --spacing-lg:   20px;
+  --spacing-xl:   24px;
+  --spacing-2xl:  32px;
+  --spacing-3xl:  40px;
+  --spacing-4xl:  48px;
+
+  /* Typography scale (DESIGN.md §3) — size and line-height paired so body
+     text can never drop below the 1.5x accessibility floor. */
+  --text-display:  36px; --text-display-line-height:  1.15;
+  --text-h1:       28px; --text-h1-line-height:       1.2;
+  --text-h2:       20px; --text-h2-line-height:       1.3;
+  --text-body-lg:  16px; --text-body-lg-line-height:  1.5;
+  --text-body:     14px; --text-body-line-height:     1.5;
+  --text-button:   14px; --text-button-line-height:   1.4;
+  --text-label:    13px; --text-label-line-height:    1.4;
+  --text-caption:  12px; --text-caption-line-height:  1.4;
+  --text-overline: 11px; --text-overline-line-height: 1.4;
+
+  /* Motion (DESIGN.md §7 timing reference) */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-soft: cubic-bezier(0.0, 0.0, 0.2, 1);
+}
+
+/* ─── Light mode class override (user preference toggle) ────────────── */
+.light {
+  --color-background:           #faf8f5;
+  --color-foreground:           #1a1714;
+  --color-card:                 #ffffff;
+  --color-card-foreground:      #1a1714;
+  --color-muted:                #f0ece6;
+  --color-muted-foreground:     #7a6e62;
+  --color-border:               #e4ceae;
+  --color-input:                #e4ceae;
+  --color-primary:              #7a5e38;
+  --color-primary-foreground:   #faf8f5;
+}
+
+/* ─── Base wiring ─────────────────────────────────────────────────────── */
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-family-sans);
+}
+
+:where(a[href], button:not(:disabled), [role='button']) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.announcement-filters {
+  scrollbar-width: none;
+}
+
+.announcement-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.home-hero {
+  background: var(--color-dark-bg);
+}
+
+.home-hero-veil {
+  background: rgb(13 12 11 / 45%);
+}
+
+.home-hero-eyebrow {
+  color: var(--color-gold-400);
+}
+
+.home-hero-title {
+  color: var(--color-dark-text);
+}
+
+.home-hero-lede {
+  color: var(--color-dark-muted);
+}
+
+.light .home-hero {
+  background: var(--color-light-bg);
+}
+
+.light .home-hero-veil {
+  background: rgb(250 248 245 / 32%);
+}
+
+.light .home-hero .hero-logo-art {
+  background: var(--color-gold-900);
+}
+
+.light .home-hero-eyebrow {
+  color: var(--color-gold-700);
+}
+
+.light .home-hero-title {
+  color: var(--color-light-text);
+}
+
+.light .home-hero-lede {
+  color: var(--color-light-muted);
+}
+
+.auth-welcome-logo {
+  opacity: 0.13;
+}
+
+.light .auth-welcome-logo {
+  opacity: 0.18;
+}
+
+.light .auth-welcome-logo-art {
+  background: var(--color-gold-900);
+}
+
+@keyframes hero-logo-drift {
+  0% {
+    transform: translate3d(-50%, -50%, 0) rotate(0deg);
+    opacity: 0.68;
+  }
+  45% {
+    transform: translate3d(calc(50vw + 10%), -50%, 0) rotate(2deg);
+    opacity: 0;
+  }
+  45.01% {
+    transform: translate3d(calc(-50vw - 110%), -50%, 0) rotate(-2deg);
+    opacity: 0;
+  }
+  53% {
+    opacity: 0.68;
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0) rotate(0deg);
+    opacity: 0.68;
+  }
+}
+
+@keyframes hero-logo-mobile-loop {
+  0% {
+    transform: translate3d(calc(-50vw - 110%), -50%, 0) rotate(-2deg);
+    opacity: 0;
+  }
+  6%,
+  94% {
+    opacity: 0.68;
+  }
+  100% {
+    transform: translate3d(calc(50vw + 10%), -50%, 0) rotate(2deg);
+    opacity: 0;
+  }
+}
+
+.hero-logo-motion {
+  top: 50%;
+  left: 50%;
+  width: clamp(16rem, 30vw, 24rem);
+  aspect-ratio: 1;
+  animation: hero-logo-drift 17s linear infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.hero-logo-art {
+  background: var(--color-gold-500);
+  filter: drop-shadow(0 0 24px rgb(184 150 106 / 28%));
+  mask-image: url('/eastpark-mark.png');
+  mask-mode: luminance;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.thank-you-logo-watermark {
+  opacity: 0.075;
+}
+
+.light .thank-you-logo-watermark {
+  opacity: 0.12;
+}
+
+.light .thank-you-logo-art {
+  background: var(--color-gold-900);
+}
+
+.hero-logo-art--shimmer {
+  animation: hero-logo-shimmer 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.hero-logo-art--pulse {
+  animation: hero-logo-pulse 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes hero-logo-shimmer {
+  0%,
+  100% {
+    opacity: 0.48;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes hero-logo-pulse {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes status-logo-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(1deg);
+  }
+}
+
+.status-logo-float {
+  animation: status-logo-float 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+
+@media (max-width: 639px) {
+  .hero-logo-motion {
+    width: 9.5rem;
+    animation-name: hero-logo-mobile-loop;
+  }
+
+  .hero-logo-motion:first-child {
+    animation-delay: 0s !important;
+  }
+
+  .hero-logo-motion:nth-child(2) {
+    animation-delay: -8.5s !important;
+  }
+
+  .hero-logo-track .hero-logo-motion:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-logo-motion,
+  .status-logo-float,
+  .hero-logo-art {
+    animation: none;
+    transform: none;
+  }
+
+  .hero-logo-motion {
+    opacity: 0.5;
+    top: 50%;
+    left: 50%;
+    transform: translate3d(-50%, -50%, 0);
+  }
+
+  .hero-logo-art {
+    opacity: 0.72;
+  }
+
+  .hero-logo-track .hero-logo-motion:not(:first-child) {
+    display: none;
+  }
+}
+
+/* ─── Utilities ─────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Warm gold shadow — never cold drop shadows */
+  .shadow-gold {
+    box-shadow: 0 4px 24px rgba(184, 150, 106, 0.10);
+  }
+
+  .shadow-gold-deep {
+    box-shadow: 0 2px 12px rgba(184, 150, 106, 0.20);
+  }
+}
