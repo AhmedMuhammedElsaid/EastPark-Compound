@@ -28,7 +28,26 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
-> ### 2026-09-30 — APPS LAYOUT MIGRATED LOCALLY (NEWEST)
+> ### 2026-09-30 — DUPLICATE-UNIT GUARD + PUBLIC PAGE LAYOUT DEPLOYED (NEWEST)
+>
+> Resident lead submission now reserves a unit by `(building, floor, flatNumber)` regardless of
+> contact details. A second active submission returns HTTP 409 and the bilingual "unit already
+> reserved" message. The database enforces this atomically with the partial unique index
+> `resident_leads_active_unit_key`; rejected leads remain resubmittable. Existing duplicate active
+> rows were retained as history and all but the most advanced row were marked `REJECTED`.
+>
+> Production verification:
+> - Commit `a4ff04f` is on backend `main`/`origin/main`.
+> - `prisma migrate status` reports all 3 migrations applied to Supabase.
+> - Fly release v4 is healthy in `cdg`; `/health` returns HTTP 200 with Prisma `up`.
+> - Resident-focused tests pass 38/38, including concurrent Prisma `P2002` handling; the complete
+>   backend suite passes 100/100. Prisma validation, strict typecheck, and lint pass (6 existing
+>   warnings, 0 errors).
+> - Login now renders the shared footer. Login and unit-registration content have explicit bottom
+>   spacing before the footer. Web lint, strict typecheck, and production build pass with 24/24
+>   routes generated.
+
+> ### 2026-09-30 — APPS LAYOUT MIGRATED LOCALLY
 >
 > The three independent repositories now live under `apps/`:
 > - `apps/web` — Next.js web app
@@ -46,12 +65,12 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > - Backend standalone dependencies were restored from its frozen child lockfile; Prisma validation,
 >   strict typecheck, and lint all pass. The complete backend suite passes **100/100** tests.
 > - The resident-lead duplicate-unit slice passes 38/38 focused tests, including concurrent Prisma
->   `P2002` conflict handling. Its partial unique-index migration is validated but not deployed.
+>   `P2002` conflict handling. Its partial unique-index migration is deployed to production.
 > - `apps/web/next.config.ts` pins Turbopack to the child repository root so standalone builds remain
 >   hermetic after the move and do not consume the deferred root shared package.
 >
-> Working trees are intentionally dirty across the root and child repositories. In particular, the
-> web resident-shell slice remains uncommitted. Do not discard or commit changes without review.
+> The duplicate-unit and resident-shell checkpoints are committed and pushed in their independent
+> child repositories. Check each repository separately before making changes.
 
 > ### 2026-09-30 — WEB HARDENING DEPLOYED + PARITY PREPARATION (NEWEST)
 >

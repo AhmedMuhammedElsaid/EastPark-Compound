@@ -17,11 +17,13 @@ Post-move checks:
 - Shared package: typecheck and 4/4 tests passed; production children still do not consume it.
 - Backend: standalone dependencies restored from the child lockfile; Prisma schema validation,
   strict typecheck, and lint pass, and the complete suite passes 100/100 tests.
-- Resident leads: duplicate active units now return a conflict, including the Prisma `P2002` race
-  path. The focused suite passes 38/38 tests. The partial unique-index migration is not deployed.
+- Resident leads: duplicate active units now return HTTP 409, including the Prisma `P2002` race
+  path. The focused suite passes 38/38 tests. The partial unique-index migration is deployed and
+  all 3 production migrations are applied.
 - Web Turbopack is explicitly rooted at `apps/web`, preserving standalone child builds.
 
-All repositories currently contain uncommitted work. Preserve it when resuming.
+The duplicate-unit and resident-shell checkpoints are committed and pushed. Check each independent
+repository's status before resuming.
 
 ## Production Snapshot — 2026-09-30
 
@@ -32,7 +34,7 @@ The public resident registration flow is deployed and verified end to end.
 | Web | `https://eastpark-web-app.vercel.app` | Vercel deployment live |
 | Backend | `https://eastpark-backend.fly.dev` | Fly.io deployment live |
 | Health | `/health` | HTTP 200; Prisma `up` |
-| Leads | `POST /v1/residents/leads` | HTTP 200; Supabase insert verified |
+| Leads | `POST /v1/residents/leads` | HTTP 200 for a new unit; HTTP 409 when an active unit lead exists |
 
 Browser CORS from the Vercel origin returns HTTP 204. Remote Docker build and Prisma migrations
 were executed successfully. Remaining operational work is credential rotation and real Paymob
@@ -54,10 +56,12 @@ installable. See `restructure.md` before changing workspace boundaries.
 Verified locally on 2026-09-30:
 
 - `pnpm --dir apps/web check` passes ESLint, strict TypeScript, and the Next production build.
-- Next generated 23/23 static pages; production startup was approximately 269ms locally.
+- Next generated 24/24 routes, including `/home`.
 - Standard, Open Graph, and X/Twitter descriptions render the exact social description above.
 - Lead submission works through `/api/resident-leads`; upstream Fly and malformed-payload behavior
   were probed successfully.
+- Login renders the shared footer, and login/unit-registration content has explicit bottom spacing
+  before the footer.
 
 Next objective: mirror mobile features into web as narrow vertical slices. Mobile is the
 behavioral/UI-flow reference; backend routes are authoritative.
