@@ -3,6 +3,21 @@
 > Comprehensive technical snapshot of the EastPark codebase as explored in April 2026.
 > Use this as a quick-reference reference for AI-assisted sessions and onboarding.
 
+## Production Snapshot — 2026-09-30
+
+The public resident registration flow is deployed and verified end to end.
+
+| Service | Production URL | Verified state |
+|---|---|---|
+| Web | `https://eastpark-web-app.vercel.app` | Vercel deployment live |
+| Backend | `https://eastpark-backend.fly.dev` | Fly.io deployment live |
+| Health | `/health` | HTTP 200; Prisma `up` |
+| Leads | `POST /v1/residents/leads` | HTTP 200; Supabase insert verified |
+
+Browser CORS from the Vercel origin returns HTTP 204. Remote Docker build and Prisma migrations
+were executed successfully. Remaining operational work is credential rotation and real Paymob
+configuration before card payments; neither blocks the resident lead form.
+
 ---
 
 ## What Is EastPark
@@ -16,12 +31,13 @@ Primary language: **Arabic (RTL)**. Secondary: **English (LTR)**. Language is sw
 
 ---
 
-## Monorepo Layout
+## Workspace Layout
 
 ```
 EastPark-App/
 ├── eastpark-backend/     NestJS 11 + Fastify — fully built ✅
 ├── eastpark-frontend/    Expo 54 React Native — in active development ✅
+├── eastpark-web-app/     Next.js 16 public registration site — deployed ✅
 ├── BackendPlan.md        Canonical backend design document
 ├── FrontendPlan.md       Canonical frontend design document
 │   (DESIGN.md moved to eastpark-frontend/Documentation/DESIGN.md)

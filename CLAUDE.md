@@ -28,6 +28,26 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-09-30 — PRODUCTION DEPLOYMENT
+>
+> **The public registration path is live end to end.**
+> - Web: `https://eastpark-web-app.vercel.app` (Vercel)
+> - API: `https://eastpark-backend.fly.dev` (Fly.io `cdg`)
+> - `/health`: HTTP 200, Prisma `up`
+> - `POST /v1/residents/leads`: HTTP 200 and Supabase insert verified
+> - CORS preflight from the Vercel origin: HTTP 204
+> - Remote Docker build and `prisma migrate deploy` both succeeded.
+>
+> Production-only fixes removed runtime imports of dev-only Faker from DTOs, retained `.swcrc` in
+> the Docker context, and prevented Husky lifecycle execution during production dependency install.
+>
+> **Required cleanup:** rotate the exposed Fly, Supabase/database, and Brevo credentials. Paymob
+> still uses a temporary startup-only HMAC value; configure real Paymob credentials before card
+> payments. The resident lead form is not blocked by Paymob.
+>
+> Each child directory is an independent Git repository. Keep clone-critical context in that
+> repository's own `CLAUDE.md` and `APPCONTEXT.md`; do not rely only on this parent file.
+
 > ### 2026-09-29 — READ THIS FIRST; everything below it is older
 >
 > **Shipping order changed: `eastpark-web-app` ships FIRST** — a new Next.js lead-capture site at
