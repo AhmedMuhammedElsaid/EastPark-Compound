@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
+import { Bell, Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -101,6 +101,16 @@ export function AppShell({ children }: AppShellProps) {
                 </span>
               )}
             </Link>
+            {user && (
+              <Link
+                href="/notifications"
+                aria-label={t('notifications.title')}
+                aria-current={pathname.startsWith('/notifications') ? 'page' : undefined}
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${pathname.startsWith('/notifications') ? 'bg-muted text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+              >
+                <Bell aria-hidden="true" className="size-5" />
+              </Link>
+            )}
             {!isLoading &&
               (user ? (
                 <button
