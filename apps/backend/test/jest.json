@@ -1,0 +1,41 @@
+{
+    "testTimeout": 10000,
+    "rootDir": "../",
+    "modulePaths": ["."],
+    "testEnvironment": "node",
+    "testMatch": ["<rootDir>/test/**/*.spec.ts"],
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+        "<rootDir>/src/common/auth/services/auth.service.ts",
+        "<rootDir>/src/modules/payments/payments.service.ts",
+        "<rootDir>/src/modules/governance/services/polls.service.ts",
+        "<rootDir>/src/modules/orders/orders.service.ts",
+        "<rootDir>/src/modules/notifications/notifications.service.ts"
+    ],
+    "coverageThreshold": {
+        "global": {
+            "branches": 70,
+            "functions": 70,
+            "lines": 70,
+            "statements": 70
+        }
+    },
+    "coverageReporters": ["text", "html", "lcov", "json-summary"],
+    "moduleFileExtensions": ["js", "ts", "json"],
+    "coverageProvider": "v8",
+    "transform": {
+        "^.+\\.(t|j)sx?$": [
+            "@swc/jest",
+            {
+                "sourceMaps": true
+            }
+        ]
+    },
+    "moduleNameMapper": {
+        "^@faker-js/faker$": "<rootDir>/test/mocks/faker.mock.ts",
+        "^ws$": "<rootDir>/test/mocks/ws.mock.ts",
+        "^expo-server-sdk$": "<rootDir>/test/mocks/expo.mock.ts"
+    },
+    "modulePathIgnorePatterns": ["<rootDir>/dist"]
+}

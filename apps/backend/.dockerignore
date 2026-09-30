@@ -1,0 +1,101 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn/cache
+.pnp.*
+
+# Build outputs
+dist
+build
+coverage
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.docker
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Version control
+.git
+.gitignore
+.github
+
+# CI/CD
+ci/Dockerfile.prod
+
+# Documentation (not needed in image)
+README.md
+CHANGELOG.md
+CLAUDE.md
+docs/
+Documentation/
+
+# AI / editor config
+.claude/
+.copilot/
+
+# Testing
+test
+coverage
+*.test.js
+*.spec.js
+jest.config.js
+tsconfig.test.json
+
+# Linting / formatting
+.eslintrc.js
+.eslintignore
+eslint.config.mjs
+.prettierrc
+.prettierignore
+commitlint.config.js
+
+# Dev-only files
+docker-compose.yml
+fly.toml
+scripts/
+.husky/
+LICENSE
+.prettierrc
+.prettierignore
+
+# Husky
+.husky
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Kubernetes
+k8s/
+
+# Database — keep migrations for `prisma migrate deploy` in Docker
+# Do NOT exclude prisma/migrations or prisma/migration_lock.toml
+
+# Logs
+logs
+*.log
+lcov-report
+
+# Temporary files
+tmp
+temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

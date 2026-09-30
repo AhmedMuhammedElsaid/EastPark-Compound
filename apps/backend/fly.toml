@@ -1,0 +1,57 @@
+app = "eastpark-backend"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+# Deep check — hits the DB via terminus. The controller is VERSION_NEUTRAL,
+# so the path is /health, NOT /v1/health despite the global URI versioning.
+# grace_period covers `prisma migrate deploy` running before the listener opens.
+#
+# The 15s DB query doubles as the Supabase keep-alive: free projects are paused
+# after 1 week of inactivity, and a paused project needs a MANUAL restore from
+# the dashboard. This check means the project is never idle. Do not raise the
+# interval past a few minutes without confirming that still counts as activity.
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[env]
+  NODE_ENV = "production"
+  # APP_ENV (not NODE_ENV) gates Helmet CSP (main.ts:35) and disables
+  # Swagger at /docs (main.ts:71). Nothing in src/ reads NODE_ENV.
+  APP_ENV = "production"
+  APP_URL = "https://eastpark-backend.fly.dev"
+  # Must list the Vercel domain once eastpark-web-app deploys. Leaving this
+  # unset makes @fastify/cors reflect ANY origin with credentials:true.
+  APP_CORS_ORIGINS = "https://eastpark-web-app.vercel.app"
+  APP_LOG_LEVEL = "info"
+  HTTP_PORT = "3000"
+  HTTP_HOST = "0.0.0.0"
+  AUTH_ACCESS_TOKEN_EXP = "15m"
+  AUTH_REFRESH_TOKEN_EXP = "7d"
+  SMTP_HOST = "smtp-relay.brevo.com"
+  SMTP_PORT = "587"
+  EMAIL_FROM = "noreply@eastpark.app"
+  SUPABASE_URL = "https://pwylqeodkxigmukghqfd.supabase.co"
+  SUPABASE_BUCKET = "eastpark-uploads"

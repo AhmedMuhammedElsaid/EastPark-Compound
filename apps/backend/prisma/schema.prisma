@@ -1,0 +1,528 @@
+// EastPark App — Prisma Schema
+// Residential compound super-app: marketplace + community governance
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Supabase transaction pooler, port 6543 (?pgbouncer=true&connection_limit=1)
+  // — runtime queries.
+  url      = env("DATABASE_URL")
+  // Supabase session pooler, port 5432 — migrations only. The transaction
+  // pooler breaks the advisory locks and prepared statements that
+  // `prisma migrate deploy` relies on.
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  GUEST
+  RESIDENT
+  MERCHANT
+  ADMIN
+}
+
+enum ShopCategory {
+  CAFE_AND_FOOD
+  GROCERY
+  BUTCHER
+  SERVICES
+  OTHER
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PREPARING
+  READY
+  ON_THE_WAY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  PAYMOB
+}
+
+enum AnnouncementCategory {
+  GENERAL
+  PROMOTION
+  EVENT
+  MAINTENANCE
+  NEWS
+}
+
+enum FeedbackCategory {
+  MAINTENANCE
+  SECURITY
+  CLEANLINESS
+  NOISE
+  SUGGESTION
+  OTHER
+}
+
+enum FeedbackStatus {
+  SUBMITTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  ANNOUNCEMENT
+  POLL
+  ELECTION
+  FEEDBACK_UPDATE
+}
+
+enum ElectionVisibilityMode {
+  SEALED_UNTIL_DEADLINE
+  LIVE_COUNT
+  ADMIN_CONTROLLED
+}
+
+enum ResidentLeadStatus {
+  PENDING
+  INVITED
+  CONVERTED
+  REJECTED
+}
+
+// ─── Auth & Users ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  unitNumber   String?
+  passwordHash String
+  role         Role     @default(RESIDENT)
+  avatarUrl    String?
+  pushToken    String?
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shops             Shop[]
+  orders            Order[]
+  reviews           Review[]
+  votes             Vote[]
+  feedbacks         Feedback[]
+  savedShops        SavedShop[]
+  comments          Comment[]
+  electionVotes     ElectionVote[]
+  feedbackReplies   FeedbackReply[]
+  notificationPrefs NotificationPreference[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  invitations       Invitation[]   @relation("InvitedBy")
+  residentLeads     ResidentLead[] @relation("ResidentLeadUser")
+
+  @@map("users")
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String
+  role        Role
+  token       String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  invitedById String
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([invitedById])
+  @@map("invitations")
+}
+
+// ─── Resident Leads ───────────────────────────────────────────────────────────
+
+model ResidentLead {
+  id          String             @id @default(cuid())
+  name        String
+  email       String
+  phone       String
+  building    String
+  floor       String
+  flatNumber  String
+  parking     String?
+  status      ResidentLeadStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  userId String?
+  user   User?   @relation("ResidentLeadUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@index([building, floor, flatNumber])
+  @@index([userId])
+  @@map("resident_leads")
+}
+
+// ─── Shops & Products ─────────────────────────────────────────────────────────
+
+model Shop {
+  id            String       @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String?
+  descriptionAr String?
+  category      ShopCategory
+  workingHours  Json?        // { mon: { open: "09:00", close: "22:00", closed: false }, ... }
+  isOpen        Boolean      @default(true) // manual emergency override
+  phone         String?
+  whatsapp      String?
+  deliveryTime  Int?         // estimated minutes
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  merchantId String
+  merchant   User   @relation(fields: [merchantId], references: [id])
+
+  photos   ShopPhoto[]
+  products Product[]
+  orders   Order[]
+  reviews  Review[]
+  savedBy  SavedShop[]
+
+  @@index([merchantId])
+  @@index([category, createdAt])
+  @@map("shops")
+}
+
+model ShopPhoto {
+  id        String   @id @default(cuid())
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, order])
+  @@map("shop_photos")
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String?
+  descriptionAr String?
+  price         Float
+  imageUrl      String?
+  isAvailable   Boolean  @default(true)
+  isDeleted     Boolean  @default(false) // soft delete — preserves OrderItem FK
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  orderItems OrderItem[]
+
+  @@index([shopId, isDeleted, createdAt])
+  @@map("products")
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id            String        @id @default(cuid())
+  status        OrderStatus   @default(PLACED)
+  totalAmount   Float         // computed server-side — never trust client
+  notes         String?       // free-text delivery notes (no time slots)
+  deliveryUnit  String        // pre-filled from resident profile
+  paymentMethod PaymentMethod @default(CASH)
+  isPaid        Boolean       @default(false)
+  paymobOrderId String?       // Paymob transaction reference
+  cancelledAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  residentId String
+  resident   User   @relation(fields: [residentId], references: [id])
+  shopId     String
+  shop       Shop   @relation(fields: [shopId], references: [id])
+
+  items OrderItem[]
+
+  @@index([residentId, createdAt])
+  @@index([shopId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    String @id @default(cuid())
+  quantity              Int
+  unitPrice             Float
+  productNameSnapshot   String // safe receipt — product name at time of order
+  productNameArSnapshot String
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ─── Reviews & Saved ──────────────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1–5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@unique([userId, shopId])
+  @@index([shopId, createdAt])
+  @@map("reviews")
+}
+
+model SavedShop {
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@id([userId, shopId])
+  @@map("saved_shops")
+}
+
+// ─── Community Hub ────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  titleAr     String
+  body        String
+  bodyAr      String
+  category    AnnouncementCategory @default(GENERAL)
+  pdfUrl      String?
+  publishedAt DateTime             @default(now())
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  comments Comment[]
+
+  @@map("announcements")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId, createdAt])
+  @@map("comments")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  titleAr     String
+  pdfUrl      String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("reports")
+}
+
+// ─── Governance ───────────────────────────────────────────────────────────────
+
+model Poll {
+  id         String   @id @default(cuid())
+  question   String
+  questionAr String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  options PollOption[]
+  votes   Vote[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id      String @id @default(cuid())
+  label   String
+  labelAr String
+
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  Vote[]
+
+  @@map("poll_options")
+}
+
+model Vote {
+  createdAt DateTime @default(now())
+
+  userId   String
+  user     User       @relation(fields: [userId], references: [id])
+  pollId   String
+  poll     Poll       @relation(fields: [pollId], references: [id])
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id])
+
+  @@id([userId, pollId])
+  @@index([pollId])
+  @@map("votes")
+}
+
+model Election {
+  id            String   @id @default(cuid())
+  title         String
+  titleAr       String
+  description   String?
+  descriptionAr String?
+  expiresAt     DateTime
+  resultsOpen    Boolean                @default(false) // flipped by @Cron every 5min when expiresAt passed
+  visibilityMode ElectionVisibilityMode @default(SEALED_UNTIL_DEADLINE)
+  createdAt      DateTime               @default(now())
+
+  candidates Candidate[]
+  votes      ElectionVote[]
+
+  @@index([expiresAt, resultsOpen])
+  @@map("elections")
+}
+
+model Candidate {
+  id          String  @id @default(cuid())
+  name        String
+  nameAr      String
+  statement   String?
+  statementAr String?
+  photoUrl    String?
+
+  electionId String
+  election   Election       @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes      ElectionVote[]
+
+  @@index([electionId])
+  @@map("candidates")
+}
+
+model ElectionVote {
+  createdAt DateTime @default(now())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  electionId  String
+  election    Election  @relation(fields: [electionId], references: [id])
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  @@id([userId, electionId])
+  @@index([electionId])
+  @@map("election_votes")
+}
+
+// ─── Feedback & Complaints ────────────────────────────────────────────────────
+
+model Feedback {
+  id          String           @id @default(cuid())
+  category    FeedbackCategory
+  body        String
+  isAnonymous Boolean          @default(false)
+  status      FeedbackStatus   @default(SUBMITTED)
+  attachments String[]         // Supabase Storage URLs (max 3)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  userId  String
+  user    User            @relation(fields: [userId], references: [id])
+  replies FeedbackReply[]
+
+  @@index([userId, createdAt])
+  @@index([category])
+  @@index([status])
+  @@map("feedbacks")
+}
+
+model FeedbackReply {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  feedbackId String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id]) // admin who replied
+
+  @@index([feedbackId, createdAt])
+  @@map("feedback_replies")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  enabled Boolean @default(true)
+
+  userId String
+  user   User             @relation(fields: [userId], references: [id])
+  type   NotificationType
+
+  @@id([userId, type])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  titleAr   String
+  body      String
+  bodyAr    String
+  data      Json?            // deep-link payload
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g. "CREATE_POLL", "UPDATE_ORDER_STATUS"
+  entity    String   // e.g. "Poll", "Order"
+  entityId  String?
+  meta      Json?    // extra context
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("audit_logs")
+}
