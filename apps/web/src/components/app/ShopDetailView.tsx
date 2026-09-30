@@ -7,6 +7,7 @@ import {
   Phone,
   Star,
   Store,
+  UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -123,6 +124,13 @@ export function ShopDetailView({ shop }: { shop: Shop | null }) {
                   </span>
                 )}
               </div>
+              <Link
+                href={`/directory/${shop.id}/menu`}
+                className="mt-6 inline-flex min-h-12 items-center gap-3 rounded-md bg-primary px-5 text-[length:var(--text-button)] font-bold text-primary-foreground transition-colors hover:bg-gold-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+              >
+                <UtensilsCrossed aria-hidden="true" className="size-4.5" />
+                {t("directory.view_menu")}
+              </Link>
             </header>
 
             {description && (

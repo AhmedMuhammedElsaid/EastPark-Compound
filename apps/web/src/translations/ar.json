@@ -194,6 +194,12 @@
   "directory": {
     "add_to_cart": "أضف إلى السلة",
     "all_categories": "الكل",
+    "availability": {
+      "all": "كل المنتجات",
+      "available": "متاح",
+      "unavailable": "غير متاح"
+    },
+    "availability_filter": "تصفية حسب التوفر",
     "butcher": "جزارة",
     "cafe_food": "مقاهٍ وطعام",
     "call": "اتصال",
@@ -211,6 +217,9 @@
     "grocery": "بقالة",
     "location": "الموقع",
     "menu": "القائمة",
+    "menu_subtitle": "تصفّح منتجات المحل المتاحة حالياً.",
+    "no_products": "لم يتم العثور على منتجات",
+    "no_products_subtitle": "جرّب بحثاً أو فلتر توفر مختلفاً.",
     "no_reviews": "لا توجد تقييمات بعد",
     "no_shops": "لم يتم العثور على محلات",
     "no_shops_subtitle": "جرّب فئة أو كلمة بحث مختلفة",
@@ -222,9 +231,12 @@
     "save": "حفظ",
     "saved": "محفوظ",
     "search_placeholder": "ابحث عن المحلات...",
+    "search_products": "ابحث في القائمة...",
     "services": "خدمات",
     "shop_unavailable": "تعذر تحميل بيانات هذا المحل. يرجى المحاولة بعد قليل.",
+    "products_unavailable": "تعذر تحميل هذه القائمة. يرجى المحاولة بعد قليل.",
     "title": "الدليل",
+    "view_menu": "عرض القائمة",
     "working_hours": "ساعات العمل",
     "write_review": "اكتب تقييماً"
   },

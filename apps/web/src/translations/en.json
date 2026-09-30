@@ -194,6 +194,12 @@
   "directory": {
     "add_to_cart": "Add to cart",
     "all_categories": "All",
+    "availability": {
+      "all": "All items",
+      "available": "Available",
+      "unavailable": "Unavailable"
+    },
+    "availability_filter": "Filter by availability",
     "butcher": "Butcher",
     "cafe_food": "Café & Food",
     "call": "Call",
@@ -211,6 +217,9 @@
     "grocery": "Grocery",
     "location": "Location",
     "menu": "Menu",
+    "menu_subtitle": "Browse the shop's current selection and availability.",
+    "no_products": "No products found",
+    "no_products_subtitle": "Try another search or availability filter.",
     "no_reviews": "No reviews yet",
     "no_shops": "No shops found",
     "no_shops_subtitle": "Try a different category or search term",
@@ -222,9 +231,12 @@
     "save": "Save",
     "saved": "Saved",
     "search_placeholder": "Search shops...",
+    "search_products": "Search this menu...",
     "services": "Services",
     "shop_unavailable": "This shop could not be loaded. Please try again shortly.",
+    "products_unavailable": "This menu could not be loaded. Please try again shortly.",
     "title": "Directory",
+    "view_menu": "View menu",
     "working_hours": "Working hours",
     "write_review": "Write a review"
   },
