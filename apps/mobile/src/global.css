@@ -1,0 +1,90 @@
+/* EastPark Design System — token authority: DESIGN.md */
+@import 'tailwindcss';
+@import 'uniwind';
+
+@theme {
+  /* ─── Typography ───────────────────────────────────────────────── */
+  --font-family-sans:    'Cairo', ui-sans-serif, system-ui, sans-serif;
+  --font-family-display: 'CormorantGaramond', Georgia, serif;
+
+  /* ─── Gold palette (derived from eastpark.jpg brand logo) ──────── */
+  --color-gold-400: #c4a07a;
+  --color-gold-500: #b8966a;
+  --color-gold-600: #9e7d52;
+  --color-gold-700: #7a5e38;
+  --color-gold-800: #5c4628;
+
+  /* ─── Dark surfaces (flagship mode) ────────────────────────────── */
+  --color-dark-bg:       #0d0c0b;
+  --color-dark-card:     #221f1c;
+  --color-dark-elevated: #2e2a26;
+  --color-dark-border:   #3d3830;
+  --color-dark-text:     #faf8f5;
+  --color-dark-muted:    #a89880;
+
+  /* ─── Light surfaces ────────────────────────────────────────────── */
+  --color-light-bg:     #faf8f5;
+  --color-light-card:   #ffffff;
+  --color-light-border: #e4ceae;
+  --color-light-text:   #1a1714;
+  --color-light-muted:  #7a6e62;
+
+  /* ─── Semantic (muted, premium — never neon) ────────────────────── */
+  --color-success: #5A7A52;
+  --color-warning: #C48B2F;
+  --color-error:   #B03A2E;
+  --color-info:    #4A6B8A;
+
+  /* ─── Design-system surface tokens (dark-first) ─────────────────── */
+  --color-background:           #0d0c0b;
+  --color-foreground:           #faf8f5;
+  --color-card:                 #221f1c;
+  --color-card-foreground:      #faf8f5;
+  --color-muted:                #2e2a26;
+  --color-muted-foreground:     #a89880;
+  --color-border:               #3d3830;
+  --color-input:                #3d3830;
+  --color-ring:                 #b8966a;
+  --color-primary:              #b8966a;
+  --color-primary-foreground:   #0d0c0b;
+  --color-destructive:          #B03A2E;
+  --color-destructive-foreground: #faf8f5;
+
+  /* ─── Radius tokens ─────────────────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+}
+
+/* ─── Light mode class override (user preference toggle) ────────────── */
+.light {
+  --color-background:           #faf8f5;
+  --color-foreground:           #1a1714;
+  --color-card:                 #ffffff;
+  --color-card-foreground:      #1a1714;
+  --color-muted:                #f0ece6;
+  --color-muted-foreground:     #7a6e62;
+  --color-border:               #e4ceae;
+  --color-input:                #e4ceae;
+  --color-primary:              #7a5e38;
+  --color-primary-foreground:   #faf8f5;
+}
+
+/* ─── Utilities ─────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Warm gold shadow — never cold drop shadows */
+  .shadow-gold {
+    box-shadow: 0 4px 24px rgba(184, 150, 106, 0.10);
+  }
+
+  .shadow-gold-deep {
+    box-shadow: 0 2px 12px rgba(184, 150, 106, 0.20);
+  }
+}
