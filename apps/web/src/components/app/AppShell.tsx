@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Home, LogIn, LogOut, Megaphone, UserRound } from 'lucide-react';
+import { Building2, Home, LogIn, LogOut, Megaphone, Store, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -21,6 +21,7 @@ export function AppShell({ children }: AppShellProps) {
   const accountHref = user ? '/home#account' : '/login';
   const navItems = [
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
+    { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     { href: '/announcements', label: t('community.announcements'), mobileLabel: t('community.title'), icon: Megaphone },
     { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 },
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
@@ -93,7 +94,7 @@ export function AppShell({ children }: AppShellProps) {
 
       <nav
         aria-label={t('nav.brand')}
-        className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-4 border-t border-border bg-background/97 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-5 border-t border-border bg-background/97 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
         {navItems.map(({ href, icon: Icon, mobileLabel }) => {
           const active = href === '/home' ? pathname === href : pathname.startsWith(href);
