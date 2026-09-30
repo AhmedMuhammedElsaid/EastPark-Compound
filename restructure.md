@@ -1,23 +1,24 @@
 # EastPark — Monorepo Restructure Plan
 
-**Status: APPS LAYOUT MIGRATED LOCALLY. Shared-package adoption remains deferred.**
+**Status: ROOT-OWNED MONOREPO COMPLETE LOCALLY. Shared-package adoption remains deferred.**
 
 On 2026-09-30, the three standalone repositories moved to `apps/web`, `apps/mobile`, and
-`apps/backend`. Their independent Git histories and remotes were preserved. The root workspace and
-private shared-package prototype remain, but no production child repository consumes
-`@eastpark/shared`.
+`apps/backend`. The root repository now tracks all three application trees. Their final standalone
+Git metadata and remotes are preserved outside the workspace at
+`C:\Unite\EastPark-App-monorepo-backup` for rollback. The root workspace and private shared-package
+prototype remain, but no production application consumes `@eastpark/shared` yet.
 
 ---
 
 ## Preserved constraints
 
-| Fact | Consequence |
-|---|---|
-| `apps/mobile` is its own git repo — **786 commits**, branch `main` | Keep its history and remote independent |
-| `apps/backend` is its own git repo — **35 commits**, branch `main` | Keep its history and remote independent |
-| Root repo is on `master`; the three projects are nested but independent | Three histories to reconcile, not one |
-| Mobile build config is fragile | `jest-setup.ts` globally mocks `@/store` to dodge RTK/react-redux ESM parse errors; `transformIgnorePatterns` lists `immer\|@reduxjs/toolkit\|redux-persist`. Metro + Jest + EAS all need path remapping for a workspace layout |
-| The real duplicated surface is small | `tokens.ts` is **93 lines** of constants; translations are data |
+| Fact                                                               | Consequence                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile has **786 commits** in its preserved standalone repository  | Keep the external backup until the root remote and deployments are verified                                                                                                                                                     |
+| Backend has **35+ commits** in its preserved standalone repository | Keep the external backup until the root remote and deployments are verified                                                                                                                                                     |
+| Root repo is on `master` and now owns all files under `apps/`      | Vercel and Render can use app-specific root directories from one repository                                                                                                                                                     |
+| Mobile build config is fragile                                     | `jest-setup.ts` globally mocks `@/store` to dodge RTK/react-redux ESM parse errors; `transformIgnorePatterns` lists `immer\|@reduxjs/toolkit\|redux-persist`. Metro + Jest + EAS all need path remapping for a workspace layout |
+| The real duplicated surface is small                               | `tokens.ts` is **93 lines** of constants; translations are data                                                                                                                                                                 |
 
 Consuming the shared package still risks the mobile build for a payoff measured in roughly 100
 lines of duplication. Carry that duplication until a real EAS workspace build is verified.
@@ -26,8 +27,9 @@ lines of duplication. Carry that duplication until a real EAS workspace build is
 
 ## Settled repository strategy
 
-- Keep web, mobile, and backend under `apps/` as independent nested Git repositories.
-- Preserve their existing histories and remotes; do not collapse them into the root repository.
+- Keep web, mobile, and backend under `apps/` as root-owned workspace packages.
+- Preserve the former standalone repositories in the external migration backup until cutover is
+  complete. The root imports are snapshots; historical child commits remain recoverable there.
 - Add a root pnpm workspace and a private, path-only `@eastpark/shared` package.
 - The root repository owns workspace files and the shared package. Existing app repositories keep
   owning their platform code.
@@ -37,18 +39,18 @@ lines of duplication. Carry that duplication until a real EAS workspace build is
 
 **Only platform-agnostic data. No React, no React Native, no Next.**
 
-| Include | Source of truth today | Notes |
-|---|---|---|
-| `theme/tokens.ts` | `apps/mobile/src/theme/tokens.ts` (93 lines) | `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. Pure TS constants, zero imports. **The two copies are no longer byte-identical** — mobile's was reformatted to double quotes by `eslint --fix` (commit `03d13bd`). All token *values* are identical; only quote style differs. Whichever copy becomes the shared one, diff values not bytes |
-| Translations | `apps/mobile/src/translations/{ar,en}.json` | ~650 strings. Web adds a `web` namespace for landing/form/thank-you copy — merge, don't fork |
-| Zod schemas | Validation schemas across both apps | Messages are **i18n keys** resolved via `t(...)` at render time — never inline English |
-| Domain/API contracts | Backend DTOs and actual HTTP response shapes | Backend is authoritative; mobile remains the behavioral reference |
-| Pure business rules | Cart, order, localization, working-hours logic | No storage, networking, UI, or framework imports |
-| `compound.ts` | `apps/web/src/config/compound.ts` | Phase/building/floor layout. **Web-only today — see the caveat below** |
+| Include              | Source of truth today                          | Notes                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `theme/tokens.ts`    | `apps/mobile/src/theme/tokens.ts` (93 lines)   | `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. Pure TS constants, zero imports. **The two copies are no longer byte-identical** — mobile's was reformatted to double quotes by `eslint --fix` (commit `03d13bd`). All token _values_ are identical; only quote style differs. Whichever copy becomes the shared one, diff values not bytes |
+| Translations         | `apps/mobile/src/translations/{ar,en}.json`    | ~650 strings. Web adds a `web` namespace for landing/form/thank-you copy — merge, don't fork                                                                                                                                                                                                                                                                           |
+| Zod schemas          | Validation schemas across both apps            | Messages are **i18n keys** resolved via `t(...)` at render time — never inline English                                                                                                                                                                                                                                                                                 |
+| Domain/API contracts | Backend DTOs and actual HTTP response shapes   | Backend is authoritative; mobile remains the behavioral reference                                                                                                                                                                                                                                                                                                      |
+| Pure business rules  | Cart, order, localization, working-hours logic | No storage, networking, UI, or framework imports                                                                                                                                                                                                                                                                                                                       |
+| `compound.ts`        | `apps/web/src/config/compound.ts`              | Phase/building/floor layout. **Web-only today — see the caveat below**                                                                                                                                                                                                                                                                                                 |
 
 > **`compound.ts` is not a pure code move.** The mobile app has no building/floor/flat concept at
 > all: `User.unitNumber` is a single free-text string. Sharing `compound.ts` only pays off if
-> mobile *also* adopts structured units — which is a **product decision**, not a refactor. Until
+> mobile _also_ adopts structured units — which is a **product decision**, not a refactor. Until
 > someone decides that, moving this file into `shared` gives web a longer import path and nothing
 > else. Either defer it, or make the structured-unit decision first. Do not let an implementer
 > assume it is mechanical.
@@ -93,7 +95,8 @@ EastPark-App/                      ← pnpm workspace root
 │   └── backend/                   ← was eastpark-backend
 ```
 
-All three retain separate Git histories. Collapsing them into one history remains deferred.
+The root owns all three application trees. Their prior histories remain available in the external
+migration backup; importing those historical commit graphs into root remains unnecessary.
 
 ---
 
@@ -101,10 +104,9 @@ All three retain separate Git histories. Collapsing them into one history remain
 
 Do these one at a time, verifying between each. Never batch.
 
-1. **Record rollback commit hashes** in all three repos. Do not create or push tags during the
-  local-only phase.
-2. **Create the workspace skeleton** — root `pnpm-workspace.yaml` + `packages/shared`. Nothing
-   consumes it yet. Verify all three apps still build untouched.
+1. **Completed:** preserve each standalone `.git` directory in the external migration backup.
+2. **Completed:** root tracks `apps/web`, `apps/backend`, and `apps/mobile`; all app checks run from
+   root scripts.
 3. **Populate `packages/shared`** — move `tokens.ts` first, on its own. It is 93 lines with zero
    imports and is the safest possible canary.
 4. **Web consumes shared** — web is the lowest-risk consumer and is already shipped by this point,
@@ -134,8 +136,8 @@ Do these one at a time, verifying between each. Never batch.
 
 ## Deferred decisions
 
-- **Combined Git history:** current implementation deliberately preserves independent nested repos.
-  A later subtree/filter-repo migration needs separate approval.
+- **Historical commit graph import:** root owns current snapshots; old child commit graphs remain in
+  the external backup and do not need to be rewritten into root.
 - **Does the backend consume `shared` at all?** It has no tokens and no translations. If only
   Zod schemas apply, it may not be worth wiring in.
 - **Publish or path-only?** Path-based workspace deps are simpler; a published package is only
@@ -145,6 +147,6 @@ Do these one at a time, verifying between each. Never batch.
 
 ---
 
-*Companion: `apps/backend/COMPLETION-ROADMAP.md` (the backend/mobile completion audit).
+_Companion: `apps/backend/COMPLETION-ROADMAP.md` (the backend/mobile completion audit).
 The duplication this plan removes is deliberate and temporary — see the "Design mirroring"
-section of Prompt B in `migration.md`.*
+section of Prompt B in `migration.md`._

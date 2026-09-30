@@ -1,3 +1,15 @@
+# Monorepo and hosting checkpoint — 2026-09-30
+
+Root Git owns `apps/web`, `apps/backend`, and `apps/mobile`. Former standalone `.git` directories
+are preserved at `C:\Unite\EastPark-App-monorepo-backup` until the root remote and deployment
+cutover are verified. Use `pnpm check` from the root for the consolidated validation gate.
+
+The target hosting topology is Vercel for `apps/web`, Render free Docker hosting for
+`apps/backend`, and Supabase for PostgreSQL/storage. `render.yaml` defines the backend service.
+Fly remains the rollback production API until Render passes the cutover checks in
+`apps/backend/Documentation/RENDER.md`. Realtime ordering is deferred; web order tracking should
+poll REST initially.
+
 # EastPark — Application Context
 
 > Comprehensive technical snapshot of the EastPark codebase as explored in April 2026.
@@ -29,12 +41,12 @@ repository's status before resuming.
 
 The public resident registration flow is deployed and verified end to end.
 
-| Service | Production URL | Verified state |
-|---|---|---|
-| Web | `https://eastpark-web-app.vercel.app` | Vercel deployment live |
-| Backend | `https://eastpark-backend.fly.dev` | Fly.io deployment live |
-| Health | `/health` | HTTP 200; Prisma `up` |
-| Leads | `POST /v1/residents/leads` | HTTP 200 for a new unit; HTTP 409 when an active unit lead exists |
+| Service | Production URL                        | Verified state                                                    |
+| ------- | ------------------------------------- | ----------------------------------------------------------------- |
+| Web     | `https://eastpark-web-app.vercel.app` | Vercel deployment live                                            |
+| Backend | `https://eastpark-backend.fly.dev`    | Fly.io deployment live                                            |
+| Health  | `/health`                             | HTTP 200; Prisma `up`                                             |
+| Leads   | `POST /v1/residents/leads`            | HTTP 200 for a new unit; HTTP 409 when an active unit lead exists |
 
 Browser CORS from the Vercel origin returns HTTP 204. Remote Docker build and Prisma migrations
 were executed successfully. Remaining operational work is credential rotation and real Paymob
@@ -106,83 +118,83 @@ EastPark-App/
 
 ### Technology Stack
 
-| Layer | Choice | Notes |
-|---|---|---|
-| Framework | NestJS 11 | Fastify adapter (NOT Express) |
-| Runtime | Node.js ≥ 20 | pnpm@9.15.0 pinned |
-| ORM | Prisma 6.19.0 | PostgreSQL 16 |
-| Cache | ioredis → Redis 7 | OTP, token blacklist, rate limiting |
-| Auth | Passport + JWT | argon2 hashing; two secrets (access 15min, refresh 7d) |
-| WebSockets | Socket.io | `/orders` namespace for real-time order updates |
-| Email | Nodemailer | Mailpit (dev) / Brevo SMTP (prod) |
-| File storage | Supabase JS SDK | MinIO Docker (dev) / Supabase Storage (prod, 1GB free) |
-| Push | expo-server-sdk | Expo Push Service inline — no queues |
-| Payments | Paymob | HMAC-SHA512 webhook; COD is primary |
-| Logging | nestjs-pino / pino-pretty | — |
-| Scheduling | @nestjs/schedule | @Cron every 5min for election auto-open |
-| API docs | Swagger | `http://localhost:3000/docs` |
-| Hosting | Fly.io `cdg` (Paris) | min 1 machine always on, WebSocket-friendly |
+| Layer        | Choice                    | Notes                                                  |
+| ------------ | ------------------------- | ------------------------------------------------------ |
+| Framework    | NestJS 11                 | Fastify adapter (NOT Express)                          |
+| Runtime      | Node.js ≥ 20              | pnpm@9.15.0 pinned                                     |
+| ORM          | Prisma 6.19.0             | PostgreSQL 16                                          |
+| Cache        | ioredis → Redis 7         | OTP, token blacklist, rate limiting                    |
+| Auth         | Passport + JWT            | argon2 hashing; two secrets (access 15min, refresh 7d) |
+| WebSockets   | Socket.io                 | `/orders` namespace for real-time order updates        |
+| Email        | Nodemailer                | Mailpit (dev) / Brevo SMTP (prod)                      |
+| File storage | Supabase JS SDK           | MinIO Docker (dev) / Supabase Storage (prod, 1GB free) |
+| Push         | expo-server-sdk           | Expo Push Service inline — no queues                   |
+| Payments     | Paymob                    | HMAC-SHA512 webhook; COD is primary                    |
+| Logging      | nestjs-pino / pino-pretty | —                                                      |
+| Scheduling   | @nestjs/schedule          | @Cron every 5min for election auto-open                |
+| API docs     | Swagger                   | `http://localhost:3000/docs`                           |
+| Hosting      | Fly.io `cdg` (Paris)      | min 1 machine always on, WebSocket-friendly            |
 
 ### Docker Compose Services (dev)
 
-| Container | Image | Port(s) |
-|---|---|---|
-| eastpark-postgres | postgres:16-alpine | 5432 |
-| eastpark-redis | redis:7-alpine | 6379 |
-| eastpark-mailpit | axllent/mailpit | 1025 (SMTP), 8025 (Web UI) |
-| eastpark-minio | minio/minio | 9000 (S3 API), 9001 (Console) |
-| eastpark-minio-init | minio/mc | — (one-shot bucket creator) |
+| Container           | Image              | Port(s)                       |
+| ------------------- | ------------------ | ----------------------------- |
+| eastpark-postgres   | postgres:16-alpine | 5432                          |
+| eastpark-redis      | redis:7-alpine     | 6379                          |
+| eastpark-mailpit    | axllent/mailpit    | 1025 (SMTP), 8025 (Web UI)    |
+| eastpark-minio      | minio/minio        | 9000 (S3 API), 9001 (Console) |
+| eastpark-minio-init | minio/mc           | — (one-shot bucket creator)   |
 
 MinIO default credentials: `minioadmin` / `minioadmin`. Bucket name: `eastpark-uploads`.
 
 ### Key Environment Variables
 
-| Variable | Dev Default |
-|---|---|
-| `DATABASE_URL` | `postgresql://postgres:master123@localhost:5432/eastpark` |
-| `REDIS_URL` | `redis://localhost:6379` |
-| `AUTH_ACCESS_TOKEN_SECRET` | **Must generate**: `openssl rand -base64 48` |
-| `AUTH_REFRESH_TOKEN_SECRET` | **Must generate**: `openssl rand -base64 48` |
-| `AUTH_ACCESS_TOKEN_EXP` | `15m` |
-| `AUTH_REFRESH_TOKEN_EXP` | `7d` |
-| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` |
-| `SUPABASE_URL` | `http://localhost:9000` (MinIO) |
-| `SUPABASE_SERVICE_KEY` | `minioadmin` |
-| `SUPABASE_BUCKET` | `eastpark-uploads` |
-| `HTTP_PORT` | `3000` |
+| Variable                    | Dev Default                                               |
+| --------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`              | `postgresql://postgres:master123@localhost:5432/eastpark` |
+| `REDIS_URL`                 | `redis://localhost:6379`                                  |
+| `AUTH_ACCESS_TOKEN_SECRET`  | **Must generate**: `openssl rand -base64 48`              |
+| `AUTH_REFRESH_TOKEN_SECRET` | **Must generate**: `openssl rand -base64 48`              |
+| `AUTH_ACCESS_TOKEN_EXP`     | `15m`                                                     |
+| `AUTH_REFRESH_TOKEN_EXP`    | `7d`                                                      |
+| `SMTP_HOST` / `SMTP_PORT`   | `localhost` / `1025`                                      |
+| `SUPABASE_URL`              | `http://localhost:9000` (MinIO)                           |
+| `SUPABASE_SERVICE_KEY`      | `minioadmin`                                              |
+| `SUPABASE_BUCKET`           | `eastpark-uploads`                                        |
+| `HTTP_PORT`                 | `3000`                                                    |
 
 ### Key npm Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm dev:setup` | Full automated setup: Docker → migrate → seed → dev server |
-| `pnpm dev` | Hot-reload dev server |
-| `pnpm seed` | Creates `admin@eastpark.local` / `Admin@123456` (idempotent) |
-| `pnpm prisma:migrate` | Create + apply new migration |
-| `pnpm prisma:studio` | Visual DB browser at localhost:5555 |
-| `pnpm docker:up/down/reset` | Manage Docker services |
-| `pnpm test` | 62 unit tests, ~88% statement coverage |
-| `pnpm build` | Compile TypeScript → dist/ |
+| Command                     | Purpose                                                      |
+| --------------------------- | ------------------------------------------------------------ |
+| `pnpm dev:setup`            | Full automated setup: Docker → migrate → seed → dev server   |
+| `pnpm dev`                  | Hot-reload dev server                                        |
+| `pnpm seed`                 | Creates `admin@eastpark.local` / `Admin@123456` (idempotent) |
+| `pnpm prisma:migrate`       | Create + apply new migration                                 |
+| `pnpm prisma:studio`        | Visual DB browser at localhost:5555                          |
+| `pnpm docker:up/down/reset` | Manage Docker services                                       |
+| `pnpm test`                 | 62 unit tests, ~88% statement coverage                       |
+| `pnpm build`                | Compile TypeScript → dist/                                   |
 
 ### Local Dev URLs
 
-| URL | Purpose |
-|---|---|
-| `http://localhost:3000/v1` | REST API |
-| `http://localhost:3000/docs` | Swagger UI |
-| `ws://localhost:3000/orders` | WebSocket |
-| `http://localhost:8025` | Mailpit email viewer |
-| `http://localhost:9001` | MinIO console |
-| `http://localhost:5555` | Prisma Studio |
+| URL                          | Purpose              |
+| ---------------------------- | -------------------- |
+| `http://localhost:3000/v1`   | REST API             |
+| `http://localhost:3000/docs` | Swagger UI           |
+| `ws://localhost:3000/orders` | WebSocket            |
+| `http://localhost:8025`      | Mailpit email viewer |
+| `http://localhost:9001`      | MinIO console        |
+| `http://localhost:5555`      | Prisma Studio        |
 
 ### RBAC Roles
 
-| Role | Access |
-|---|---|
-| GUEST | Read-only: directory, announcements |
-| RESIDENT | Full consumer access + feedback + voting |
+| Role     | Access                                                 |
+| -------- | ------------------------------------------------------ |
+| GUEST    | Read-only: directory, announcements                    |
+| RESIDENT | Full consumer access + feedback + voting               |
 | MERCHANT | Consumer access + merchant dashboard + menu/order mgmt |
-| ADMIN | Full access + admin actions + invite users |
+| ADMIN    | Full access + admin actions + invite users             |
 
 ### Auth Flows
 
@@ -200,58 +212,58 @@ MinIO default credentials: `minioadmin` / `minioadmin`. Bucket name: `eastpark-u
 
 ### Technology Stack
 
-| Layer | Choice | Version |
-|---|---|---|
-| Framework | Expo + React Native | 54.0.32 / 0.81.5 |
-| Language | TypeScript strict | 5.9 |
-| JS Engine | Hermes + New Architecture | enabled |
-| Package manager | pnpm | 9.15.9 (enforced) |
-| Navigation | Expo Router | 6.0.22 |
-| State | Redux Toolkit + redux-persist | 2.5.0 / 6.0.0 |
-| Server state | TanStack React Query | v5 |
-| Styling | NativeWind + Gluestack UI v2 | — |
-| Lists | FlashList (@shopify/flash-list) | 2.0.2 — never FlatList |
-| Bottom Sheet | @gorhom/bottom-sheet | 5.2.8 |
-| Forms | React Hook Form + Zod | 7.56.0 / 4.3.5 |
-| Auth tokens | expo-secure-store | 15.0.8 — never AsyncStorage |
-| Animation | react-native-reanimated | 4.1.6 |
-| Icons | Phosphor Icons | — |
-| i18n | i18next + expo-localization | 25.8.0 / 17.0.8 |
-| Real-time | socket.io-client | 4.8.1 |
-| PDF | react-native-pdf | 6.7.6 |
-| Lottie | lottie-react-native | 7.2.2 |
+| Layer           | Choice                          | Version                     |
+| --------------- | ------------------------------- | --------------------------- |
+| Framework       | Expo + React Native             | 54.0.32 / 0.81.5            |
+| Language        | TypeScript strict               | 5.9                         |
+| JS Engine       | Hermes + New Architecture       | enabled                     |
+| Package manager | pnpm                            | 9.15.9 (enforced)           |
+| Navigation      | Expo Router                     | 6.0.22                      |
+| State           | Redux Toolkit + redux-persist   | 2.5.0 / 6.0.0               |
+| Server state    | TanStack React Query            | v5                          |
+| Styling         | NativeWind + Gluestack UI v2    | —                           |
+| Lists           | FlashList (@shopify/flash-list) | 2.0.2 — never FlatList      |
+| Bottom Sheet    | @gorhom/bottom-sheet            | 5.2.8                       |
+| Forms           | React Hook Form + Zod           | 7.56.0 / 4.3.5              |
+| Auth tokens     | expo-secure-store               | 15.0.8 — never AsyncStorage |
+| Animation       | react-native-reanimated         | 4.1.6                       |
+| Icons           | Phosphor Icons                  | —                           |
+| i18n            | i18next + expo-localization     | 25.8.0 / 17.0.8             |
+| Real-time       | socket.io-client                | 4.8.1                       |
+| PDF             | react-native-pdf                | 6.7.6                       |
+| Lottie          | lottie-react-native             | 7.2.2                       |
 
 ### Redux Slices
 
-| Slice | Purpose |
-|---|---|
-| `authSlice` | user, tokens, role, isVerified |
-| `cartSlice` | items, shopId (multi-shop conflict guard) |
-| `preferencesSlice` | language, theme |
+| Slice              | Purpose                                   |
+| ------------------ | ----------------------------------------- |
+| `authSlice`        | user, tokens, role, isVerified            |
+| `cartSlice`        | items, shopId (multi-shop conflict guard) |
+| `preferencesSlice` | language, theme                           |
 
 ### Key Environment Variables
 
-| Variable | Dev Default |
-|---|---|
-| `EXPO_PUBLIC_APP_ENV` | `development` |
-| `EXPO_PUBLIC_API_URL` | `http://localhost:3000/v1` |
-| `EXPO_PUBLIC_SOCKET_URL` | `http://localhost:3000` |
-| `EXPO_PUBLIC_POSTHOG_KEY` | (optional) |
+| Variable                  | Dev Default                |
+| ------------------------- | -------------------------- |
+| `EXPO_PUBLIC_APP_ENV`     | `development`              |
+| `EXPO_PUBLIC_API_URL`     | `http://localhost:3000/v1` |
+| `EXPO_PUBLIC_SOCKET_URL`  | `http://localhost:3000`    |
+| `EXPO_PUBLIC_POSTHOG_KEY` | (optional)                 |
 
 > **Android emulator:** Use `http://10.0.2.2:3000` instead of `localhost`.
 
 ### Key npm Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm start` | Start Metro (Expo Go / dev client) |
-| `pnpm ios` / `pnpm android` | Run on simulator/emulator |
-| `pnpm build:development:*` | EAS dev client build |
-| `pnpm build:production:*` | EAS production build |
-| `pnpm check-all` | lint + type-check + i18n lint + tests |
-| `pnpm doctor` | expo-doctor health check |
+| Command                     | Purpose                               |
+| --------------------------- | ------------------------------------- |
+| `pnpm start`                | Start Metro (Expo Go / dev client)    |
+| `pnpm ios` / `pnpm android` | Run on simulator/emulator             |
+| `pnpm build:development:*`  | EAS dev client build                  |
+| `pnpm build:production:*`   | EAS production build                  |
+| `pnpm check-all`            | lint + type-check + i18n lint + tests |
+| `pnpm doctor`               | expo-doctor health check              |
 
-### Provider Stack (root _layout.tsx)
+### Provider Stack (root \_layout.tsx)
 
 ```
 ReduxProvider
@@ -294,12 +306,12 @@ app/
 
 ### EAS Build Profiles
 
-| Profile | Type | Distribution |
-|---|---|---|
-| `development` | dev client | internal |
-| `preview` | internal APK | store |
-| `production` | store release (.aab / .ipa) | store |
-| `simulator` | dev client | internal (iOS simulator) |
+| Profile       | Type                        | Distribution             |
+| ------------- | --------------------------- | ------------------------ |
+| `development` | dev client                  | internal                 |
+| `preview`     | internal APK                | store                    |
+| `production`  | store release (.aab / .ipa) | store                    |
+| `simulator`   | dev client                  | internal (iOS simulator) |
 
 > `EAS_PROJECT_ID` is currently empty (`''`). Run `eas init` inside `apps/mobile/` before any cloud build.
 
@@ -309,18 +321,18 @@ app/
 
 ### Color Palette (from eastpark.jpg logo)
 
-| Token | Hex | Usage |
-|---|---|---|
-| Primary gold | `#b8966a` | Sparingly — accents, CTAs |
-| Gold on light bg | `#7a5e38` | WCAG AA on light surfaces |
-| Dark background | `#0d0c0b` | Warm near-black — never pure #000 |
-| Dark card | `#221f1c` | Card surfaces |
-| Dark elevated | `#2e2a26` | Modals, sheets |
-| Light surface | `#faf8f5` | Warm off-white — never cold zinc |
-| Success | `#5A7A52` | Muted olive |
-| Warning | `#C48B2F` | Deep amber |
-| Error | `#B03A2E` | Deep muted red |
-| Info | `#4A6B8A` | Slate blue |
+| Token            | Hex       | Usage                             |
+| ---------------- | --------- | --------------------------------- |
+| Primary gold     | `#b8966a` | Sparingly — accents, CTAs         |
+| Gold on light bg | `#7a5e38` | WCAG AA on light surfaces         |
+| Dark background  | `#0d0c0b` | Warm near-black — never pure #000 |
+| Dark card        | `#221f1c` | Card surfaces                     |
+| Dark elevated    | `#2e2a26` | Modals, sheets                    |
+| Light surface    | `#faf8f5` | Warm off-white — never cold zinc  |
+| Success          | `#5A7A52` | Muted olive                       |
+| Warning          | `#C48B2F` | Deep amber                        |
+| Error            | `#B03A2E` | Deep muted red                    |
+| Info             | `#4A6B8A` | Slate blue                        |
 
 ### Typography
 
@@ -382,16 +394,16 @@ app/
 
 ## Infrastructure Decisions
 
-| Concern | Dev | Prod |
-|---|---|---|
-| Database | Docker PostgreSQL | Supabase (500MB free) |
-| Cache | Docker Redis | Upstash (10K req/day free) |
-| File storage | Docker MinIO | Supabase Storage (1GB free) |
-| Email | Docker Mailpit | Brevo SMTP (300/day free) |
-| Hosting | Local | Fly.io `cdg` Paris |
-| Analytics | — | PostHog (free / self-hosted) |
-| Error monitoring | — | GlitchTip (self-hosted) or Sentry free |
-| Push notifications | — | Expo Push Service (free) |
+| Concern            | Dev               | Prod                                   |
+| ------------------ | ----------------- | -------------------------------------- |
+| Database           | Docker PostgreSQL | Supabase (500MB free)                  |
+| Cache              | Docker Redis      | Upstash (10K req/day free)             |
+| File storage       | Docker MinIO      | Supabase Storage (1GB free)            |
+| Email              | Docker Mailpit    | Brevo SMTP (300/day free)              |
+| Hosting            | Local             | Fly.io `cdg` Paris                     |
+| Analytics          | —                 | PostHog (free / self-hosted)           |
+| Error monitoring   | —                 | GlitchTip (self-hosted) or Sentry free |
+| Push notifications | —                 | Expo Push Service (free)               |
 
 **Hard rule: 100% free stack.** Every service is open-source, self-hostable, or permanent free tier.
 
@@ -424,8 +436,8 @@ app/
 
 ## Seeded Credentials (dev only)
 
-| Account | Email | Password |
-|---|---|---|
-| Admin | `admin@eastpark.local` | `Admin@123456` |
-| Resident | Register via app | (set during registration) |
+| Account  | Email                               | Password                          |
+| -------- | ----------------------------------- | --------------------------------- |
+| Admin    | `admin@eastpark.local`              | `Admin@123456`                    |
+| Resident | Register via app                    | (set during registration)         |
 | Merchant | Accept invite email (check Mailpit) | (set on accept-invitation screen) |

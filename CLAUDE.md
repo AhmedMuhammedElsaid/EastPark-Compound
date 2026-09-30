@@ -8,6 +8,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 ## What Is This Project
 
 **EastPark** — a residential compound super-app for the MENA region.
+
 - Local marketplace (shops, ordering, real-time tracking)
 - Community governance hub (announcements, polls, elections, feedback)
 
@@ -28,6 +29,18 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-09-30 — ROOT-OWNED MONOREPO + RENDER PREPARATION (NEWEST)
+>
+> Root Git now tracks `apps/web`, `apps/backend`, and `apps/mobile`; nested `.git` directories were
+> moved to `C:\Unite\EastPark-App-monorepo-backup` for rollback. The web import passes its complete
+> check, backend passes typecheck/Prisma validation/102 tests, and mobile passes typecheck plus 41
+> tests. Mobile's pre-existing full lint baseline remains red under the hoisted ESLint stack.
+>
+> `render.yaml` at root can deploy `apps/backend` as a Frankfurt free Docker service. Fly remains
+> active until Render is created with dashboard secrets and passes health, CORS, auth, lead, and
+> announcement checks. The web app remains on Vercel and was deployed with announcement detail
+> parity at commit `0958ed0`; a concurrent lead warmup fix is commit `95edf4c`.
+
 > ### 2026-09-30 — DUPLICATE-UNIT GUARD + PUBLIC PAGE LAYOUT DEPLOYED (NEWEST)
 >
 > Resident lead submission now reserves a unit by `(building, floor, flatNumber)` regardless of
@@ -37,6 +50,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > rows were retained as history and all but the most advanced row were marked `REJECTED`.
 >
 > Production verification:
+>
 > - Commit `a4ff04f` is on backend `main`/`origin/main`.
 > - `prisma migrate status` reports all 3 migrations applied to Supabase.
 > - Fly release v4 is healthy in `cdg`; `/health` returns HTTP 200 with Prisma `up`.
@@ -50,6 +64,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > ### 2026-09-30 — APPS LAYOUT MIGRATED LOCALLY
 >
 > The three independent repositories now live under `apps/`:
+>
 > - `apps/web` — Next.js web app
 > - `apps/mobile` — Expo mobile app
 > - `apps/backend` — NestJS backend
@@ -59,6 +74,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > ignore rules, and documentation paths now target `apps/*`. No commit, push, or deployment was made.
 >
 > Validation after the move:
+>
 > - `pnpm check:web` passed; Next generated 24/24 routes, including `/home`.
 > - `pnpm check:mobile` passed.
 > - `pnpm check:shared` passed: typecheck plus 4/4 tests.
@@ -77,6 +93,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > The newest web checkpoint is committed, pushed, deployed, and verified on Vercel.
 >
 > Production `eastpark-web-app` now includes:
+>
 > - Same-origin Next.js BFF routes for resident leads and auth. Access/refresh tokens stay in
 >   `HttpOnly`, production `Secure`, `SameSite=Strict` cookies; browser JavaScript never receives them.
 > - Login, registration, OTP verification, error/not-found, and redesigned thank-you routes.
@@ -86,7 +103,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > - SEO metadata, canonical URLs, JSON-LD, robots, sitemap, manifest, social images, route-level
 >   `noindex`, production CSP, and security headers.
 > - Share description: `Commerce, services, and community in one trusted place. Built By Ahmed
->   Muhammed Elsaid.`
+Muhammed Elsaid.`
 > - Repeatable web gate: `pnpm --dir apps/web check` (lint + strict TypeScript + build).
 >
 > A root pnpm workspace and private `packages/shared` package are retained as a **deferred local
@@ -102,6 +119,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > ### 2026-09-30 — PRODUCTION DEPLOYMENT
 >
 > **The public registration path is live end to end.**
+>
 > - Web: `https://eastpark-web-app.vercel.app` (Vercel)
 > - API: `https://eastpark-backend.fly.dev` (Fly.io `cdg`)
 > - `/health`: HTTP 200, Prisma `up`
@@ -137,6 +155,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > `docker build` and `prisma migrate deploy`. First place to look if a deploy fails.
 >
 > **Three corrections to the claims below:**
+>
 > 1. Backend whole-repo test coverage is **12.44%**, not 81.11% — that figure averages only the 5
 >    files listed in `test/jest.json`'s `collectCoverageFrom`. Every controller is at 0%.
 > 2. Frontend **type-checking had never actually run** — an invalid `tsconfig.json` value aborted
@@ -155,6 +174,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 ### Audit 2026-07-19 → fixed 2026-07-26
 
 **Backend — all fixed (branch main, commits `42d6eaa`→`b293bba`):**
+
 - ✅ BE-1: added `Election.descriptionAr` (was runtime Prisma crash + tsc error).
 - ✅ BE-2: full baseline migration `00000000000000_init` — `prisma migrate deploy` now builds a fresh Neon DB.
 - ✅ BE-3: 6 tsc errors fixed (UserResponseDto optional passwordHash/pushToken; invitation DTO `typeof Role.*`). `pnpm typecheck` exits 0.
@@ -163,9 +183,11 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 - ✅ `DELETE /user` self-delete confirmed implemented (old "pending" note was wrong).
 
 **Merchant module (FE-1 / B-7) — fixed backend-side (`988e7c6`):**
+
 - The mobile app's entire Merchant Tools module called `/merchant/*` routes that didn't exist (would 404 in prod), and no endpoint let a merchant discover its own `shopId`. Fixed by adding a `MerchantModule` (`src/modules/merchant/`) that resolves the shop from the JWT and delegates to shops/products/orders services. **Frontend `merchant.ts` works unchanged** — no FE edits needed.
 
 **Frontend — remaining (non-blocking, being addressed):**
+
 - FE-3: real auth tests (was `it.todo`) — in progress.
 - FE-6: dead obytes route stubs (`app/login.tsx`, `app/onboarding.tsx`, `app/[...messing].tsx`) — in progress.
 - FE-2: Posthog + Sentry/GlitchTip never wired — **descoped** for now (needs product decision).
@@ -194,16 +216,13 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 **Remaining work to reach production (updated 2026-07-26):**
 
 _Code fixes — BE all done (2026-07-26). FE in progress:_
+
 1. ✅ **BE:** `Election.descriptionAr` + baseline migration + 6 tsc errors + payments spec + CI pnpm — all fixed & verified.
 2. ✅ **BE:** merchant module added (fixes FE-1/B-7; FE unchanged).
 3. **FE:** real auth tests (FE-3) + remove dead route stubs (FE-6) — in progress.
 4. **FE:** Posthog/Sentry — descoped (product decision needed).
 
-_Deploy steps (CLIs not in WSL — run by user; modern Node available via nvm):_
-5. Run `pnpm type-check && pnpm lint && pnpm test` on the FE for a full signal.
-6. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `apps/backend/`
-7. `fly deploy` from `apps/backend/` (baseline migration now in place — safe).
-8. `eas build` / `eas submit` from `apps/mobile/`
+_Deploy steps (CLIs not in WSL — run by user; modern Node available via nvm):_ 5. Run `pnpm type-check && pnpm lint && pnpm test` on the FE for a full signal. 6. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `apps/backend/` 7. `fly deploy` from `apps/backend/` (baseline migration now in place — safe). 8. `eas build` / `eas submit` from `apps/mobile/`
 
 **Commit format:** `[AhmedMuhammedElsaid][feat|fix|chore|docs]: description`
 **All commits use `--no-verify`** (WSL cannot run node/pnpm hooks — pre-commit hook always fails)
@@ -224,60 +243,66 @@ Admin      → admin email invitation → accept-invitation deep link
 
 ## Frontend Stack (locked)
 
-| Layer | Choice | Version |
-|---|---|---|
-| Boilerplate | `obytes/react-native-template-obytes` — clone, swap Zustand→Redux Toolkit, swap TanStack Form→React Hook Form, upgrade TanStack Query v4→v5, add expo-secure-store for JWT, add RTL switching | — |
-| Framework | Expo + React Native + React | 54.0.33 / 0.81.5 / 19.1.0 |
-| Language | TypeScript strict | 5.9.2 |
-| JS Engine | Hermes + New Architecture (both enabled) | — |
-| State | Redux Toolkit + redux-persist | 2.5.0 / 6.0.0 |
-| Server state | TanStack React Query v5 | 5.60.0 |
-| Navigation | Expo Router + React Navigation | 6.0.23 / 7.0.0 |
-| Styling | NativeWind + Gluestack UI v2 (NativeWind-compatible primitives) | — |
-| Lists | FlashList (@shopify/flash-list) — never FlatList | — |
-| Bottom Sheet | @gorhom/bottom-sheet | — |
-| Carousel | react-native-reanimated-carousel | — |
-| Lottie | lottie-react-native | — |
-| Forms | React Hook Form + Zod | 7.72.0 / 3.25.76 |
-| Auth tokens | expo-secure-store (never AsyncStorage) | 15.0.8 |
-| Animation | react-native-reanimated | 4.1.1 |
-| Icons | Phosphor Icons (RTL-friendly) | — |
-| i18n | expo-localization + i18n-js — Arabic RTL primary, English LTR secondary | — |
-| Real-time | socket.io-client | — |
-| Testing | Jest + React Native Testing Library | 29.7.0 / 12.8.0 |
-| Build | EAS Build/Submit | — |
-| Analytics | Posthog (free tier / self-hosted) | — |
-| Error monitoring | GlitchTip (self-hosted) or Sentry free tier | — |
+| Layer            | Choice                                                                                                                                                                                        | Version                   |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Boilerplate      | `obytes/react-native-template-obytes` — clone, swap Zustand→Redux Toolkit, swap TanStack Form→React Hook Form, upgrade TanStack Query v4→v5, add expo-secure-store for JWT, add RTL switching | —                         |
+| Framework        | Expo + React Native + React                                                                                                                                                                   | 54.0.33 / 0.81.5 / 19.1.0 |
+| Language         | TypeScript strict                                                                                                                                                                             | 5.9.2                     |
+| JS Engine        | Hermes + New Architecture (both enabled)                                                                                                                                                      | —                         |
+| State            | Redux Toolkit + redux-persist                                                                                                                                                                 | 2.5.0 / 6.0.0             |
+| Server state     | TanStack React Query v5                                                                                                                                                                       | 5.60.0                    |
+| Navigation       | Expo Router + React Navigation                                                                                                                                                                | 6.0.23 / 7.0.0            |
+| Styling          | NativeWind + Gluestack UI v2 (NativeWind-compatible primitives)                                                                                                                               | —                         |
+| Lists            | FlashList (@shopify/flash-list) — never FlatList                                                                                                                                              | —                         |
+| Bottom Sheet     | @gorhom/bottom-sheet                                                                                                                                                                          | —                         |
+| Carousel         | react-native-reanimated-carousel                                                                                                                                                              | —                         |
+| Lottie           | lottie-react-native                                                                                                                                                                           | —                         |
+| Forms            | React Hook Form + Zod                                                                                                                                                                         | 7.72.0 / 3.25.76          |
+| Auth tokens      | expo-secure-store (never AsyncStorage)                                                                                                                                                        | 15.0.8                    |
+| Animation        | react-native-reanimated                                                                                                                                                                       | 4.1.1                     |
+| Icons            | Phosphor Icons (RTL-friendly)                                                                                                                                                                 | —                         |
+| i18n             | expo-localization + i18n-js — Arabic RTL primary, English LTR secondary                                                                                                                       | —                         |
+| Real-time        | socket.io-client                                                                                                                                                                              | —                         |
+| Testing          | Jest + React Native Testing Library                                                                                                                                                           | 29.7.0 / 12.8.0           |
+| Build            | EAS Build/Submit                                                                                                                                                                              | —                         |
+| Analytics        | Posthog (free tier / self-hosted)                                                                                                                                                             | —                         |
+| Error monitoring | GlitchTip (self-hosted) or Sentry free tier                                                                                                                                                   | —                         |
 
 ---
 
 ## Frontend Architecture (locked)
 
 ### Redux Slices
+
 - `authSlice` — user, tokens, role, isVerified
 - `cartSlice` — items, shopId (multi-shop conflict guard)
 - `preferencesSlice` — language, theme
 
 ### Auth-Wall Pattern
+
 Global `useAuthGuard()` hook + `AuthWallSheet` (@gorhom/bottom-sheet).
 Guest action → `dispatch(showAuthWall({ redirectAction }))` → after login, action auto-replays.
 
 ### Cursor Pagination (all list screens)
+
 ```ts
 useInfiniteQuery({
   queryFn: ({ pageParam }) => api.getShops({ cursor: pageParam, limit: 20 }),
   getNextPageParam: (last) => last.nextCursor ?? undefined,
-})
+});
 // FlashList onEndReached → fetchNextPage()
 ```
 
 ### Push Token Registration
+
 After every login: `await api.patch('/auth/push-token', { pushToken })`. Re-register on app foreground if token changed.
 
 ### i18n / RTL
+
 `I18nManager.forceRTL(true/false)` on language switch + restart prompt. No hardcoded strings ever.
 
 ### Offline
+
 TanStack Query + AsyncStorage persister. Directory + announcements readable offline from cache. Cart persisted locally.
 
 ---
@@ -345,18 +370,18 @@ app/
 
 Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 
-| Token | Value | Rule |
-|---|---|---|
-| Primary gold | `#b8966a` | From logo. Use sparingly |
+| Token            | Value     | Rule                                                  |
+| ---------------- | --------- | ----------------------------------------------------- |
+| Primary gold     | `#b8966a` | From logo. Use sparingly                              |
 | Gold on light bg | `#7a5e38` | gold-500 fails WCAG AA on light — always use gold-700 |
-| Dark bg | `#0d0c0b` | Warm near-black. Never pure #000 |
-| Dark card | `#221f1c` | — |
-| Dark elevated | `#2e2a26` | Modals, sheets |
-| Light surface | `#faf8f5` | Warm off-white. Never cold zinc |
-| Success | `#5A7A52` | Muted olive — not bright green |
-| Warning | `#C48B2F` | Deep amber |
-| Error | `#B03A2E` | Deep muted red |
-| Info | `#4A6B8A` | Slate blue — informational banners |
+| Dark bg          | `#0d0c0b` | Warm near-black. Never pure #000                      |
+| Dark card        | `#221f1c` | —                                                     |
+| Dark elevated    | `#2e2a26` | Modals, sheets                                        |
+| Light surface    | `#faf8f5` | Warm off-white. Never cold zinc                       |
+| Success          | `#5A7A52` | Muted olive — not bright green                        |
+| Warning          | `#C48B2F` | Deep amber                                            |
+| Error            | `#B03A2E` | Deep muted red                                        |
+| Info             | `#4A6B8A` | Slate blue — informational banners                    |
 
 - **Fonts:** Cairo (all UI + all Arabic) · Cormorant Garamond (English display/hero only — never functional UI, never Arabic)
 - **Dark mode is flagship** — light is a user toggle preference
@@ -369,6 +394,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 ## Impeccable Skill Pack (locked)
 
 21 design commands installed at project level.
+
 - Source: `.agents/skills/` · Claude Code: `.claude/skills/`
 - `teach-impeccable` already completed — do NOT re-run unless brand changes
 
@@ -381,21 +407,22 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 
 ## Backend Stack (locked)
 
-| Layer | Choice |
-|---|---|
-| Boilerplate | `hmake98/nestjs-starter` — clone, migrate Yarn→pnpm, swap Express→Fastify, enable TS strict, remove Bull queues, add ioredis + Socket.io + @nestjs/schedule + Supabase client + Expo Push SDK, replace docker-compose.yml + Prisma schema |
-| Framework | NestJS + Fastify adapter (NOT Express) |
-| Package manager | pnpm |
-| ORM | Prisma + Supabase PostgreSQL (free: 500MB) — same project as Storage |
-| Cache | Upstash Redis (10K req/day free) — OTP, rate limiting, token blacklist |
-| File storage | Supabase Storage (prod: 1GB free) / MinIO Docker (dev) |
-| Hosting | Fly.io `cdg` (Paris) — `auto_stop_machines = false`, min 1 machine always on, WebSocket-friendly |
-| Email | Brevo SMTP (prod, 300/day free) / Mailpit Docker (dev) |
-| Push | Expo Push Service inline — no queues |
-| Real-time | Socket.io WebSocket gateway — namespace `/orders` |
-| Cron | @nestjs/schedule — election auto-open every 5min |
+| Layer           | Choice                                                                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boilerplate     | `hmake98/nestjs-starter` — clone, migrate Yarn→pnpm, swap Express→Fastify, enable TS strict, remove Bull queues, add ioredis + Socket.io + @nestjs/schedule + Supabase client + Expo Push SDK, replace docker-compose.yml + Prisma schema |
+| Framework       | NestJS + Fastify adapter (NOT Express)                                                                                                                                                                                                    |
+| Package manager | pnpm                                                                                                                                                                                                                                      |
+| ORM             | Prisma + Supabase PostgreSQL (free: 500MB) — same project as Storage                                                                                                                                                                      |
+| Cache           | Upstash Redis (10K req/day free) — OTP, rate limiting, token blacklist                                                                                                                                                                    |
+| File storage    | Supabase Storage (prod: 1GB free) / MinIO Docker (dev)                                                                                                                                                                                    |
+| Hosting         | Fly.io `cdg` (Paris) — `auto_stop_machines = false`, min 1 machine always on, WebSocket-friendly                                                                                                                                          |
+| Email           | Brevo SMTP (prod, 300/day free) / Mailpit Docker (dev)                                                                                                                                                                                    |
+| Push            | Expo Push Service inline — no queues                                                                                                                                                                                                      |
+| Real-time       | Socket.io WebSocket gateway — namespace `/orders`                                                                                                                                                                                         |
+| Cron            | @nestjs/schedule — election auto-open every 5min                                                                                                                                                                                          |
 
 ### Local Dev (Docker Compose)
+
 `postgres:16-alpine` + `redis:7-alpine` + `mailpit` + `minio` + `minio-init` (one-shot bucket creator). Named volumes for all services.
 
 ---
@@ -411,6 +438,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 ## All Locked Decisions
 
 ### Auth
+
 - Register: name + email + phone + unitNumber + **password** → Email OTP → verified
 - Login: **email + password only** — no passwordless / no OTP login
 - Forgot password: reset token in Redis (TTL 30min) → reset link email → `reset-password` screen
@@ -421,6 +449,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 - After login (FE): immediately `PATCH /auth/push-token` (NOT `/users/me/push-token` — auth module owns this)
 
 ### Shops & Products
+
 - `ShopPhoto[]` gallery model (not single `coverUrl`)
 - `workingHours Json?` — per-day `{ mon: { open, close, closed }, ... }`
 - `isOpen Boolean` = manual emergency override; FE computes "open now" from schedule
@@ -430,6 +459,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 - `SavedShop`: `@@id([userId, shopId])` — resident shop bookmarks
 
 ### Orders
+
 - No delivery time slots — free-text `notes` field only
 - `PaymentMethod` enum: CASH / PAYMOB
 - Server computes `totalAmount` — never trust client payload
@@ -441,6 +471,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 - `Order.paymobOrderId` = Paymob transaction reference
 
 ### Governance
+
 - `AnnouncementCategory` enum: GENERAL / PROMOTION / EVENT / MAINTENANCE / NEWS
 - One vote per resident per poll — `@@id([userId, pollId])` in DB
 - One vote per resident per election — `@@id([userId, electionId])` in DB
@@ -450,15 +481,18 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 - `ElectionVisibilityMode` enum: SEALED_UNTIL_DEADLINE / LIVE_COUNT / ADMIN_CONTROLLED
 
 ### Feedback
+
 - `FeedbackReply.authorId` FK → User (the admin who replied)
 - Anonymous: `userId` / `author` stripped from admin response when `isAnonymous = true`
 
 ### Notifications
+
 - `NotificationPreference` — separate DB table, one row per user per `NotificationType`
 - Expo Push sent inline (no BullMQ) — only if user preference for that type is enabled
 - In-app feed stored in `Notification` DB model
 
 ### Data & Infrastructure
+
 - Cursor-based pagination on ALL list endpoints (FE: `useInfiniteQuery`; BE: `cursor` + `limit` query params)
 - `AuditLog` DB model — admin actions + governance events
 - `Invitation` DB model — one-time signed token, tracks `usedAt` + `expiresAt`

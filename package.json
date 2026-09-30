@@ -3,10 +3,11 @@
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "check": "pnpm check:shared && pnpm check:web && pnpm check:backend && pnpm check:mobile",
     "check:shared": "pnpm --filter @eastpark/shared typecheck && pnpm --filter @eastpark/shared test",
     "check:web": "pnpm --dir apps/web check",
-    "check:mobile": "pnpm --dir apps/mobile type-check",
-    "check:backend": "pnpm --dir apps/backend typecheck"
+    "check:mobile": "pnpm --dir apps/mobile type-check && pnpm --dir apps/mobile exec jest --runInBand",
+    "check:backend": "pnpm --dir apps/backend typecheck && pnpm --dir apps/backend lint:check && pnpm --dir apps/backend exec jest --config test/jest.json --coverage=false --runInBand --passWithNoTests --forceExit"
   },
   "devDependencies": {
     "typescript": "5.9.3"

@@ -1,9 +1,26 @@
-# EastPark — How to Run
+# EastPark Compound
 
 > **EastPark** is a residential compound super-app for the MENA region, built as a full-stack monorepo.
 > It combines a local marketplace (shops, ordering, real-time tracking) with a community governance hub
 > (announcements, polls, elections, resident feedback). Arabic RTL is the primary language; English LTR
 > is the secondary.
+
+This repository is the canonical source for the web, mobile, backend, and shared packages. The former
+standalone repositories are retained only as migration history. Production web is available at
+<https://eastpark-web-app.vercel.app>.
+
+## Validation
+
+Install dependencies and run the complete repository gate from the root:
+
+```bash
+pnpm install
+pnpm check
+```
+
+The gate validates shared logic, the web production build, backend typechecking and 102 tests, and
+mobile typechecking and 41 tests. Use `check:shared`, `check:web`, `check:backend`, or `check:mobile`
+to validate one workspace.
 
 ---
 
@@ -26,14 +43,14 @@ EastPark-App/
 
 ## Prerequisites
 
-| Tool | Minimum Version | Install |
-|---|---|---|
-| Node.js | 20 LTS | https://nodejs.org |
-| pnpm | 9 | `npm install -g pnpm@latest` |
-| Docker Desktop | Latest | https://www.docker.com/products/docker-desktop |
-| Expo CLI | Latest | `npm install -g expo-cli` (optional — scripts call it via pnpm) |
-| EAS CLI | Latest | `npm install -g eas-cli` (only for cloud builds) |
-| Git | Any | — |
+| Tool           | Minimum Version | Install                                                         |
+| -------------- | --------------- | --------------------------------------------------------------- |
+| Node.js        | 20 LTS          | https://nodejs.org                                              |
+| pnpm           | 9               | `npm install -g pnpm@latest`                                    |
+| Docker Desktop | Latest          | https://www.docker.com/products/docker-desktop                  |
+| Expo CLI       | Latest          | `npm install -g expo-cli` (optional — scripts call it via pnpm) |
+| EAS CLI        | Latest          | `npm install -g eas-cli` (only for cloud builds)                |
+| Git            | Any             | —                                                               |
 
 > **Windows developers:** All Windows-specific pnpm path issues are auto-fixed by a `postinstall` hook. No extra steps required.
 
@@ -43,17 +60,17 @@ EastPark-App/
 
 ### Stack at a Glance
 
-| Layer | Technology |
-|---|---|
-| Framework | NestJS 11 + Fastify adapter |
-| ORM | Prisma 6 + PostgreSQL 16 |
-| Cache | Redis 7 via ioredis |
-| Auth | Passport + JWT (argon2 hashing) |
-| Real-time | Socket.io — `/orders` namespace |
-| Email (dev) | Mailpit (catches all outbound email locally) |
-| File storage (dev) | MinIO (S3-compatible local bucket) |
-| Push | Expo Push Service (expo-server-sdk) |
-| Payments | Paymob (HMAC-SHA512 webhook) |
+| Layer              | Technology                                   |
+| ------------------ | -------------------------------------------- |
+| Framework          | NestJS 11 + Fastify adapter                  |
+| ORM                | Prisma 6 + PostgreSQL 16                     |
+| Cache              | Redis 7 via ioredis                          |
+| Auth               | Passport + JWT (argon2 hashing)              |
+| Real-time          | Socket.io — `/orders` namespace              |
+| Email (dev)        | Mailpit (catches all outbound email locally) |
+| File storage (dev) | MinIO (S3-compatible local bucket)           |
+| Push               | Expo Push Service (expo-server-sdk)          |
+| Payments           | Paymob (HMAC-SHA512 webhook)                 |
 
 ### Step 1 — Install dependencies
 
@@ -78,13 +95,13 @@ openssl rand -base64 48   # → AUTH_REFRESH_TOKEN_SECRET
 
 Key defaults already set in `.env.example`:
 
-| Variable | Default |
-|---|---|
-| `DATABASE_URL` | `postgresql://postgres:master123@localhost:5432/eastpark` |
-| `REDIS_URL` | `redis://localhost:6379` |
-| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` (Mailpit) |
-| `SUPABASE_URL` | `http://localhost:9000` (MinIO) |
-| `HTTP_PORT` | `3000` |
+| Variable                  | Default                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`            | `postgresql://postgres:master123@localhost:5432/eastpark` |
+| `REDIS_URL`               | `redis://localhost:6379`                                  |
+| `SMTP_HOST` / `SMTP_PORT` | `localhost` / `1025` (Mailpit)                            |
+| `SUPABASE_URL`            | `http://localhost:9000` (MinIO)                           |
+| `HTTP_PORT`               | `3000`                                                    |
 
 ### Step 3 — Start Docker services
 
@@ -94,13 +111,13 @@ pnpm docker:up
 
 This starts five containers:
 
-| Container | Port | Purpose |
-|---|---|---|
-| `eastpark-postgres` | 5432 | Primary PostgreSQL database |
-| `eastpark-redis` | 6379 | OTP / token blacklist / rate limiting |
-| `eastpark-mailpit` | 1025 (SMTP), **8025 (Web UI)** | Catches all outbound emails |
-| `eastpark-minio` | 9000 (S3 API), **9001 (Console)** | Local file storage |
-| `eastpark-minio-init` | — | One-shot: creates the `eastpark-uploads` bucket |
+| Container             | Port                              | Purpose                                         |
+| --------------------- | --------------------------------- | ----------------------------------------------- |
+| `eastpark-postgres`   | 5432                              | Primary PostgreSQL database                     |
+| `eastpark-redis`      | 6379                              | OTP / token blacklist / rate limiting           |
+| `eastpark-mailpit`    | 1025 (SMTP), **8025 (Web UI)**    | Catches all outbound emails                     |
+| `eastpark-minio`      | 9000 (S3 API), **9001 (Console)** | Local file storage                              |
+| `eastpark-minio-init` | —                                 | One-shot: creates the `eastpark-uploads` bucket |
 
 Wait ~10 seconds for postgres and redis to become healthy before proceeding.
 
@@ -134,14 +151,14 @@ The server starts with hot-reload. Confirm it is running:
 
 ### Backend URLs (local dev)
 
-| URL | Description |
-|---|---|
-| `http://localhost:3000/v1` | REST API base |
-| `http://localhost:3000/docs` | Swagger UI (interactive API explorer) |
-| `ws://localhost:3000/orders` | WebSocket namespace for real-time order updates |
-| `http://localhost:8025` | Mailpit — view all outbound emails |
-| `http://localhost:9001` | MinIO Console — browse uploaded files (`minioadmin` / `minioadmin`) |
-| `http://localhost:5555` | Prisma Studio — visual DB browser (`pnpm prisma:studio`) |
+| URL                          | Description                                                         |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `http://localhost:3000/v1`   | REST API base                                                       |
+| `http://localhost:3000/docs` | Swagger UI (interactive API explorer)                               |
+| `ws://localhost:3000/orders` | WebSocket namespace for real-time order updates                     |
+| `http://localhost:8025`      | Mailpit — view all outbound emails                                  |
+| `http://localhost:9001`      | MinIO Console — browse uploaded files (`minioadmin` / `minioadmin`) |
+| `http://localhost:5555`      | Prisma Studio — visual DB browser (`pnpm prisma:studio`)            |
 
 ### Automated Setup (alternative to Steps 3–6)
 
@@ -160,7 +177,7 @@ pnpm docker:reset       # Stop + wipe all volumes (full reset)
 pnpm dev:reset          # Full reset: wipe volumes + re-migrate + re-seed
 pnpm prisma:studio      # Open visual DB browser at localhost:5555
 pnpm prisma:reset       # Drop all tables + re-run migrations (dev only)
-pnpm test               # Run 62 unit tests with coverage
+pnpm test               # Run backend tests with coverage
 pnpm lint               # ESLint with auto-fix
 pnpm build              # Compile TypeScript → dist/
 ```
@@ -171,19 +188,19 @@ pnpm build              # Compile TypeScript → dist/
 
 ### Stack at a Glance
 
-| Layer | Technology |
-|---|---|
-| Framework | Expo 54 + React Native 0.81.5 + React 19 |
-| Language | TypeScript 5.9 (strict) |
-| JS Engine | Hermes + New Architecture |
-| Navigation | Expo Router 6 (file-based) |
-| State | Redux Toolkit 2.5 + redux-persist |
-| Server state | TanStack React Query v5 |
-| Styling | NativeWind + Gluestack UI v2 |
-| Forms | React Hook Form 7 + Zod 4 |
-| Auth tokens | expo-secure-store (never AsyncStorage) |
-| Real-time | socket.io-client |
-| i18n | i18next + expo-localization (Arabic RTL / English LTR) |
+| Layer        | Technology                                             |
+| ------------ | ------------------------------------------------------ |
+| Framework    | Expo 54 + React Native 0.81.5 + React 19               |
+| Language     | TypeScript 5.9 (strict)                                |
+| JS Engine    | Hermes + New Architecture                              |
+| Navigation   | Expo Router 6 (file-based)                             |
+| State        | Redux Toolkit 2.5 + redux-persist                      |
+| Server state | TanStack React Query v5                                |
+| Styling      | Uniwind + React Native StyleSheet                      |
+| Forms        | React Hook Form 7 + Zod 4                              |
+| Auth tokens  | expo-secure-store (never AsyncStorage)                 |
+| Real-time    | socket.io-client                                       |
+| i18n         | i18next + expo-localization (Arabic RTL / English LTR) |
 
 ### Step 1 — Install dependencies
 
@@ -214,11 +231,11 @@ EXPO_PUBLIC_POSTHOG_KEY=           # optional analytics key
 > All bundle IDs, URL schemes, and package names are derived automatically from `EXPO_PUBLIC_APP_ENV`.
 > You do not set them manually.
 
-| `EXPO_PUBLIC_APP_ENV` | Bundle ID | URL Scheme |
-|---|---|---|
-| `development` | `com.eastpark.app.development` | `eastpark` |
-| `preview` | `com.eastpark.app.preview` | `eastpark.preview` |
-| `production` | `com.eastpark.app` | `eastpark` |
+| `EXPO_PUBLIC_APP_ENV` | Bundle ID                      | URL Scheme         |
+| --------------------- | ------------------------------ | ------------------ |
+| `development`         | `com.eastpark.app.development` | `eastpark`         |
+| `preview`             | `com.eastpark.app.preview`     | `eastpark.preview` |
+| `production`          | `com.eastpark.app`             | `eastpark`         |
 
 ### Step 3A — Run in Expo Go (limited features)
 
@@ -237,11 +254,13 @@ Scan the QR code with the **Expo Go** app (iOS App Store / Google Play).
 Build a dev client once — required for push notifications, secure token storage, and deep links.
 
 **iOS simulator:**
+
 ```bash
 pnpm ios
 ```
 
 **Android emulator:**
+
 ```bash
 pnpm android
 ```
@@ -249,6 +268,7 @@ pnpm android
 **Physical device (cloud build via EAS):**
 
 > First-time only: initialize EAS for the project.
+>
 > ```bash
 > eas init
 > ```
@@ -298,18 +318,21 @@ pnpm doctor             # expo-doctor health check
 Open two terminal windows side by side:
 
 **Terminal 1 — Backend:**
+
 ```bash
 cd apps/backend
 pnpm dev:setup          # or: pnpm docker:up && pnpm prisma:migrate && pnpm seed && pnpm dev
 ```
 
 **Terminal 2 — Frontend:**
+
 ```bash
 cd apps/mobile
 pnpm start
 ```
 
 Ensure `.env.local` in the frontend points to:
+
 ```
 EXPO_PUBLIC_API_URL=http://localhost:3000       # no /v1 — the Axios client appends it automatically
 EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
@@ -317,12 +340,14 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 > **Android emulator note:** Android cannot reach `localhost` of your host machine.
 > Use `10.0.2.2` instead:
+>
 > ```
 > EXPO_PUBLIC_API_URL=http://10.0.2.2:3000
 > EXPO_PUBLIC_SOCKET_URL=http://10.0.2.2:3000
 > ```
 
 > **Physical device note:** Use your machine's LAN IP (e.g. `192.168.x.x`) so the device can reach the backend over Wi-Fi. Restart Metro with `-c` to clear the cache after changing env vars:
+>
 > ```bash
 > pnpm start -- -c
 > ```
@@ -331,12 +356,12 @@ EXPO_PUBLIC_SOCKET_URL=http://localhost:3000
 
 ## User Roles & Test Credentials
 
-| Role | How to obtain |
-|---|---|
-| **Admin** | Seeded by `pnpm seed` → `admin@eastpark.local` / `Admin@123456` |
+| Role         | How to obtain                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| **Admin**    | Seeded by `pnpm seed` → `admin@eastpark.local` / `Admin@123456`                           |
 | **Resident** | Register via app → email + unit number + password → verify OTP (check Mailpit at `:8025`) |
-| **Merchant** | Admin sends email invite via API → accept-invitation deep link → set name + password |
-| **Guest** | No registration — read-only access to directory and announcements |
+| **Merchant** | Admin sends email invite via API → accept-invitation deep link → set name + password      |
+| **Guest**    | No registration — read-only access to directory and announcements                         |
 
 ---
 
@@ -380,7 +405,7 @@ After `eas init` completes, open `apps/mobile/app.config.ts` and paste the ID:
 
 ```ts
 // app.config.ts  (line 10)
-const EAS_PROJECT_ID = 'paste-your-project-id-here';   // was: ''
+const EAS_PROJECT_ID = "paste-your-project-id-here"; // was: ''
 ```
 
 Without this, `registerPushToken()` silently returns no token in every production or preview build. The app works but users receive no push notifications.
@@ -443,7 +468,7 @@ Three things that will silently bite you:
 - **Use the pooler host, not `db.<ref>.supabase.co`.** The direct host is IPv6-only and Fly
   VMs have no public IPv4 egress, so it is simply unreachable. The pooler resolves to IPv4.
 - **Percent-encode the password.** A literal `#` truncates the URL at the fragment and `@`
-  splits the authority — both produce a *valid-looking* string pointing at the wrong host.
+  splits the authority — both produce a _valid-looking_ string pointing at the wrong host.
   `#` → `%23`, `@` → `%40`, `:` → `%3A`, `/` → `%2F`.
 - **Free projects pause after 1 week idle** and need a manual dashboard restore. The Fly
   health check queries the DB every 15s, which keeps it awake — don't remove it.
@@ -460,41 +485,23 @@ Note the `rediss://` (with double-s) for TLS — required by Upstash.
 
 ---
 
-## Production Deployment (Fly.io)
+## Production Deployment
 
-The backend is configured for Fly.io (region: `cdg`, Paris). One machine always stays running — no cold starts.
+The applications deploy independently from this repository:
 
-```bash
-cd apps/backend
+| Application | Platform                  | Configuration                                     |
+| ----------- | ------------------------- | ------------------------------------------------- |
+| Web         | Vercel                    | Root directory `apps/web`                         |
+| Backend     | Render                    | Root `render.yaml`, Docker context `apps/backend` |
+| Mobile      | Expo Application Services | Project directory `apps/mobile`                   |
 
-# Authenticate
-fly auth login
+Render reuses the existing Supabase PostgreSQL/storage, Upstash Redis, and Brevo services. Enter all
+`sync: false` values from `render.yaml` in the Render dashboard; never commit credentials. Follow
+`apps/backend/Documentation/RENDER.md` for deployment, verification, cutover, and rollback.
 
-# Set all secrets (one-time)
-fly secrets set \
-  DATABASE_URL="postgresql://...@ep-xxx.neon.tech/eastpark?sslmode=require" \
-  REDIS_URL="rediss://default:xxx@your-endpoint.upstash.io:6379" \
-  AUTH_ACCESS_TOKEN_SECRET="$(openssl rand -base64 48)" \
-  AUTH_REFRESH_TOKEN_SECRET="$(openssl rand -base64 48)" \
-  SMTP_HOST="smtp-relay.brevo.com" \
-  SMTP_PORT="587" \
-  SMTP_USER="your@email.com" \
-  SMTP_PASS="brevo-smtp-key" \
-  EMAIL_FROM="noreply@eastpark.app" \
-  SUPABASE_URL="https://your-project.supabase.co" \
-  SUPABASE_SERVICE_KEY="your-service-role-key" \
-  SUPABASE_BUCKET="eastpark-uploads" \
-  PAYMOB_API_KEY="your-paymob-api-key" \
-  PAYMOB_HMAC_SECRET="your-paymob-hmac-secret" \
-  PAYMOB_INTEGRATION_ID="your-integration-id" \
-  PAYMOB_IFRAME_ID="your-iframe-id" \
-  APP_URL="https://eastpark-backend.fly.dev"
-
-# Deploy
-fly deploy
-```
-
-On first deploy the Dockerfile runs `npx prisma migrate deploy && node dist/main` automatically.
+Fly.io remains the production rollback API until Render passes health, CORS, authentication,
+resident-lead, and announcement checks. The Docker image runs Prisma migrations before starting the
+NestJS service.
 
 For the mobile app, run an EAS production build and submit to the stores:
 
@@ -510,29 +517,29 @@ pnpm build:production:android
 
 **Backend**
 
-| Symptom | Fix |
-|---|---|
-| `Cannot find module 'pnpm'` | `npm install -g pnpm` |
-| `ECONNREFUSED localhost:5432` | Run `pnpm docker:up` first; wait ~10 s for postgres to become healthy |
-| OTP email not received | Check Mailpit at `http://localhost:8025` — all outbound emails are captured there |
-| `invalidHmac` on Paymob webhook | `PAYMOB_HMAC_SECRET` must exactly match the secret in your Paymob dashboard |
-| Prisma migration error | Check `DATABASE_URL` in `.env`; ensure postgres container is healthy (`docker-compose ps`) |
-| Redis connection error | Check `REDIS_URL` in `.env`; ensure redis container is running |
-| `drift detected` on `prisma migrate dev` | `npx prisma migrate reset && pnpm seed` (dev only — destroys all data) |
-| WebSocket connection refused | Connect to `/orders` namespace: `io('http://localhost:3000/orders', { auth: { token } })` |
-| App crashes on Fly.io (256 MB RAM) | `fly scale memory 512` (~$2/month — NestJS + Prisma idles at ~200 MB) |
+| Symptom                                  | Fix                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Cannot find module 'pnpm'`              | `npm install -g pnpm`                                                                      |
+| `ECONNREFUSED localhost:5432`            | Run `pnpm docker:up` first; wait ~10 s for postgres to become healthy                      |
+| OTP email not received                   | Check Mailpit at `http://localhost:8025` — all outbound emails are captured there          |
+| `invalidHmac` on Paymob webhook          | `PAYMOB_HMAC_SECRET` must exactly match the secret in your Paymob dashboard                |
+| Prisma migration error                   | Check `DATABASE_URL` in `.env`; ensure postgres container is healthy (`docker-compose ps`) |
+| Redis connection error                   | Check `REDIS_URL` in `.env`; ensure redis container is running                             |
+| `drift detected` on `prisma migrate dev` | `npx prisma migrate reset && pnpm seed` (dev only — destroys all data)                     |
+| WebSocket connection refused             | Connect to `/orders` namespace: `io('http://localhost:3000/orders', { auth: { token } })`  |
+| App crashes on Fly.io (256 MB RAM)       | `fly scale memory 512` (~$2/month — NestJS + Prisma idles at ~200 MB)                      |
 
 **Frontend**
 
-| Symptom | Fix |
-|---|---|
-| `only-allow` error on `npm install` | Use `pnpm install` — npm/yarn are blocked by a preinstall hook |
-| Physical device cannot reach API | Set `EXPO_PUBLIC_API_URL=http://192.168.x.x:3000` (your LAN IP) in `.env.local` |
-| Android emulator cannot reach API | Use `http://10.0.2.2:3000` instead of `localhost` in `.env.local` |
-| API URL returns 404 on all routes | Do not add `/v1` to `EXPO_PUBLIC_API_URL` — the Axios client appends it automatically |
-| Native module crash in Expo Go | Expo Go does not support `expo-secure-store`, push notifications, or deep links — build a dev client: `pnpm ios` or `pnpm android` |
-| Push notifications not working | 1) Must be on a physical device (not simulator). 2) `EAS_PROJECT_ID` must be set in `app.config.ts` (run `eas init` first) |
-| `EAS_PROJECT_ID is empty` warning | Run `eas init` inside `apps/mobile/`, paste the ID into `app.config.ts` line 10 |
-| Stale Metro bundle after env change | `pnpm start -- -c` (clears Metro cache) |
-| TypeScript errors after install | `pnpm type-check` to list all; `pnpm expo prebuild` if native types are stale |
-| i18n strings showing key names | Translation key missing from `src/translations/en.json` or `ar.json` |
+| Symptom                             | Fix                                                                                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `only-allow` error on `npm install` | Use `pnpm install` — npm/yarn are blocked by a preinstall hook                                                                     |
+| Physical device cannot reach API    | Set `EXPO_PUBLIC_API_URL=http://192.168.x.x:3000` (your LAN IP) in `.env.local`                                                    |
+| Android emulator cannot reach API   | Use `http://10.0.2.2:3000` instead of `localhost` in `.env.local`                                                                  |
+| API URL returns 404 on all routes   | Do not add `/v1` to `EXPO_PUBLIC_API_URL` — the Axios client appends it automatically                                              |
+| Native module crash in Expo Go      | Expo Go does not support `expo-secure-store`, push notifications, or deep links — build a dev client: `pnpm ios` or `pnpm android` |
+| Push notifications not working      | 1) Must be on a physical device (not simulator). 2) `EAS_PROJECT_ID` must be set in `app.config.ts` (run `eas init` first)         |
+| `EAS_PROJECT_ID is empty` warning   | Run `eas init` inside `apps/mobile/`, paste the ID into `app.config.ts` line 10                                                    |
+| Stale Metro bundle after env change | `pnpm start -- -c` (clears Metro cache)                                                                                            |
+| TypeScript errors after install     | `pnpm type-check` to list all; `pnpm expo prebuild` if native types are stale                                                      |
+| i18n strings showing key names      | Translation key missing from `src/translations/en.json` or `ar.json`                                                               |
