@@ -2,7 +2,7 @@
 
 **Written 2026-09-29.** Everything outstanding across all three repos, in the order it should be done.
 
-Authoritative detail lives in `eastpark-backend/COMPLETION-ROADMAP.md` (every item as `[P0|P1|P2] — title — file:line — fix — how to verify`). This file is the executable version of it.
+Authoritative detail lives in `apps/backend/COMPLETION-ROADMAP.md` (every item as `[P0|P1|P2] — title — file:line — fix — how to verify`). This file is the executable version of it.
 
 ---
 
@@ -31,7 +31,7 @@ This is the trap. `email.service.ts:23-32` and `files.service.ts:26-29` call `co
  6. YOU  fly secrets set SMTP_USER + SMTP_PASS                   values in the Brevo section below
  7. YOU  docker build                                           ← never run, may fail
  8. YOU  fly deploy  (runs prisma migrate deploy on boot)       ← never run, may fail
- 9. YOU  Deploy web app — eastpark-web-app/DEPLOY.md
+ 9. YOU  Deploy web app — apps/web/DEPLOY.md
 10. YOU  Send me the Vercel domain
 11. ME   Swap it into APP_CORS_ORIGINS, redeploy backend  → B5-CORS
 12. YOU  curl POST /v1/residents/leads to confirm end-to-end
@@ -132,7 +132,7 @@ SMTP_PASS  xsmtpsib-…               ← fly secrets
 ```
 
 Local `.env` keeps Mailpit active; the working Brevo values sit commented below it at
-`eastpark-backend/.env:58-66`. **Rotate the key before launch** — it has been in plaintext
+`apps/backend/.env:58-66`. **Rotate the key before launch** — it has been in plaintext
 in `.env` and in a chat transcript.
 
 ```
@@ -342,7 +342,7 @@ echo package-lock.json >> .gitignore
 
 `eastpark-web-app` is complete: build / lint / tsc all exit 0, three routes prerender static, runtime-verified (Arabic RTL default, content visible with JS disabled, all 12 buildings grouped by phase, full ARIA combobox).
 
-**Only remaining step is deployment** — see `eastpark-web-app/DEPLOY.md`.
+**Only remaining step is deployment** — see `apps/web/DEPLOY.md`.
 
 Two gaps in the verification, both needing a real browser:
 - **Lighthouse ≥90 is unmeasured** — built to spec, markup verified via SSR HTML, never actually scored.
@@ -389,6 +389,6 @@ Two caveats for whoever does it:
 
 - **`APP_CORS_ORIGINS` currently holds a placeholder Vercel domain.** Until the real one is set, every form submission fails with a CORS error in the browser. The config now filters blank entries so a malformed value fails loudly rather than silently matching nothing.
 - **A missing `resident_leads` table surfaces as an opaque 500**, which the web client correctly reports as a generic "something went wrong on our side" — indistinguishable from a real bug. Check the migration before debugging the form.
-- **`isValidFloorForBuilding` in `eastpark-web-app/src/config/compound.ts` is load-bearing.** The API accepts `"G"` for *any* building — there is no enum and no CHECK constraint — so client-side validation is the only thing preventing an impossible unit. There is a warning comment on it; do not "simplify" it into a plain range check.
+- **`isValidFloorForBuilding` in `apps/web/src/config/compound.ts` is load-bearing.** The API accepts `"G"` for *any* building — there is no enum and no CHECK constraint — so client-side validation is the only thing preventing an impossible unit. There is a warning comment on it; do not "simplify" it into a plain range check.
 - **The compound layout lives in exactly one file.** Changing buildings, phases, or which phases have a ground floor is a one-file edit in `compound.ts` — no migration, no backend change.
 - **`NEXT_PUBLIC_*` vars are baked in at build time.** Changing one in the Vercel dashboard does nothing until you redeploy.

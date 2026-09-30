@@ -1,5 +1,3 @@
 packages:
   - packages/*
-  - eastpark-web-app
-  - eastpark-frontend
-  - eastpark-backend
+  - apps/*

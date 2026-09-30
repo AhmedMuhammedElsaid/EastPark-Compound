@@ -11,7 +11,7 @@
 The developer built EastPark (a single-compound resident super-app) from scratch and wants to **sell it to the EastPark company** so they deploy it for their residents. This is a B2B sale to one operator — not a multi-tenant SaaS play.
 
 Two facts confirmed from the code drive this plan:
-1. **Single-compound architecture** (`eastpark-backend/prisma/schema.prisma` — no `Compound`/`Tenant`/`Organization` model; all tables share one space). This is *fine* for selling to one company; multi-tenancy is not needed.
+1. **Single-compound architecture** (`apps/backend/prisma/schema.prisma` — no `Compound`/`Tenant`/`Organization` model; all tables share one space). This is *fine* for selling to one company; multi-tenancy is not needed.
 2. **No platform-side money logic exists.** Paymob only handles resident→shop order payments (`Order.isPaid`). There is no commission, shop-subscription, take-rate, or billing module. The "marketplace earns EastPark money" pitch is therefore **not yet real in code** — it must be built.
 
 The app has two value halves that map to two buyer motivations:
@@ -48,14 +48,14 @@ Also produce a **short 1-page version** (`BUSINESS/EastPark-Pitch-OnePager.md`) 
 
 Goal: make "EastPark earns a commission on every order" real and demoable in the admin tools. Minimal, schema-first, reuses existing patterns.
 
-### Schema (`eastpark-backend/prisma/schema.prisma`)
+### Schema (`apps/backend/prisma/schema.prisma`)
 - Add a **platform commission** concept. Simplest viable: a config value + a per-order derived record.
   - New model `PlatformCommission` (per delivered/paid order): `id`, `orderId @unique → Order`, `orderTotal`, `commissionRate` (snapshot), `commissionAmount`, `createdAt`. Preserves history even if rate later changes.
   - New model `CommissionSetting` (single-row config): `commissionRatePercent` (default e.g. 5.0), `appliesToCOD Boolean`, `appliesToPaymob Boolean`, `updatedAt`, `updatedBy`. Avoids hardcoding; editable by admin.
   - Add back-relation field on `Order` (`commission PlatformCommission?`).
 - Create a proper Prisma migration (note: repo has a known migration-baseline issue per audit — see `backend_review.md`; coordinate so this migration is additive and clean).
 
-### Module (`eastpark-backend/src/modules/commission/`)
+### Module (`apps/backend/src/modules/commission/`)
 Follow the existing module shape (mirror `merchant/` and `payments/` structure: `*.module.ts`, `*.service.ts`, `*.controller.ts`):
 - **Record commission** at the right lifecycle point:
   - Paymob orders → in the webhook path that flips `Order.isPaid` (`payments.service.ts`).
@@ -67,18 +67,18 @@ Follow the existing module shape (mirror `merchant/` and `payments/` structure: 
   - `GET /v1/commission/settings` / `PATCH /v1/commission/settings` — read/update rate & applicability.
 - Use `ConfigService` for any defaults (locked rule: never raw `process.env`); log via existing logger.
 
-### Frontend (`eastpark-frontend/app/(admin)/`)
+### Frontend (`apps/mobile/app/(admin)/`)
 - Add an admin screen (e.g. `app/(admin)/revenue/index.tsx`) showing commission summary + list, reusing existing admin-guard + `useInfiniteQuery` + FlashList patterns and `formatCurrency`. This is the live demo surface for the pitch.
 - Add the API service methods mirroring existing service files (e.g. a new `commission.ts` under the services dir).
 
 ### Representative files to touch
-- `eastpark-backend/prisma/schema.prisma` (models + migration)
-- `eastpark-backend/src/modules/commission/*` (new module)
-- `eastpark-backend/src/modules/payments/payments.service.ts` (Paymob hook)
-- `eastpark-backend/src/modules/orders/orders.service.ts` (COD delivered hook)
-- `eastpark-backend/src/app.module.ts` (register module)
-- `eastpark-frontend/app/(admin)/revenue/index.tsx` + admin layout registration
-- `eastpark-frontend/src/api/commission.ts` (or matching services path)
+- `apps/backend/prisma/schema.prisma` (models + migration)
+- `apps/backend/src/modules/commission/*` (new module)
+- `apps/backend/src/modules/payments/payments.service.ts` (Paymob hook)
+- `apps/backend/src/modules/orders/orders.service.ts` (COD delivered hook)
+- `apps/backend/src/app.module.ts` (register module)
+- `apps/mobile/app/(admin)/revenue/index.tsx` + admin layout registration
+- `apps/mobile/src/api/commission.ts` (or matching services path)
 
 ---
 

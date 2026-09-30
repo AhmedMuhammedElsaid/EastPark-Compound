@@ -3,6 +3,26 @@
 > Comprehensive technical snapshot of the EastPark codebase as explored in April 2026.
 > Use this as a quick-reference reference for AI-assisted sessions and onboarding.
 
+## Local Workspace Migration — 2026-09-30
+
+The standalone repositories moved to `apps/web`, `apps/mobile`, and `apps/backend` while retaining
+their independent Git histories and remotes. Root workspace metadata and documentation now use the
+`apps/*` paths. The former root app directories were removed. No migration changes have been
+committed, pushed, or deployed.
+
+Post-move checks:
+
+- Web: full `check` passed; 24/24 Next routes generated, including `/home`.
+- Mobile: TypeScript check passed.
+- Shared package: typecheck and 4/4 tests passed; production children still do not consume it.
+- Backend: standalone dependencies restored from the child lockfile; Prisma schema validation,
+  strict typecheck, and lint pass, and the complete suite passes 100/100 tests.
+- Resident leads: duplicate active units now return a conflict, including the Prisma `P2002` race
+  path. The focused suite passes 38/38 tests. The partial unique-index migration is not deployed.
+- Web Turbopack is explicitly rooted at `apps/web`, preserving standalone child builds.
+
+All repositories currently contain uncommitted work. Preserve it when resuming.
+
 ## Production Snapshot — 2026-09-30
 
 The public resident registration flow is deployed and verified end to end.
@@ -33,7 +53,7 @@ installable. See `restructure.md` before changing workspace boundaries.
 
 Verified locally on 2026-09-30:
 
-- `pnpm --dir eastpark-web-app check` passes ESLint, strict TypeScript, and the Next production build.
+- `pnpm --dir apps/web check` passes ESLint, strict TypeScript, and the Next production build.
 - Next generated 23/23 static pages; production startup was approximately 269ms locally.
 - Standard, Open Graph, and X/Twitter descriptions render the exact social description above.
 - Lead submission works through `/api/resident-leads`; upstream Fly and malformed-payload behavior
@@ -62,12 +82,13 @@ EastPark-App/
 ├── package.json          Root pnpm workspace experiment scripts
 ├── pnpm-workspace.yaml   Includes apps plus packages/* for local validation
 ├── packages/shared/      Deferred platform-neutral contracts/logic/schemas/tokens experiment
-├── eastpark-backend/     NestJS 11 + Fastify — fully built ✅
-├── eastpark-frontend/    Expo 54 React Native — in active development ✅
-├── eastpark-web-app/     Next.js 16 web app; hardened public/auth release deployed
+├── apps/
+│   ├── backend/         NestJS 11 + Fastify — fully built ✅
+│   ├── mobile/          Expo 54 React Native — in active development ✅
+│   └── web/             Next.js 16 web app; hardened public/auth release deployed
 ├── BackendPlan.md        Canonical backend design document
 ├── FrontendPlan.md       Canonical frontend design document
-│   (DESIGN.md moved to eastpark-frontend/Documentation/DESIGN.md)
+│   (DESIGN.md moved to apps/mobile/Documentation/DESIGN.md)
 ├── CLAUDE.md             AI session context + all locked decisions
 ├── README.md             Step-by-step setup guide (local dev + production deploy)
 └── eastpark.jpg          Brand logo (source of color palette)
@@ -75,7 +96,7 @@ EastPark-App/
 
 ---
 
-## Backend — eastpark-backend/
+## Backend — apps/backend/
 
 ### Status: Fully Built ✅
 
@@ -169,7 +190,7 @@ MinIO default credentials: `minioadmin` / `minioadmin`. Bucket name: `eastpark-u
 
 ---
 
-## Frontend — eastpark-frontend/
+## Frontend — apps/mobile/
 
 ### Status: Fully Complete ✅
 
@@ -276,7 +297,7 @@ app/
 | `production` | store release (.aab / .ipa) | store |
 | `simulator` | dev client | internal (iOS simulator) |
 
-> `EAS_PROJECT_ID` is currently empty (`''`). Run `eas init` inside `eastpark-frontend/` before any cloud build.
+> `EAS_PROJECT_ID` is currently empty (`''`). Run `eas init` inside `apps/mobile/` before any cloud build.
 
 ---
 

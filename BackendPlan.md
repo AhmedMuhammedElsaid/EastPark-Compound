@@ -978,7 +978,7 @@ Chosen after evaluating 8 NestJS starters. Closest match to our requirements out
 ```bash
 # ── Step 1: Clone boilerplate ────────────────────────────────────────────────
 git clone https://github.com/hmake98/nestjs-starter eastpark-backend
-cd eastpark-backend
+cd apps/backend
 rm -rf .git                        # detach from upstream history
 git init && git add . && git commit -m "chore: init from hmake98/nestjs-starter"
 

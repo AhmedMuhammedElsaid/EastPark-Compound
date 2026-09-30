@@ -4,9 +4,9 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "check:shared": "pnpm --filter @eastpark/shared typecheck && pnpm --filter @eastpark/shared test",
-    "check:web": "pnpm --dir eastpark-web-app exec tsc --noEmit",
-    "check:mobile": "pnpm --dir eastpark-frontend type-check",
-    "check:backend": "pnpm --dir eastpark-backend typecheck"
+    "check:web": "pnpm --dir apps/web check",
+    "check:mobile": "pnpm --dir apps/mobile type-check",
+    "check:backend": "pnpm --dir apps/backend typecheck"
   },
   "devDependencies": {
     "typescript": "5.9.3"

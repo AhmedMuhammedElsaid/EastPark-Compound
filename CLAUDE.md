@@ -19,7 +19,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 - `FrontendPlan.md` — complete FE plan
 - `BackendPlan.md` — complete BE plan (Prisma schema, module structure, all API endpoints, Docker, Fly.io)
-- `eastpark-frontend/Documentation/DESIGN.md` — full design system (~1750 lines — color tokens, typography, all screens 5.1–5.13, motion, per-module patterns, implementation patterns)
+- `apps/mobile/Documentation/DESIGN.md` — full design system (~1750 lines — color tokens, typography, all screens 5.1–5.13, motion, per-module patterns, implementation patterns)
 - `.impeccable.md` — design context for skill commands
 - `.github/copilot-instructions.md` — same design context synced for GitHub Copilot
 - `eastpark.jpg` — official brand logo (source of color palette)
@@ -27,6 +27,31 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 ---
 
 ## Current Status
+
+> ### 2026-09-30 — APPS LAYOUT MIGRATED LOCALLY (NEWEST)
+>
+> The three independent repositories now live under `apps/`:
+> - `apps/web` — Next.js web app
+> - `apps/mobile` — Expo mobile app
+> - `apps/backend` — NestJS backend
+>
+> Their original Git histories, branches, remotes, and pre-migration working-tree changes were
+> preserved. The obsolete root directories were removed. Root workspace scripts, lockfile importers,
+> ignore rules, and documentation paths now target `apps/*`. No commit, push, or deployment was made.
+>
+> Validation after the move:
+> - `pnpm check:web` passed; Next generated 24/24 routes, including `/home`.
+> - `pnpm check:mobile` passed.
+> - `pnpm check:shared` passed: typecheck plus 4/4 tests.
+> - Backend standalone dependencies were restored from its frozen child lockfile; Prisma validation,
+>   strict typecheck, and lint all pass. The complete backend suite passes **100/100** tests.
+> - The resident-lead duplicate-unit slice passes 38/38 focused tests, including concurrent Prisma
+>   `P2002` conflict handling. Its partial unique-index migration is validated but not deployed.
+> - `apps/web/next.config.ts` pins Turbopack to the child repository root so standalone builds remain
+>   hermetic after the move and do not consume the deferred root shared package.
+>
+> Working trees are intentionally dirty across the root and child repositories. In particular, the
+> web resident-shell slice remains uncommitted. Do not discard or commit changes without review.
 
 > ### 2026-09-30 — WEB HARDENING DEPLOYED + PARITY PREPARATION (NEWEST)
 >
@@ -43,7 +68,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 >   `noindex`, production CSP, and security headers.
 > - Share description: `Commerce, services, and community in one trusted place. Built By Ahmed
 >   Muhammed Elsaid.`
-> - Repeatable web gate: `pnpm --dir eastpark-web-app check` (lint + strict TypeScript + build).
+> - Repeatable web gate: `pnpm --dir apps/web check` (lint + strict TypeScript + build).
 >
 > A root pnpm workspace and private `packages/shared` package are retained as a **deferred local
 > experiment**. No production child repository consumes it; web, mobile, and backend remain
@@ -100,13 +125,13 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > 3. The stack table below is wrong in two places: the app uses **uniwind + `StyleSheet.create`**
 >    (not NativeWind v4 + Gluestack UI v2) and **AsyncStorage** for theme (not MMKV).
 >
-> **Authoritative task list:** `eastpark-backend/COMPLETION-ROADMAP.md`. Highest-value open items:
+> **Authoritative task list:** `apps/backend/COMPLETION-ROADMAP.md`. Highest-value open items:
 > the Paymob webhook does not verify the paid amount, and money is still `Float` (cheap to migrate
 > while the DB is empty, expensive once real orders exist).
 >
 > Remaining work handed off to session `eastpark-app-7b` on 2026-09-29.
 
-**Audited 2026-07-19, re-verified + fixed 2026-07-26. All backend blockers fixed & verified (Node v24 via nvm: `pnpm typecheck` exit 0, 62/62 tests green, coverage 81.11%). Merchant module (the biggest cross-repo blocker) fixed backend-side. Remaining: prod deploy steps + a couple of non-blocking FE items. Full detail in `eastpark-frontend/frontend_review.md` and `eastpark-backend/backend_review.md`.**
+**Audited 2026-07-19, re-verified + fixed 2026-07-26. All backend blockers fixed & verified (Node v24 via nvm: `pnpm typecheck` exit 0, 62/62 tests green, coverage 81.11%). Merchant module (the biggest cross-repo blocker) fixed backend-side. Remaining: prod deploy steps + a couple of non-blocking FE items. Full detail in `apps/mobile/frontend_review.md` and `apps/backend/backend_review.md`.**
 
 ### Audit 2026-07-19 → fixed 2026-07-26
 
@@ -131,17 +156,17 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 **Older completion notes (pre-audit — kept for history):**
 
-- **Backend** (`eastpark-backend/` — NestJS + Fastify) — all 8 phases + all 6 gaps + wiring fixes + 2 full security/logic audit passes done. Last commit: `c7dfb01`
+- **Backend** (`apps/backend/` — NestJS + Fastify) — all 8 phases + all 6 gaps + wiring fixes + 2 full security/logic audit passes done. Last commit: `c7dfb01`
   - Auth, shops, products, orders, payments (Paymob), community (announcements, polls, elections, feedback), notifications, invitations
   - Paymob 3-step initiation + HMAC-SHA512 webhook, Socket.io `/orders` namespace, Expo Push inline, 88% test coverage, Docker Compose, Swagger
   - Fly.io `cdg` region, `auto_stop_machines = false`
   - Security audit 2 (2026-04-08): 8 bugs fixed — passwordHash leak, photo ownership, merchant feedback access, Paymob guards, averageRating in list, isPrimary on ShopPhoto
 
-- **Frontend** (`eastpark-frontend/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `41cc16e`
+- **Frontend** (`apps/mobile/` — Expo + React Native) — all 7 phases + all 38 AppGaps + 3 deep-audit passes + FE-BE wiring + maintenance pass + review pass + Jest fix pass done. Last commit: `41cc16e`
   - Full navigation, auth-wall, marketplace (shops/orders/cart/checkout/Paymob), community hub, governance, feedback, merchant tools, admin
   - Redux Toolkit (authSlice + cartSlice + preferencesSlice), TanStack Query v5, expo-secure-store JWT, FlashList everywhere, i18n AR+EN
   - Deep audit fixed: Paymob 3-step flow, push token endpoint/projectId, token persist blacklist, admin redirect guards, 30+ emoji→Phosphor icons, all ← arrows replaced, formatCurrency everywhere, N+1 fetch fixed via TanStack Query cache initialData, rgba→token colors
-  - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items resolved — see `eastpark-frontend/Documentation/FixedBugs.md`
+  - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items resolved — see `apps/mobile/Documentation/FixedBugs.md`
   - Review pass + TS fixes (April 2026): FlashList v2 prop removal, isPrimary photo type, formatRelativeTime cast, icon fixes — commits `2ab46a8`–`1e8a72a`
   - Jest fix pass (April 2026): global `@/store` mock in `jest-setup.ts` to avoid RTK/react-redux ESM errors — commits `23a39fe`, `a498a15`
   - API response shape fix (2026-04-08): `CursorPage.data` → `items`, `.data.data.data` → `.data.data.items` across 15 screens + 8 service files
@@ -157,9 +182,9 @@ _Code fixes — BE all done (2026-07-26). FE in progress:_
 
 _Deploy steps (CLIs not in WSL — run by user; modern Node available via nvm):_
 5. Run `pnpm type-check && pnpm lint && pnpm test` on the FE for a full signal.
-6. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `eastpark-backend/`
-7. `fly deploy` from `eastpark-backend/` (baseline migration now in place — safe).
-8. `eas build` / `eas submit` from `eastpark-frontend/`
+6. `fly secrets set PAYMOB_INTEGRATION_ID=<val> PAYMOB_IFRAME_ID=<val>` from `apps/backend/`
+7. `fly deploy` from `apps/backend/` (baseline migration now in place — safe).
+8. `eas build` / `eas submit` from `apps/mobile/`
 
 **Commit format:** `[AhmedMuhammedElsaid][feat|fix|chore|docs]: description`
 **All commits use `--no-verify`** (WSL cannot run node/pnpm hooks — pre-commit hook always fails)
@@ -299,7 +324,7 @@ app/
 
 ## Design System (locked — never re-debate)
 
-Full reference: `eastpark-frontend/Documentation/DESIGN.md`. Core rules:
+Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 
 | Token | Value | Rule |
 |---|---|---|
@@ -456,4 +481,4 @@ Full reference: `eastpark-frontend/Documentation/DESIGN.md`. Core rules:
 
 **Automatic:** Open terminal in this directory → `claude` → memory + this file load automatically → say "let's continue".
 **Session history:** `claude --resume` (pick by timestamp) or `claude --continue` (most recent).
-**Manual:** "read eastpark-frontend/CLAUDE.md and eastpark-backend/CLAUDE.md and let's continue building EastPark".
+**Manual:** "read apps/mobile/CLAUDE.md and apps/backend/CLAUDE.md and let's continue building EastPark".

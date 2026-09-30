@@ -11,11 +11,14 @@
 
 ```
 EastPark-App/
-├── eastpark-backend/     NestJS 11 + Fastify REST & WebSocket API
-├── eastpark-frontend/    Expo 54 React Native app (iOS + Android)
+├── apps/
+│   ├── backend/         NestJS 11 + Fastify REST & WebSocket API
+│   ├── mobile/          Expo 54 React Native app (iOS + Android)
+│   └── web/             Next.js resident web app
+├── packages/shared/     Deferred platform-neutral package
 ├── BackendPlan.md        Canonical backend architecture reference
 ├── FrontendPlan.md       Canonical frontend architecture reference
-├── DESIGN.md             Full design system (~1750 lines)
+├── apps/mobile/Documentation/DESIGN.md  Full design system
 └── CLAUDE.md             Session context for AI-assisted development
 ```
 
@@ -55,7 +58,7 @@ EastPark-App/
 ### Step 1 — Install dependencies
 
 ```bash
-cd eastpark-backend
+cd apps/backend
 pnpm install
 ```
 
@@ -185,7 +188,7 @@ pnpm build              # Compile TypeScript → dist/
 ### Step 1 — Install dependencies
 
 ```bash
-cd eastpark-frontend
+cd apps/mobile
 pnpm install
 ```
 
@@ -296,13 +299,13 @@ Open two terminal windows side by side:
 
 **Terminal 1 — Backend:**
 ```bash
-cd eastpark-backend
+cd apps/backend
 pnpm dev:setup          # or: pnpm docker:up && pnpm prisma:migrate && pnpm seed && pnpm dev
 ```
 
 **Terminal 2 — Frontend:**
 ```bash
-cd eastpark-frontend
+cd apps/mobile
 pnpm start
 ```
 
@@ -364,7 +367,7 @@ These steps cannot be automated — they require personal accounts or manual con
 Push notifications in all non-Expo-Go builds require a valid EAS project ID.
 
 ```bash
-cd eastpark-frontend
+cd apps/mobile
 
 # Log in to your Expo account (create one free at expo.dev)
 eas login
@@ -373,7 +376,7 @@ eas login
 eas init
 ```
 
-After `eas init` completes, open `eastpark-frontend/app.config.ts` and paste the ID:
+After `eas init` completes, open `apps/mobile/app.config.ts` and paste the ID:
 
 ```ts
 // app.config.ts  (line 10)
@@ -384,7 +387,7 @@ Without this, `registerPushToken()` silently returns no token in every productio
 
 ### 2 — Paymob credentials (card & wallet payments)
 
-COD works with zero Paymob config. To enable card/wallet payments, get your credentials from the [Paymob dashboard](https://accept.paymob.com/dashboard) and set them in `eastpark-backend/.env` (and in Fly.io secrets for production):
+COD works with zero Paymob config. To enable card/wallet payments, get your credentials from the [Paymob dashboard](https://accept.paymob.com/dashboard) and set them in `apps/backend/.env` (and in Fly.io secrets for production):
 
 ```env
 PAYMOB_API_KEY=<from Paymob → Settings → API Keys>
@@ -462,7 +465,7 @@ Note the `rediss://` (with double-s) for TLS — required by Upstash.
 The backend is configured for Fly.io (region: `cdg`, Paris). One machine always stays running — no cold starts.
 
 ```bash
-cd eastpark-backend
+cd apps/backend
 
 # Authenticate
 fly auth login
@@ -496,7 +499,7 @@ On first deploy the Dockerfile runs `npx prisma migrate deploy && node dist/main
 For the mobile app, run an EAS production build and submit to the stores:
 
 ```bash
-cd eastpark-frontend
+cd apps/mobile
 pnpm build:production:ios
 pnpm build:production:android
 ```
@@ -529,7 +532,7 @@ pnpm build:production:android
 | API URL returns 404 on all routes | Do not add `/v1` to `EXPO_PUBLIC_API_URL` — the Axios client appends it automatically |
 | Native module crash in Expo Go | Expo Go does not support `expo-secure-store`, push notifications, or deep links — build a dev client: `pnpm ios` or `pnpm android` |
 | Push notifications not working | 1) Must be on a physical device (not simulator). 2) `EAS_PROJECT_ID` must be set in `app.config.ts` (run `eas init` first) |
-| `EAS_PROJECT_ID is empty` warning | Run `eas init` inside `eastpark-frontend/`, paste the ID into `app.config.ts` line 10 |
+| `EAS_PROJECT_ID is empty` warning | Run `eas init` inside `apps/mobile/`, paste the ID into `app.config.ts` line 10 |
 | Stale Metro bundle after env change | `pnpm start -- -c` (clears Metro cache) |
 | TypeScript errors after install | `pnpm type-check` to list all; `pnpm expo prebuild` if native types are stale |
 | i18n strings showing key names | Translation key missing from `src/translations/en.json` or `ar.json` |

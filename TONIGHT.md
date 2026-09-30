@@ -80,7 +80,7 @@ useless to the backend. `SUPABASE_SERVICE_KEY` must be the secret one; it writes
 ## 3. ME — set secrets and deploy
 
 ```bash
-cd eastpark-backend
+cd apps/backend
 flyctl secrets set \
   DATABASE_URL='<transaction pooler :6543>?pgbouncer=true&connection_limit=1' \
   DIRECT_DATABASE_URL='<session pooler :5432>' \
@@ -134,7 +134,7 @@ vercel login
 ## 6. ME — deploy the web app
 
 ```bash
-cd eastpark-web-app
+cd apps/web
 vercel link
 vercel env add NEXT_PUBLIC_API_URL production   # https://eastpark-backend.fly.dev
 vercel --prod

@@ -1,32 +1,33 @@
 # EastPark — Monorepo Restructure Plan
 
-**Status: DEFERRED EXPERIMENT. No production child repository consumes `@eastpark/shared`.**
+**Status: APPS LAYOUT MIGRATED LOCALLY. Shared-package adoption remains deferred.**
 
-Originally deferred 2026-09-29. A root workspace and shared package prototype now exist and pass
-their focused checks, but web, mobile, and backend remain standalone. Resume only as a separately
-approved migration after validating Vercel and a real EAS build strategy.
+On 2026-09-30, the three standalone repositories moved to `apps/web`, `apps/mobile`, and
+`apps/backend`. Their independent Git histories and remotes were preserved. The root workspace and
+private shared-package prototype remain, but no production child repository consumes
+`@eastpark/shared`.
 
 ---
 
-## Why this is deferred, not dropped
+## Preserved constraints
 
 | Fact | Consequence |
 |---|---|
-| `eastpark-frontend` is its own git repo — **786 commits**, branch `main` | Converting means rewriting or losing that history |
-| `eastpark-backend` is its own git repo — **35 commits**, branch `main` | Same |
+| `apps/mobile` is its own git repo — **786 commits**, branch `main` | Keep its history and remote independent |
+| `apps/backend` is its own git repo — **35 commits**, branch `main` | Keep its history and remote independent |
 | Root repo is on `master`; the three projects are nested but independent | Three histories to reconcile, not one |
 | Mobile build config is fragile | `jest-setup.ts` globally mocks `@/store` to dodge RTK/react-redux ESM parse errors; `transformIgnorePatterns` lists `immer\|@reduxjs/toolkit\|redux-persist`. Metro + Jest + EAS all need path remapping for a workspace layout |
 | The real duplicated surface is small | `tokens.ts` is **93 lines** of constants; translations are data |
 
-Doing this mid-flight — while the stated priority is shipping web — risks breaking the mobile
-build for a payoff measured in ~100 lines of duplication. Carry the duplication for one release.
+Consuming the shared package still risks the mobile build for a payoff measured in roughly 100
+lines of duplication. Carry that duplication until a real EAS workspace build is verified.
 
 ---
 
 ## Settled repository strategy
 
-- Keep `eastpark-web-app`, `eastpark-frontend`, and `eastpark-backend` in their current directories.
-- Preserve their independent Git repositories and histories; do not move or rewrite them yet.
+- Keep web, mobile, and backend under `apps/` as independent nested Git repositories.
+- Preserve their existing histories and remotes; do not collapse them into the root repository.
 - Add a root pnpm workspace and a private, path-only `@eastpark/shared` package.
 - The root repository owns workspace files and the shared package. Existing app repositories keep
   owning their platform code.
@@ -38,12 +39,12 @@ build for a payoff measured in ~100 lines of duplication. Carry the duplication 
 
 | Include | Source of truth today | Notes |
 |---|---|---|
-| `theme/tokens.ts` | `eastpark-frontend/src/theme/tokens.ts` (93 lines) | `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. Pure TS constants, zero imports. **The two copies are no longer byte-identical** — mobile's was reformatted to double quotes by `eslint --fix` (commit `03d13bd`). All token *values* are identical; only quote style differs. Whichever copy becomes the shared one, diff values not bytes |
-| Translations | `eastpark-frontend/src/translations/{ar,en}.json` | ~650 strings. Web adds a `web` namespace for landing/form/thank-you copy — merge, don't fork |
+| `theme/tokens.ts` | `apps/mobile/src/theme/tokens.ts` (93 lines) | `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. Pure TS constants, zero imports. **The two copies are no longer byte-identical** — mobile's was reformatted to double quotes by `eslint --fix` (commit `03d13bd`). All token *values* are identical; only quote style differs. Whichever copy becomes the shared one, diff values not bytes |
+| Translations | `apps/mobile/src/translations/{ar,en}.json` | ~650 strings. Web adds a `web` namespace for landing/form/thank-you copy — merge, don't fork |
 | Zod schemas | Validation schemas across both apps | Messages are **i18n keys** resolved via `t(...)` at render time — never inline English |
 | Domain/API contracts | Backend DTOs and actual HTTP response shapes | Backend is authoritative; mobile remains the behavioral reference |
 | Pure business rules | Cart, order, localization, working-hours logic | No storage, networking, UI, or framework imports |
-| `compound.ts` | `eastpark-web-app/src/config/compound.ts` | Phase/building/floor layout. **Web-only today — see the caveat below** |
+| `compound.ts` | `apps/web/src/config/compound.ts` | Phase/building/floor layout. **Web-only today — see the caveat below** |
 
 > **`compound.ts` is not a pure code move.** The mobile app has no building/floor/flat concept at
 > all: `User.unitNumber` is a single free-text string. Sharing `compound.ts` only pays off if
@@ -92,12 +93,11 @@ EastPark-App/                      ← pnpm workspace root
 │   └── backend/                   ← was eastpark-backend
 ```
 
-Whether the three keep separate git histories (git subtree / submodules) or collapse into one
-repo is **an open decision** — see below.
+All three retain separate Git histories. Collapsing them into one history remains deferred.
 
 ---
 
-## Execution order
+## Shared-package execution order
 
 Do these one at a time, verifying between each. Never batch.
 
@@ -140,12 +140,11 @@ Do these one at a time, verifying between each. Never batch.
   Zod schemas apply, it may not be worth wiring in.
 - **Publish or path-only?** Path-based workspace deps are simpler; a published package is only
   needed if something outside this repo consumes it. Default to path-only.
-- **Rename directories?** `eastpark-frontend` → `apps/mobile` is clearer but breaks every
-  existing doc path, CI reference, and muscle-memory command. Could keep the current names
-  under `apps/`.
+- **Directory migration:** completed as `apps/mobile`, `apps/web`, and `apps/backend` on
+  2026-09-30.
 
 ---
 
-*Companion: `eastpark-backend/COMPLETION-ROADMAP.md` (the backend/mobile completion audit).
+*Companion: `apps/backend/COMPLETION-ROADMAP.md` (the backend/mobile completion audit).
 The duplication this plan removes is deliberate and temporary — see the "Design mirroring"
 section of Prompt B in `migration.md`.*

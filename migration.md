@@ -15,7 +15,7 @@ A prior exploration session read both repos. These are verified against source a
 
 ### The resident form cannot store data as originally specified
 
-`User.passwordHash` is required and `User.email` is `@unique` (`eastpark-backend/prisma/schema.prisma`). A public form collecting only building / floor / flat / parking can neither create a `User` row nor identify the submitter.
+`User.passwordHash` is required and `User.email` is `@unique` (`apps/backend/prisma/schema.prisma`). A public form collecting only building / floor / flat / parking can neither create a `User` row nor identify the submitter.
 
 **Resolved:** the form gains `name` + `email` + `phone`, and submissions land in a new `ResidentLead` model (no auth, no password), later matched/invited into a real `User`.
 
@@ -25,13 +25,13 @@ A prior exploration session read both repos. These are verified against source a
 
 ### More of the design system ports than expected
 
-- `eastpark-frontend/src/theme/tokens.ts` (93 lines) is pure TypeScript constants — `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. No React Native imports.
-- `tailwindcss@4.1.18` is already a devDependency, and `eastpark-frontend/src/global.css` is a valid Tailwind v4 entry file a web app can import unchanged.
+- `apps/mobile/src/theme/tokens.ts` (93 lines) is pure TypeScript constants — `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. No React Native imports.
+- `tailwindcss@4.1.18` is already a devDependency, and `apps/mobile/src/global.css` is a valid Tailwind v4 entry file a web app can import unchanged.
 - Also portable as-is: `src/services/api/*.ts` (axios interceptors are platform-agnostic), `src/translations/*.json` (~650 strings), every Zod schema, the Redux store.
 
 ### The stack docs are wrong
 
-`CLAUDE.md` and `eastpark-frontend/Documentation/APPCONTEXT.md` claim **NativeWind v4 + Gluestack UI v2** and **MMKV** theme storage. Reality: **uniwind + `StyleSheet.create`**, and **AsyncStorage**. Mirror the tokens and the visual result, not the claimed component library.
+`CLAUDE.md` and `apps/mobile/Documentation/APPCONTEXT.md` claim **NativeWind v4 + Gluestack UI v2** and **MMKV** theme storage. Reality: **uniwind + `StyleSheet.create`**, and **AsyncStorage**. Mirror the tokens and the visual result, not the claimed component library.
 
 ### Do not port these three paths
 
@@ -43,7 +43,7 @@ A prior exploration session read both repos. These are verified against source a
 
 ### The form pattern already exists
 
-11 screens use React Hook Form + Zod via `<Controller>`, and Zod validation messages are **i18n keys** resolved through `t(...)` at render time — see `eastpark-frontend/src/app/(auth)/login.tsx:29`. RHF + Zod + `@hookform/resolvers` are web-identical, so the validation layer is a straight copy; only the input components get rebuilt (`onChangeText`→`onChange`, `keyboardType`→`inputMode`, `secureTextEntry`→`type="password"`).
+11 screens use React Hook Form + Zod via `<Controller>`, and Zod validation messages are **i18n keys** resolved through `t(...)` at render time — see `apps/mobile/src/app/(auth)/login.tsx:29`. RHF + Zod + `@hookform/resolvers` are web-identical, so the validation layer is a straight copy; only the input components get rebuilt (`onChangeText`→`onChange`, `keyboardType`→`inputMode`, `secureTextEntry`→`type="password"`).
 
 ### Database gaps the earlier audit never examined
 
@@ -59,12 +59,12 @@ A prior exploration session read both repos. These are verified against source a
 
 ### Mobile build blockers
 
-- `eastpark-frontend/eas.json`: `submit.production` and `submit.preview` are both `{}` — store submission is impossible as configured.
+- `apps/mobile/eas.json`: `submit.production` and `submit.preview` are both `{}` — store submission is impossible as configured.
 - No profile supplies `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_SOCKET_URL`. They rely on EAS server-side env vars that must be verified with `eas env:list --environment production`, or cloud builds ship pointing at `localhost:3000`.
 
 ### Test reality
 
-The headline 81.11% backend coverage is measured over 5 hand-picked files (`eastpark-backend/test/jest.json`, `collectCoverageFrom`). 8 of the 13 modules under `eastpark-backend/src/modules/` have zero tests. No e2e tests exist.
+The headline 81.11% backend coverage is measured over 5 hand-picked files (`apps/backend/test/jest.json`, `collectCoverageFrom`). 8 of the 13 modules under `apps/backend/src/modules/` have zero tests. No e2e tests exist.
 
 ### Toolchain
 
@@ -138,18 +138,18 @@ Scaffolding and the compound config are independent of the backend module — ru
 
 ```text
 You are the lead agent on a READ-ONLY audit. Make NO code edits, NO migrations, NO commits.
-Your single deliverable is a markdown report at eastpark-backend/COMPLETION-ROADMAP.md.
+Your single deliverable is a markdown report at apps/backend/COMPLETION-ROADMAP.md.
 
 Repo root: /mnt/c/Unite/EastPark-App
-  eastpark-backend/   NestJS + Fastify + Prisma + Neon (git repo, branch main)
-  eastpark-frontend/  Expo + React Native (git repo, branch main)
+  apps/backend/   NestJS + Fastify + Prisma + Neon (git repo, branch main)
+  apps/mobile/  Expo + React Native (git repo, branch main)
 
 TOOLCHAIN: default shell Node is v12.22.9 and cannot run the tooling. Prefix EVERY
 command with:  . ~/.nvm/nvm.sh && nvm use 24
 The `fly` and `vercel` CLIs are NOT installed — never assume you can run them.
 
-START BY READING: CLAUDE.md, eastpark-backend/backend_review.md,
-eastpark-frontend/frontend_review.md. Treat the VERDICT PARAGRAPHS in both review
+START BY READING: CLAUDE.md, apps/backend/backend_review.md,
+apps/mobile/frontend_review.md. Treat the VERDICT PARAGRAPHS in both review
 files as STALE — fixes landed in commits written after those bodies. Verify every
 claim against current source before it enters your report.
 
@@ -196,7 +196,7 @@ Launch the independent Sonnet enumeration subagents IN PARALLEL, in a single mes
 
 === PART 2 — BACKEND TO PRODUCTION ===
 
-2a. APP_ENV is not set in eastpark-backend/fly.toml. That leaves Swagger public at
+2a. APP_ENV is not set in apps/backend/fly.toml. That leaves Swagger public at
     /docs, Helmet CSP off, and APP_CORS_ORIGINS defaulting to `*` with
     credentials:true. Give the fix.
 2b. The getOrThrow false-safety bug: seven Supabase/Paymob secrets use
@@ -215,7 +215,7 @@ Launch the independent Sonnet enumeration subagents IN PARALLEL, in a single mes
 3a. Verify EAS env vars: `eas env:list --environment production`. No build profile
     supplies EXPO_PUBLIC_API_URL / EXPO_PUBLIC_SOCKET_URL, so cloud builds may ship
     pointing at localhost:3000. State exactly what to set if the list is empty.
-3b. eastpark-frontend/eas.json: submit.production and submit.preview are both {},
+3b. apps/mobile/eas.json: submit.production and submit.preview are both {},
     so store submission is impossible. Enumerate the required iOS keys (appleId,
     ascAppId, appleTeamId) and Android keys (serviceAccountKeyPath), and how to
     obtain each.
@@ -228,14 +228,14 @@ Launch the independent Sonnet enumeration subagents IN PARALLEL, in a single mes
 === PART 4 — TESTING HONESTY ===
 
 The headline 81.11% backend coverage is measured over 5 hand-picked files
-(eastpark-backend/test/jest.json, collectCoverageFrom). There are 13 modules under
-eastpark-backend/src/modules/ and 8 have zero tests. No e2e tests exist. Report the
+(apps/backend/test/jest.json, collectCoverageFrom). There are 13 modules under
+apps/backend/src/modules/ and 8 have zero tests. No e2e tests exist. Report the
 real whole-repo coverage, name the untested modules, and recommend the minimum test
 set to add before launch.
 
 === OUTPUT FORMAT ===
 
-Write eastpark-backend/COMPLETION-ROADMAP.md. Every item on one line in this shape:
+Write apps/backend/COMPLETION-ROADMAP.md. Every item on one line in this shape:
 
   [P0|P1|P2] — title — file:line — what to change — how to verify
 
@@ -251,7 +251,7 @@ Then, in chat, summarize the proposed ResidentLead schema and stop for my approv
 
 ```text
 You are the lead agent building a new web app. Prompt A has already produced
-eastpark-backend/COMPLETION-ROADMAP.md and I have approved its ResidentLead schema
+apps/backend/COMPLETION-ROADMAP.md and I have approved its ResidentLead schema
 — READ THAT FILE FIRST and treat its approved schema as the contract. Do not
 redesign it.
 
@@ -260,7 +260,7 @@ TOOLCHAIN: default shell Node is v12.22.9 and cannot run the tooling. Prefix EVE
 command with:  . ~/.nvm/nvm.sh && nvm use 24
 The `vercel` CLI is NOT installed — do not assume you can deploy.
 
-GOAL: eastpark-web-app/ — a new directory at the repo root, its own git repo
+GOAL: apps/web/ — a new directory at the repo root, its own git repo
 (matching the existing convention where eastpark-frontend and eastpark-backend are
 independent repos). A form-first landing site that visually mirrors the mobile app.
 Its job is collecting resident data. The full feature mirror comes LATER — do not
@@ -294,22 +294,22 @@ compatibility layer, and Next gives better Vercel output, SEO, and Arabic SSR.
 
 === DESIGN MIRRORING — the hard requirement ===
 
-- Copy eastpark-frontend/src/theme/tokens.ts VERBATIM to
-  eastpark-web-app/src/theme/tokens.ts and generate the Tailwind theme from it.
+- Copy apps/mobile/src/theme/tokens.ts VERBATIM to
+  apps/web/src/theme/tokens.ts and generate the Tailwind theme from it.
   It is 93 lines of pure TS constants (BRAND, LIGHT, DARK, SEMANTIC, SPACING,
   RADIUS, FONT, TYPE) with no React Native imports. No hand-picked hex values
   anywhere in the web app.
-- eastpark-frontend/src/global.css is already a valid Tailwind v4 entry file
+- apps/mobile/src/global.css is already a valid Tailwind v4 entry file
   (tailwindcss@4.1.18 is a devDependency there). Start from it rather than
   writing a new one.
-- Read eastpark-frontend/Documentation/DESIGN.md for motion, typography scale,
+- Read apps/mobile/Documentation/DESIGN.md for motion, typography scale,
   and component patterns.
-- THE STACK DOCS LIE. CLAUDE.md and eastpark-frontend/Documentation/APPCONTEXT.md
+- THE STACK DOCS LIE. CLAUDE.md and apps/mobile/Documentation/APPCONTEXT.md
   claim NativeWind v4 + Gluestack UI v2 and MMKV theme storage. The app actually
   uses uniwind + StyleSheet.create and AsyncStorage. Mirror the TOKENS and the
   VISUAL RESULT, not the claimed component library.
 - Reuse the established form convention: Zod validation messages are i18n KEYS,
-  resolved via t(...) at render time. See eastpark-frontend/src/app/(auth)/login.tsx:29.
+  resolved via t(...) at render time. See apps/mobile/src/app/(auth)/login.tsx:29.
   Never inline English validation strings.
 - DO NOT PORT: src/components/ui/form-utils.ts (TanStack Form API, orphaned),
   src/lib/api/** (dead duplicate axios client, wrong pagination shape),
@@ -320,7 +320,7 @@ compatibility layer, and Next gives better Vercel output, SEO, and Arabic SSR.
   neon; never spinners — skeleton shimmer instead; Cairo for all UI and all Arabic;
   Cormorant Garamond for English display/hero only, never functional UI, never Arabic.
 - Arabic RTL primary, English LTR secondary. Reuse the existing
-  eastpark-frontend/src/translations/ar.json and en.json keys where they overlap
+  apps/mobile/src/translations/ar.json and en.json keys where they overlap
   (~650 strings).
 
 === THE FORM — exact spec ===
@@ -384,5 +384,5 @@ this ties into Prompt A's CORS fix.
 1. `migration.md` is self-contained — a fresh session needs no other context.
 2. Prompts A and B are in fenced blocks, each stating its own scope, model routing, and done-criteria.
 3. Prompt A is explicitly read-only; Prompt B explicitly depends on A's approved schema.
-4. Every cited path resolves — verified 2026-09-29: `eastpark-frontend/src/theme/tokens.ts`, `eastpark-frontend/src/global.css`, `eastpark-frontend/Documentation/DESIGN.md`, `eastpark-frontend/src/app/(auth)/login.tsx`, `eastpark-frontend/eas.json`, `eastpark-backend/prisma/schema.prisma`, `eastpark-backend/fly.toml`, `eastpark-backend/test/jest.json`, both `*_review.md` files. 13 modules confirmed under `eastpark-backend/src/modules/`.
+4. Every cited path resolves — verified 2026-09-29: `apps/mobile/src/theme/tokens.ts`, `apps/mobile/src/global.css`, `apps/mobile/Documentation/DESIGN.md`, `apps/mobile/src/app/(auth)/login.tsx`, `apps/mobile/eas.json`, `apps/backend/prisma/schema.prisma`, `apps/backend/fly.toml`, `apps/backend/test/jest.json`, both `*_review.md` files. 13 modules confirmed under `apps/backend/src/modules/`.
 5. Run Prompt A → review `COMPLETION-ROADMAP.md` → approve the `ResidentLead` schema → run Prompt B.
