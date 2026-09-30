@@ -3,7 +3,8 @@
 skills-lock.json
 .github
 node_modules/
-# Independent git repos — never track from the root repo
-apps/backend/
-apps/mobile/
-apps/web/
+
+# Obsolete pre-migration directories; canonical applications live under apps/.
+eastpark-backend/
+eastpark-frontend/
+eastpark-web-app/
