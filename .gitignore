@@ -2,6 +2,10 @@
 .agents
 skills-lock.json
 .github
+!/.github/
+!/.github/copilot-instructions.md
+!/.github/workflows/
+!/.github/workflows/ci.yml
 node_modules/
 
 # Obsolete pre-migration directories; canonical applications live under apps/.
