@@ -22,8 +22,9 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ### Render migration prepared — 2026-09-30
 
-- `render.yaml` defines a Frankfurt free Docker web service with `/health` monitoring and explicit
-  production configuration. Secret values remain dashboard-managed with `sync: false`.
+- The root `/render.yaml` defines a Frankfurt free Docker web service with `/health` monitoring and
+  explicit production configuration. It is the only Render Blueprint; secret values remain
+  dashboard-managed with `sync: false`.
 - `Documentation/RENDER.md` contains the safe Fly-to-Render cutover and rollback procedure.
 - Fly remains production until Render is created and health, CORS, registration, auth, and
   announcement checks pass. Web order tracking should use polling initially because free-service

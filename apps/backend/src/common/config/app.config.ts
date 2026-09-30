@@ -3,6 +3,7 @@ import { registerAs } from '@nestjs/config';
 import { APP_ENVIRONMENT } from 'src/app/enums/app.enum';
 
 export default registerAs('app', (): Record<string, unknown> => {
+    const env = process.env.APP_ENV ?? APP_ENVIRONMENT.LOCAL;
     const raw = (process.env.APP_CORS_ORIGINS ?? '*').trim();
     // '*' → true: @fastify/cors REFLECTS the caller's Origin. Browsers reject a
     // literal '*' alongside credentials:true, but they accept reflection — so
@@ -17,8 +18,14 @@ export default registerAs('app', (): Record<string, unknown> => {
     const corsOrigins: boolean | string[] =
         raw === '*' || parsed.length === 0 ? true : parsed;
 
+    if (env === APP_ENVIRONMENT.PRODUCTION && corsOrigins === true) {
+        throw new Error(
+            'APP_CORS_ORIGINS must contain explicit origins in production'
+        );
+    }
+
     return {
-        env: process.env.APP_ENV ?? APP_ENVIRONMENT.LOCAL,
+        env,
         name: process.env.APP_NAME ?? 'EastPark API',
         url: process.env.APP_URL ?? 'http://localhost:3000',
 

@@ -35,7 +35,7 @@ COPY --from=builder /app/dist ./dist
 RUN chown -R node:node /app
 USER node
 
-EXPOSE 3000
+EXPOSE 10000
 
 # Run migrations then start server.
 # `exec` replaces the shell so Node becomes PID 1 and receives SIGTERM —

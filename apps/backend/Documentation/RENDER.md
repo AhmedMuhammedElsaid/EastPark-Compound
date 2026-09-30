@@ -15,9 +15,12 @@ API URL.
 
 ## Create the service
 
-1. Push this repository to GitHub.
-2. In Render, choose **New > Blueprint** and select the backend repository.
-3. Render detects `render.yaml`. Confirm the service is named `eastpark-backend`, uses Frankfurt,
+The root-owned monorepo has one Blueprint at `/render.yaml`. Do not add another Blueprint under
+`apps/backend`; the root file owns the Docker context and Dockerfile paths.
+
+1. Push the root repository to GitHub.
+2. In Render, choose **New > Blueprint** and select `EastPark-Compound`.
+3. Render detects the root `render.yaml`. Confirm the service is named `eastpark-backend`, uses Frankfurt,
    the free plan, and health path `/health`.
 4. Enter every environment value marked `sync: false`. Never commit those values.
 
