@@ -2,6 +2,7 @@
 .agents
 skills-lock.json
 .github
+node_modules/
 # Independent git repos — never track from the root repo
 eastpark-backend/
 eastpark-frontend/

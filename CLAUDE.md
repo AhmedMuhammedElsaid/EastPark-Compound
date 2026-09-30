@@ -28,6 +28,33 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-09-30 — WEB HARDENING DEPLOYED + PARITY PREPARATION (NEWEST)
+>
+> The newest web checkpoint is committed, pushed, deployed, and verified on Vercel.
+>
+> Production `eastpark-web-app` now includes:
+> - Same-origin Next.js BFF routes for resident leads and auth. Access/refresh tokens stay in
+>   `HttpOnly`, production `Secure`, `SameSite=Strict` cookies; browser JavaScript never receives them.
+> - Login, registration, OTP verification, error/not-found, and redesigned thank-you routes.
+> - A resilient, server-validated lead proxy with one transport retry and a 22-second client timeout.
+> - Alexandria for bilingual functional UI; Cormorant Garamond remains English display-only.
+> - Responsive themed header/footer, official-logo treatments, dark/light support, and RTL/LTR.
+> - SEO metadata, canonical URLs, JSON-LD, robots, sitemap, manifest, social images, route-level
+>   `noindex`, production CSP, and security headers.
+> - Share description: `Commerce, services, and community in one trusted place. Built By Ahmed
+>   Muhammed Elsaid.`
+> - Repeatable web gate: `pnpm --dir eastpark-web-app check` (lint + strict TypeScript + build).
+>
+> A root pnpm workspace and private `packages/shared` package are retained as a **deferred local
+> experiment**. No production child repository consumes it; web, mobile, and backend remain
+> independently installable. Run `pnpm check:shared` from the root and read `restructure.md` before
+> changing workspace layout.
+>
+> **Next product objective:** mirror the completed mobile app into the web app through small vertical
+> slices. Use quick Explore subagents for route/API/parity discovery, treat mobile as the behavioral
+> reference and backend contracts as authoritative, preserve the existing public lead site, and do
+> not invent endpoints.
+
 > ### 2026-09-30 — PRODUCTION DEPLOYMENT
 >
 > **The public registration path is live end to end.**

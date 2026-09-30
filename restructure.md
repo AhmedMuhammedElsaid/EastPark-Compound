@@ -1,9 +1,10 @@
 # EastPark — Monorepo Restructure Plan
 
-**Status: DEFERRED. Do not start until `eastpark-web-app` is shipped and stable in production.**
+**Status: DEFERRED EXPERIMENT. No production child repository consumes `@eastpark/shared`.**
 
-Decided 2026-09-29. The user asked for a monorepo with a shared package so mobile and web stop
-duplicating code. Sequencing was deliberately deferred: web ships first, this happens after.
+Originally deferred 2026-09-29. A root workspace and shared package prototype now exist and pass
+their focused checks, but web, mobile, and backend remain standalone. Resume only as a separately
+approved migration after validating Vercel and a real EAS build strategy.
 
 ---
 
@@ -22,6 +23,15 @@ build for a payoff measured in ~100 lines of duplication. Carry the duplication 
 
 ---
 
+## Settled repository strategy
+
+- Keep `eastpark-web-app`, `eastpark-frontend`, and `eastpark-backend` in their current directories.
+- Preserve their independent Git repositories and histories; do not move or rewrite them yet.
+- Add a root pnpm workspace and a private, path-only `@eastpark/shared` package.
+- The root repository owns workspace files and the shared package. Existing app repositories keep
+  owning their platform code.
+- Revisit a single combined Git history only as a separate, explicitly approved operation.
+
 ## Agreed scope — what goes in the shared package
 
 **Only platform-agnostic data. No React, no React Native, no Next.**
@@ -31,6 +41,8 @@ build for a payoff measured in ~100 lines of duplication. Carry the duplication 
 | `theme/tokens.ts` | `eastpark-frontend/src/theme/tokens.ts` (93 lines) | `BRAND`, `LIGHT`, `DARK`, `SEMANTIC`, `SPACING`, `RADIUS`, `FONT`, `TYPE`. Pure TS constants, zero imports. **The two copies are no longer byte-identical** — mobile's was reformatted to double quotes by `eslint --fix` (commit `03d13bd`). All token *values* are identical; only quote style differs. Whichever copy becomes the shared one, diff values not bytes |
 | Translations | `eastpark-frontend/src/translations/{ar,en}.json` | ~650 strings. Web adds a `web` namespace for landing/form/thank-you copy — merge, don't fork |
 | Zod schemas | Validation schemas across both apps | Messages are **i18n keys** resolved via `t(...)` at render time — never inline English |
+| Domain/API contracts | Backend DTOs and actual HTTP response shapes | Backend is authoritative; mobile remains the behavioral reference |
+| Pure business rules | Cart, order, localization, working-hours logic | No storage, networking, UI, or framework imports |
 | `compound.ts` | `eastpark-web-app/src/config/compound.ts` | Phase/building/floor layout. **Web-only today — see the caveat below** |
 
 > **`compound.ts` is not a pure code move.** The mobile app has no building/floor/flat concept at
@@ -42,8 +54,8 @@ build for a payoff measured in ~100 lines of duplication. Carry the duplication 
 
 **Explicitly excluded** (decided, not an oversight):
 
-- **API client layer** — the mobile client is coupled to `expo-secure-store` for token storage.
-  Sharing it requires abstracting storage behind an interface first. Separate task.
+- **API transport and token storage** — mobile uses Expo SecureStore while web needs a deliberate
+  browser/server session design. Shared endpoint contracts do not imply shared credential handling.
 - **Redux slices** — largest blast radius on mobile, least benefit.
 - **Anything rendering UI** — RN primitives and DOM elements do not share.
 
@@ -89,20 +101,20 @@ repo is **an open decision** — see below.
 
 Do these one at a time, verifying between each. Never batch.
 
-1. **Tag rollback points** — `git tag pre-monorepo` in all three repos.
-2. **Decide the git strategy** (see open questions). Do not proceed until settled.
-3. **Create the workspace skeleton** — root `pnpm-workspace.yaml` + `packages/shared`. Nothing
+1. **Record rollback commit hashes** in all three repos. Do not create or push tags during the
+  local-only phase.
+2. **Create the workspace skeleton** — root `pnpm-workspace.yaml` + `packages/shared`. Nothing
    consumes it yet. Verify all three apps still build untouched.
-4. **Populate `packages/shared`** — move `tokens.ts` first, on its own. It is 93 lines with zero
+3. **Populate `packages/shared`** — move `tokens.ts` first, on its own. It is 93 lines with zero
    imports and is the safest possible canary.
-5. **Web consumes shared** — web is the lowest-risk consumer and is already shipped by this point,
+4. **Web consumes shared** — web is the lowest-risk consumer and is already shipped by this point,
    so a regression is visible immediately and reversible. Verify `pnpm build`, lint, `tsc --noEmit`.
-6. **Backend consumes shared** *(if anything applies — likely only Zod schemas)*. Verify typecheck + 62/62.
-7. **Mobile consumes shared — LAST, and most carefully.** Metro needs `watchFolders` + resolver
+5. **Backend consumes shared** only where a genuine contract benefit exists.
+6. **Mobile consumes shared — LAST, and most carefully.** Metro needs `watchFolders` + resolver
    config for symlinked workspace packages; Jest needs `moduleNameMapper` for `@eastpark/shared`;
    EAS build must resolve workspace deps in CI. Verify type-check, lint, **41/41 tests**, and an
    actual `eas build` before calling it done.
-8. **Delete the duplicated originals** only after each consumer is verified green.
+7. **Delete the duplicated originals** only after each consumer is verified green.
 
 ---
 
@@ -120,11 +132,10 @@ Do these one at a time, verifying between each. Never batch.
 
 ---
 
-## Open questions — decide before starting
+## Deferred decisions
 
-- **Git history:** one repo (histories merged via subtree) or keep three (submodules)? 786 + 35
-  commits of real history are at stake. Losing mobile's history would be the single most
-  destructive outcome of this work.
+- **Combined Git history:** current implementation deliberately preserves independent nested repos.
+  A later subtree/filter-repo migration needs separate approval.
 - **Does the backend consume `shared` at all?** It has no tokens and no translations. If only
   Zod schemas apply, it may not be worth wiring in.
 - **Publish or path-only?** Path-based workspace deps are simpler; a published package is only

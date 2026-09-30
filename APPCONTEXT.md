@@ -18,6 +18,30 @@ Browser CORS from the Vercel origin returns HTTP 204. Remote Docker build and Pr
 were executed successfully. Remaining operational work is credential rotation and real Paymob
 configuration before card payments; neither blocks the resident lead form.
 
+### Web hardening release
+
+The web repository's production-hardening checkpoint is committed, pushed, deployed, and verified.
+It adds a same-origin BFF/auth-cookie architecture, account routes, resilient resident
+lead proxying, Alexandria typography, responsive themed navigation/footer, SEO/social metadata,
+robots/sitemap/manifest, JSON-LD, route-level indexing policy, CSP, and security headers. The social
+description is: `Commerce, services, and community in one trusted place. Built By Ahmed Muhammed
+Elsaid.`
+
+The root repository contains a deferred pnpm workspace experiment and private `packages/shared`
+package. No production child repository consumes it; web, mobile, and backend remain independently
+installable. See `restructure.md` before changing workspace boundaries.
+
+Verified locally on 2026-09-30:
+
+- `pnpm --dir eastpark-web-app check` passes ESLint, strict TypeScript, and the Next production build.
+- Next generated 23/23 static pages; production startup was approximately 269ms locally.
+- Standard, Open Graph, and X/Twitter descriptions render the exact social description above.
+- Lead submission works through `/api/resident-leads`; upstream Fly and malformed-payload behavior
+  were probed successfully.
+
+Next objective: mirror mobile features into web as narrow vertical slices. Mobile is the
+behavioral/UI-flow reference; backend routes are authoritative.
+
 ---
 
 ## What Is EastPark
@@ -35,9 +59,12 @@ Primary language: **Arabic (RTL)**. Secondary: **English (LTR)**. Language is sw
 
 ```
 EastPark-App/
+├── package.json          Root pnpm workspace experiment scripts
+├── pnpm-workspace.yaml   Includes apps plus packages/* for local validation
+├── packages/shared/      Deferred platform-neutral contracts/logic/schemas/tokens experiment
 ├── eastpark-backend/     NestJS 11 + Fastify — fully built ✅
 ├── eastpark-frontend/    Expo 54 React Native — in active development ✅
-├── eastpark-web-app/     Next.js 16 public registration site — deployed ✅
+├── eastpark-web-app/     Next.js 16 web app; hardened public/auth release deployed
 ├── BackendPlan.md        Canonical backend design document
 ├── FrontendPlan.md       Canonical frontend design document
 │   (DESIGN.md moved to eastpark-frontend/Documentation/DESIGN.md)
@@ -272,7 +299,8 @@ app/
 
 ### Typography
 
-- **Cairo** — all UI text, all Arabic
+- **Mobile:** Cairo for all functional UI and Arabic
+- **Web:** Alexandria for bilingual functional UI
 - **Cormorant Garamond** — English display/hero only (never functional UI, never Arabic)
 
 ### Motion

@@ -1,0 +1,24 @@
+{
+  "name": "@eastpark/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./logic": "./src/logic/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./theme": "./src/theme/tokens.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/logic/index.test.ts"
+  },
+  "dependencies": {
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "typescript": "5.9.3"
+  }
+}
