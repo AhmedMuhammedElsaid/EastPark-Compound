@@ -159,7 +159,7 @@ function GovernanceRow({ href, title, type, deadline, closed, voted, extra }: { 
         {voted && <span className="inline-flex items-center gap-1 text-primary"><CheckCircle2 aria-hidden="true" className="size-4" />{t('governance.voted')}</span>}
       </div>
       <h2 className="mt-3 max-w-3xl text-[length:var(--text-h2)] font-bold">
-        <Link href={href} className="hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">{title}</Link>
+        <Link href={href} prefetch={true} className="hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">{title}</Link>
       </h2>
       <p className="mt-2 text-[length:var(--text-label)] text-muted-foreground">
         {t(closed ? 'governance.closed_on' : 'governance.closes_on').replace('{{date}}', deadline)}

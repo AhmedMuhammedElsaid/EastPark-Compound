@@ -245,6 +245,7 @@ function ShopCard({ shop, lang }: { shop: Shop; lang: "ar" | "en" }) {
     <article className="overflow-hidden rounded-md border border-border bg-card shadow-gold">
       <Link
         href={`/directory/${encodeURIComponent(shop.id)}`}
+        prefetch={true}
         aria-label={name}
         className="group block transition-transform active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100"
       >

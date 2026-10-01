@@ -14,24 +14,21 @@ type ShopDetailPageProps = {
 
 export default async function ShopDetailPage({ params }: ShopDetailPageProps) {
   const { id } = await params;
-  const shop = await getShopDetail(id).catch((error) => {
-    if (error instanceof ShopRequestError && error.status === 404) notFound();
-    console.error("Shop detail page failed", error);
-    return null;
-  });
-  const initialReviews = shop
-    ? await getReviews(id).catch((error) => {
+  const [shop, initialReviews, products] = await Promise.all([
+    getShopDetail(id).catch((error) => {
+      if (error instanceof ShopRequestError && error.status === 404) notFound();
+      console.error("Shop detail page failed", error);
+      return null;
+    }),
+    getReviews(id).catch((error) => {
         console.error("Shop reviews failed", error);
         return null;
-      })
-    : null;
-
-  const products = shop
-    ? await getProducts(shop.id).catch((error) => {
-        console.error("Shop products page failed", error);
-        return null;
-      })
-    : null;
+    }),
+    getProducts(id).catch((error) => {
+      console.error("Shop products page failed", error);
+      return null;
+    }),
+  ]);
 
   return (
     <ShopDetailView
