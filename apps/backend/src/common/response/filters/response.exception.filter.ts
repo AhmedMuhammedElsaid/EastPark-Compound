@@ -7,6 +7,7 @@ import {
     HttpStatus,
     Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { MessageService } from 'src/common/message/services/message.service';
@@ -16,8 +17,14 @@ import { IApiErrorResponse } from '../interfaces/response.interface';
 @Catch()
 export class ResponseExceptionFilter implements ExceptionFilter {
     private readonly logger = new Logger(ResponseExceptionFilter.name);
+    private readonly isProduction: boolean;
 
-    constructor(private readonly messageService: MessageService) {}
+    constructor(
+        private readonly messageService: MessageService,
+        config: ConfigService
+    ) {
+        this.isProduction = config.get<string>('app.env') === 'production';
+    }
 
     catch(exception: unknown, host: ArgumentsHost): void {
         const ctx = host.switchToHttp();
@@ -88,7 +95,7 @@ export class ResponseExceptionFilter implements ExceptionFilter {
 
         if (validationMessages) {
             errorResponse.error = validationMessages;
-        } else if (exception instanceof Error) {
+        } else if (exception instanceof Error && !this.isProduction) {
             errorResponse.error = exception.stack;
         }
 

@@ -1,7 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Injectable, Logger } from '@nestjs/common';
+import {
+    Injectable,
+    Logger,
+    ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Handlebars from 'handlebars';
 import * as nodemailer from 'nodemailer';
@@ -81,7 +85,7 @@ export class EmailService {
                 `Failed to send email [${template}] to ${JSON.stringify(to)}`,
                 error
             );
-            throw error;
+            throw new ServiceUnavailableException('common.serviceUnavailable');
         }
     }
 
@@ -108,7 +112,8 @@ export class EmailService {
     }
 
     sendInvitation(to: string, inviteUrl: string, role: string): Promise<void> {
-        const roleAr = role === 'ADMIN' ? 'مشرف' : role === 'MERCHANT' ? 'تاجر' : 'ساكن';
+        const roleAr =
+            role === 'ADMIN' ? 'مشرف' : role === 'MERCHANT' ? 'تاجر' : 'ساكن';
 
         return this.send({
             to,
