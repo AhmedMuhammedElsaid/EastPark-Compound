@@ -18,7 +18,7 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
   return fetch(`${apiBase()}/v1${path}`, {
     ...init,
     cache: 'no-store',
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    signal: init?.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
   });
 }
 
