@@ -9,6 +9,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
+import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { loginSchema } from '@/lib/validation/auth';
@@ -73,28 +74,25 @@ export function LoginForm() {
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <label htmlFor="password" className="text-[length:var(--text-label)] font-semibold text-foreground">
-            {t('auth.password')}
-          </label>
-          <button
-            type="button"
-            onClick={() => setShowPassword((value) => !value)}
-            className="min-h-11 px-2 text-[length:var(--text-caption)] font-semibold text-primary focus-visible:outline-2 focus-visible:outline-gold-500"
-          >
-            {t(showPassword ? 'auth.hide_password' : 'auth.show_password')}
-          </button>
+        <label htmlFor="password" className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">
+          {t('auth.password')}
+        </label>
+        <div className="relative" dir="ltr">
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            aria-invalid={Boolean(errors.password)}
+            aria-describedby={errors.password ? 'password-error' : undefined}
+            className="min-h-12 w-full rounded-md border border-input bg-background py-0 pe-12 ps-4 text-[length:var(--text-body-lg)] text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/25"
+            {...register('password')}
+          />
+          <PasswordVisibilityButton
+            visible={showPassword}
+            onToggle={() => setShowPassword((value) => !value)}
+            label={t(showPassword ? 'auth.hide_password' : 'auth.show_password')}
+          />
         </div>
-        <input
-          id="password"
-          type={showPassword ? 'text' : 'password'}
-          autoComplete="current-password"
-          dir="ltr"
-          aria-invalid={Boolean(errors.password)}
-          aria-describedby={errors.password ? 'password-error' : undefined}
-          className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/25"
-          {...register('password')}
-        />
         {errors.password && (
           <p id="password-error" role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">
             {t(errors.password.message ?? 'auth.errors.password_too_short')}

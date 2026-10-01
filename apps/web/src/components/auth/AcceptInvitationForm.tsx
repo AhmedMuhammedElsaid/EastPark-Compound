@@ -10,6 +10,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
+import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { acceptInvitationFormSchema } from '@/lib/validation/auth';
@@ -68,9 +69,8 @@ export function AcceptInvitationForm({ token }: { token: string | null }) {
       </div>
       {(['password', 'confirmPassword'] as const).map((name) => {
         const error = errors[name];
-        return <div key={name}><label htmlFor={name} className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{t(name === 'password' ? 'auth.password' : 'auth.confirm_password')}</label><input id={name} type={showPasswords ? 'text' : 'password'} autoComplete="new-password" dir="ltr" aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : undefined} className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register(name)} />{error && <p id={`${name}-error`} role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t(error.message ?? 'common.error')}</p>}</div>;
+        return <div key={name}><label htmlFor={name} className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{t(name === 'password' ? 'auth.password' : 'auth.confirm_password')}</label><div className="relative" dir="ltr"><input id={name} type={showPasswords ? 'text' : 'password'} autoComplete="new-password" aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : undefined} className="min-h-12 w-full rounded-md border border-input bg-background py-0 pe-12 ps-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register(name)} /><PasswordVisibilityButton visible={showPasswords} onToggle={() => setShowPasswords((value) => !value)} label={t(showPasswords ? 'auth.hide_password' : 'auth.show_password')} /></div>{error && <p id={`${name}-error`} role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t(error.message ?? 'common.error')}</p>}</div>;
       })}
-      <label className="flex min-h-11 items-center gap-3 text-[length:var(--text-body)] text-muted-foreground"><input type="checkbox" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)} className="size-5 accent-primary" />{t(showPasswords ? 'auth.hide_password' : 'auth.show_password')}</label>
       {submitError && <div role="alert" className="rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error"><p>{submitError}</p>{submitError === t('auth.invitation_invalid') && <p className="mt-1">{t('auth.contact_administrator')}</p>}</div>}
       <Button type="submit" fullWidth disabled={isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t('common.loading') : t('auth.complete_setup')}</Button>
     </form>

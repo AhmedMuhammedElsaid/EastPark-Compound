@@ -9,6 +9,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
+import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useTranslation } from '@/lib/i18n';
 import { registerFormSchema } from '@/lib/validation/auth';
 
@@ -23,6 +24,7 @@ export function RegisterForm() {
   const router = useRouter();
   const { t } = useTranslation();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [showPasswords, setShowPasswords] = React.useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterFormInput>({
     resolver: zodResolver(registerFormSchema),
   });
@@ -70,12 +72,12 @@ export function RegisterForm() {
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="password" className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{t('auth.password')}</label>
-          <input id="password" type="password" autoComplete="new-password" dir="ltr" aria-invalid={Boolean(errors.password)} className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register('password')} />
+          <div className="relative" dir="ltr"><input id="password" type={showPasswords ? 'text' : 'password'} autoComplete="new-password" aria-invalid={Boolean(errors.password)} className="min-h-12 w-full rounded-md border border-input bg-background py-0 pe-12 ps-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register('password')} /><PasswordVisibilityButton visible={showPasswords} onToggle={() => setShowPasswords((value) => !value)} label={t(showPasswords ? 'auth.hide_password' : 'auth.show_password')} /></div>
           {errors.password && <p role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t(errors.password.message ?? 'auth.errors.password_too_short')}</p>}
         </div>
         <div>
           <label htmlFor="confirmPassword" className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{t('auth.confirm_password')}</label>
-          <input id="confirmPassword" type="password" autoComplete="new-password" dir="ltr" aria-invalid={Boolean(errors.confirmPassword)} className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register('confirmPassword')} />
+          <div className="relative" dir="ltr"><input id="confirmPassword" type={showPasswords ? 'text' : 'password'} autoComplete="new-password" aria-invalid={Boolean(errors.confirmPassword)} className="min-h-12 w-full rounded-md border border-input bg-background py-0 pe-12 ps-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register('confirmPassword')} /><PasswordVisibilityButton visible={showPasswords} onToggle={() => setShowPasswords((value) => !value)} label={t(showPasswords ? 'auth.hide_password' : 'auth.show_password')} /></div>
           {errors.confirmPassword && <p role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t(errors.confirmPassword.message ?? 'auth.errors.passwords_no_match')}</p>}
         </div>
       </div>
