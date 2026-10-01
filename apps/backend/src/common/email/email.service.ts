@@ -32,6 +32,9 @@ export class EmailService {
             host: config.getOrThrow<string>('email.host'),
             port: config.getOrThrow<number>('email.port'),
             secure: false,
+            connectionTimeout: 10_000,
+            greetingTimeout: 10_000,
+            socketTimeout: 20_000,
             auth: config.get<string>('email.user')
                 ? {
                       user: config.getOrThrow<string>('email.user'),

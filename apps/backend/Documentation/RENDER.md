@@ -31,6 +31,7 @@ Use the Supabase transaction pooler on port `6543` for `DATABASE_URL` with
 `APP_URL` is the final Render origin, for example `https://eastpark-backend.onrender.com`.
 `WEB_APP_URL` is the Vercel origin, `https://eastpark-web-app.vercel.app`, used for invitation and password-reset links.
 `APP_CORS_ORIGINS` is already restricted to `https://eastpark-web-app.vercel.app`.
+`SMTP_PORT` must be `2525`; Render free instances block outbound SMTP on ports 25, 465, and 587.
 
 Generate two different auth secrets locally:
 

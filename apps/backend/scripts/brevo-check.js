@@ -32,11 +32,15 @@ if (!user || !pass) {
 console.log(`login: ${user}`);
 
 // Host/port are pinned rather than read from .env: the active values there are
-// still Mailpit's localhost:1025, and this script only ever tests Brevo.
+// still Mailpit's localhost:1025. Port 2525 is supported by Brevo and remains
+// available from Render free instances, which block 25, 465, and 587.
 const transport = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 587,
+    port: 2525,
     secure: false,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: { user, pass },
 });
 
