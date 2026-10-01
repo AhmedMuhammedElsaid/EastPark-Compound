@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, FileText, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShieldCheck, Store } from 'lucide-react';
+import { Building2, FileText, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, ShieldCheck, Store } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,7 +16,6 @@ export function ResidentHome() {
     { href: '/directory', icon: Store, label: t('home.shops') },
     { href: '/announcements', icon: Megaphone, label: t('home.community') },
     { href: '/governance', icon: Landmark, label: t('governance.title') },
-    { href: '/orders', icon: Package, label: t('home.my_orders') },
     canSubmitFeedback
       ? { href: '/feedback', icon: MessageSquareText, label: t('home.feedback') }
       : { href: '/register-unit', icon: Building2, label: t('nav.register') },

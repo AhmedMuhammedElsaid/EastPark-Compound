@@ -102,15 +102,15 @@ const shops: ShopSeed[] = [
         name: 'Nature',
         nameAr: 'طبيعي',
         description:
-            'Everyday groceries, fresh produce, dairy, and household essentials at compound-friendly prices.',
+            'Your neighborhood grocery for pantry staples, dairy, fresh food, and household essentials.',
         descriptionAr:
-            'بقالة يومية وخضروات طازجة ومنتجات ألبان واحتياجات المنزل بأسعار مناسبة للسكان.',
+            'بقالة الحي للمواد التموينية ومنتجات الألبان والأطعمة الطازجة واحتياجات المنزل.',
         category: ShopCategory.GROCERY,
         deliveryTime: 20,
         phone: '+201100000102',
         photos: [
-            'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1400&q=85',
             'https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&w=1400&q=85',
+            'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1400&q=85',
         ],
         products: [
             product(
