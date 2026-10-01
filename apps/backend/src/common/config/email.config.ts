@@ -7,6 +7,9 @@ export default registerAs(
         port: parseInt(process.env.SMTP_PORT ?? '1025', 10),
         user: process.env.SMTP_USER ?? '',
         pass: process.env.SMTP_PASS ?? '',
-        from: process.env.EMAIL_FROM ?? 'noreply@eastpark.app',
+        from:
+            process.env.EMAIL_FROM ??
+            'EastPark <eastpark.eg@gmail.com>',
+        replyTo: process.env.EMAIL_REPLY_TO ?? 'eastpark.eg@gmail.com',
     })
 );

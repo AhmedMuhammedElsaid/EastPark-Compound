@@ -18,6 +18,10 @@
             {
                 "include": "common/email/templates/**/*.hbs",
                 "watchAssets": true
+            },
+            {
+                "include": "common/email/assets/**/*",
+                "watchAssets": true
             }
         ]
     }

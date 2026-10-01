@@ -11,6 +11,7 @@ interface SendEmailOptions {
     subject: string;
     template: string;
     context?: Record<string, unknown>;
+    text: string;
 }
 
 @Injectable()
@@ -18,9 +19,11 @@ export class EmailService {
     private readonly logger = new Logger(EmailService.name);
     private readonly transporter: nodemailer.Transporter;
     private readonly from: string;
+    private readonly replyTo: string;
 
     constructor(private readonly config: ConfigService) {
         this.from = config.getOrThrow<string>('email.from');
+        this.replyTo = config.getOrThrow<string>('email.replyTo');
 
         this.transporter = nodemailer.createTransport({
             host: config.getOrThrow<string>('email.host'),
@@ -40,14 +43,28 @@ export class EmailService {
         subject,
         template,
         context = {},
+        text,
     }: SendEmailOptions): Promise<void> {
         try {
             const html = this.renderTemplate(template, context);
             await this.transporter.sendMail({
                 from: this.from,
+                replyTo: this.replyTo,
                 to: Array.isArray(to) ? to.join(', ') : to,
                 subject,
                 html,
+                text,
+                attachments: [
+                    {
+                        filename: 'eastpark-mark.png',
+                        path: path.join(
+                            __dirname,
+                            'assets',
+                            'eastpark-mark.png'
+                        ),
+                        cid: 'eastpark-logo',
+                    },
+                ],
             });
             this.logger.log(
                 `Email sent to ${JSON.stringify(to)} [${template}]`
@@ -69,6 +86,7 @@ export class EmailService {
             subject: 'Your EastPark verification code',
             template: 'otp',
             context: { otp, appName: 'EastPark' },
+            text: `Your EastPark verification code is ${otp}. It expires in 10 minutes. Do not share it with anyone.`,
         });
     }
 
@@ -78,6 +96,7 @@ export class EmailService {
             subject: 'Reset your EastPark password',
             template: 'reset-password',
             context: { resetUrl, appName: 'EastPark' },
+            text: `Reset your EastPark password using this link: ${resetUrl}\n\nThis link expires in 30 minutes. If you did not request a reset, ignore this email.`,
         });
     }
 
@@ -87,6 +106,7 @@ export class EmailService {
             subject: `You're invited to EastPark as ${role}`,
             template: 'invitation',
             context: { inviteUrl, role, appName: 'EastPark' },
+            text: `You have been invited to join EastPark as ${role}. Set up your account using this link: ${inviteUrl}\n\nThis invitation expires in 48 hours.`,
         });
     }
 
@@ -99,6 +119,10 @@ export class EmailService {
         const templatePath = path.join(__dirname, 'templates', `${name}.hbs`);
         const source = fs.readFileSync(templatePath, 'utf-8');
         const template = Handlebars.compile(source);
-        return template(context);
+        const content = template(context);
+        const layoutPath = path.join(__dirname, 'templates', 'layout.hbs');
+        const layoutSource = fs.readFileSync(layoutPath, 'utf-8');
+        const layout = Handlebars.compile(layoutSource);
+        return layout({ ...context, content });
     }
 }

@@ -44,7 +44,7 @@ const transport = nodemailer.createTransport({
 // unverified sender at send time — verify() does NOT catch this, which is
 // why --send exists.
 const RECIPIENT = 'ahmed.muhammed.elsaid@gmail.com';
-const SENDERS = ['noreply@eastpark.app', 'ahmed.muhammed.elsaid@gmail.com'];
+const SENDERS = ['eastpark.eg@gmail.com'];
 
 async function main() {
     await transport.verify();

@@ -48,7 +48,9 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: EMAIL_FROM
-        value: noreply@eastpark.app
+        value: EastPark <eastpark.eg@gmail.com>
+      - key: EMAIL_REPLY_TO
+        value: eastpark.eg@gmail.com
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
