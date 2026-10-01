@@ -12,6 +12,7 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<LoginResult>;
   verifyOtp: (email: string, otp: string) => Promise<LoginResult>;
+  establishSession: (user: AuthUser) => void;
   logout: () => Promise<void>;
 };
 
@@ -89,9 +90,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const establishSession = React.useCallback((sessionUser: AuthUser) => {
+    setUser(sessionUser);
+  }, []);
+
   const value = React.useMemo(
-    () => ({ user, isLoading, login, verifyOtp, logout }),
-    [user, isLoading, login, verifyOtp, logout],
+    () => ({ user, isLoading, login, verifyOtp, establishSession, logout }),
+    [user, isLoading, login, verifyOtp, establishSession, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

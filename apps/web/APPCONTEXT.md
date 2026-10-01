@@ -35,6 +35,13 @@ mobile app without removing or weakening the public registration path.
 
 ## Local Parity Work — 2026-09-30
 
+- Forgot-password, reset-password, and merchant/admin invitation acceptance now mirror the backend
+  contracts through same-origin `/api/auth/*` routes. Forgot-password preserves anti-enumeration;
+  reset and invitation links expose explicit missing/expired states without forwarding backend text.
+- Reset and invitation tokens are validated as backend-generated 64-character hex values, retained
+  only in component memory, removed from browser history after hydration, and protected by route-level
+  `no-referrer` metadata. Invitation acceptance stores returned credentials only in the existing
+  `HttpOnly`, production `Secure`, `SameSite=Strict` cookies; browser JavaScript receives only the user.
 - `/announcements` mirrors the first public community slice from mobile with Arabic/English fields,
   category filters, responsive resident-shell navigation, accessible empty/error/loading states,
   PDF links, and cursor-based loading.

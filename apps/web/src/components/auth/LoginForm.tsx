@@ -95,6 +95,9 @@ export function LoginForm() {
             {t(errors.password.message ?? 'auth.errors.password_too_short')}
           </p>
         )}
+        <Link className="mt-2 flex min-h-11 items-center justify-end text-[length:var(--text-caption)] font-semibold text-primary hover:underline" href="/forgot-password">
+          {t('auth.forgot_password')}
+        </Link>
       </div>
 
       {submitError && (

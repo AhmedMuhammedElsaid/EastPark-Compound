@@ -19,6 +19,9 @@ standalone repository and must stay accurate for fresh clones.
 - Implemented: login, registration, OTP verification, resilient resident-lead proxy,
 	error/not-found and thank-you routes, responsive theme-aware navigation/footer, Alexandria,
 	RTL/LTR, SEO metadata, JSON-LD, robots, sitemap, manifest, social images, CSP, and security headers.
+- Local parity adds forgot-password, reset-password, and invitation-acceptance flows through the
+	same-origin BFF. One-time URL tokens are memory-only and removed from browser history; accepted
+	invitations return only the user to JavaScript and keep session credentials in `HttpOnly` cookies.
 - Login renders the shared footer. Login and unit-registration pages include explicit bottom spacing
 	between their content and the footer.
 - Duplicate active units are returned by the backend as HTTP 409; the BFF preserves that status and

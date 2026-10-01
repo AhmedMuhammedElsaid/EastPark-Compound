@@ -75,6 +75,7 @@
       "login_failed": "Incorrect email or password",
       "rate_limited": "Too many attempts. Please wait a minute and try again.",
       "name_too_short": "Name must be at least 2 characters",
+      "password_weak": "Use 8+ characters with uppercase, lowercase, a number, and a symbol",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
       "unit_required": "Unit number is required"
