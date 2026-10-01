@@ -11,8 +11,8 @@ export default function ResidentLoading() {
         className="mx-auto max-w-5xl"
       >
         <span className="sr-only">Loading</span>
-        <span className="mb-5 inline-flex text-primary">
-          <PendingMark size={28} />
+        <span className="mb-6 inline-flex text-primary">
+          <PendingMark size={48} />
         </span>
         <div className="h-3 w-24 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
         <div className="mt-3 h-8 w-56 max-w-2/3 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
