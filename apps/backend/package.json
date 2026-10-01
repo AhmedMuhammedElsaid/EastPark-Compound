@@ -70,7 +70,7 @@
         "date-fns": "^4.1.0",
         "dotenv": "^17.3.1",
         "expo-server-sdk": "^3.15.0",
-        "fastify": "^5.0.0",
+        "fastify": "5.11.3",
         "handlebars": "^4.7.8",
         "ioredis": "^5.6.1",
         "jsonwebtoken": "^9.0.3",

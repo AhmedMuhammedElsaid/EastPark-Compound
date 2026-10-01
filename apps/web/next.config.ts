@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { resolve } from "node:path";
 
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL
   ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
@@ -7,7 +8,7 @@ const apiOrigin = process.env.NEXT_PUBLIC_API_URL
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   turbopack: {
-    root: process.cwd(),
+    root: resolve(process.cwd(), "../.."),
   },
   async headers() {
     return [

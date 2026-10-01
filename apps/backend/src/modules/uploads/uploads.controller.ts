@@ -12,6 +12,7 @@ import {
     ApiOperation,
     ApiTags,
 } from '@nestjs/swagger';
+import type { MultipartFile } from '@fastify/multipart';
 import { FastifyRequest } from 'fastify';
 
 import {
@@ -21,6 +22,10 @@ import {
 import { ENUM_FILE_STORE } from 'src/common/file/enums/files.enum';
 import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+
+type MultipartRequest = FastifyRequest & {
+    file: () => Promise<MultipartFile | undefined>;
+};
 
 @ApiTags('uploads')
 @ApiBearerAuth('accessToken')
@@ -35,7 +40,7 @@ export class UploadsController {
         summary: 'Upload image (≤5MB jpg/png/webp) → returns { url, path }',
     })
     async uploadImage(
-        @Req() req: FastifyRequest,
+        @Req() req: MultipartRequest,
         @AuthUser() actor: IAuthUser
     ): Promise<UploadResult> {
         const data = await req.file();
@@ -56,7 +61,7 @@ export class UploadsController {
     @ApiConsumes('multipart/form-data')
     @ApiOperation({ summary: 'Upload PDF (≤20MB) → returns { url, path }' })
     async uploadPdf(
-        @Req() req: FastifyRequest,
+        @Req() req: MultipartRequest,
         @AuthUser() actor: IAuthUser
     ): Promise<UploadResult> {
         const data = await req.file();

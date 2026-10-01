@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Alexandria, Cormorant_Garamond } from 'next/font/google';
 
 import { AuthProvider } from '@/lib/auth/AuthProvider';
+import { CartProvider } from '@/lib/cart/CartProvider';
 import { LanguageProvider } from '@/lib/i18n';
 import { ThemeProvider, THEME_INIT_SCRIPT } from '@/lib/theme';
 
@@ -130,7 +131,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <ThemeProvider>
           <LanguageProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <CartProvider>{children}</CartProvider>
+            </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
       </body>
