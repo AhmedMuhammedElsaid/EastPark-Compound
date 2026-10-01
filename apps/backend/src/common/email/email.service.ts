@@ -12,6 +12,7 @@ interface SendEmailOptions {
     template: string;
     context?: Record<string, unknown>;
     text: string;
+    replyTo?: string;
 }
 
 @Injectable()
@@ -20,10 +21,12 @@ export class EmailService {
     private readonly transporter: nodemailer.Transporter;
     private readonly from: string;
     private readonly replyTo: string;
+    private readonly supportTo: string;
 
     constructor(private readonly config: ConfigService) {
         this.from = config.getOrThrow<string>('email.from');
         this.replyTo = config.getOrThrow<string>('email.replyTo');
+        this.supportTo = config.getOrThrow<string>('email.supportTo');
 
         this.transporter = nodemailer.createTransport({
             host: config.getOrThrow<string>('email.host'),
@@ -44,12 +47,13 @@ export class EmailService {
         template,
         context = {},
         text,
+        replyTo,
     }: SendEmailOptions): Promise<void> {
         try {
             const html = this.renderTemplate(template, context);
             await this.transporter.sendMail({
                 from: this.from,
-                replyTo: this.replyTo,
+                replyTo: replyTo ?? this.replyTo,
                 to: Array.isArray(to) ? to.join(', ') : to,
                 subject,
                 html,
@@ -83,30 +87,63 @@ export class EmailService {
     sendOtp(to: string, otp: string): Promise<void> {
         return this.send({
             to,
-            subject: 'Your EastPark verification code',
+            subject: 'رمز التحقق الخاص بك من إيست بارك',
             template: 'otp',
             context: { otp, appName: 'EastPark' },
-            text: `Your EastPark verification code is ${otp}. It expires in 10 minutes. Do not share it with anyone.`,
+            text: `رمز التحقق الخاص بك من إيست بارك هو ${otp}. تنتهي صلاحية الرمز خلال 10 دقائق. لا تشارك هذا الرمز مع أي شخص.`,
         });
     }
 
     sendPasswordReset(to: string, resetUrl: string): Promise<void> {
         return this.send({
             to,
-            subject: 'Reset your EastPark password',
+            subject: 'إعادة تعيين كلمة مرور إيست بارك',
             template: 'reset-password',
             context: { resetUrl, appName: 'EastPark' },
-            text: `Reset your EastPark password using this link: ${resetUrl}\n\nThis link expires in 30 minutes. If you did not request a reset, ignore this email.`,
+            text: `لإعادة تعيين كلمة مرور إيست بارك، استخدم الرابط التالي: ${resetUrl}\n\nتنتهي صلاحية الرابط خلال 30 دقيقة. إذا لم تطلب إعادة التعيين، يمكنك تجاهل هذه الرسالة.`,
         });
     }
 
     sendInvitation(to: string, inviteUrl: string, role: string): Promise<void> {
+        const roleAr = role === 'ADMIN' ? 'مشرف' : role === 'MERCHANT' ? 'تاجر' : role;
+
         return this.send({
             to,
-            subject: `You're invited to EastPark as ${role}`,
+            subject: `دعوة للانضمام إلى إيست بارك بصفتك ${roleAr}`,
             template: 'invitation',
-            context: { inviteUrl, role, appName: 'EastPark' },
-            text: `You have been invited to join EastPark as ${role}. Set up your account using this link: ${inviteUrl}\n\nThis invitation expires in 48 hours.`,
+            context: { inviteUrl, role: roleAr, appName: 'EastPark' },
+            text: `تمت دعوتك للانضمام إلى إيست بارك بصفتك ${roleAr}. أنشئ حسابك باستخدام الرابط التالي: ${inviteUrl}\n\nتنتهي صلاحية الدعوة خلال 48 ساعة.`,
+        });
+    }
+
+    sendSupportIssue(issue: {
+        name: string;
+        email: string;
+        category: string;
+        subject: string;
+        message: string;
+        pageUrl?: string;
+    }): Promise<void> {
+        const pageLine = issue.pageUrl ? `\nPage: ${issue.pageUrl}` : '';
+        const categoryAr: Record<string, string> = {
+            ACCESS: 'تسجيل الدخول أو الوصول',
+            ACCOUNT: 'بيانات الحساب',
+            BUG: 'مشكلة في التطبيق',
+            SUGGESTION: 'اقتراح',
+            OTHER: 'أخرى',
+        };
+
+        return this.send({
+            to: this.supportTo,
+            replyTo: issue.email,
+            subject: `[دعم إيست بارك] ${issue.subject}`,
+            template: 'support-issue',
+            context: {
+                ...issue,
+                category: categoryAr[issue.category] ?? issue.category,
+                appName: 'EastPark',
+            },
+            text: `بلاغ جديد إلى دعم إيست بارك\n\nالمرسل: ${issue.name} <${issue.email}>\nالتصنيف: ${categoryAr[issue.category] ?? issue.category}\nالموضوع: ${issue.subject}${pageLine}\n\n${issue.message}`,
         });
     }
 

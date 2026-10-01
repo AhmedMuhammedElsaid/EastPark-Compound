@@ -15,6 +15,7 @@ import { ProductsModule } from 'src/modules/products/products.module';
 import { ReportsModule } from 'src/modules/reports/reports.module';
 import { ResidentsModule } from 'src/modules/residents/residents.module';
 import { ShopsModule } from 'src/modules/shops/shops.module';
+import { SupportModule } from 'src/modules/support/support.module';
 import { UploadsModule } from 'src/modules/uploads/uploads.module';
 import { UserModule } from 'src/modules/user/user.module';
 
@@ -56,6 +57,7 @@ import { HealthController } from './controllers/health.controller';
         // Phase 8: Admin tools
         InvitationsModule,
         ResidentsModule,
+        SupportModule,
     ],
     controllers: [HealthController],
 })

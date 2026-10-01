@@ -11,5 +11,6 @@ export default registerAs(
             process.env.EMAIL_FROM ??
             'EastPark <eastpark.eg@gmail.com>',
         replyTo: process.env.EMAIL_REPLY_TO ?? 'eastpark.eg@gmail.com',
+        supportTo: process.env.EMAIL_SUPPORT_TO ?? 'eastpark.eg@gmail.com',
     })
 );
