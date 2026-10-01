@@ -59,6 +59,7 @@ export function ResidentRequestsPanel() {
   const [items, setItems] = React.useState<ResidentLead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
+  const [actionError, setActionError] = React.useState(false);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [reloadKey, setReloadKey] = React.useState(0);
   const ar = lang === "ar";
@@ -89,6 +90,7 @@ export function ResidentRequestsPanel() {
   }
 
   async function invite(id: string) {
+    setActionError(false);
     setPendingId(id);
     try {
       const response = await fetch(
@@ -102,7 +104,7 @@ export function ResidentRequestsPanel() {
         ),
       );
     } catch {
-      setError(true);
+      setActionError(true);
     } finally {
       setPendingId(null);
     }
@@ -136,6 +138,11 @@ export function ResidentRequestsPanel() {
         onRetry={retry}
         ar={ar}
       />
+      {actionError && (
+        <p role="alert" className="mb-4 border-y border-error/30 bg-error/10 px-4 py-3 text-error">
+          {ar ? "تعذر إرسال الدعوة. حاول مرة أخرى." : "Could not send the invitation. Try again."}
+        </p>
+      )}
       {!loading && !error && items.length > 0 && (
         <div className="divide-y divide-border border-y border-border">
           {items.map((item) => (

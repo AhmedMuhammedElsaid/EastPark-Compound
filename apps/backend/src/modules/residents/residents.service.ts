@@ -143,10 +143,14 @@ export class ResidentsService {
             return { message: 'residentLead.success.alreadyRegistered' };
         }
 
-        await this.invitationsService.create(
-            { email: lead.email, role: Role.RESIDENT },
-            actor
-        );
+        try {
+            await this.invitationsService.create(
+                { email: lead.email, role: Role.RESIDENT },
+                actor
+            );
+        } catch (error) {
+            if (!(error instanceof ConflictException)) throw error;
+        }
 
         await this.db.residentLead.update({
             where: { id: lead.id },

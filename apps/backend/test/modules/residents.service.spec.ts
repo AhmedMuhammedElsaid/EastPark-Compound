@@ -248,6 +248,35 @@ describe('ResidentsService', () => {
                 data: { status: ResidentLeadStatus.INVITED },
             });
         });
+
+        it('reconciles the lead when an active invitation already exists', async () => {
+            const lead = mockLead();
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue(null);
+            invitationsService.create.mockRejectedValue(
+                new ConflictException('invitation.error.alreadyPending')
+            );
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).resolves.toEqual({ message: 'residentLead.success.invited' });
+
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-1' },
+                data: { status: ResidentLeadStatus.INVITED },
+            });
+        });
+
+        it('does not mark the lead invited when invitation creation fails', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            db.user.findUnique.mockResolvedValue(null);
+            invitationsService.create.mockRejectedValue(new Error('email failed'));
+
+            await expect(service.invite('lead-1', adminActor)).rejects.toThrow(
+                'email failed'
+            );
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
     });
 
     // ── findAll ───────────────────────────────────────────────────────────────
