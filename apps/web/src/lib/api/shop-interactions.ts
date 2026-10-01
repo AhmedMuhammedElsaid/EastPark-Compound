@@ -1,0 +1,35 @@
+import { z } from "zod";
+
+const reviewSchema = z.object({
+  id: z.string(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().nullable().optional().transform((value) => value ?? null),
+  user: z.object({ id: z.string(), name: z.string() }),
+  createdAt: z.string(),
+});
+
+const reviewPageSchema = z.object({
+  items: z.array(reviewSchema),
+  nextCursor: z.string().nullish().transform((value) => value ?? undefined),
+  averageRating: z.number().min(1).max(5).nullish().transform((value) => value ?? null),
+});
+
+const reviewEnvelopeSchema = z.object({ data: reviewSchema });
+const reviewPageEnvelopeSchema = z.object({ data: reviewPageSchema });
+
+export const reviewInputSchema = z.object({
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().trim().max(1000).optional().transform((value) => value || undefined),
+});
+
+export type Review = z.infer<typeof reviewSchema>;
+export type ReviewPage = z.infer<typeof reviewPageSchema>;
+export type ReviewInput = z.infer<typeof reviewInputSchema>;
+
+export function parseReview(payload: unknown): Review {
+  return reviewEnvelopeSchema.parse(payload).data;
+}
+
+export function parseReviewPage(payload: unknown): ReviewPage {
+  return reviewPageEnvelopeSchema.parse(payload).data;
+}

@@ -225,6 +225,7 @@
     "call": "Call",
     "closed_now": "Closed",
     "contact": "Contact",
+    "delete_review_confirm": "Delete your review?",
     "days": {
       "fri": "Friday",
       "mon": "Monday",
@@ -235,6 +236,8 @@
       "wed": "Wednesday"
     },
     "grocery": "Grocery",
+    "edit_review": "Edit your review",
+    "login_to_review": "to save this shop or write a review.",
     "location": "Location",
     "menu": "Menu",
     "menu_subtitle": "Browse the shop's current selection and availability.",
@@ -247,9 +250,18 @@
     "other": "Other",
     "rating_required": "Please select a rating",
     "review_placeholder": "Share your experience...",
+    "review_comment": "Comment (optional)",
+    "review_created": "Your review was published.",
+    "review_deleted": "Your review was deleted.",
+    "review_updated": "Your review was updated.",
+    "reviews_unavailable": "Reviews could not be loaded. Please try again.",
     "reviews_tab": "Reviews",
     "save": "Save",
     "saved": "Saved",
+    "shop_saved": "Shop saved.",
+    "shop_unsaved": "Shop removed from saved shops.",
+    "stars": "stars",
+    "submit_review": "Publish review",
     "search_placeholder": "Search shops...",
     "search_products": "Search this menu...",
     "services": "Services",
@@ -258,6 +270,7 @@
     "title": "Directory",
     "view_menu": "View menu",
     "working_hours": "Working hours",
+    "update_review": "Update review",
     "write_review": "Write a review"
   },
   "errors": {

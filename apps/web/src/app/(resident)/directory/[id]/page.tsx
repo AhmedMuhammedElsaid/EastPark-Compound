@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ShopDetailView } from "@/components/app/ShopDetailView";
 import { getProducts } from "@/lib/api/products.server";
+import { getReviews } from "@/lib/api/shop-interactions.server";
 import { getShopDetail, ShopRequestError } from "@/lib/api/shops.server";
 
 export const metadata: Metadata = { title: "Shop" };
@@ -18,6 +19,12 @@ export default async function ShopDetailPage({ params }: ShopDetailPageProps) {
     console.error("Shop detail page failed", error);
     return null;
   });
+  const initialReviews = shop
+    ? await getReviews(id).catch((error) => {
+        console.error("Shop reviews failed", error);
+        return null;
+      })
+    : null;
 
   const products = shop
     ? await getProducts(shop.id).catch((error) => {
@@ -26,5 +33,11 @@ export default async function ShopDetailPage({ params }: ShopDetailPageProps) {
       })
     : null;
 
-  return <ShopDetailView shop={shop} products={products} />;
+  return (
+    <ShopDetailView
+      shop={shop}
+      products={products}
+      initialReviews={initialReviews}
+    />
+  );
 }

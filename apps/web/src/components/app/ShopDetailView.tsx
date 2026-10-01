@@ -13,7 +13,9 @@ import Link from "next/link";
 
 import { Container } from "@/components/Container";
 import { ProductMenu } from "@/components/app/ProductMenu";
+import { ShopInteractions } from "@/components/app/ShopInteractions";
 import type { ProductPage } from "@/lib/api/products";
+import type { ReviewPage } from "@/lib/api/shop-interactions";
 import type { Shop, ShopCategory, WorkingHoursDay } from "@/lib/api/shops";
 import { useTranslation } from "@/lib/i18n";
 
@@ -27,7 +29,15 @@ const categoryTranslationKeys = {
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-export function ShopDetailView({ shop, products }: { shop: Shop | null; products: ProductPage | null }) {
+export function ShopDetailView({
+  shop,
+  products,
+  initialReviews,
+}: {
+  shop: Shop | null;
+  products: ProductPage | null;
+  initialReviews: ReviewPage | null;
+}) {
   const { lang, t } = useTranslation();
   const isRtl = lang === "ar";
 
@@ -201,6 +211,7 @@ export function ShopDetailView({ shop, products }: { shop: Shop | null; products
             </aside>
           )}
         </div>
+        <ShopInteractions shopId={shop.id} initialPage={initialReviews} />
       </article>
     </Container>
   );

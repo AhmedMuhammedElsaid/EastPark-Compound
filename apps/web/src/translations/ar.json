@@ -225,6 +225,7 @@
     "call": "اتصال",
     "closed_now": "مغلق",
     "contact": "بيانات التواصل",
+    "delete_review_confirm": "هل تريد حذف تقييمك؟",
     "days": {
       "fri": "الجمعة",
       "mon": "الاثنين",
@@ -235,6 +236,8 @@
       "wed": "الأربعاء"
     },
     "grocery": "بقالة",
+    "edit_review": "تعديل تقييمك",
+    "login_to_review": "لحفظ هذا المحل أو كتابة تقييم.",
     "location": "الموقع",
     "menu": "القائمة",
     "menu_subtitle": "تصفّح منتجات المحل المتاحة حالياً.",
@@ -247,9 +250,18 @@
     "other": "أخرى",
     "rating_required": "يرجى اختيار تقييم",
     "review_placeholder": "شاركنا تجربتك...",
+    "review_comment": "التعليق (اختياري)",
+    "review_created": "تم نشر تقييمك.",
+    "review_deleted": "تم حذف تقييمك.",
+    "review_updated": "تم تحديث تقييمك.",
+    "reviews_unavailable": "تعذر تحميل التقييمات. حاول مرة أخرى.",
     "reviews_tab": "التقييمات",
     "save": "حفظ",
     "saved": "محفوظ",
+    "shop_saved": "تم حفظ المحل.",
+    "shop_unsaved": "تمت إزالة المحل من المحفوظات.",
+    "stars": "نجوم",
+    "submit_review": "نشر التقييم",
     "search_placeholder": "ابحث عن المحلات...",
     "search_products": "ابحث في القائمة...",
     "services": "خدمات",
@@ -258,6 +270,7 @@
     "title": "الدليل",
     "view_menu": "عرض القائمة",
     "working_hours": "ساعات العمل",
+    "update_review": "تحديث التقييم",
     "write_review": "اكتب تقييماً"
   },
   "errors": {
