@@ -19,6 +19,12 @@ interface SendEmailOptions {
     replyTo?: string;
 }
 
+interface EmailTransportError {
+    code?: unknown;
+    responseCode?: unknown;
+    command?: unknown;
+}
+
 @Injectable()
 export class EmailService {
     private readonly logger = new Logger(EmailService.name);
@@ -81,9 +87,23 @@ export class EmailService {
                 `Email sent to ${JSON.stringify(to)} [${template}]`
             );
         } catch (error) {
+            const transportError = error as EmailTransportError;
             this.logger.error(
-                `Failed to send email [${template}] to ${JSON.stringify(to)}`,
-                error
+                JSON.stringify({
+                    message: `Failed to send email [${template}]`,
+                    code:
+                        typeof transportError.code === 'string'
+                            ? transportError.code
+                            : undefined,
+                    responseCode:
+                        typeof transportError.responseCode === 'number'
+                            ? transportError.responseCode
+                            : undefined,
+                    command:
+                        typeof transportError.command === 'string'
+                            ? transportError.command
+                            : undefined,
+                })
             );
             throw new ServiceUnavailableException('common.serviceUnavailable');
         }
