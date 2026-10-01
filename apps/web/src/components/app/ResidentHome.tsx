@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { Building2, LogIn, LogOut, MessageSquareText, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 import { Container } from '@/components/Container';
@@ -10,6 +10,7 @@ import { useTranslation } from '@/lib/i18n';
 export function ResidentHome() {
   const { isLoading, logout, user } = useAuth();
   const { t } = useTranslation();
+  const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
 
   return (
     <Container className="py-8 sm:py-12">
@@ -84,13 +85,13 @@ export function ResidentHome() {
             {t('home.quick_actions')}
           </h2>
           <Link
-            href="/register-unit"
+            href={canSubmitFeedback ? '/feedback' : '/register-unit'}
             className="mt-5 flex min-h-14 max-w-md items-center gap-4 rounded-md border border-border bg-card px-5 py-4 text-foreground transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
           >
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
-              <Building2 aria-hidden="true" className="size-5" />
+              {canSubmitFeedback ? <MessageSquareText aria-hidden="true" className="size-5" /> : <Building2 aria-hidden="true" className="size-5" />}
             </span>
-            <span className="font-bold">{t('nav.register')}</span>
+            <span className="font-bold">{canSubmitFeedback ? t('feedback.title') : t('nav.register')}</span>
           </Link>
         </section>
       </section>
