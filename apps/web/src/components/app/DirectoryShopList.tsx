@@ -246,7 +246,7 @@ function ShopCard({ shop, lang }: { shop: Shop; lang: "ar" | "en" }) {
       <Link
         href={`/directory/${encodeURIComponent(shop.id)}`}
         aria-label={name}
-        className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+        className="group block transition-transform active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100"
       >
         <div className="relative aspect-[16/9] overflow-hidden bg-muted">
           {coverPhoto ? (

@@ -100,7 +100,7 @@ export function OrderHistory() {
         ) : (
           <div className="mt-8 space-y-4">
             {orders.map((order) => (
-              <Link key={order.id} href={`/orders/${encodeURIComponent(order.id)}`} className="group grid min-h-32 gap-4 rounded-md border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none sm:grid-cols-[1fr_auto] sm:items-center">
+              <Link key={order.id} href={`/orders/${encodeURIComponent(order.id)}`} className="group grid min-h-32 gap-4 rounded-md border border-border bg-card p-5 transition-[transform,border-color] hover:border-primary active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className={`inline-flex min-h-8 items-center rounded-full px-3 text-[length:var(--text-caption)] font-bold ${statusStyle[order.status]}`}>{t(`orders.${order.status}`)}</span>

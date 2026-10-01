@@ -37,6 +37,7 @@
         "prisma:status": "prisma migrate status",
         "prisma:studio": "prisma studio",
         "seed": "ts-node -r tsconfig-paths/register prisma/seed-data.ts",
+        "seed:showcase": "ts-node -r tsconfig-paths/register prisma/seed-showcase.ts",
         "docker:up": "docker-compose up -d",
         "docker:down": "docker-compose down",
         "docker:logs": "docker-compose logs -f",

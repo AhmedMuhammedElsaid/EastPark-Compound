@@ -23,6 +23,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Container } from '@/components/Container';
+import { PendingMark } from '@/components/PendingMark';
 import { Field, CONTROL_CLASS, controlBorder } from '@/components/form/Field';
 import {
   feedbackCategories,
@@ -235,7 +236,7 @@ export function NewFeedbackView() {
 
             {submitError && <p role="alert" className="rounded-md bg-error/10 p-4 text-[length:var(--text-label)] font-semibold text-error">{t(`feedback.error_${submitError}`)}</p>}
             <button type="submit" disabled={isSubmitting} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-6 text-[length:var(--text-button)] font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60 sm:w-auto">
-              <Send aria-hidden="true" className="size-4.5" />{isSubmitting ? t('feedback.submitting') : t('common.submit')}
+              {isSubmitting ? <PendingMark /> : <Send aria-hidden="true" className="size-4.5" />}{isSubmitting ? t('feedback.submitting') : t('common.submit')}
             </button>
           </form>
         </section>

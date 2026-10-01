@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     'إيست بارك',
     'compound services',
     'residential community',
-    'community governance',
+    'community management',
     'local marketplace',
   ],
   alternates: {

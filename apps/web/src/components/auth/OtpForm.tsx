@@ -53,7 +53,7 @@ export function OtpForm({ email }: { email: string }) {
       </div>
       {error && <p role="alert" className="rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error">{error}</p>}
       {message && <p role="status" className="rounded-sm bg-success/12 px-4 py-3 text-[length:var(--text-body)] text-success">{message}</p>}
-      <Button type="submit" fullWidth disabled={pending}>{pending ? t('common.loading') : t('auth.verify_otp')}</Button>
+      <Button type="submit" fullWidth disabled={pending} aria-busy={pending}>{pending ? t('common.loading') : t('auth.verify_otp')}</Button>
       <button type="button" disabled={pending} onClick={() => void resend()} className="min-h-11 w-full text-[length:var(--text-body)] font-semibold text-primary disabled:opacity-40">{t('auth.resend_otp')}</button>
     </form>
   );

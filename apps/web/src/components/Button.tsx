@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import * as React from 'react';
 
+import { PendingMark } from '@/components/PendingMark';
+
 /**
  * Mirrors the mobile app's GoldButton (src/components/auth/gold-button.tsx):
  * filled  → gold bg, dark text (primary action)
@@ -55,11 +57,13 @@ export function Button({
   children,
   ...rest
 }: CommonProps & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const isBusy = rest['aria-busy'] === true || rest['aria-busy'] === 'true';
   return (
     <button
       {...rest}
       className={`${classesFor(variant, fullWidth, className)} disabled:cursor-not-allowed disabled:opacity-40`}
     >
+      {isBusy && <PendingMark />}
       {children}
     </button>
   );

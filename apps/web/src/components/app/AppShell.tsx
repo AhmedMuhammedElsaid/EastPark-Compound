@@ -53,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20 text-foreground md:pb-0">
+    <div className="min-h-screen bg-background pb-24 text-foreground md:pb-0">
       <SkipLink />
       <header className="sticky top-0 z-50 border-b border-border bg-background/97 shadow-[0_1px_0_color-mix(in_srgb,var(--color-border)_28%,transparent)] backdrop-blur-xl">
         <Container className="flex min-h-16 items-center justify-between gap-4 md:min-h-[68px]">
@@ -117,7 +117,7 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="hidden border-t border-border/70 bg-card/45 md:block">
           <Container>
-            <nav aria-label={t('nav.brand')} className="flex min-h-12 items-stretch justify-center gap-1 lg:gap-3">
+            <nav aria-label={t('nav.brand')} className="flex min-h-14 items-stretch justify-center gap-1 lg:gap-3">
               {navItems.map(({ activePaths, href, icon: Icon, label }) => {
                 const active = activePaths
                   ? activePaths.some((path) => pathname.startsWith(path))
@@ -127,13 +127,13 @@ export function AppShell({ children }: AppShellProps) {
                     key={href}
                     href={href}
                     aria-current={active ? 'page' : undefined}
-                    className={`relative inline-flex min-h-12 items-center justify-center gap-2 px-3 text-[length:var(--text-label)] font-semibold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:origin-center after:scale-x-0 after:bg-primary after:transition-transform focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:after:transition-none lg:px-4 ${
+                    className={`relative inline-flex min-h-14 items-center justify-center gap-2.5 px-3 text-[length:var(--text-body)] font-semibold transition-[transform,color] active:scale-[0.97] after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:origin-center after:scale-x-0 after:bg-primary after:transition-transform focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100 motion-reduce:after:transition-none lg:px-4 ${
                       active
                         ? 'text-primary after:scale-x-100'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    <Icon aria-hidden="true" className="size-4" />
+                    <Icon aria-hidden="true" className="size-5" />
                     {label}
                   </Link>
                 );
@@ -147,7 +147,7 @@ export function AppShell({ children }: AppShellProps) {
 
       <nav
         aria-label={t('nav.brand')}
-        className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-5 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid min-h-[76px] grid-cols-5 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
         {mobileNavItems.map(({ activePaths, href, icon: Icon, mobileLabel }) => {
           const active = activePaths
@@ -158,11 +158,11 @@ export function AppShell({ children }: AppShellProps) {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-sm px-1 text-[length:var(--text-caption)] font-semibold focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-gold-500 ${
+              className={`flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-sm px-1 text-[length:var(--text-body)] font-semibold transition-transform active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100 ${
                 active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              <Icon aria-hidden="true" className="size-5" />
+              <Icon aria-hidden="true" className="size-6" />
               <span className="max-w-full truncate">{mobileLabel}</span>
             </Link>
           );

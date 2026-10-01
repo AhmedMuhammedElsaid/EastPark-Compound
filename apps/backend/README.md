@@ -138,6 +138,9 @@ pnpm prisma:migrate
 pnpm seed
 # Credentials are set via SEED_ADMIN_PASSWORD, SEED_MERCHANT_PASSWORD,
 # SEED_RESIDENT_PASSWORD in your .env file.
+
+# Add or refresh showcase shops, products, announcements, a poll, and an election
+pnpm seed:showcase
 ```
 
 ### 5 — Start the API

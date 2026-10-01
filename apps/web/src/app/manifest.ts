@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'EastPark',
     short_name: 'EastPark',
-    description: 'Compound services, local commerce, and community governance in one trusted app.',
+    description: 'Compound services, local commerce, and community management in one trusted app.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0d0c0b',

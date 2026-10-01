@@ -282,8 +282,7 @@ export function RegisterUnitForm() {
       ) : null}
 
       <div className="flex flex-col gap-3">
-        {/* No spinner — the design system bans them; the label carries the state. */}
-        <Button type="submit" fullWidth disabled={isSubmitting}>
+        <Button type="submit" fullWidth disabled={isSubmitting} aria-busy={isSubmitting}>
           {isSubmitting ? t('register.submitting') : t('register.submit')}
         </Button>
         <p className="text-center text-[length:var(--text-caption)] text-muted-foreground">

@@ -100,7 +100,7 @@ export function ResidentHome() {
               <Link
                 key={href}
                 href={href}
-                className="group flex aspect-square min-h-28 min-w-0 flex-col items-center justify-center gap-3 rounded-md border border-border bg-card p-3 text-center text-foreground transition-colors hover:border-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+                className="group flex aspect-square min-h-28 min-w-0 flex-col items-center justify-center gap-3 rounded-md border border-border bg-card p-3 text-center text-foreground transition-[transform,background-color,border-color] hover:border-primary hover:bg-muted active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100"
               >
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary transition-colors group-hover:bg-card motion-reduce:transition-none">
                   <Icon aria-hidden="true" className="size-5" />

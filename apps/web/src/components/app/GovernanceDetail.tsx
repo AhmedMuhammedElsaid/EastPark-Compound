@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { Container } from '@/components/Container';
+import { PendingMark } from '@/components/PendingMark';
 import type { Election, Poll } from '@/lib/api/governance';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
@@ -152,7 +153,7 @@ function VoteForm<T extends Poll | Election>({ kind, itemId, choices, selectedId
       {!isLoading && !user && !expired && <Link href="/login" className="mt-5 inline-flex min-h-12 items-center rounded-md bg-primary px-6 font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">{t('governance.sign_in_to_vote')}</Link>}
       {!isLoading && user && user.role !== 'RESIDENT' && !expired && <p className="mt-5 text-[length:var(--text-body)] text-muted-foreground">{t('governance.residents_only')}</p>}
       {expired && !selectedId && <p className="mt-5 text-[length:var(--text-body)] text-muted-foreground">{t('governance.voting_closed')}</p>}
-      {canVote && <button type="submit" disabled={!pendingChoice || isSubmitting} className="mt-5 min-h-12 rounded-md bg-primary px-6 text-[length:var(--text-button)] font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-50">{isSubmitting ? t('common.loading') : t('governance.submit_vote')}</button>}
+      {canVote && <button type="submit" disabled={!pendingChoice || isSubmitting} aria-busy={isSubmitting} className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-[length:var(--text-button)] font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-50">{isSubmitting && <PendingMark />}{isSubmitting ? t('common.loading') : t('governance.submit_vote')}</button>}
       {message && <p role={message.error ? 'alert' : 'status'} className={`mt-4 rounded-sm px-4 py-3 text-[length:var(--text-body)] ${message.error ? 'bg-error/12 text-error' : 'bg-success/15 text-success'}`}>{message.text}</p>}
     </form>
   );

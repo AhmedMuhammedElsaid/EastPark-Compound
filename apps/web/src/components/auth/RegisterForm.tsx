@@ -83,7 +83,7 @@ export function RegisterForm() {
       </div>
 
       {submitError && <p role="alert" className="rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error">{submitError}</p>}
-      <Button type="submit" fullWidth disabled={isSubmitting}>{isSubmitting ? t('common.loading') : t('auth.register')}</Button>
+      <Button type="submit" fullWidth disabled={isSubmitting} aria-busy={isSubmitting}>{isSubmitting ? t('common.loading') : t('auth.register')}</Button>
       <p className="text-center text-[length:var(--text-body)] text-muted-foreground">{t('auth.already_have_account')} <Link className="font-semibold text-primary hover:underline" href="/login">{t('auth.login')}</Link></p>
     </form>
   );
