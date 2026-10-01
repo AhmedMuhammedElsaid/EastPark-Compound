@@ -102,10 +102,21 @@
       "login_failed": "Incorrect email or password",
       "rate_limited": "Too many attempts. Please wait a minute and try again.",
       "name_too_short": "Name must be at least 2 characters",
-      "password_weak": "Use 8+ characters with uppercase, lowercase, a number, and a symbol",
+      "password_weak": "Complete the missing password requirements below",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
       "unit_required": "Unit number is required"
+    },
+    "password_requirements": {
+      "title": "Your password needs:",
+      "length": "At least 8 characters",
+      "uppercase": "One uppercase letter",
+      "lowercase": "One lowercase letter",
+      "number": "One number",
+      "symbol": "One symbol, such as # or !",
+      "characters": "English letters and no spaces",
+      "met": "met",
+      "missing": "missing"
     },
     "forgot": {
       "tryDifferentEmail": "Try a different email"

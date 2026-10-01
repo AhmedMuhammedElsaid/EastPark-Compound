@@ -6,13 +6,12 @@ import {
     IsString,
     Length,
     Matches,
-    MinLength,
 } from 'class-validator';
 
 const PASSWORD_REGEX =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[\x21-\x7E]{8,}$/;
 const PASSWORD_MSG =
-    'Password must be 8+ chars with uppercase, lowercase, number, and special character (@$!%*?&)';
+    'Password must be 8+ chars with uppercase, lowercase, number, and special character';
 
 // ── Register ──────────────────────────────────────────────────────────────────
 

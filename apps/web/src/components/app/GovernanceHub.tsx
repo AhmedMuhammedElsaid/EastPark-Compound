@@ -152,20 +152,20 @@ function ElectionRow({ election, lang }: { election: Election; lang: 'ar' | 'en'
 function GovernanceRow({ href, title, type, deadline, closed, voted, extra }: { href: string; title: string; type: string; deadline: string; closed: boolean; voted: boolean; extra?: string }) {
   const { t } = useTranslation();
   return (
-    <article className="py-6 sm:py-8">
-      <div className="flex flex-wrap items-center gap-2 text-[length:var(--text-caption)] font-bold">
-        <span className="rounded-full bg-muted px-3 py-1.5 text-foreground">{type}</span>
-        <span className={closed ? 'text-muted-foreground' : 'text-success'}>{t(closed ? 'governance.closed' : 'governance.active')}</span>
-        {voted && <span className="inline-flex items-center gap-1 text-primary"><CheckCircle2 aria-hidden="true" className="size-4" />{t('governance.voted')}</span>}
-      </div>
-      <h2 className="mt-3 max-w-3xl text-[length:var(--text-h2)] font-bold">
-        <Link href={href} prefetch={true} className="hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">{title}</Link>
-      </h2>
-      <p className="mt-2 text-[length:var(--text-label)] text-muted-foreground">
-        {t(closed ? 'governance.closed_on' : 'governance.closes_on').replace('{{date}}', deadline)}
-        {extra ? ` · ${extra}` : ''}
-      </p>
-    </article>
+    <Link href={href} prefetch={true} className="group block rounded-md px-3 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">
+      <article className="py-6 sm:py-8">
+        <div className="flex flex-wrap items-center gap-2 text-[length:var(--text-caption)] font-bold">
+          <span className="rounded-full bg-muted px-3 py-1.5 text-foreground">{type}</span>
+          <span className={closed ? 'text-muted-foreground' : 'text-success'}>{t(closed ? 'governance.closed' : 'governance.active')}</span>
+          {voted && <span className="inline-flex items-center gap-1 text-primary"><CheckCircle2 aria-hidden="true" className="size-4" />{t('governance.voted')}</span>}
+        </div>
+        <h2 className="mt-3 max-w-3xl text-[length:var(--text-h2)] font-bold transition-colors group-hover:text-primary">{title}</h2>
+        <p className="mt-2 text-[length:var(--text-label)] text-muted-foreground">
+          {t(closed ? 'governance.closed_on' : 'governance.closes_on').replace('{{date}}', deadline)}
+          {extra ? ` · ${extra}` : ''}
+        </p>
+      </article>
+    </Link>
   );
 }
 

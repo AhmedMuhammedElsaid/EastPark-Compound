@@ -1,7 +1,18 @@
 import { z } from 'zod';
 
-export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[\x21-\x7E]{8,}$/;
 export const AUTH_TOKEN_PATTERN = /^[a-f\d]{64}$/i;
+
+export function getPasswordRequirements(password: string) {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    symbol: /[^A-Za-z\d\s]/.test(password),
+    characters: /^[\x21-\x7E]*$/.test(password),
+  };
+}
 
 export const loginSchema = z.object({
   email: z.email({ error: 'auth.errors.invalid_email' }),
