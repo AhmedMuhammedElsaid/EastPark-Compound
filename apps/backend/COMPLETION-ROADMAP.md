@@ -48,7 +48,7 @@ Item format: `[P0|P1|P2] — title — file:line — what to change — how to v
 
 ## Corrections to prior documents
 
-The verdict paragraphs in `backend_review.md` and `frontend_review.md` are stale, and three claims carried into `migration.md` did not survive verification:
+The verdict paragraphs in `backend_review.md` and `frontend_review.md` are stale, and three claims from the earlier migration audit did not survive verification:
 
 - **Whole-repo test coverage is 12.44%, not 81.11%.** The 81.11% figure is real but averaged over 5 hand-picked files in `test/jest.json` `collectCoverageFrom`. Measured directly (see Part 4).
 - **9 modules have zero tests, not 8** — `announcements, feedback, invitations, merchant, products, reports, shops, uploads, user`. Verified by enumeration.
@@ -355,7 +355,7 @@ Tests:       62 passed, 62 total
 
 **12.44%, not 81.11%.** Every controller in the codebase is at 0% — that is the layer enforcing auth and role guards. The Socket.io orders gateway sits at 57.89%. `elections.service.ts` is 0%.
 
-**9 of 13 modules have zero test files** (verified by enumeration — `migration.md` says 8): `announcements, feedback, invitations, merchant, products, reports, shops, uploads, user`. Four have partial coverage (`governance, notifications, orders, payments`) and in each only one service file is covered. **Zero e2e tests exist** — 5 spec files total, all unit tests under `test/`, no `*.e2e-spec.ts` anywhere.
+**9 of 13 modules have zero test files** (verified by enumeration): `announcements, feedback, invitations, merchant, products, reports, shops, uploads, user`. Four have partial coverage (`governance, notifications, orders, payments`) and in each only one service file is covered. **Zero e2e tests exist** — 5 spec files total, all unit tests under `test/`, no `*.e2e-spec.ts` anywhere.
 
 - **[P2] — Stop the coverage figure from misleading — `test/jest.json` `collectCoverageFrom` — broaden to `src/**/*.ts` and set the threshold to the real current number, then ratchet upward — verify: `pnpm test` reports whole-repo coverage**
 

@@ -148,5 +148,5 @@ Do these one at a time, verifying between each. Never batch.
 ---
 
 _Companion: `apps/backend/COMPLETION-ROADMAP.md` (the backend/mobile completion audit).
-The duplication this plan removes is deliberate and temporary — see the "Design mirroring"
-section of Prompt B in `migration.md`._
+The duplication this plan removes is deliberate and temporary so web and mobile can remain
+independently installable while shared-package adoption is deferred._
