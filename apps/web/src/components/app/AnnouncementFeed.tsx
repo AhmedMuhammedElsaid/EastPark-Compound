@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { startTransition, useState } from 'react';
 
+import { CommunityNav } from '@/components/app/CommunityNav';
 import { Container } from '@/components/Container';
 import type {
   Announcement,
@@ -87,6 +88,7 @@ export function AnnouncementFeed({ category, initialPage }: AnnouncementFeedProp
           <p className="mt-3 text-[length:var(--text-body-lg)] text-muted-foreground">
             {t('community.announcements_subtitle')}
           </p>
+          <CommunityNav />
         </div>
 
         <nav aria-label={t('common.filter')} className="announcement-filters mt-8 flex gap-2 overflow-x-auto pb-2">

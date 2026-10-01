@@ -33,8 +33,8 @@ export class ReportsService {
 
         let nextCursor: string | undefined;
         if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
+            items.pop();
+            nextCursor = items[items.length - 1]?.id;
         }
 
         return { items, nextCursor };

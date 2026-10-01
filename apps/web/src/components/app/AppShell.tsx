@@ -29,7 +29,13 @@ export function AppShell({ children }: AppShellProps) {
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     { href: '/orders', label: t('orders.title'), mobileLabel: t('orders.title'), icon: Package },
-    { href: '/announcements', label: t('community.announcements'), mobileLabel: t('community.title'), icon: Megaphone },
+    {
+      href: '/announcements',
+      label: t('community.announcements'),
+      mobileLabel: t('community.title'),
+      icon: Megaphone,
+      activePaths: ['/announcements', '/reports'],
+    },
     { href: '/governance', label: t('governance.title'), mobileLabel: t('governance.title'), icon: Landmark },
     serviceItem,
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
@@ -52,8 +58,10 @@ export function AppShell({ children }: AppShellProps) {
           </Link>
 
           <nav aria-label={t('nav.brand')} className="hidden items-center gap-1 md:flex">
-            {navItems.map(({ href, icon: Icon, label }) => {
-              const active = href === '/home' ? pathname === href : pathname.startsWith(href);
+            {navItems.map(({ activePaths, href, icon: Icon, label }) => {
+              const active = activePaths
+                ? activePaths.some((path) => pathname.startsWith(path))
+                : href === '/home' ? pathname === href : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
@@ -119,8 +127,10 @@ export function AppShell({ children }: AppShellProps) {
         aria-label={t('nav.brand')}
         className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-5 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
-        {mobileNavItems.map(({ href, icon: Icon, mobileLabel }) => {
-          const active = href === '/home' ? pathname === href : pathname.startsWith(href);
+  {mobileNavItems.map(({ activePaths, href, icon: Icon, mobileLabel }) => {
+          const active = activePaths
+            ? activePaths.some((path) => pathname.startsWith(path))
+            : href === '/home' ? pathname === href : pathname.startsWith(href);
           return (
             <Link
               key={href}
