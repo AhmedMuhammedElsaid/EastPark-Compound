@@ -124,7 +124,7 @@ export class EmailService {
         message: string;
         pageUrl?: string;
     }): Promise<void> {
-        const pageLine = issue.pageUrl ? `\nPage: ${issue.pageUrl}` : '';
+        const pageLine = issue.pageUrl ? `\nالصفحة: ${issue.pageUrl}` : '';
         const categoryAr: Record<string, string> = {
             ACCESS: 'تسجيل الدخول أو الوصول',
             ACCOUNT: 'بيانات الحساب',

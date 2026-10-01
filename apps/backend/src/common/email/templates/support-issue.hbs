@@ -1,10 +1,10 @@
 <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;color:#faf8f5;letter-spacing:0;">بلاغ جديد إلى دعم التطبيق</h1>
 <p style="margin:0;color:#d8cec0;">أرسل أحد السكان أو الزوار بلاغاً من صفحة دعم تطبيق إيست بارك.</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:24px 0;background:#0d0c0b;border:1px solid #3d3830;border-radius:8px;">
-  <tr><td style="padding:14px 16px;border-bottom:1px solid #3d3830;color:#a89880;font-size:13px;">المرسل</td><td style="padding:14px 16px;border-bottom:1px solid #3d3830;color:#faf8f5;">{{name}} <span dir="ltr">&lt;{{email}}&gt;</span></td></tr>
-  <tr><td style="padding:14px 16px;border-bottom:1px solid #3d3830;color:#a89880;font-size:13px;">التصنيف</td><td style="padding:14px 16px;border-bottom:1px solid #3d3830;color:#b8966a;font-weight:700;">{{category}}</td></tr>
-  <tr><td style="padding:14px 16px;color:#a89880;font-size:13px;">الموضوع</td><td style="padding:14px 16px;color:#faf8f5;font-weight:700;">{{subject}}</td></tr>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;margin:24px 0;background:#0d0c0b;border:1px solid #3d3830;border-radius:8px;">
+  <tr><td width="76" style="width:76px;padding:14px 12px;border-bottom:1px solid #3d3830;color:#a89880;font-size:13px;vertical-align:top;">المرسل</td><td style="padding:14px 12px;border-bottom:1px solid #3d3830;color:#faf8f5;word-break:break-word;overflow-wrap:anywhere;">{{name}}<br><span dir="ltr">{{email}}</span></td></tr>
+  <tr><td width="76" style="width:76px;padding:14px 12px;border-bottom:1px solid #3d3830;color:#a89880;font-size:13px;vertical-align:top;">التصنيف</td><td style="padding:14px 12px;border-bottom:1px solid #3d3830;color:#b8966a;font-weight:700;word-break:break-word;">{{category}}</td></tr>
+  <tr><td width="76" style="width:76px;padding:14px 12px;color:#a89880;font-size:13px;vertical-align:top;">الموضوع</td><td style="padding:14px 12px;color:#faf8f5;font-weight:700;word-break:break-word;">{{subject}}</td></tr>
 </table>
 <div style="margin:0 0 24px;padding:18px 16px;background:#0d0c0b;border:1px solid #3d3830;border-radius:8px;color:#d8cec0;white-space:pre-wrap;">{{message}}</div>
-{{#if pageUrl}}<p style="margin:0;color:#a89880;font-size:13px;line-height:20px;">الصفحة المبلّغ عنها: <a href="{{pageUrl}}" dir="ltr" style="color:#b8966a;word-break:break-all;">{{pageUrl}}</a></p>{{/if}}
+{{#if pageUrl}}<p style="margin:0;color:#a89880;font-size:13px;line-height:20px;word-break:break-word;overflow-wrap:anywhere;">الصفحة المبلّغ عنها:<br><a href="{{pageUrl}}" dir="ltr" style="color:#b8966a;word-break:break-all;">{{pageUrl}}</a></p>{{/if}}
 <p style="margin:20px 0 0;color:#a89880;font-size:13px;line-height:20px;">يمكنك الرد على هذه الرسالة للتواصل مباشرة مع المرسل.</p>
