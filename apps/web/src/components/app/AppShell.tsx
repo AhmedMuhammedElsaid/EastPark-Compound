@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
+import { Bell, Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShieldCheck, ShoppingBag, Store, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -36,6 +36,9 @@ export function AppShell({ children }: AppShellProps) {
     : { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 };
   const navItems: NavItem[] = [
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
+    ...(user?.role === 'ADMIN'
+      ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.title'), icon: ShieldCheck }]
+      : []),
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     { href: '/orders', label: t('orders.title'), mobileLabel: t('orders.title'), icon: Package },
     {
@@ -50,7 +53,10 @@ export function AppShell({ children }: AppShellProps) {
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
   ];
   const mobileNavItems = navItems.filter(({ href }) =>
-    ['/home', '/directory', '/orders', '/announcements', accountHref].includes(href),
+    (user?.role === 'ADMIN'
+      ? ['/home', '/admin', '/announcements', '/governance', accountHref]
+      : ['/home', '/directory', '/orders', '/announcements', accountHref]
+    ).includes(href),
   );
 
   return (

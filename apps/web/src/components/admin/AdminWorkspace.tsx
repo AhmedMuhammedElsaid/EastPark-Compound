@@ -1,17 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CirclePlus, Landmark, Megaphone, Plus, Trash2, UserPlus, Vote } from 'lucide-react';
+import { CirclePlus, Landmark, Megaphone, MessageSquareText, Plus, Trash2, UserPlus, UsersRound, Vote } from 'lucide-react';
 import * as React from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/Button';
+import { ComplaintsPanel, ResidentRequestsPanel } from '@/components/admin/AdminOperations';
 import { CONTROL_CLASS, controlBorder, Field } from '@/components/form/Field';
 import { useTranslation } from '@/lib/i18n';
 import { announcementCategories, visibilityModes } from '@/lib/validation/admin';
 
-type Tool = 'announcement' | 'poll' | 'election' | 'candidate';
+type Tool = 'residents' | 'complaints' | 'announcement' | 'poll' | 'election' | 'candidate';
 type Notice = { kind: 'success' | 'error'; message: string } | null;
 
 const text = z.string().trim().min(3).max(5_000);
@@ -157,13 +158,15 @@ function CandidateFormPanel({ electionId }: { electionId: string }) {
 }
 
 export function AdminWorkspace() {
-  const { t } = useTranslation(); const [tool, setTool] = React.useState<Tool>('announcement'); const [electionId, setElectionId] = React.useState('');
+  const { t, lang } = useTranslation(); const [tool, setTool] = React.useState<Tool>('residents'); const [electionId, setElectionId] = React.useState('');
   const tools = [
+    { id: 'residents' as const, label: lang === 'ar' ? 'طلبات السكان' : 'Resident requests', icon: UsersRound },
+    { id: 'complaints' as const, label: lang === 'ar' ? 'الشكاوى' : 'Complaints', icon: MessageSquareText },
     { id: 'announcement' as const, label: t('admin.new_announcement'), icon: Megaphone },
     { id: 'poll' as const, label: t('admin.new_poll'), icon: Vote },
     { id: 'election' as const, label: t('admin.new_election'), icon: Landmark },
     { id: 'candidate' as const, label: t('admin.add_candidate'), icon: UserPlus },
   ];
   const electionCreated = (id: string) => { setElectionId(id); setTool('candidate'); };
-  return <div className="min-h-[calc(100vh-72px)] bg-background"><header className="border-b border-border bg-card"><div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8"><div className="flex items-center gap-3 text-primary"><CirclePlus aria-hidden="true" className="size-5" /><span className="text-[length:var(--text-overline)] font-bold uppercase tracking-widest">{t('admin.tools')}</span></div><h1 className="mt-3 text-[length:var(--text-h1)] font-bold">{t('admin.title')}</h1><p className="mt-2 max-w-2xl text-[length:var(--text-body-lg)] text-muted-foreground">{t('admin.workspace_intro')}</p></div></header><main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12 lg:px-8"><nav aria-label={t('admin.tools')} className="mb-8 flex gap-2 overflow-x-auto pb-2 lg:mb-0 lg:flex-col">{tools.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTool(id)} aria-current={tool === id ? 'page' : undefined} className={`flex min-h-12 shrink-0 items-center gap-3 rounded-md px-4 text-start text-[length:var(--text-label)] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${tool === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}><Icon aria-hidden="true" className="size-4.5" />{label}</button>)}</nav><div>{tool === 'announcement' && <AnnouncementFormPanel />}{tool === 'poll' && <PollFormPanel />}{tool === 'election' && <ElectionFormPanel onCreated={electionCreated} />}{tool === 'candidate' && <CandidateFormPanel electionId={electionId} />}</div></main></div>;
+  return <div className="min-h-[calc(100vh-72px)] bg-background"><header className="border-b border-border bg-card"><div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8"><div className="flex items-center gap-3 text-primary"><CirclePlus aria-hidden="true" className="size-5" /><span className="text-[length:var(--text-overline)] font-bold uppercase tracking-widest">{t('admin.tools')}</span></div><h1 className="mt-3 text-[length:var(--text-h1)] font-bold">{t('admin.title')}</h1><p className="mt-2 max-w-2xl text-[length:var(--text-body-lg)] text-muted-foreground">{t('admin.workspace_intro')}</p></div></header><main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12 lg:px-8"><nav aria-label={t('admin.tools')} className="mb-8 flex gap-2 overflow-x-auto pb-2 lg:mb-0 lg:flex-col">{tools.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTool(id)} aria-current={tool === id ? 'page' : undefined} className={`flex min-h-12 shrink-0 items-center gap-3 rounded-md px-4 text-start text-[length:var(--text-label)] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${tool === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}><Icon aria-hidden="true" className="size-4.5" />{label}</button>)}</nav><div>{tool === 'residents' && <ResidentRequestsPanel />}{tool === 'complaints' && <ComplaintsPanel />}{tool === 'announcement' && <AnnouncementFormPanel />}{tool === 'poll' && <PollFormPanel />}{tool === 'election' && <ElectionFormPanel onCreated={electionCreated} />}{tool === 'candidate' && <CandidateFormPanel electionId={electionId} />}</div></main></div>;
 }

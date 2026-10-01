@@ -46,7 +46,8 @@ export function LoginForm() {
       return;
     }
     const requestedPath = new URLSearchParams(window.location.search).get('next');
-  router.replace(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/home');
+    const defaultPath = result.user.role === 'ADMIN' ? '/admin' : '/home';
+    router.replace(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : defaultPath);
   });
 
   return (

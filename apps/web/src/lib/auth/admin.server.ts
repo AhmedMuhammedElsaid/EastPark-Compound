@@ -54,19 +54,26 @@ export async function requireAdmin(): Promise<AdminAuthResult> {
   };
 }
 
-export async function forwardAdminWrite(path: string, body: unknown): Promise<NextResponse> {
+export async function forwardAdminRequest(path: string, init: RequestInit = {}): Promise<NextResponse> {
   try {
     const auth = await requireAdmin();
     if ('response' in auth) return auth.response;
 
     const response = await backendFetch(path, {
-      method: 'POST',
-      headers: { ...bearer(auth.token), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      ...init,
+      headers: { ...init.headers, ...bearer(auth.token) },
     });
     const payload = await response.json().catch(() => ({ error: 'upstream' }));
     return NextResponse.json(payload, { status: response.status });
   } catch {
     return NextResponse.json({ error: 'network' }, { status: 503 });
   }
+}
+
+export function forwardAdminWrite(path: string, body: unknown): Promise<NextResponse> {
+  return forwardAdminRequest(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }

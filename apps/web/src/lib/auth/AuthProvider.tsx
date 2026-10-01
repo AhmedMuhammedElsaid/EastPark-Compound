@@ -5,7 +5,7 @@ import type { AuthUser, LoginPayload } from '@/lib/api/contracts';
 import * as React from 'react';
 
 export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'validation';
-type LoginResult = { ok: true } | { ok: false; error: LoginError };
+type LoginResult = { ok: true; user: AuthUser } | { ok: false; error: LoginError };
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(result.data.user);
-      return { ok: true };
+      return { ok: true, user: result.data.user };
     } catch {
       return { ok: false, error: 'network' };
     }
