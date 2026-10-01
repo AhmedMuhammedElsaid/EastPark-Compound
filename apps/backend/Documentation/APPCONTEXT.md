@@ -4,6 +4,21 @@
 > For frontend context, see `../../mobile/Documentation/APPCONTEXT.md`.
 > For full project context, see `../APPCONTEXT.md`.
 
+## Active Production Checkpoint — 2026-10-01
+
+- Active API: `https://eastpark-backend.onrender.com` (Render free Docker, Frankfurt).
+- Fly.io remains rollback infrastructure; web production now targets Render.
+- Render cutover checks passed for health/Prisma, announcements, Vercel CORS, and Upstash REST.
+- `PAYMENTS_ENABLED=false` keeps Paymob disabled until real production credentials are configured.
+- Root scheduled workflow pings `/health` every 10 minutes to reduce free-tier sleep/cold starts.
+- Transactional OTP, password-reset, invitation, and support emails are Arabic/RTL by default and
+	use the official logo embedded by CID in the shared dark/gold email layout.
+- App email identity is `EastPark <eastpark.eg@gmail.com>` with Reply-To/support delivery at
+	`eastpark.eg@gmail.com`. `info@benayat-eg.com` remains the public company contact.
+- Public throttled `POST /v1/support/issues` validates name, email, category, subject, message, and
+	optional page URL, then sends the issue to support with the submitter as Reply-To. The focused
+	service test passes. A web support UI has not been implemented yet.
+
 ---
 
 ## Production Snapshot — 2026-09-30

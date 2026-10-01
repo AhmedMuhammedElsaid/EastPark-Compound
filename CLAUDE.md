@@ -29,6 +29,35 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-10-01 — EMAIL, RENDER AVAILABILITY, AND PUBLIC HEADER (NEWEST)
+>
+> The implementation checkpoint is committed and pushed through `5497ea2`. The active production API is now
+> `https://eastpark-backend.onrender.com`; Fly remains rollback infrastructure. The web app remains
+> `https://eastpark-web-app.vercel.app`.
+>
+> Completed and validated in this checkpoint:
+>
+> - Transactional OTP, password-reset, invitation, and support emails use the official embedded
+>   EastPark logo, dark/gold responsive shell, and Arabic/RTL defaults. Sender, Reply-To, and support
+>   inbox use `eastpark.eg@gmail.com`; public company contact remains `info@benayat-eg.com`.
+> - Public throttled `POST /v1/support/issues` validates and emails support submissions. The web
+>   support page/form is **not implemented yet**.
+> - Render cold-start mitigation combines a scheduled 10-minute health ping, login-page warm-up,
+>   25-second server timeout, and 30-second interactive timeout. Production `GET /api/auth/login`
+>   returns 204; warm requests were measured below one second. Error copy no longer falsely claims
+>   definite internet loss.
+> - All auth password fields use accessible eye/eye-off controls with 48px targets.
+> - Public desktop header explicitly places brand/navigation/actions in logical outer/center/outer
+>   columns. Arabic and English mirror correctly, mobile remains unchanged, and 1440px/390px checks
+>   show no horizontal overflow. Header commit: `5497ea2`.
+> - `pnpm --dir apps/web check` passes with 59/59 routes.
+>
+> **Next task:** authenticate with the resident account stored locally in the user's Downloads
+> folder without printing or persisting credentials. Audit every resident route mobile-first at
+> 320, 390, 768, 1024, 1440, and wide-desktop widths in Arabic RTL and English LTR. Start with
+> `apps/web/src/components/app/AppShell.tsx` and `/home`; fix one measured layout failure at a time,
+> validate immediately with Playwright geometry/screenshots, then run the full web check.
+
 > ### 2026-09-30 — ROOT-OWNED MONOREPO + RENDER PREPARATION (NEWEST)
 >
 > Root Git now tracks `apps/web`, `apps/backend`, and `apps/mobile`; nested `.git` directories were

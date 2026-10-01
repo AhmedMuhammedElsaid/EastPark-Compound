@@ -6,10 +6,10 @@
 Read `APPCONTEXT.md` before making changes. It is the canonical, self-contained context for this
 standalone repository and must stay accurate for fresh clones.
 
-## Current State — 2026-09-30
+## Current State — 2026-10-01
 
 - Production: `https://eastpark-web-app.vercel.app`
-- API: `https://eastpark-backend.fly.dev`
+- Active API: `https://eastpark-backend.onrender.com`; Fly remains rollback infrastructure.
 - Vercel project: `eastpark-web-app`
 - `NEXT_PUBLIC_API_URL` is configured in Vercel production without `/v1` or a trailing slash.
 - Backend health, Prisma connectivity, lead insertion, and browser CORS were verified live.
@@ -44,6 +44,26 @@ standalone repository and must stay accurate for fresh clones.
 - The repository installs and builds independently; do not add path dependencies outside this
 	repository to production code.
 - Never commit `.env*`, `.vercel/`, credentials, or copied secret-bearing terminal output.
+- Render cold-start mitigation is committed: login mounts call `GET /api/auth/login` for a
+	best-effort health warm-up, server auth requests allow 25 seconds, interactive auth allows 30
+	seconds, and the root scheduled workflow pings Render every 10 minutes. Production warm-up returns
+	HTTP 204; do not revert this to a definite "no internet" message on generic transport failure.
+- Password visibility uses the shared accessible eye/eye-off icon button across all auth forms.
+- Public desktop header commit `5497ea2` pins brand and controls to opposite logical edges and keeps
+	navigation centered. Browser checks passed in Arabic RTL and English LTR at 1440px and 390px with
+	no overflow; mobile classes were intentionally preserved.
+- Backend `POST /v1/support/issues` is ready, but the web support route/BFF/form/footer link remain
+	unfinished and must not be described as shipped.
+- Latest full validation: `pnpm check` passed with 59/59 routes.
+
+## Immediate Next Work
+
+Audit the authenticated resident experience mobile-first. The resident credential file is local to
+the user's Downloads folder; automation may read it to log in but must never print, log, copy,
+persist, or commit its contents. Start with `src/components/app/AppShell.tsx` and `/home`, then cover
+every resident route at 320, 390, 768, 1024, 1440, and wide desktop in both Arabic RTL and English
+LTR. Use Playwright screenshots and bounding-box/overflow checks, fix one measured root cause at a
+time, and rerun `pnpm check` before committing.
 
 ## Resume Order
 

@@ -15,6 +15,30 @@ mobile app without removing or weakening the public registration path.
 - Mobile is the behavioral reference for parity work; backend contracts are authoritative.
 - Public pages are SEO-first. Auth, account, and confirmation routes must be `noindex`.
 
+## Latest Handoff — 2026-10-01
+
+- Production API traffic targets `https://eastpark-backend.onrender.com`; Fly is rollback only.
+- Render sleep protection uses a root scheduled 10-minute `/health` ping plus a best-effort login
+  warm-up endpoint. Backend auth timeout is 25 seconds and interactive auth timeout is 30 seconds.
+  Production `GET /api/auth/login` has been verified returning 204, with warm requests below one
+  second during the checkpoint.
+- Generic transport failure copy says the server could not be reached; it must not assert that the
+  user's internet connection is definitely offline.
+- Login, registration, reset-password, and invitation forms use a shared accessible eye/eye-off
+  password control with a 48px target and localized labels.
+- Public desktop header commit `5497ea2` explicitly distributes brand, centered navigation, and
+  utilities across the full container. RTL/LTR mirror correctly, mobile remains a two-row header,
+  and browser geometry found no horizontal overflow at 1440px or 390px.
+- Backend support email delivery is complete at `POST /v1/support/issues`; web `/support`, its BFF,
+  bilingual form, and footer link remain pending.
+- `pnpm check` passes lint, strict TypeScript, and a 59/59-route production build.
+
+The next task is a complete authenticated resident responsive audit. Read the resident credential
+file from the user's Downloads folder only inside login automation and never expose or persist its
+contents. Verify every resident route mobile-first at 320/390/768/1024/1440 and wide desktop in
+Arabic RTL and English LTR. Begin with `AppShell.tsx` and `/home`; use screenshots, element geometry,
+touch-target checks, and document/container overflow checks before changing code.
+
 ## Release Checkpoint — 2026-09-30
 
 - Same-origin BFF routes proxy lead and auth requests to Fly.

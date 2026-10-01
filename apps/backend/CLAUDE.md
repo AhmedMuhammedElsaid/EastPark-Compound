@@ -20,6 +20,22 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Render production + Arabic email support — 2026-10-01
+
+- Active API: `https://eastpark-backend.onrender.com` on Render free Docker in Frankfurt. Fly stays
+  available for rollback. Web production points to Render.
+- Health, Prisma, announcements, Vercel-origin CORS, and Upstash REST operations passed production
+  checks during cutover. `PAYMENTS_ENABLED=false` intentionally disables Paymob for first release.
+- OTP, reset-password, invitation, and support emails use Arabic/RTL defaults, an embedded official
+  EastPark logo, and a responsive dark/gold shell. `EMAIL_FROM`, `EMAIL_REPLY_TO`, and
+  `EMAIL_SUPPORT_TO` are configured for `eastpark.eg@gmail.com`; public company contact remains
+  `info@benayat-eg.com`.
+- Public `POST /v1/support/issues` is throttled to 3 requests/minute, validates the submission, and
+  uses the resident's email as Reply-To. Focused support service tests pass. The web support form is
+  still pending.
+- Root `.github/workflows/keep-render-awake.yml` schedules a health ping every 10 minutes to reduce
+  free-tier cold starts. Login also performs a best-effort web BFF warm-up.
+
 ### Render migration prepared — 2026-09-30
 
 - The root `/render.yaml` defines a Frankfurt free Docker web service with `/health` monitoring and

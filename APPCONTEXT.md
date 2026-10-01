@@ -15,6 +15,32 @@ poll REST initially.
 > Comprehensive technical snapshot of the EastPark codebase as explored in April 2026.
 > Use this as a quick-reference reference for AI-assisted sessions and onboarding.
 
+## Active Checkpoint — 2026-10-01
+
+- The implementation checkpoint is published through `5497ea2`.
+- Production web remains `https://eastpark-web-app.vercel.app`; the active API is
+  `https://eastpark-backend.onrender.com`. Fly remains available for rollback.
+- Arabic-first branded transactional email is complete for OTP, reset, invitation, and support.
+  Email uses an embedded official logo; sender/Reply-To/support inbox are
+  `eastpark.eg@gmail.com`. Keep `info@benayat-eg.com` as the public company contact.
+- Backend support delivery is available at throttled public `POST /v1/support/issues`. The matching
+  web support page, BFF, form, and footer link remain pending.
+- Render availability protection is committed: `.github/workflows/keep-render-awake.yml` pings
+  `/health` every 10 minutes, and the login page performs a best-effort BFF warm-up. Auth proxy and
+  client timeouts are coordinated at 25 and 30 seconds. Production warm-up returns HTTP 204.
+- Password visibility controls are accessible eye/eye-off icon buttons across login, registration,
+  reset, and invitation flows.
+- The public desktop header now uses the full content width with brand and controls on opposite
+  logical edges and navigation centered. It mirrors under RTL/LTR, keeps the working mobile layout,
+  and has no measured horizontal overflow at 1440px or 390px.
+- Full web validation passes: lint, strict TypeScript, production build, 59/59 routes.
+
+Next session must audit the authenticated resident web UI rather than assuming public-page
+responsiveness covers it. Use the local resident credential file from Downloads without displaying,
+logging, copying, or committing its contents. Check all resident routes at 320/390/768/1024/1440
+and wide desktop in Arabic RTL and English LTR. Begin with `AppShell.tsx` and `/home`, preserve the
+mobile-first navigation model, and use Playwright screenshots plus DOM overflow/geometry checks.
+
 ## Local Workspace Migration — 2026-09-30
 
 The standalone repositories moved to `apps/web`, `apps/mobile`, and `apps/backend` while retaining
