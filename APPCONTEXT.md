@@ -15,7 +15,35 @@ poll REST initially.
 > Comprehensive technical snapshot of the EastPark codebase as explored in April 2026.
 > Use this as a quick-reference reference for AI-assisted sessions and onboarding.
 
-## Active Checkpoint — 2026-10-01
+## Active Checkpoint — 2026-10-02
+
+- Root `main` is committed and pushed; clone or pull `origin/main` for the current checkpoint.
+- Production web is `https://eastpark-web-app.vercel.app`; the active API is
+  `https://eastpark-backend.onrender.com`. Fly is rollback only.
+- The authenticated resident release now includes responsive resident routes, showcase content,
+  feedback and governance navigation, profile management and optional personal details, admin
+  resident operations, and resident approval/invitation onboarding.
+- Session expiry and logout return users to login. Production account links target web, invitation
+  timeouts accommodate Render cold starts, email relay/diagnostics avoid leaking sensitive values,
+  and registration navigation/password guidance have been tightened.
+- Profile-photo UI and the shared image proxy exist. `e4bed42` changed the BFF to forward the
+  original multipart content type and body bytes.
+- Fresh 2026-10-02 validation passes: web lint, strict TypeScript, and production build with 61/61
+  pages generated; backend strict typecheck.
+- Vercel Web Analytics is mounted globally in the web root layout through `@vercel/analytics` and
+  is included in the validated production build.
+- **Unresolved production blocker:** image upload still fails in the real user flow. Profile photos
+  and feedback attachments must be considered broken/unverified. Reproduce through authenticated
+  `POST /api/uploads/image`, capture sanitized status/error category, inspect Vercel/Render logs and
+  Supabase Storage configuration, and verify the returned public URL before closing this item.
+- The tracked worktree is clean. Root `eastpark-frontend/` is an untracked legacy/user-owned
+  directory; do not add or remove it. The active mobile project is `apps/mobile`.
+
+Next session should run `pnpm --dir apps/web check`, investigate image upload first, and run the
+backend checks if that diagnosis changes backend or storage code. Do not expose local credentials,
+cookies, SMTP values, storage keys, or signed URLs in commands, logs, documentation, or chat.
+
+## Previous Checkpoint — 2026-10-01
 
 - The implementation checkpoint is published through `5497ea2`.
 - Production web remains `https://eastpark-web-app.vercel.app`; the active API is

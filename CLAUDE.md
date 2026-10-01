@@ -29,6 +29,41 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-10-02 — RESIDENT LAUNCH HANDOFF + IMAGE UPLOAD BLOCKER (NEWEST)
+>
+> Root `main` is committed and pushed; clone or pull `origin/main` for the current checkpoint. Production remains
+> `https://eastpark-web-app.vercel.app` with API `https://eastpark-backend.onrender.com`; Fly is
+> rollback infrastructure. The tracked working tree is clean. The untracked root
+> `eastpark-frontend/` directory is legacy/user-owned and must not be deleted, added, or treated as
+> the active mobile app (`apps/mobile` is active).
+>
+> Completed since the previous handoff:
+>
+> - Authenticated resident web parity, responsive resident layouts, showcase content, feedback,
+>   governance-first navigation, profile management, optional personal details, and admin resident
+>   operations are committed.
+> - Resident approval/invitation onboarding, production account links, Render-compatible email
+>   relay, safe email diagnostics, expired-session redirects, logout behavior, loading feedback,
+>   password guidance, and unit-registration navigation were hardened.
+> - Profile photo selection and the shared image-upload BFF were added. Commit `e4bed42` corrected
+>   multipart forwarding by preserving the browser boundary and bytes.
+> - Fresh handoff validation on 2026-10-02: `pnpm --dir apps/web check` passes lint, strict
+>   TypeScript, and the production build (61/61 pages generated); `pnpm --dir apps/backend
+>   typecheck` passes.
+> - Vercel Web Analytics is mounted globally through `@vercel/analytics` and included in the
+>   validated production build.
+>
+> **Known blocker:** image upload still does not work in the deployed user flow despite `e4bed42`.
+> Treat both profile-photo and feedback-attachment upload as unverified/broken. Start by reproducing
+> an authenticated `POST /api/uploads/image`, record only HTTP status and sanitized response/error
+> category, then inspect Vercel and Render logs plus Supabase Storage configuration. Never print
+> cookies, credentials, storage keys, or signed values. Do not describe uploads as shipped until a
+> real image succeeds end to end and its returned public URL loads.
+>
+> **Resume:** read root and `apps/web` `CLAUDE.md`/`APPCONTEXT.md`, check `git status`, restore
+> dependencies, run `pnpm --dir apps/web check`, then investigate the upload blocker before further
+> parity work. Revalidate backend typecheck/tests if the diagnosis requires backend changes.
+
 > ### 2026-10-01 — EMAIL, RENDER AVAILABILITY, AND PUBLIC HEADER (NEWEST)
 >
 > The implementation checkpoint is committed and pushed through `5497ea2`. The active production API is now

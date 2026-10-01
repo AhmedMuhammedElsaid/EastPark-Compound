@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Alexandria, Cormorant_Garamond } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 
 import { AuthProvider } from '@/lib/auth/AuthProvider';
 import { CartProvider } from '@/lib/cart/CartProvider';
@@ -136,6 +137,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

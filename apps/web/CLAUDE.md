@@ -6,7 +6,34 @@
 Read `APPCONTEXT.md` before making changes. It is the canonical, self-contained context for this
 standalone repository and must stay accurate for fresh clones.
 
-## Current State — 2026-10-01
+## Current State — 2026-10-02
+
+- Root `main` is committed and pushed; clone or pull `origin/main` for the current checkpoint. Production is
+	`https://eastpark-web-app.vercel.app` with active API
+	`https://eastpark-backend.onrender.com`.
+- Authenticated resident parity, responsive layouts, showcase content, feedback, governance-first
+	navigation, profile management, optional resident details, and admin resident operations are
+	committed.
+- Resident invitation/onboarding, account links, email relay and safe diagnostics, expired-session
+	redirects, logout, loading feedback, password guidance, and unit-registration navigation were
+	hardened for launch.
+- Profile photo upload UI uses the shared `/api/uploads/image` BFF. Commit `e4bed42` preserves the
+	original multipart boundary and bytes when forwarding to `POST /v1/uploads/image`.
+- Fresh 2026-10-02 validation: `pnpm check` passes lint, strict TypeScript, and production build
+	with 61/61 pages generated; parent backend strict typecheck also passes.
+- Vercel Web Analytics is mounted globally in `src/app/layout.tsx` through `@vercel/analytics` and
+	is included in the validated production build.
+- **Blocking defect:** deployed image upload still does not work. Profile photos and feedback
+	attachments are unverified/broken. Reproduce with an authenticated request, retain only sanitized
+	status/error details, inspect Vercel/Render logs and Supabase Storage configuration, and require a
+	real uploaded image URL to load before marking this complete.
+- The parent tracked tree is clean. Parent `eastpark-frontend/` is an untracked legacy/user-owned
+	directory; do not add or delete it.
+
+Rerun `pnpm check` after installing on the destination machine; do not infer upload health from a
+successful build because the failure is runtime/infrastructure-facing.
+
+## Previous State — 2026-10-01
 
 - Production: `https://eastpark-web-app.vercel.app`
 - Active API: `https://eastpark-backend.onrender.com`; Fly remains rollback infrastructure.
@@ -58,12 +85,12 @@ standalone repository and must stay accurate for fresh clones.
 
 ## Immediate Next Work
 
-Audit the authenticated resident experience mobile-first. The resident credential file is local to
-the user's Downloads folder; automation may read it to log in but must never print, log, copy,
-persist, or commit its contents. Start with `src/components/app/AppShell.tsx` and `/home`, then cover
-every resident route at 320, 390, 768, 1024, 1440, and wide desktop in both Arabic RTL and English
-LTR. Use Playwright screenshots and bounding-box/overflow checks, fix one measured root cause at a
-time, and rerun `pnpm check` before committing.
+Investigate the deployed image-upload failure first. The browser sends `FormData` to
+`src/app/api/uploads/image/route.ts`; that route forwards the original multipart content type and
+bytes to backend `/uploads/image`. Determine whether failure occurs at Vercel auth/proxying, Render
+multipart handling, or Supabase Storage. Never expose credentials or auth cookies. Success requires
+both profile-photo and feedback-attachment flows to return a URL that loads. Then rerun `pnpm check`
+and the relevant backend checks before committing.
 
 ## Resume Order
 

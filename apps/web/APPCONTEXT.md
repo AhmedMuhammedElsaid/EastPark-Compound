@@ -15,7 +15,33 @@ mobile app without removing or weakening the public registration path.
 - Mobile is the behavioral reference for parity work; backend contracts are authoritative.
 - Public pages are SEO-first. Auth, account, and confirmation routes must be `noindex`.
 
-## Latest Handoff — 2026-10-01
+## Latest Handoff — 2026-10-02
+
+- Repository checkpoint: root `main` is committed and pushed; clone or pull `origin/main` for the current state. Production web remains
+  `https://eastpark-web-app.vercel.app`, backed by `https://eastpark-backend.onrender.com`.
+- Resident web parity now covers responsive resident surfaces, showcase content, feedback,
+  governance-first navigation, profiles and optional personal details, admin resident operations,
+  and resident approval/invitation onboarding.
+- Launch hardening includes web account links, longer invitation tolerance for Render cold starts,
+  Render-compatible email relay, sanitized delivery errors/diagnostics, session-expiry redirects,
+  logout redirects, loading feedback, password guidance, and restricted unit-registration entry.
+- Profile photos and feedback attachments share `/api/uploads/image`. The BFF now preserves the
+  incoming multipart boundary and bytes (`e4bed42`) when forwarding to backend `/uploads/image`.
+- Fresh 2026-10-02 validation passes: web lint, strict TypeScript, and production build with 61/61
+  pages generated; parent backend strict typecheck.
+- Vercel Web Analytics is mounted globally in `src/app/layout.tsx` through `@vercel/analytics` and
+  is included in the validated production build.
+- **Known blocker:** uploads still fail in the deployed user flow. Do not mark image upload shipped.
+  Reproduce while authenticated, retain only sanitized HTTP status/error category, inspect Vercel
+  and Render logs and Supabase Storage configuration, then verify that a returned public URL loads.
+- Parent `eastpark-frontend/` is an untracked legacy/user-owned directory and must not be added or
+  removed; `apps/mobile` is the active mobile codebase.
+
+On a fresh machine, install dependencies and run `pnpm check`. A green compile/build does not resolve
+the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
+upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
+
+## Previous Handoff — 2026-10-01
 
 - Production API traffic targets `https://eastpark-backend.onrender.com`; Fly is rollback only.
 - Render sleep protection uses a root scheduled 10-minute `/health` ping plus a best-effort login
