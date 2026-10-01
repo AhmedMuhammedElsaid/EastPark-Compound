@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Home, LogIn, LogOut, Megaphone, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
+import { Building2, Home, Landmark, LogIn, LogOut, Megaphone, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -26,9 +26,13 @@ export function AppShell({ children }: AppShellProps) {
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     { href: '/orders', label: t('orders.title'), mobileLabel: t('orders.title'), icon: Package },
     { href: '/announcements', label: t('community.announcements'), mobileLabel: t('community.title'), icon: Megaphone },
+    { href: '/governance', label: t('governance.title'), mobileLabel: t('governance.title'), icon: Landmark },
     { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 },
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
   ];
+  const mobileNavItems = navItems.filter(({ href }) =>
+    ['/home', '/directory', '/orders', '/announcements', accountHref].includes(href),
+  );
 
   return (
     <div className="min-h-screen bg-background pb-20 text-foreground md:pb-0">
@@ -109,9 +113,9 @@ export function AppShell({ children }: AppShellProps) {
 
       <nav
         aria-label={t('nav.brand')}
-        className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-6 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-5 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
-        {navItems.map(({ href, icon: Icon, mobileLabel }) => {
+        {mobileNavItems.map(({ href, icon: Icon, mobileLabel }) => {
           const active = href === '/home' ? pathname === href : pathname.startsWith(href);
           return (
             <Link
