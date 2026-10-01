@@ -3,13 +3,14 @@
 import type { ProfileFormInput } from '@/lib/validation/profile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Globe2, LogOut, Moon, ShieldCheck, Sun, Trash2, UserRound } from 'lucide-react';
+import { Check, Globe2, LogOut, Moon, ShieldCheck, Sun, Trash2, Upload, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
+import { parseUploadResult } from '@/lib/api/feedback';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
@@ -17,6 +18,8 @@ import { profileFormSchema } from '@/lib/validation/profile';
 
 const fieldClass =
   'min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground';
+const ALLOWED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
 export function ProfileManager() {
   const router = useRouter();
@@ -28,12 +31,19 @@ export function ProfileManager() {
   const [deleteValue, setDeleteValue] = React.useState('');
   const [deleteError, setDeleteError] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
+  const [avatarError, setAvatarError] = React.useState<string | null>(null);
+  const [avatarInputKey, setAvatarInputKey] = React.useState(0);
   const {
+    control,
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ProfileFormInput>({ resolver: zodResolver(profileFormSchema) });
+  const savedAvatarUrl = useWatch({ control, name: 'avatarUrl' });
 
   React.useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -49,13 +59,33 @@ export function ProfileManager() {
     });
   }, [reset, user]);
 
+  React.useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
   const onSubmit = handleSubmit(async (values) => {
     setSubmitState('idle');
+    setAvatarError(null);
     try {
+      let avatarUrl = values.avatarUrl;
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.set('file', avatarFile, avatarFile.name);
+        const upload = await fetch('/api/uploads/image', {
+          method: 'POST',
+          body: formData,
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!upload.ok) throw new Error('avatar_upload');
+        avatarUrl = parseUploadResult(await upload.json()).url;
+      }
+
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, avatarUrl }),
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error('Profile update failed');
@@ -67,11 +97,50 @@ export function ProfileManager() {
         unitNumber: updated.unitNumber ?? '',
         avatarUrl: updated.avatarUrl ?? '',
       });
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setAvatarInputKey((key) => key + 1);
       setSubmitState('success');
-    } catch {
-      setSubmitState('error');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'avatar_upload') {
+        setAvatarError(t('profile.avatar_upload_error'));
+      } else {
+        setSubmitState('error');
+      }
     }
   });
+
+  function selectAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSubmitState('idle');
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setAvatarError(t('profile.avatar_type_error'));
+      event.target.value = '';
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setAvatarError(t('profile.avatar_size_error'));
+      event.target.value = '';
+      return;
+    }
+    setAvatarError(null);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  function removeAvatar() {
+    setSubmitState('idle');
+    setAvatarError(null);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setValue('avatarUrl', '', { shouldDirty: true, shouldValidate: true });
+    setAvatarInputKey((key) => key + 1);
+  }
 
   const canDelete = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
   const confirmWord = t('profile.delete_confirm_word');
@@ -112,6 +181,7 @@ export function ProfileManager() {
     .map((part) => part[0])
     .join('')
     .toUpperCase();
+  const displayedAvatar = avatarPreview ?? savedAvatarUrl;
 
   return (
     <Container className="py-8 sm:py-12">
@@ -123,8 +193,12 @@ export function ProfileManager() {
             <p className="mt-2 max-w-2xl text-[length:var(--text-body)] text-muted-foreground">{t('profile.subtitle')}</p>
           </div>
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-full bg-muted text-[length:var(--text-body-lg)] font-bold text-primary">
-              {initials || <UserRound className="size-6" />}
+            <span
+              aria-hidden="true"
+              className="flex size-14 items-center justify-center rounded-full bg-muted bg-cover bg-center text-[length:var(--text-body-lg)] font-bold text-primary"
+              style={displayedAvatar ? { backgroundImage: `url(${JSON.stringify(displayedAvatar)})` } : undefined}
+            >
+              {!displayedAvatar && (initials || <UserRound className="size-6" />)}
             </span>
             <div>
               <p className="font-bold text-foreground">{user.name}</p>
@@ -150,13 +224,43 @@ export function ProfileManager() {
                 <input id="profile-unit" autoComplete="off" className={fieldClass} aria-invalid={Boolean(errors.unitNumber)} {...register('unitNumber')} />
               </ProfileField>
               <div className="sm:col-span-2">
-                <ProfileField id="profile-avatar" label={t('profile.avatar_url')} hint={t('profile.avatar_hint')} error={errors.avatarUrl?.message && t(errors.avatarUrl.message)}>
-                  <input id="profile-avatar" type="url" inputMode="url" dir="ltr" className={fieldClass} aria-invalid={Boolean(errors.avatarUrl)} {...register('avatarUrl')} />
+                <ProfileField id="profile-avatar" label={t('profile.avatar')} hint={t('profile.avatar_hint')} error={avatarError ?? (errors.avatarUrl?.message && t(errors.avatarUrl.message))}>
+                  <input type="hidden" {...register('avatarUrl')} />
+                  <div className="flex flex-col gap-4 rounded-md border border-border bg-muted/35 p-4 min-[420px]:flex-row min-[420px]:items-center">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-20 shrink-0 items-center justify-center rounded-full bg-muted bg-cover bg-center text-[length:var(--text-h2)] font-bold text-primary"
+                      style={displayedAvatar ? { backgroundImage: `url(${JSON.stringify(displayedAvatar)})` } : undefined}
+                    >
+                      {!displayedAvatar && (initials || <UserRound className="size-7" />)}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                      <input
+                        key={avatarInputKey}
+                        id="profile-avatar"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={selectAvatar}
+                        className="peer sr-only"
+                        aria-describedby="profile-avatar-hint"
+                      />
+                      <label htmlFor="profile-avatar" className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-card px-4 text-[length:var(--text-label)] font-bold text-foreground hover:bg-muted peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gold-500">
+                        <Upload aria-hidden="true" className="size-4.5" />
+                        {displayedAvatar ? t('profile.change_photo') : t('profile.choose_photo')}
+                      </label>
+                      {displayedAvatar && (
+                        <button type="button" onClick={removeAvatar} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 text-[length:var(--text-label)] font-bold text-error hover:bg-error/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error">
+                          <Trash2 aria-hidden="true" className="size-4.5" />
+                          {t('profile.remove_photo')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </ProfileField>
               </div>
 
               <div className="flex flex-col gap-3 border-t border-border pt-5 sm:col-span-2 sm:flex-row sm:items-center">
-                <Button type="submit" disabled={!isDirty || isSubmitting} aria-busy={isSubmitting}>
+                <Button type="submit" disabled={(!isDirty && !avatarFile) || isSubmitting} aria-busy={isSubmitting}>
                   {isSubmitting ? t('common.loading') : t('profile.save_changes')}
                 </Button>
                 {submitState === 'success' && <p role="status" className="flex items-center gap-2 text-[length:var(--text-body)] text-success"><Check aria-hidden="true" className="size-4" />{t('profile.saved')}</p>}
@@ -221,7 +325,7 @@ export function ProfileManager() {
 }
 
 function ProfileField({ children, error, hint, id, label }: { children: React.ReactNode; error?: string; hint?: string; id: string; label: string }) {
-  return <div><label htmlFor={id} className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{label}</label>{children}{hint && !error && <p className="mt-2 text-[length:var(--text-caption)] text-muted-foreground">{hint}</p>}{error && <p role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{error}</p>}</div>;
+  return <div><label htmlFor={id} className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{label}</label>{children}{hint && !error && <p id={`${id}-hint`} className="mt-2 text-[length:var(--text-caption)] text-muted-foreground">{hint}</p>}{error && <p role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{error}</p>}</div>;
 }
 
 function PreferenceGroup({ children, icon, label }: { children: React.ReactNode; icon: React.ReactNode; label: string }) {
