@@ -82,7 +82,7 @@ export function Footer() {
             <p className="mt-1 text-caption text-muted-foreground">
               {t('footer.developer_role')}
             </p>
-            <ul className="mt-4 grid min-w-0 grid-cols-2 gap-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
+            <ul className="mt-4 grid min-w-0 grid-cols-1 gap-2 min-[390px]:grid-cols-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
               <li className="min-w-0"><a href="mailto:ahmed.muhammed.elsaid@gmail.com" className={developerContactLinkClass} dir={dir}><ContactIcon name="email" /><span dir="ltr" className="min-w-0 wrap-anywhere">ahmed.muhammed.elsaid@gmail</span></a></li>
               <li className="min-w-0"><a href="tel:+201017134627" className={developerContactLinkClass} dir={dir}><ContactIcon name="phone" /><span dir="ltr" className="whitespace-nowrap">+20 101 713 4627</span></a></li>
             </ul>
@@ -107,7 +107,7 @@ export function Footer() {
                   {t('nav.brand')}
                 </span>
               </Link>
-              <div className="mt-5 grid w-full grid-cols-2 gap-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
+              <div className="mt-5 grid w-full grid-cols-1 gap-2 min-[390px]:grid-cols-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
                 <a href={`mailto:${email}`} className={contactLinkClass} dir={dir}>
                   <ContactIcon name="email" /><span dir="ltr" className="min-w-0 wrap-anywhere">{email}</span>
                 </a>

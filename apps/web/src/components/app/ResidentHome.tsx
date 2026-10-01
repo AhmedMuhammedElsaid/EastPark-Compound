@@ -1,6 +1,7 @@
 'use client';
 
-import { Building2, LogIn, LogOut, MessageSquareText, ShieldCheck } from 'lucide-react';
+import { Building2, FileText, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShieldCheck, Store } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { Container } from '@/components/Container';
@@ -11,6 +12,16 @@ export function ResidentHome() {
   const { isLoading, logout, user } = useAuth();
   const { t } = useTranslation();
   const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
+  const quickActions: Array<{ href: string; icon: LucideIcon; label: string }> = [
+    { href: '/directory', icon: Store, label: t('home.shops') },
+    { href: '/announcements', icon: Megaphone, label: t('home.community') },
+    { href: '/governance', icon: Landmark, label: t('governance.title') },
+    { href: '/orders', icon: Package, label: t('home.my_orders') },
+    canSubmitFeedback
+      ? { href: '/feedback', icon: MessageSquareText, label: t('home.feedback') }
+      : { href: '/register-unit', icon: Building2, label: t('nav.register') },
+    { href: '/reports', icon: FileText, label: t('home.reports') },
+  ];
 
   return (
     <Container className="py-8 sm:py-12">
@@ -31,13 +42,13 @@ export function ResidentHome() {
             </div>
           ) : user ? (
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
+              <div className="flex min-w-0 items-start gap-4">
                 <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
                   <ShieldCheck aria-hidden="true" className="size-6" />
                 </span>
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-[length:var(--text-body-lg)] font-bold text-foreground">{user.name}</h2>
-                  <p className="mt-1 text-[length:var(--text-body)] text-muted-foreground">{user.email}</p>
+                  <p className="mt-1 break-all text-[length:var(--text-body)] text-muted-foreground">{user.email}</p>
                   {user.unitNumber && (
                     <p className="mt-1 text-[length:var(--text-label)] font-semibold text-primary">
                       {t('checkout.unit', { number: user.unitNumber })}
@@ -84,15 +95,20 @@ export function ResidentHome() {
           <h2 id="start-title" className="text-[length:var(--text-h2)] font-bold text-foreground">
             {t('home.quick_actions')}
           </h2>
-          <Link
-            href={canSubmitFeedback ? '/feedback' : '/register-unit'}
-            className="mt-5 flex min-h-14 max-w-md items-center gap-4 rounded-md border border-border bg-card px-5 py-4 text-foreground transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
-          >
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
-              {canSubmitFeedback ? <MessageSquareText aria-hidden="true" className="size-5" /> : <Building2 aria-hidden="true" className="size-5" />}
-            </span>
-            <span className="font-bold">{canSubmitFeedback ? t('feedback.title') : t('nav.register')}</span>
-          </Link>
+          <div className="mt-5 grid grid-cols-2 gap-3 min-[390px]:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+            {quickActions.map(({ href, icon: Icon, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="group flex aspect-square min-h-28 min-w-0 flex-col items-center justify-center gap-3 rounded-md border border-border bg-card p-3 text-center text-foreground transition-colors hover:border-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary transition-colors group-hover:bg-card motion-reduce:transition-none">
+                  <Icon aria-hidden="true" className="size-5" />
+                </span>
+                <span className="max-w-full text-[length:var(--text-label)] font-bold leading-5">{label}</span>
+              </Link>
+            ))}
+          </div>
         </section>
       </section>
     </Container>

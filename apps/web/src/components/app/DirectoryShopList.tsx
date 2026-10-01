@@ -113,7 +113,7 @@ export function DirectoryShopList({
             maxLength={100}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("directory.search_placeholder")}
-            className="min-w-0 flex-1 bg-transparent text-[length:var(--text-body-lg)] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-h-12 min-w-0 flex-1 bg-transparent text-[length:var(--text-body-lg)] text-foreground outline-none placeholder:text-muted-foreground"
           />
           {search && (
             <button

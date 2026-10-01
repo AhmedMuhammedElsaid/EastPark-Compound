@@ -59,10 +59,10 @@ export function AppShell({ children }: AppShellProps) {
         <Container className="flex min-h-16 items-center justify-between gap-4 md:min-h-[68px]">
           <Link
             href="/home"
-            className="flex min-h-11 items-center gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 min-[390px]:min-w-0 min-[390px]:justify-start"
           >
             <span className="text-primary"><BrandMark size={28} /></span>
-            <span className="text-[length:var(--text-body-lg)] font-bold text-foreground">{t('nav.brand')}</span>
+            <span className="hidden text-[length:var(--text-body-lg)] font-bold text-foreground min-[390px]:inline">{t('nav.brand')}</span>
           </Link>
 
           <div className="flex items-center gap-2">
