@@ -24,10 +24,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_color-mix(in_srgb,var(--color-border)_35%,transparent)] backdrop-blur-xl">
-      <Container className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 py-2 [padding-inline:12px] sm:[padding-inline:32px] md:h-[72px] md:grid-cols-[1fr_auto_1fr] md:gap-3 md:py-0">
+      <Container className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 py-2 [padding-inline:12px] sm:[padding-inline:32px] md:h-[72px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-3 md:py-0">
         <Link
           href="/"
-          className="flex min-h-11 w-fit min-w-0 items-center gap-2 rounded-sm text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+          className="flex min-h-11 w-fit min-w-0 items-center gap-2 rounded-sm text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 md:col-start-1 md:row-start-1 md:justify-self-start"
         >
           <BrandMark size={26} />
           <span className="whitespace-nowrap text-[length:var(--text-label)] font-bold leading-none text-foreground sm:text-[length:var(--text-body-lg)]">
@@ -37,7 +37,7 @@ export function Header() {
 
         <nav
           aria-label={t('nav.brand')}
-          className="col-span-2 row-start-2 flex items-center justify-center gap-1 border-t border-border/70 pt-1 md:col-span-1 md:row-start-auto md:border-0 md:pt-0"
+          className="col-span-2 row-start-2 flex items-center justify-center gap-1 border-t border-border/70 pt-1 md:col-span-1 md:col-start-2 md:row-start-1 md:border-0 md:pt-0"
         >
           {navItems.map((item) => {
             const active = pathname === item.href;
@@ -59,7 +59,7 @@ export function Header() {
           })}
         </nav>
 
-        <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-1 sm:gap-2 md:col-start-auto">
+        <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-1 sm:gap-2 md:col-start-3 md:row-start-1 md:justify-self-end">
           {!isLoading &&
             (user ? (
               <>
