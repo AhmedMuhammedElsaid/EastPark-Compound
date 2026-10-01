@@ -1,289 +1,175 @@
-"use client";
+'use client';
 
-import { ArrowLeft, ImageIcon, PackageOpen, Search, X } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { Plus, ShoppingBag } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import * as React from 'react';
 
-import { Container } from "@/components/Container";
-import type { Product, ProductPage } from "@/lib/api/products";
-import type { ProductAvailability } from "@/lib/api/products.server";
-import type { Shop } from "@/lib/api/shops";
-import { useTranslation } from "@/lib/i18n";
+import type { Product, ProductPage } from '@/lib/api/products';
+import type { Shop } from '@/lib/api/shops';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { cartTotal } from '@/lib/cart/cart';
+import { useCart } from '@/lib/cart/CartProvider';
+import { useTranslation } from '@/lib/i18n';
 
-type ProductMenuProps = {
-  shop: Shop | null;
-  initialPage: ProductPage | null;
-  initialAvailability: ProductAvailability;
-  initialSearch: string;
-};
-
-const availabilityOptions = ["all", "available", "unavailable"] as const;
-
-export function ProductMenu({
-  shop,
-  initialPage,
-  initialAvailability,
-  initialSearch,
-}: ProductMenuProps) {
+export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: ProductPage | null }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { isLoading: isAuthLoading, user } = useAuth();
+  const { state, dispatch, isHydrated } = useCart();
   const { lang, t } = useTranslation();
-  const isRtl = lang === "ar";
-  const [search, setSearch] = useState(initialSearch);
-  const [items, setItems] = useState(initialPage?.items ?? []);
-  const [nextCursor, setNextCursor] = useState(initialPage?.nextCursor);
-  const [loadError, setLoadError] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  useEffect(() => {
-    if (search.trim() === initialSearch) return;
-
-    const timer = window.setTimeout(() => {
-      const params = new URLSearchParams();
-      if (initialAvailability !== "all")
-        params.set("availability", initialAvailability);
-      if (search.trim()) params.set("search", search.trim());
-      startTransition(() =>
-        router.replace(`${pathname}${params.size ? `?${params}` : ""}`),
-      );
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [initialAvailability, initialSearch, pathname, router, search]);
+  const [products, setProducts] = React.useState<Product[]>(initialPage?.items ?? []);
+  const [nextCursor, setNextCursor] = React.useState(initialPage?.nextCursor);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [error, setError] = React.useState(initialPage === null);
+  const [showAuthWall, setShowAuthWall] = React.useState(false);
 
   async function loadMore() {
-    if (!shop || !nextCursor || isLoadingMore) return;
+    if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
-    setLoadError(false);
-
-    const params = new URLSearchParams({ cursor: nextCursor });
-    if (initialAvailability !== "all")
-      params.set("availability", initialAvailability);
-    if (initialSearch) params.set("search", initialSearch);
-
+    setError(false);
     try {
       const response = await fetch(
-        `/api/shops/${encodeURIComponent(shop.id)}/products?${params}`,
+        `/api/shops/${encodeURIComponent(shop.id)}/products?cursor=${encodeURIComponent(nextCursor)}`,
       );
-      if (!response.ok) throw new Error("Request failed");
+      if (!response.ok) throw new Error('products');
       const payload = (await response.json()) as { data: ProductPage };
-      startTransition(() => {
-        setItems((current) => {
-          const known = new Set(current.map((item) => item.id));
-          return [
-            ...current,
-            ...payload.data.items.filter((item) => !known.has(item.id)),
-          ];
+      React.startTransition(() => {
+        setProducts((current) => {
+          const known = new Set(current.map((product) => product.id));
+          return [...current, ...payload.data.items.filter((product) => !known.has(product.id))];
         });
         setNextCursor(payload.data.nextCursor);
       });
     } catch {
-      setLoadError(true);
+      setError(true);
     } finally {
       setIsLoadingMore(false);
     }
   }
 
-  const shopName = shop ? (isRtl ? shop.nameAr : shop.name) : "";
+  function add(product: Product) {
+    if (!user) {
+      setShowAuthWall(true);
+      return;
+    }
+    dispatch({
+      type: 'add',
+      shopId: shop.id,
+      shopName: lang === 'ar' ? shop.nameAr : shop.name,
+      item: {
+        productId: product.id,
+        name: product.name,
+        nameAr: product.nameAr,
+        price: product.price,
+        quantity: 1,
+        imageUrl: product.imageUrl,
+      },
+    });
+  }
 
   return (
-    <Container className="py-8 sm:py-12">
-      <section aria-labelledby="menu-title" className="mx-auto max-w-6xl">
-        <Link
-          href={shop ? `/directory/${shop.id}` : "/directory"}
-          className="inline-flex min-h-11 items-center gap-2 text-[length:var(--text-label)] font-bold text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
-        >
-          <ArrowLeft
-            aria-hidden="true"
-            className={`size-4.5 ${isRtl ? "rotate-180" : ""}`}
-          />
-          {t("common.back")}
-        </Link>
-
-        <header className="mt-6 border-b border-border pb-7">
-          <p className="text-[length:var(--text-overline)] font-bold uppercase text-primary">
-            {shopName || t("directory.title")}
-          </p>
-          <h1
-            id="menu-title"
-            className="mt-2 text-[length:var(--text-h1)] font-bold text-foreground"
-          >
-            {t("directory.menu")}
-          </h1>
-          <p className="mt-3 max-w-2xl text-[length:var(--text-body-lg)] text-muted-foreground">
-            {t("directory.menu_subtitle")}
-          </p>
-        </header>
-
-        <div className="mt-7 flex min-h-12 items-center gap-3 rounded-full border border-border bg-card px-4 focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gold-500">
-          <Search aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-          <label htmlFor="product-search" className="sr-only">
-            {t("directory.search_products")}
-          </label>
-          <input
-            id="product-search"
-            type="search"
-            value={search}
-            maxLength={100}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("directory.search_products")}
-            className="min-w-0 flex-1 bg-transparent text-[length:var(--text-body-lg)] text-foreground outline-none placeholder:text-muted-foreground"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              aria-label={t("common.clear")}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-gold-500"
-            >
-              <X aria-hidden="true" className="size-4.5" />
-            </button>
-          )}
+    <section aria-labelledby="menu-title" className="border-t border-border py-8">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[length:var(--text-overline)] font-bold uppercase text-primary">{t('directory.menu')}</p>
+          <h2 id="menu-title" className="mt-2 text-[length:var(--text-h2)] font-bold text-foreground">
+            {t('directory.menu')}
+          </h2>
         </div>
+        {isHydrated && state.items.length > 0 && (
+          <Link
+            href="/cart"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-primary px-4 text-[length:var(--text-label)] font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+          >
+            <ShoppingBag aria-hidden="true" className="size-4.5" />
+            {state.items.reduce((count, item) => count + item.quantity, 0)} · {formatCurrency(cartTotal(state), lang)}
+          </Link>
+        )}
+      </div>
 
-        <nav
-          aria-label={t("directory.availability_filter")}
-          className="announcement-filters mt-4 flex gap-2 overflow-x-auto pb-2"
-        >
-          {availabilityOptions.map((option) => (
-            <AvailabilityLink
-              key={option}
-              active={initialAvailability === option}
-              href={menuHref(pathname, option, initialSearch)}
-              label={t(`directory.availability.${option}`)}
-            />
+      {error && products.length === 0 ? (
+        <p role="alert" className="mt-6 border-y border-border py-5 text-muted-foreground">{t('errors.server')}</p>
+      ) : products.length === 0 ? (
+        <p className="mt-6 border-y border-border py-5 text-muted-foreground">{t('common.no_results')}</p>
+      ) : (
+        <div className="mt-6 divide-y divide-border border-y border-border">
+          {products.map((product) => (
+            <ProductRow key={product.id} product={product} lang={lang} onAdd={() => add(product)} />
           ))}
-        </nav>
+        </div>
+      )}
 
-        {initialPage === null ? (
-          <div role="alert" className="mt-8 border-y border-border py-10">
-            <h2 className="text-[length:var(--text-h2)] font-bold text-foreground">
-              {t("common.error")}
-            </h2>
-            <p className="mt-2 text-[length:var(--text-body)] text-muted-foreground">
-              {t("directory.products_unavailable")}
-            </p>
-          </div>
-        ) : items.length === 0 ? (
-          <div className="mt-8 border-y border-border py-14 text-center">
-            <PackageOpen aria-hidden="true" className="mx-auto size-10 text-muted-foreground" />
-            <h2 className="mt-4 text-[length:var(--text-h2)] font-bold text-foreground">
-              {t("directory.no_products")}
-            </h2>
-            <p className="mt-2 text-[length:var(--text-body)] text-muted-foreground">
-              {t("directory.no_products_subtitle")}
-            </p>
-          </div>
-        ) : (
-          <div className="mt-8 grid gap-x-8 gap-y-0 lg:grid-cols-2">
-            {items.map((product) => (
-              <ProductRow key={product.id} product={product} isRtl={isRtl} />
-            ))}
-          </div>
-        )}
+      {nextCursor && (
+        <div className="mt-5 text-center">
+          <button type="button" onClick={() => void loadMore()} disabled={isLoadingMore} className="min-h-12 rounded-md border border-border px-6 font-bold text-foreground hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60">
+            {isLoadingMore ? t('common.loading') : t('common.load_more')}
+          </button>
+          {error && <p role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t('errors.server')}</p>}
+        </div>
+      )}
 
-        {nextCursor && (
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadMore()}
-              disabled={isLoadingMore}
-              className="inline-flex min-h-12 items-center justify-center rounded-md border border-border bg-card px-6 text-[length:var(--text-button)] font-bold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60 motion-reduce:transition-none"
-            >
-              {isLoadingMore ? t("common.loading") : t("common.load_more")}
+      {isHydrated && state.pending && (
+        <div className="mt-5 rounded-md border border-warning/50 bg-warning/10 p-4" role="alertdialog" aria-labelledby="cart-conflict-title">
+          <h3 id="cart-conflict-title" className="font-bold text-foreground">{t('cart.shop_conflict_title')}</h3>
+          <p className="mt-2 text-[length:var(--text-body)] text-muted-foreground">
+            {t('cart.shop_conflict_body', { shopName: state.shopName ?? '' })}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={() => dispatch({ type: 'accept-conflict' })} className="min-h-11 rounded-md bg-primary px-4 font-bold text-primary-foreground">
+              {t('cart.clear_and_add')}
             </button>
-            {loadError && (
-              <p role="alert" className="text-[length:var(--text-label)] text-error">
-                {t("errors.server")}
-              </p>
-            )}
+            <button type="button" onClick={() => dispatch({ type: 'dismiss-conflict' })} className="min-h-11 rounded-md border border-border px-4 font-bold text-foreground">
+              {t('common.cancel')}
+            </button>
           </div>
-        )}
-      </section>
-    </Container>
+        </div>
+      )}
+
+      {showAuthWall && !isAuthLoading && (
+        <div className="mt-5 rounded-md border border-border bg-card p-5" role="dialog" aria-labelledby="auth-wall-title">
+          <h3 id="auth-wall-title" className="font-bold text-foreground">{t('cart.sign_in_title')}</h3>
+          <p className="mt-2 text-[length:var(--text-body)] text-muted-foreground">{t('cart.sign_in_body')}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-bold text-primary-foreground">
+              {t('auth.login')}
+            </Link>
+            <button type="button" onClick={() => setShowAuthWall(false)} className="min-h-11 rounded-md border border-border px-4 font-bold text-foreground">
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
-function ProductRow({ product, isRtl }: { product: Product; isRtl: boolean }) {
-  const { lang, t } = useTranslation();
-  const name = isRtl ? product.nameAr : product.name;
-  const description = isRtl ? product.descriptionAr : product.description;
-  const price = new Intl.NumberFormat(lang === "ar" ? "ar-EG" : "en-EG", {
-    style: "currency",
-    currency: "EGP",
-    maximumFractionDigits: 2,
-  }).format(product.price);
-
+function ProductRow({ product, lang, onAdd }: { product: Product; lang: 'ar' | 'en'; onAdd: () => void }) {
+  const { t } = useTranslation();
+  const name = lang === 'ar' ? product.nameAr : product.name;
+  const description = lang === 'ar' ? product.descriptionAr : product.description;
   return (
-    <article className="grid min-h-36 grid-cols-[minmax(0,1fr)_7rem] gap-5 border-b border-border py-5 sm:grid-cols-[minmax(0,1fr)_8rem]">
-      <div className="min-w-0 py-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-[length:var(--text-h3)] font-bold text-foreground">
-            {name}
-          </h2>
-          {!product.isAvailable && (
-            <span className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[length:var(--text-caption)] font-bold text-muted-foreground">
-              {t("directory.availability.unavailable")}
-            </span>
-          )}
-        </div>
-        {description && (
-          <p className="mt-2 line-clamp-2 text-[length:var(--text-body)] leading-6 text-muted-foreground">
-            {description}
-          </p>
-        )}
-        <p className="mt-3 text-[length:var(--text-body-lg)] font-bold text-primary">
-          {price}
-        </p>
+    <article className="grid min-h-28 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 py-5">
+      <div className="min-w-0">
+        <h3 className="font-bold text-foreground">{name}</h3>
+        {description && <p className="mt-1 line-clamp-2 text-[length:var(--text-body)] text-muted-foreground">{description}</p>}
+        <p className="mt-2 font-bold text-primary">{formatCurrency(product.price, lang)}</p>
       </div>
-      {product.imageUrl ? (
-        <div
-          role="img"
-          aria-label={name}
-          className={`aspect-square w-full rounded-md bg-cover bg-center ${product.isAvailable ? "" : "opacity-60 grayscale"}`}
-          style={{ backgroundImage: `url(${JSON.stringify(product.imageUrl)})` }}
-        />
-      ) : (
-        <div className="flex aspect-square w-full items-center justify-center rounded-md bg-muted">
-          <ImageIcon aria-hidden="true" className="size-8 text-muted-foreground" />
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label={`${t('directory.add_to_cart')}: ${name}`}
+        className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md bg-primary text-primary-foreground transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+      >
+        <Plus aria-hidden="true" className="size-5" />
+      </button>
     </article>
   );
 }
 
-function AvailabilityLink({
-  active,
-  href,
-  label,
-}: {
-  active: boolean;
-  href: string;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-[length:var(--text-label)] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none ${
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-muted-foreground hover:border-primary hover:text-foreground"
-      }`}
-    >
-      {label}
-    </Link>
-  );
-}
-
-function menuHref(
-  pathname: string,
-  availability: ProductAvailability,
-  search: string,
-): string {
-  const params = new URLSearchParams();
-  if (availability !== "all") params.set("availability", availability);
-  if (search) params.set("search", search);
-  return `${pathname}${params.size ? `?${params}` : ""}`;
+export function formatCurrency(value: number, lang: 'ar' | 'en'): string {
+  return new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-EG', {
+    style: 'currency',
+    currency: 'EGP',
+    maximumFractionDigits: 2,
+  }).format(value);
 }

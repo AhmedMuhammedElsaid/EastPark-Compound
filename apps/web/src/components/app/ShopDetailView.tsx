@@ -12,6 +12,8 @@ import {
 import Link from "next/link";
 
 import { Container } from "@/components/Container";
+import { ProductMenu } from "@/components/app/ProductMenu";
+import type { ProductPage } from "@/lib/api/products";
 import type { Shop, ShopCategory, WorkingHoursDay } from "@/lib/api/shops";
 import { useTranslation } from "@/lib/i18n";
 
@@ -25,7 +27,7 @@ const categoryTranslationKeys = {
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-export function ShopDetailView({ shop }: { shop: Shop | null }) {
+export function ShopDetailView({ shop, products }: { shop: Shop | null; products: ProductPage | null }) {
   const { lang, t } = useTranslation();
   const isRtl = lang === "ar";
 
@@ -157,6 +159,8 @@ export function ShopDetailView({ shop }: { shop: Shop | null }) {
                 </dl>
               </section>
             )}
+
+            <ProductMenu shop={shop} initialPage={products} />
           </div>
 
           {(shop.phone || whatsappNumber) && (

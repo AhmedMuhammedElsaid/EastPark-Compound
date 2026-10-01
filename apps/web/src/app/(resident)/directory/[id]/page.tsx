@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ShopDetailView } from "@/components/app/ShopDetailView";
+import { getProducts } from "@/lib/api/products.server";
 import { getShopDetail, ShopRequestError } from "@/lib/api/shops.server";
 
 export const metadata: Metadata = { title: "Shop" };
@@ -18,5 +19,12 @@ export default async function ShopDetailPage({ params }: ShopDetailPageProps) {
     return null;
   });
 
-  return <ShopDetailView shop={shop} />;
+  const products = shop
+    ? await getProducts(shop.id).catch((error) => {
+        console.error("Shop products page failed", error);
+        return null;
+      })
+    : null;
+
+  return <ShopDetailView shop={shop} products={products} />;
 }

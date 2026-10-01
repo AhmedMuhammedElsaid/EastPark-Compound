@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Home, LogIn, LogOut, Megaphone, Store, UserRound } from 'lucide-react';
+import { Building2, Home, LogIn, LogOut, Megaphone, ShoppingBag, Store, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -10,6 +10,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { SkipLink } from '@/components/SkipLink';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
 
 type AppShellProps = { children: React.ReactNode };
@@ -17,6 +18,7 @@ type AppShellProps = { children: React.ReactNode };
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { isLoading, logout, user } = useAuth();
+  const { state: cart, isHydrated: isCartHydrated } = useCart();
   const { t } = useTranslation();
   const accountHref = user ? '/home#account' : '/login';
   const navItems = [
@@ -62,6 +64,18 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/cart"
+              aria-label={`${t('cart.title')}: ${isCartHydrated ? cart.items.reduce((count, item) => count + item.quantity, 0) : 0}`}
+              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-foreground hover:bg-muted hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+            >
+              <ShoppingBag aria-hidden="true" className="size-5" />
+              {isCartHydrated && cart.items.length > 0 && (
+                <span className="absolute end-0 top-0 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {cart.items.reduce((count, item) => count + item.quantity, 0)}
+                </span>
+              )}
+            </Link>
             {!isLoading &&
               (user ? (
                 <button
