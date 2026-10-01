@@ -1,7 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { createOrderSchema } from '@/lib/api/orders';
+import { createOrderSchema, isOrderStatus } from '@/lib/api/orders';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
+
+export async function GET(request: NextRequest) {
+  const cursor = request.nextUrl.searchParams.get('cursor');
+  const statusValue = request.nextUrl.searchParams.get('status');
+  const params = new URLSearchParams({ limit: '20' });
+  if (cursor) params.set('cursor', cursor);
+  if (isOrderStatus(statusValue)) params.set('status', statusValue);
+
+  try {
+    const response = await authenticatedBackendFetch(`/orders?${params}`);
+    if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return relay(response);
+  } catch (error) {
+    console.error('Orders proxy failed', error);
+    return NextResponse.json({ error: 'network' }, { status: 503 });
+  }
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -30,4 +47,11 @@ export async function POST(request: Request) {
     console.error('Order creation proxy failed', error);
     return NextResponse.json({ error: 'network' }, { status: 502 });
   }
+}
+
+function relay(response: Response): Response {
+  return new Response(response.body, {
+    status: response.status,
+    headers: { 'Content-Type': response.headers.get('Content-Type') ?? 'application/json' },
+  });
 }

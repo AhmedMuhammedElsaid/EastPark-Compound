@@ -40,8 +40,8 @@ export function LoginForm() {
       setSubmitError(t(ERROR_KEYS[result.error]));
       return;
     }
-    const next = new URLSearchParams(window.location.search).get('next');
-    router.replace(next?.startsWith('/') && !next.startsWith('//') ? next : '/home');
+    const requestedPath = new URLSearchParams(window.location.search).get('next');
+  router.replace(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/home');
   });
 
   return (

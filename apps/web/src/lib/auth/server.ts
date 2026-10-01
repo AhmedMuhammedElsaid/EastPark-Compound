@@ -96,3 +96,31 @@ export async function authenticatedBackendFetch(
 export function bearer(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
+
+export async function authenticatedBackendFetch(
+  path: string,
+  init?: RequestInit,
+): Promise<Response | null> {
+  const tokens = await authCookies();
+  let accessToken = tokens.accessToken;
+
+  if (!accessToken && tokens.refreshToken) {
+    accessToken = (await refreshAuthTokens(tokens.refreshToken))?.accessToken;
+  }
+  if (!accessToken) return null;
+
+  const request = (token: string) =>
+    backendFetch(path, {
+      ...init,
+      headers: { ...init?.headers, ...bearer(token) },
+    });
+
+  let response = await request(accessToken);
+  if (response.status === 401 && tokens.refreshToken) {
+    const refreshed = await refreshAuthTokens(tokens.refreshToken);
+    if (refreshed) response = await request(refreshed.accessToken);
+  }
+
+  if (response.status === 401) await clearAuthCookies();
+  return response;
+}
