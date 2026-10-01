@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ButtonLink } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { formatCurrency } from '@/components/app/ProductMenu';
+import { residentOrderingEnabled } from '@/config/features';
 import { cartTotal } from '@/lib/cart/cart';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
@@ -81,7 +82,13 @@ export function CartView() {
               <strong>{formatCurrency(cartTotal(state), lang)}</strong>
             </div>
             <p className="mt-3 text-[length:var(--text-caption)] leading-5 text-muted-foreground">{t('cart.server_total_note')}</p>
-            <ButtonLink href="/checkout" fullWidth className="mt-6">{t('cart.checkout')}</ButtonLink>
+            {residentOrderingEnabled ? (
+              <ButtonLink href="/checkout" fullWidth className="mt-6">{t('cart.checkout')}</ButtonLink>
+            ) : (
+              <button type="button" disabled className="mt-6 inline-flex min-h-12 w-full cursor-not-allowed items-center justify-center rounded-md bg-muted px-5 text-[length:var(--text-button)] font-bold text-muted-foreground">
+                {t('orders.ordering_paused')}
+              </button>
+            )}
             <button type="button" onClick={() => dispatch({ type: 'clear' })} className="mt-3 min-h-11 w-full font-bold text-muted-foreground hover:text-error focus-visible:outline-2 focus-visible:outline-gold-500">
               {t('common.clear')}
             </button>

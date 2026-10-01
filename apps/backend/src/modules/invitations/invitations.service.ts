@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'node:crypto';
 
@@ -32,7 +32,15 @@ export class InvitationsService {
             },
         });
         if (existing) {
-            throw new ConflictException('invitation.error.alreadyPending');
+            await this.sendInvitation(existing.email, existing.token, existing.role);
+            return {
+                id: existing.id,
+                email: existing.email,
+                role: existing.role,
+                expiresAt: existing.expiresAt,
+                usedAt: existing.usedAt,
+                createdAt: existing.createdAt,
+            };
         }
 
         const token = crypto.randomBytes(32).toString('hex');
@@ -48,9 +56,7 @@ export class InvitationsService {
             },
         });
 
-        const appUrl = this.config.get<string>('app.url') ?? '';
-        const inviteUrl = `${appUrl}/auth/accept-invitation?token=${token}`;
-        await this.email.sendInvitation(dto.email, inviteUrl, dto.role);
+        await this.sendInvitation(dto.email, token, dto.role);
 
         // Never return the token
         return {
@@ -88,5 +94,11 @@ export class InvitationsService {
         }
 
         return { items, nextCursor };
+    }
+
+    private sendInvitation(email: string, token: string, role: string): Promise<void> {
+        const webUrl = this.config.get<string>('app.webUrl') ?? 'http://localhost:3000';
+        const inviteUrl = `${webUrl}/auth/accept-invitation?token=${token}`;
+        return this.email.sendInvitation(email, inviteUrl, role);
     }
 }

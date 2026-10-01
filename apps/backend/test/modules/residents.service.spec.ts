@@ -23,6 +23,8 @@ const validCreateDto = (overrides: Record<string, unknown> = {}) => ({
     parking: 'B-12',
     jobTitle: 'Engineer',
     maritalStatus: MaritalStatus.MARRIED,
+    nationalId: '29801011234567',
+    passportNumber: 'A12345678',
     ...overrides,
 });
 
@@ -37,6 +39,8 @@ const mockLead = (overrides: Record<string, unknown> = {}) => ({
     parking: 'B-12',
     jobTitle: 'Engineer',
     maritalStatus: MaritalStatus.MARRIED,
+    nationalId: '29801011234567',
+    passportNumber: 'A12345678',
     status: ResidentLeadStatus.PENDING,
     notes: null,
     userId: null,
@@ -125,19 +129,23 @@ describe('ResidentsService', () => {
             expect(createCall?.data?.name).toBe('Jane Doe');
         });
 
-        it('persists optional personal details and trims the job title', async () => {
+        it('persists and trims optional personal details', async () => {
             db.residentLead.findFirst.mockResolvedValue(null);
             db.residentLead.create.mockResolvedValue(mockLead());
 
             await service.create(
                 validCreateDto({
                     jobTitle: '  Engineer  ',
+                    nationalId: '  29801011234567  ',
+                    passportNumber: '  A12345678  ',
                 }) as ResidentLeadCreateDto
             );
 
             const createCall = db.residentLead.create.mock.calls[0]?.[0];
             expect(createCall?.data?.jobTitle).toBe('Engineer');
             expect(createCall?.data?.maritalStatus).toBe(MaritalStatus.MARRIED);
+            expect(createCall?.data?.nationalId).toBe('29801011234567');
+            expect(createCall?.data?.passportNumber).toBe('A12345678');
         });
 
         it('rejects a submission when the unit already has a non-REJECTED lead', async () => {
@@ -268,13 +276,11 @@ describe('ResidentsService', () => {
             });
         });
 
-        it('reconciles the lead when an active invitation already exists', async () => {
+        it('marks the lead invited after the invitation service resends an active invitation', async () => {
             const lead = mockLead();
             db.residentLead.findUnique.mockResolvedValue(lead);
             db.user.findUnique.mockResolvedValue(null);
-            invitationsService.create.mockRejectedValue(
-                new ConflictException('invitation.error.alreadyPending')
-            );
+            invitationsService.create.mockResolvedValue({});
 
             await expect(service.invite('lead-1', adminActor)).resolves.toEqual(
                 { message: 'residentLead.success.invited' }
@@ -450,7 +456,7 @@ describe('ResidentLeadCreateDto validation', () => {
     });
 
     describe('optional personal details', () => {
-        it('accepts an omitted job title and marital status', async () => {
+        it('accepts omitted optional details', async () => {
             const instance = plainToInstance(ResidentLeadCreateDto, base);
             const errors = await validate(instance);
             expect(errors).toHaveLength(0);
@@ -472,6 +478,16 @@ describe('ResidentLeadCreateDto validation', () => {
                 errors.filter(error => error.property === 'maritalStatus')
                     .length
             ).toBeGreaterThan(0);
+        });
+
+        it('accepts a 14-digit national ID', async () => {
+            const errors = await validateDto({ nationalId: '29801011234567' });
+            expect(errors.filter(error => error.property === 'nationalId')).toHaveLength(0);
+        });
+
+        it('rejects a malformed national ID', async () => {
+            const errors = await validateDto({ nationalId: '12345' });
+            expect(errors.filter(error => error.property === 'nationalId').length).toBeGreaterThan(0);
         });
     });
 });

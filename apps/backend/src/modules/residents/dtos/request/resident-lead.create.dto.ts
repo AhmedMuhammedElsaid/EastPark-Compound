@@ -79,4 +79,16 @@ export class ResidentLeadCreateDto {
     @IsEnum(MaritalStatus)
     @IsOptional()
     maritalStatus?: MaritalStatus;
+
+    @ApiPropertyOptional({ example: '29801011234567', minLength: 14, maxLength: 14 })
+    @IsString()
+    @IsOptional()
+    @Matches(/^\d{14}$/, { message: 'nationalId must contain exactly 14 digits' })
+    nationalId?: string;
+
+    @ApiPropertyOptional({ example: 'A12345678', maxLength: 30 })
+    @IsString()
+    @IsOptional()
+    @Length(1, 30)
+    passportNumber?: string;
 }

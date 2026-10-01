@@ -8,6 +8,7 @@ import * as React from 'react';
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { formatCurrency } from '@/components/app/ProductMenu';
+import { residentOrderingEnabled } from '@/config/features';
 import { initiatePaymob, OrderRequestError, placeOrder, type PaymentMethod } from '@/lib/api/orders';
 import type { AuthUser } from '@/lib/api/contracts';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -55,6 +56,7 @@ function CheckoutForm({ user }: { user: AuthUser }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!residentOrderingEnabled) return;
     if (!deliveryUnit.trim() || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
@@ -102,7 +104,7 @@ function CheckoutForm({ user }: { user: AuthUser }) {
           <p className="text-[length:var(--text-overline)] font-bold uppercase text-primary">{state.shopName}</p>
           <h1 className="mt-2 text-[length:var(--text-h1)] font-bold">{t('checkout.title')}</h1>
 
-          <fieldset disabled={Boolean(createdOrder)} className="mt-8 space-y-7 disabled:opacity-65">
+          <fieldset disabled={Boolean(createdOrder) || !residentOrderingEnabled} className="mt-8 space-y-7 disabled:opacity-65">
             <div>
               <label htmlFor="delivery-unit" className="mb-2 block font-bold">{t('checkout.address')}</label>
               <input id="delivery-unit" value={deliveryUnit} onChange={(event) => setDeliveryUnit(event.target.value)} required maxLength={100} autoComplete="street-address" className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" />
@@ -129,11 +131,12 @@ function CheckoutForm({ user }: { user: AuthUser }) {
           </ul>
           <div className="mt-4 flex justify-between gap-4 font-bold"><span>{t('cart.estimated_total')}</span><span>{formatCurrency(cartTotal(state), lang)}</span></div>
           <p className="mt-2 text-[length:var(--text-caption)] leading-5 text-muted-foreground">{t('cart.server_total_note')}</p>
+          {!residentOrderingEnabled && <p role="status" className="mt-4 rounded-sm bg-warning/12 p-3 text-[length:var(--text-body)] font-semibold text-foreground">{t('orders.ordering_paused')}</p>}
           {error && <p role="alert" className="mt-4 rounded-sm bg-error/12 p-3 text-[length:var(--text-body)] text-error">{error}</p>}
           {createdOrder && <p className="mt-4 rounded-sm bg-info/12 p-3 text-[length:var(--text-body)] text-foreground">{t('checkout.order_created_payment_pending')}</p>}
-          <Button type="submit" fullWidth disabled={isSubmitting || !deliveryUnit.trim()} aria-busy={isSubmitting} className="mt-6">
+          <Button type="submit" fullWidth disabled={!residentOrderingEnabled || isSubmitting || !deliveryUnit.trim()} aria-busy={isSubmitting} className="mt-6">
             <LockKeyhole aria-hidden="true" className="size-4.5" />
-            {isSubmitting ? t('common.loading') : createdOrder ? t('checkout.retry_payment') : t('checkout.place_order')}
+            {!residentOrderingEnabled ? t('orders.ordering_paused') : isSubmitting ? t('common.loading') : createdOrder ? t('checkout.retry_payment') : t('checkout.place_order')}
           </Button>
         </aside>
       </form>

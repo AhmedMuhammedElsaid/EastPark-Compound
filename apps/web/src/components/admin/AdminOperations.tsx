@@ -26,6 +26,8 @@ type ResidentLead = {
   flatNumber: string;
   jobTitle?: string | null;
   maritalStatus?: MaritalStatus | null;
+  nationalId?: string | null;
+  passportNumber?: string | null;
   status: LeadStatus;
   createdAt: string;
 };
@@ -191,8 +193,18 @@ export function ResidentRequestsPanel() {
                     {item.maritalStatus && (ar ? maritalLabelsAr : maritalLabelsEn)[item.maritalStatus]}
                   </p>
                 )}
+                {(item.nationalId || item.passportNumber) && (
+                  <p className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--text-label)] text-muted-foreground">
+                    {item.nationalId && (
+                      <span>{ar ? "الرقم القومي" : "National ID"}: <bdi>{item.nationalId}</bdi></span>
+                    )}
+                    {item.passportNumber && (
+                      <span>{ar ? "رقم الجواز" : "Passport number"}: <bdi>{item.passportNumber}</bdi></span>
+                    )}
+                  </p>
+                )}
               </div>
-              {item.status === "PENDING" && (
+              {(item.status === "PENDING" || item.status === "INVITED") && (
                 <button
                   type="button"
                   onClick={() => void invite(item.id)}
@@ -204,7 +216,9 @@ export function ResidentRequestsPanel() {
                   ) : (
                     <Mail aria-hidden="true" className="size-4.5" />
                   )}
-                  {ar ? "إرسال الدعوة" : "Send invitation"}
+                  {item.status === "INVITED"
+                    ? ar ? "إعادة إرسال الدعوة" : "Resend invitation"
+                    : ar ? "إرسال الدعوة" : "Send invitation"}
                 </button>
               )}
             </article>

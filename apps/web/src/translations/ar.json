@@ -499,6 +499,7 @@
     "quantity": "الكمية: {{count}}",
     "refresh": "تحديث",
     "reorder": "إعادة الطلب",
+    "ordering_paused": "الطلب غير متاح مؤقتاً",
     "summary": "ملخص الطلب",
     "total": "الإجمالي",
     "tracking": "تقدم التوصيل",
@@ -640,6 +641,10 @@
         "single": "أعزب",
         "divorced": "منفصل"
       },
+      "national_id": "الرقم القومي",
+      "national_id_placeholder": "الرقم القومي المكون من 14 رقماً",
+      "passport_number": "رقم الجواز",
+      "passport_number_placeholder": "اكتب رقم جواز السفر",
       "building": "العمارة",
       "building_placeholder": "اختر العمارة",
       "floor": "الدور",
@@ -665,6 +670,8 @@
       "flat_required": "اختر رقم الشقة",
       "invalid_flat": "اختر رقم شقة من القائمة",
       "job_too_long": "يجب ألا تزيد الوظيفة عن 100 حرف",
+      "invalid_national_id": "يجب أن يتكون الرقم القومي من 14 رقماً",
+      "passport_too_long": "يجب ألا يزيد رقم الجواز عن 30 حرفاً",
       "parking_too_long": "بيانات الموقف طويلة جداً"
     },
     "submit_error": {

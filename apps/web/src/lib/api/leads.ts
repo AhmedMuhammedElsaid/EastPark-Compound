@@ -18,6 +18,8 @@ export type LeadPayload = {
   parking?: string;
   jobTitle?: string;
   maritalStatus?: 'MARRIED' | 'SINGLE' | 'DIVORCED';
+  nationalId?: string;
+  passportNumber?: string;
 };
 
 /** Discriminates the failure so the UI can show a specific, honest message. */

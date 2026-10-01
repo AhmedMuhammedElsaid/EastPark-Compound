@@ -7,6 +7,7 @@ import * as React from 'react';
 
 import type { Product, ProductPage } from '@/lib/api/products';
 import type { Shop } from '@/lib/api/shops';
+import { residentOrderingEnabled } from '@/config/features';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { cartTotal } from '@/lib/cart/cart';
 import { useCart } from '@/lib/cart/CartProvider';
@@ -48,6 +49,7 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
   }
 
   function add(product: Product) {
+    if (!residentOrderingEnabled) return;
     if (!user) {
       setShowAuthWall(true);
       return;
@@ -87,6 +89,12 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
         )}
       </div>
 
+      {!residentOrderingEnabled && (
+        <p role="status" className="mt-5 border-y border-border bg-muted/35 px-4 py-3 text-[length:var(--text-body)] font-semibold text-muted-foreground">
+          {t('orders.ordering_paused')}
+        </p>
+      )}
+
       {error && products.length === 0 ? (
         <p role="alert" className="mt-6 border-y border-border py-5 text-muted-foreground">{t('errors.server')}</p>
       ) : products.length === 0 ? (
@@ -94,7 +102,7 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
       ) : (
         <div className="mt-6 divide-y divide-border border-y border-border">
           {products.map((product) => (
-            <ProductRow key={product.id} product={product} lang={lang} onAdd={() => add(product)} />
+            <ProductRow key={product.id} product={product} lang={lang} onAdd={() => add(product)} orderingEnabled={residentOrderingEnabled} />
           ))}
         </div>
       )}
@@ -143,7 +151,7 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
   );
 }
 
-function ProductRow({ product, lang, onAdd }: { product: Product; lang: 'ar' | 'en'; onAdd: () => void }) {
+function ProductRow({ product, lang, onAdd, orderingEnabled }: { product: Product; lang: 'ar' | 'en'; onAdd: () => void; orderingEnabled: boolean }) {
   const { t } = useTranslation();
   const name = lang === 'ar' ? product.nameAr : product.name;
   const description = lang === 'ar' ? product.descriptionAr : product.description;
@@ -157,8 +165,10 @@ function ProductRow({ product, lang, onAdd }: { product: Product; lang: 'ar' | '
       <button
         type="button"
         onClick={onAdd}
+        disabled={!orderingEnabled}
         aria-label={`${t('directory.add_to_cart')}: ${name}`}
-        className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md bg-primary text-primary-foreground transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+        title={!orderingEnabled ? t('orders.ordering_paused') : undefined}
+        className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md bg-primary text-primary-foreground transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:active:scale-100 motion-reduce:transition-none"
       >
         <Plus aria-hidden="true" className="size-5" />
       </button>

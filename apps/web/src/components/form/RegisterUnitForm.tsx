@@ -48,6 +48,8 @@ export function RegisterUnitForm() {
       parking: '',
       jobTitle: '',
       maritalStatus: '',
+      nationalId: '',
+      passportNumber: '',
     },
   });
 
@@ -82,6 +84,8 @@ export function RegisterUnitForm() {
 
     const parking = values.parking?.trim();
     const jobTitle = values.jobTitle?.trim();
+    const nationalId = values.nationalId?.trim();
+    const passportNumber = values.passportNumber?.trim();
     const result = await submitLead({
       name: values.name.trim(),
       email: values.email.trim().toLowerCase(),
@@ -93,6 +97,8 @@ export function RegisterUnitForm() {
       ...(parking ? { parking } : {}),
       ...(jobTitle ? { jobTitle } : {}),
       ...(values.maritalStatus ? { maritalStatus: values.maritalStatus } : {}),
+      ...(nationalId ? { nationalId } : {}),
+      ...(passportNumber ? { passportNumber } : {}),
     });
 
     if (result.ok) {
@@ -185,6 +191,47 @@ export function RegisterUnitForm() {
                 <option value="SINGLE">{t('register.fields.marital_statuses.single')}</option>
                 <option value="DIVORCED">{t('register.fields.marital_statuses.divorced')}</option>
               </select>
+            )}
+          </Field>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="nationalId"
+            label={t('register.fields.national_id')}
+            error={errorText(errors.nationalId?.message)}
+          >
+            {(props) => (
+              <input
+                {...props}
+                {...register('nationalId')}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                dir="ltr"
+                maxLength={14}
+                placeholder={t('register.fields.national_id_placeholder')}
+                className={`${CONTROL_CLASS} ${controlBorder(Boolean(errors.nationalId))} text-start`}
+              />
+            )}
+          </Field>
+
+          <Field
+            id="passportNumber"
+            label={t('register.fields.passport_number')}
+            error={errorText(errors.passportNumber?.message)}
+          >
+            {(props) => (
+              <input
+                {...props}
+                {...register('passportNumber')}
+                type="text"
+                autoComplete="off"
+                dir="ltr"
+                maxLength={30}
+                placeholder={t('register.fields.passport_number_placeholder')}
+                className={`${CONTROL_CLASS} ${controlBorder(Boolean(errors.passportNumber))} text-start`}
+              />
             )}
           </Field>
         </div>

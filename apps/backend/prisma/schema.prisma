@@ -152,20 +152,22 @@ model Invitation {
 // ─── Resident Leads ───────────────────────────────────────────────────────────
 
 model ResidentLead {
-  id            String             @id @default(cuid())
-  name          String
-  email         String
-  phone         String
-  building      String
-  floor         String
-  flatNumber    String
-  parking       String?
-  jobTitle      String?
-  maritalStatus MaritalStatus?
-  status        ResidentLeadStatus @default(PENDING)
-  notes         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  name           String
+  email          String
+  phone          String
+  building       String
+  floor          String
+  flatNumber     String
+  parking        String?
+  jobTitle       String?
+  maritalStatus  MaritalStatus?
+  nationalId     String?
+  passportNumber String?
+  status         ResidentLeadStatus @default(PENDING)
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   userId String?
   user   User?   @relation("ResidentLeadUser", fields: [userId], references: [id], onDelete: SetNull)

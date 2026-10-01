@@ -13,6 +13,8 @@ export class ResidentLeadResponseDto {
     @ApiPropertyOptional() jobTitle?: string | null;
     @ApiPropertyOptional({ enum: MaritalStatus })
     maritalStatus?: MaritalStatus | null;
+    @ApiPropertyOptional() nationalId?: string | null;
+    @ApiPropertyOptional() passportNumber?: string | null;
     @ApiProperty({ enum: ResidentLeadStatus }) status: ResidentLeadStatus;
     @ApiPropertyOptional() notes?: string | null;
     @ApiPropertyOptional() userId?: string | null;

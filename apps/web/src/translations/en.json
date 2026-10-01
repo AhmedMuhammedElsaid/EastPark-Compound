@@ -499,6 +499,7 @@
     "quantity": "Quantity: {{count}}",
     "refresh": "Refresh",
     "reorder": "Reorder",
+    "ordering_paused": "Ordering is temporarily unavailable",
     "summary": "Order summary",
     "total": "Total",
     "tracking": "Delivery progress",
@@ -640,6 +641,10 @@
         "single": "Single",
         "divorced": "Divorced"
       },
+      "national_id": "National ID",
+      "national_id_placeholder": "14-digit national ID",
+      "passport_number": "Passport number",
+      "passport_number_placeholder": "Your passport number",
       "building": "Building",
       "building_placeholder": "Select your building",
       "floor": "Floor",
@@ -665,6 +670,8 @@
       "flat_required": "Select your flat number",
       "invalid_flat": "Select a flat number from the list",
       "job_too_long": "Job title must be 100 characters or fewer",
+      "invalid_national_id": "National ID must contain exactly 14 digits",
+      "passport_too_long": "Passport number must be 30 characters or fewer",
       "parking_too_long": "Parking details are too long"
     },
     "submit_error": {

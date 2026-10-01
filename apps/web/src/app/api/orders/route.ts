@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createOrderSchema, isOrderStatus } from '@/lib/api/orders';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
+import { residentOrderingEnabled } from '@/config/features';
 
 export async function GET(request: NextRequest) {
   const cursor = request.nextUrl.searchParams.get('cursor');
@@ -21,6 +22,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
+  if (!residentOrderingEnabled) {
+    return NextResponse.json({ error: 'ordering_disabled' }, { status: 503 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

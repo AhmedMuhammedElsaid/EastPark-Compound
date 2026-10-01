@@ -51,6 +51,14 @@ export const registerUnitSchema = z
     parking: z.string().trim().max(60, 'register.errors.parking_too_long').optional(),
     jobTitle: z.string().trim().max(100, 'register.errors.job_too_long').optional(),
     maritalStatus: z.union([z.enum(maritalStatuses), z.literal('')]).optional(),
+    nationalId: z
+      .string()
+      .trim()
+      .refine((value) => value === '' || /^\d{14}$/.test(value), {
+        message: 'register.errors.invalid_national_id',
+      })
+      .optional(),
+    passportNumber: z.string().trim().max(30, 'register.errors.passport_too_long').optional(),
   })
   // Floor validity depends on the building's phase, so it can only be checked
   // once both are known. "G" is valid for A2 (phase 2) and invalid for A1

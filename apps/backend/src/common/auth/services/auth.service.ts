@@ -45,7 +45,8 @@ export class AuthService {
         private readonly encryption: HelperEncryptionService,
         private readonly config: ConfigService
     ) {
-        this.appUrl = config.get<string>('app.url') ?? 'http://localhost:3000';
+        this.appUrl =
+            config.get<string>('app.webUrl') ?? 'http://localhost:3000';
     }
 
     // ── Register ─────────────────────────────────────────────────────────────

@@ -28,7 +28,9 @@ function isSameSubmission(
         existing.phone === dto.phone &&
         (existing.parking ?? undefined) === dto.parking &&
         (existing.jobTitle ?? undefined) === dto.jobTitle?.trim() &&
-        (existing.maritalStatus ?? undefined) === dto.maritalStatus
+        (existing.maritalStatus ?? undefined) === dto.maritalStatus &&
+        (existing.nationalId ?? undefined) === dto.nationalId?.trim() &&
+        (existing.passportNumber ?? undefined) === dto.passportNumber?.trim()
     );
 }
 
@@ -69,6 +71,8 @@ export class ResidentsService {
                     parking: dto.parking,
                     jobTitle: dto.jobTitle?.trim(),
                     maritalStatus: dto.maritalStatus,
+                    nationalId: dto.nationalId?.trim(),
+                    passportNumber: dto.passportNumber?.trim(),
                     status: ResidentLeadStatus.PENDING,
                 },
             });
@@ -147,14 +151,10 @@ export class ResidentsService {
             return { message: 'residentLead.success.alreadyRegistered' };
         }
 
-        try {
-            await this.invitationsService.create(
-                { email: lead.email, role: Role.RESIDENT },
-                actor
-            );
-        } catch (error) {
-            if (!(error instanceof ConflictException)) throw error;
-        }
+        await this.invitationsService.create(
+            { email: lead.email, role: Role.RESIDENT },
+            actor
+        );
 
         await this.db.residentLead.update({
             where: { id: lead.id },

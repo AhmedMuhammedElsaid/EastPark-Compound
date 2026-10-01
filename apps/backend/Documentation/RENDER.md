@@ -29,6 +29,7 @@ Use the Supabase transaction pooler on port `6543` for `DATABASE_URL` with
 `DIRECT_DATABASE_URL`. Percent-encode the database password.
 
 `APP_URL` is the final Render origin, for example `https://eastpark-backend.onrender.com`.
+`WEB_APP_URL` is the Vercel origin, `https://eastpark-web-app.vercel.app`, used for invitation and password-reset links.
 `APP_CORS_ORIGINS` is already restricted to `https://eastpark-web-app.vercel.app`.
 
 Generate two different auth secrets locally:
