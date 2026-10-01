@@ -494,13 +494,15 @@ async function upsertPoll() {
             include: { options: true },
         });
     } else {
+        const pollId = poll.id;
+        const existingOptions = poll.options;
         await db.poll.update({
-            where: { id: poll.id },
+            where: { id: pollId },
             data: { questionAr },
         });
         await Promise.all(
             options.map(async ({ previousLabel, label, labelAr }) => {
-                const existing = poll.options.find(
+                const existing = existingOptions.find(
                     option =>
                         option.label === previousLabel || option.label === label
                 );
@@ -510,7 +512,7 @@ async function upsertPoll() {
                           data: { label, labelAr },
                       })
                     : db.pollOption.create({
-                          data: { pollId: poll.id, label, labelAr },
+                          data: { pollId, label, labelAr },
                       });
             })
         );
