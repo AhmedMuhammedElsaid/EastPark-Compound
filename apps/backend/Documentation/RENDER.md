@@ -41,9 +41,9 @@ openssl rand -base64 48
 Use the production `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, the Brevo SMTP
 credentials, and the Supabase secret service key. The backend retains `REDIS_URL` as the local and
 TCP Redis fallback, but Render does not require it when both Upstash REST values are present.
-Paymob values are required by the current application startup and must be non-empty, but card
-payments remain disabled until real Paymob credentials are configured and amount verification is
-complete.
+Card payments are disabled for the first release with `PAYMENTS_ENABLED=false`; Render does not
+need Paymob credentials. Enable the feature only after real Paymob credentials are configured and
+amount verification is complete. Cash on delivery remains available.
 
 ## Build and migrations
 

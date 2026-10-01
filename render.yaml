@@ -55,11 +55,5 @@ services:
         sync: false
       - key: SUPABASE_BUCKET
         value: eastpark-uploads
-      - key: PAYMOB_API_KEY
-        sync: false
-      - key: PAYMOB_HMAC_SECRET
-        sync: false
-      - key: PAYMOB_INTEGRATION_ID
-        sync: false
-      - key: PAYMOB_IFRAME_ID
-        sync: false
+      - key: PAYMENTS_ENABLED
+        value: false

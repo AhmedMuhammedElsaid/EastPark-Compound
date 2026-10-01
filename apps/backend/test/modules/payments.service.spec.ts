@@ -3,6 +3,7 @@ import * as crypto from 'node:crypto';
 import {
     BadRequestException,
     NotFoundException,
+    ServiceUnavailableException,
     UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -94,6 +95,11 @@ const db = {
 };
 
 const configService = {
+    get: jest.fn((key: string) => {
+        if (key === 'paymob.enabled') return true;
+        if (key === 'paymob.hmacSecret') return HMAC_SECRET;
+        return undefined;
+    }),
     getOrThrow: jest.fn((key: string) => {
         if (key === 'paymob.hmacSecret') return HMAC_SECRET;
         throw new Error(`Unexpected config key: ${key}`);
@@ -130,6 +136,20 @@ describe('PaymentsService', () => {
     // ── verifyHmac ────────────────────────────────────────────────────────────
 
     describe('verifyHmac', () => {
+        it('fails closed when Paymob is disabled', () => {
+            const disabledService = new PaymentsService(
+                db as unknown as DatabaseService,
+                cache as unknown as CacheService,
+                {
+                    get: jest.fn(() => undefined),
+                } as unknown as ConfigService
+            );
+
+            expect(() => disabledService.verifyHmac({}, 'signature')).toThrow(
+                ServiceUnavailableException
+            );
+        });
+
         it('returns true for a correctly signed payload', () => {
             const obj = buildObjWithValidHmac();
             expect(service.verifyHmac(obj, obj.hmac as string)).toBe(true);

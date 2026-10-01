@@ -5,6 +5,7 @@ import {
     Injectable,
     Logger,
     NotFoundException,
+    ServiceUnavailableException,
     UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -31,7 +32,8 @@ export interface PaymobWebhookPayload {
 @Injectable()
 export class PaymentsService {
     private readonly logger = new Logger(PaymentsService.name);
-    private readonly hmacSecret: string;
+    private readonly enabled: boolean;
+    private readonly hmacSecret?: string;
 
     // Paymob hashed keys used for HMAC-SHA512 signature
     private static readonly HMAC_FIELDS = [
@@ -62,7 +64,16 @@ export class PaymentsService {
         private readonly cache: CacheService,
         private readonly config: ConfigService
     ) {
-        this.hmacSecret = this.config.getOrThrow<string>('paymob.hmacSecret');
+        this.hmacSecret = this.config.get<string>('paymob.hmacSecret');
+        this.enabled =
+            this.config.get<boolean>('paymob.enabled') ??
+            Boolean(this.hmacSecret);
+    }
+
+    private ensureEnabled(): void {
+        if (!this.enabled || !this.hmacSecret) {
+            throw new ServiceUnavailableException('payments.error.disabled');
+        }
     }
 
     private paymobTxKey(txId: number): string {
@@ -70,6 +81,8 @@ export class PaymentsService {
     }
 
     verifyHmac(body: Record<string, unknown>, hmac: string): boolean {
+        this.ensureEnabled();
+        const hmacSecret = this.hmacSecret!;
         const concatenated = PaymentsService.HMAC_FIELDS.map(field => {
             const parts = field.split('.');
             let value: unknown = body;
@@ -80,7 +93,7 @@ export class PaymentsService {
         }).join('');
 
         const computed = crypto
-            .createHmac('sha512', this.hmacSecret)
+            .createHmac('sha512', hmacSecret)
             .update(concatenated)
             .digest('hex');
 
@@ -96,6 +109,7 @@ export class PaymentsService {
     }
 
     async handleWebhook(payload: PaymobWebhookPayload): Promise<void> {
+        this.ensureEnabled();
         if (payload.type !== 'TRANSACTION') return;
 
         const { obj } = payload;
@@ -136,7 +150,9 @@ export class PaymentsService {
         // Idempotency — skip if already paid (e.g. duplicate Paymob transaction)
         if (order.isPaid) {
             await this.cache.set(idempotencyKey, '1', 86400);
-            this.logger.log(`Order ${merchantOrderId} already paid — skipping duplicate webhook`);
+            this.logger.log(
+                `Order ${merchantOrderId} already paid — skipping duplicate webhook`
+            );
             return;
         }
 
@@ -158,8 +174,9 @@ export class PaymentsService {
 
     async initiatePayment(
         orderId: string,
-        actorId: string,
+        actorId: string
     ): Promise<{ paymentKey: string; iframeUrl: string }> {
+        this.ensureEnabled();
         const order = await this.db.order.findUnique({
             where: { id: orderId },
             include: { resident: true },
@@ -169,59 +186,89 @@ export class PaymentsService {
         if (order.paymentMethod !== PaymentMethod.PAYMOB)
             throw new BadRequestException('order.error.notPaymobOrder');
 
-        const apiKey        = this.config.getOrThrow<string>('paymob.apiKey');
-        const integrationId = this.config.getOrThrow<string>('paymob.integrationId');
-        const iframeId      = this.config.getOrThrow<string>('paymob.iframeId');
-        const amountCents   = Math.round(order.totalAmount * 100);
-        const user          = order.resident;
+        const apiKey = this.config.getOrThrow<string>('paymob.apiKey');
+        const integrationId = this.config.getOrThrow<string>(
+            'paymob.integrationId'
+        );
+        const iframeId = this.config.getOrThrow<string>('paymob.iframeId');
+        const amountCents = Math.round(order.totalAmount * 100);
+        const user = order.resident;
 
         // Step 1 — Auth token
-        const authRes = await fetch('https://accept.paymob.com/api/auth/tokens', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ api_key: apiKey }),
-        });
-        if (!authRes.ok) throw new BadGatewayException('payments.error.paymobUnavailable');
-        const { token: authToken } = await authRes.json() as { token: string };
+        const authRes = await fetch(
+            'https://accept.paymob.com/api/auth/tokens',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: apiKey }),
+            }
+        );
+        if (!authRes.ok)
+            throw new BadGatewayException('payments.error.paymobUnavailable');
+        const { token: authToken } = (await authRes.json()) as {
+            token: string;
+        };
 
         // Step 2 — Register order
-        const orderRes = await fetch('https://accept.paymob.com/api/ecommerce/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-            body: JSON.stringify({
-                amount_cents: amountCents,
-                currency: 'EGP',
-                merchant_order_id: order.id,
-                items: [],
-            }),
-        });
-        if (!orderRes.ok) throw new BadGatewayException('payments.error.paymobUnavailable');
-        const { id: paymobOrderId } = await orderRes.json() as { id: number };
+        const orderRes = await fetch(
+            'https://accept.paymob.com/api/ecommerce/orders',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                    amount_cents: amountCents,
+                    currency: 'EGP',
+                    merchant_order_id: order.id,
+                    items: [],
+                }),
+            }
+        );
+        if (!orderRes.ok)
+            throw new BadGatewayException('payments.error.paymobUnavailable');
+        const { id: paymobOrderId } = (await orderRes.json()) as { id: number };
 
         // Step 3 — Payment key
         const nameParts = user.name.split(' ');
-        const keyRes = await fetch('https://accept.paymob.com/api/acceptance/payment_keys', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-            body: JSON.stringify({
-                amount_cents: amountCents,
-                currency: 'EGP',
-                order_id: paymobOrderId,
-                billing_data: {
-                    first_name:      nameParts[0] ?? user.name,
-                    last_name:       nameParts.slice(1).join(' ') || 'N/A',
-                    email:           user.email,
-                    phone_number:    user.phone ?? 'N/A',
-                    apartment: 'N/A', floor: 'N/A', street: 'N/A',
-                    building: 'N/A', shipping_method: 'NA',
-                    postal_code: 'N/A', city: 'N/A', country: 'EG', state: 'N/A',
+        const keyRes = await fetch(
+            'https://accept.paymob.com/api/acceptance/payment_keys',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`,
                 },
-                integration_id: Number(integrationId),
-                expiration: 3600,
-            }),
-        });
-        if (!keyRes.ok) throw new BadGatewayException('payments.error.paymobUnavailable');
-        const { token: paymentKey } = await keyRes.json() as { token: string };
+                body: JSON.stringify({
+                    amount_cents: amountCents,
+                    currency: 'EGP',
+                    order_id: paymobOrderId,
+                    billing_data: {
+                        first_name: nameParts[0] ?? user.name,
+                        last_name: nameParts.slice(1).join(' ') || 'N/A',
+                        email: user.email,
+                        phone_number: user.phone ?? 'N/A',
+                        apartment: 'N/A',
+                        floor: 'N/A',
+                        street: 'N/A',
+                        building: 'N/A',
+                        shipping_method: 'NA',
+                        postal_code: 'N/A',
+                        city: 'N/A',
+                        country: 'EG',
+                        state: 'N/A',
+                    },
+                    integration_id: Number(integrationId),
+                    expiration: 3600,
+                }),
+            }
+        );
+        if (!keyRes.ok)
+            throw new BadGatewayException('payments.error.paymobUnavailable');
+        const { token: paymentKey } = (await keyRes.json()) as {
+            token: string;
+        };
 
         return {
             paymentKey,
