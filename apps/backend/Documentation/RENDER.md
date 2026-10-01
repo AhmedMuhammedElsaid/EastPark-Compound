@@ -9,7 +9,7 @@ API URL.
 - Vercel hosts `apps/web`.
 - Render hosts this Dockerized NestJS API on the free web-service plan.
 - Supabase remains the PostgreSQL database and object store.
-- Upstash remains Redis for OTPs, token revocation, and Paymob idempotency.
+- Upstash REST provides Redis for OTPs, token revocation, and Paymob idempotency.
 - Socket.io may remain compiled, but the initial web order experience must poll REST endpoints.
   Free-service sleep means realtime connections and the five-minute election cron are not reliable.
 
@@ -38,10 +38,12 @@ openssl rand -base64 48
 openssl rand -base64 48
 ```
 
-Use the production Upstash `rediss://` URL for `REDIS_URL`, the Brevo SMTP credentials, and the
-Supabase secret service key. Paymob values are required by the current application startup and
-must be non-empty, but card payments remain disabled until real Paymob credentials are configured
-and amount verification is complete.
+Use the production `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, the Brevo SMTP
+credentials, and the Supabase secret service key. The backend retains `REDIS_URL` as the local and
+TCP Redis fallback, but Render does not require it when both Upstash REST values are present.
+Paymob values are required by the current application startup and must be non-empty, but card
+payments remain disabled until real Paymob credentials are configured and amount verification is
+complete.
 
 ## Build and migrations
 

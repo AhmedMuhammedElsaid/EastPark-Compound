@@ -1,16 +1,16 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import Redis from 'ioredis';
 
+import { CacheClient } from '../clients/cache-client.interface';
 import { REDIS_CLIENT } from '../constants/cache.constant';
 
 @Injectable()
 export class CacheService implements OnModuleDestroy {
     private readonly logger = new Logger(CacheService.name);
 
-    constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+    constructor(@Inject(REDIS_CLIENT) private readonly redis: CacheClient) {}
 
     async onModuleDestroy(): Promise<void> {
-        await this.redis.quit();
+        await this.redis.close();
     }
 
     /**
@@ -20,6 +20,7 @@ export class CacheService implements OnModuleDestroy {
     async get<T = string>(key: string): Promise<T | null> {
         const value = await this.redis.get(key);
         if (value === null) return null;
+        if (typeof value !== 'string') return value as T;
         try {
             return JSON.parse(value) as T;
         } catch {
@@ -34,11 +35,7 @@ export class CacheService implements OnModuleDestroy {
     async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
         const serialised =
             typeof value === 'string' ? value : JSON.stringify(value);
-        if (ttlSeconds !== undefined && ttlSeconds > 0) {
-            await this.redis.set(key, serialised, 'EX', ttlSeconds);
-        } else {
-            await this.redis.set(key, serialised);
-        }
+        await this.redis.set(key, serialised, ttlSeconds);
     }
 
     /**
@@ -80,6 +77,7 @@ export class CacheService implements OnModuleDestroy {
     async hget<T = string>(key: string, field: string): Promise<T | null> {
         const value = await this.redis.hget(key, field);
         if (value === null) return null;
+        if (typeof value !== 'string') return value as T;
         try {
             return JSON.parse(value) as T;
         } catch {
@@ -136,20 +134,20 @@ export class CacheService implements OnModuleDestroy {
      * Delete all keys in the current database. Use with caution.
      */
     async flush(): Promise<void> {
-        await this.redis.flushdb();
+        await this.redis.flush();
     }
 
     /**
      * Returns true when the Redis connection is ready.
      */
     isHealthy(): boolean {
-        return this.redis.status === 'ready';
+        return this.redis.isHealthy();
     }
 
     /**
      * Expose the raw IORedis client for advanced operations.
      */
-    getClient(): Redis {
+    getClient(): CacheClient {
         return this.redis;
     }
 }
