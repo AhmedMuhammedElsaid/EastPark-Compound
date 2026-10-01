@@ -3,14 +3,30 @@
 import { Building2, FileText, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, ShieldCheck, Store } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useSyncExternalStore } from 'react';
 
 import { Container } from '@/components/Container';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 
+function subscribeToClock(onStoreChange: () => void) {
+  const interval = window.setInterval(onStoreChange, 60_000);
+  return () => window.clearInterval(interval);
+}
+
+function getLocalHour() {
+  return new Date().getHours();
+}
+
+function getServerHour() {
+  return 0;
+}
+
 export function ResidentHome() {
   const { isLoading, logout, user } = useAuth();
   const { t } = useTranslation();
+  const localHour = useSyncExternalStore(subscribeToClock, getLocalHour, getServerHour);
+  const greeting = t(localHour >= 17 ? 'home.greeting_evening' : 'home.greeting_morning');
   const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
   const quickActions: Array<{ href: string; icon: LucideIcon; label: string }> = [
     { href: '/directory', icon: Store, label: t('home.shops') },
@@ -29,7 +45,11 @@ export function ResidentHome() {
           {t('nav.brand')}
         </p>
         <h1 id="resident-home-title" className="mt-2 text-[length:var(--text-h1)] font-bold text-foreground">
-          {user ? `${t('home.greeting_morning')}، ${user.name}` : t('home.tab_label')}
+          {user ? (
+            <>
+              {`${greeting}، ${user.name}`} <span aria-hidden="true">👋</span>
+            </>
+          ) : t('home.tab_label')}
         </h1>
 
         <div id="account" className="mt-8 border-y border-border py-6 sm:py-8">
