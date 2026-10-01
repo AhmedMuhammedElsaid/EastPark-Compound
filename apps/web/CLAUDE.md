@@ -32,10 +32,14 @@ standalone repository and must stay accurate for fresh clones.
 	responses and retry one transport failure. This slice is validated locally but is not deployed.
 - Announcement comments come embedded in public `GET /v1/announcements/:id`. The backend has no
 	comments-list endpoint, so web must not copy the mobile client's stale paginated-comments call.
+- Local parity work adds an ADMIN-only `/admin` workspace for creating announcements, polls,
+	elections, and election candidates. Server layouts verify the live profile role, expired access
+	tokens refresh through `/api/admin/session`, and every write BFF repeats the ADMIN check before
+	forwarding to the authoritative backend endpoint.
 - Share description: `Commerce, services, and community in one trusted place. Built By Ahmed
 	Muhammed Elsaid.`
 - Validation: `pnpm check` runs lint, strict TypeScript, and the production build; last run passed
-	with 26/26 static pages generated and dynamic announcement feed/detail routes present. The detail
+	with the dynamic announcement and admin routes present. The announcement detail
 	view was browser-verified in Arabic/English at 1440px and 390px widths.
 - The repository installs and builds independently; do not add path dependencies outside this
 	repository to production code.

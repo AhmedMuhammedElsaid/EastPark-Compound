@@ -56,6 +56,13 @@ mobile app without removing or weakening the public registration path.
   not be copied to web. Comment creation remains authenticated and is outside this public slice.
 - The backend contract has no `isPinned` field, so web does not reproduce the mobile client's stale
   pinned-announcement type.
+- `/admin` is restricted to authenticated users whose live profile role is `ADMIN`. Expired access
+  tokens are refreshed by `/api/admin/session`, where Next permits cookie mutation; admin write BFFs
+  independently enforce the same role before forwarding requests.
+- The admin workspace creates announcements, polls, elections, and candidates through
+  `POST /v1/announcements`, `POST /v1/polls`, `POST /v1/elections`, and
+  `POST /v1/elections/:id/candidates`. A newly created election flows directly into its candidate
+  form, and governance deadlines must be in the future.
 - The slice passes lint, strict TypeScript, and production build. Arabic/English desktop (1440px)
   and mobile (390px) layouts were browser-verified with a local contract fixture, including RTL/LTR,
   PDF links, comments, 44px actions, fixed-navigation clearance, 404 propagation, and no horizontal
