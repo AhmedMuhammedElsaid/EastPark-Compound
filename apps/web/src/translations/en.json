@@ -452,7 +452,10 @@
   },
   "profile": {
     "account": "Account",
+    "account_controls": "Account controls",
     "arabic": "Arabic",
+    "avatar_hint": "Enter a valid image URL. Leave it blank to remove the current image.",
+    "avatar_url": "Avatar URL",
     "biometric_login": "Sign in with {{kind}}",
     "biometric_login_subtitle_off": "Faster sign-in next time",
     "biometric_login_subtitle_on": "Enabled — your refresh token is stored securely",
@@ -462,6 +465,9 @@
     "delete_account_button": "Delete account",
     "delete_account_confirm": "This will permanently delete your account and all data. This cannot be undone.",
     "delete_account_error": "Could not delete account. Please try again.",
+    "delete_confirm_word": "DELETE",
+    "delete_type_prompt": "Type {{word}} to confirm permanent deletion.",
+    "delete_unavailable": "Administrators cannot delete their own account from this profile.",
     "edit": "Edit profile",
     "english": "English",
     "guest_prompt": "Sign in to access your profile",
@@ -472,11 +478,30 @@
     "my_feedback": "My feedback",
     "my_orders": "My orders",
     "notification_prefs": "Notification preferences",
+    "personal_details": "Personal details",
+    "preferences": "Preferences",
+    "preferences_local": "Language and appearance are stored on this browser. The account API does not currently sync these preferences.",
+    "roles": {
+      "admin": "Compound admin",
+      "guest": "Guest",
+      "merchant": "Merchant",
+      "resident": "Resident"
+    },
+    "save_changes": "Save changes",
+    "save_error": "Your changes could not be saved. Please try again.",
+    "saved": "Profile updated",
     "saved_shops": "Saved shops",
     "security": "Security",
     "system": "System",
     "theme": "Theme",
-    "title": "Profile"
+    "title": "Profile",
+    "subtitle": "Keep your resident details accurate and choose how EastPark appears on this device.",
+    "errors": {
+      "avatar_url": "Enter a valid URL.",
+      "name": "Enter a name between 2 and 100 characters.",
+      "phone": "Use international format, for example +201234567890.",
+      "unit": "Unit number must be 100 characters or fewer."
+    }
   },
   "nav": {
     "brand": "EastPark",

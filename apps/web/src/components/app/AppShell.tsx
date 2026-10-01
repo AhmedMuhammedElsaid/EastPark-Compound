@@ -28,7 +28,7 @@ export function AppShell({ children }: AppShellProps) {
   const { isLoading, logout, user } = useAuth();
   const { state: cart, isHydrated: isCartHydrated } = useCart();
   const { t } = useTranslation();
-  const accountHref = user ? '/home#account' : '/login';
+  const accountHref = user ? '/profile' : '/login';
   const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
   const serviceItem = canSubmitFeedback
     ? { href: '/feedback', label: t('feedback.title'), mobileLabel: t('home.feedback'), icon: MessageSquareText }
@@ -135,7 +135,7 @@ export function AppShell({ children }: AppShellProps) {
         aria-label={t('nav.brand')}
         className="fixed inset-x-0 bottom-0 z-50 grid min-h-16 grid-cols-5 border-t border-border bg-background/97 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
-  {mobileNavItems.map(({ activePaths, href, icon: Icon, mobileLabel }) => {
+        {mobileNavItems.map(({ activePaths, href, icon: Icon, mobileLabel }) => {
           const active = activePaths
             ? activePaths.some((path) => pathname.startsWith(path))
             : href === '/home' ? pathname === href : pathname.startsWith(href);

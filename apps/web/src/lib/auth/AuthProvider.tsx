@@ -14,6 +14,7 @@ type AuthContextValue = {
   verifyOtp: (email: string, otp: string) => Promise<LoginResult>;
   establishSession: (user: AuthUser) => void;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<AuthUser | null>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -21,6 +22,21 @@ const AuthContext = React.createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  const refreshUser = React.useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const response = await fetch('/api/auth/session', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { data: { user: AuthUser | null } };
+      setUser(payload.data.user);
+      return payload.data.user;
+    } catch {
+      return null;
+    }
+  }, []);
 
   React.useEffect(() => {
     let active = true;
@@ -30,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
       .then(async (response) => {
         if (!response.ok) return null;
-        const payload = (await response.json()) as { data: { user: AuthUser } };
+        const payload = (await response.json()) as { data: { user: AuthUser | null } };
         return payload.data.user;
       })
       .catch(() => null)
@@ -95,8 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo(
-    () => ({ user, isLoading, login, verifyOtp, establishSession, logout }),
-    [user, isLoading, login, verifyOtp, establishSession, logout],
+    () => ({ user, isLoading, login, verifyOtp, establishSession, logout, refreshUser }),
+    [user, isLoading, login, verifyOtp, establishSession, logout, refreshUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

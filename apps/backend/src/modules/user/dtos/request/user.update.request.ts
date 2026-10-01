@@ -16,21 +16,22 @@ export class UserUpdateDto {
     @Transform(({ value }: { value: string }) => value?.trim())
     name?: string;
 
-    @ApiProperty({ example: '+201234567890', required: false })
+    @ApiProperty({ example: '+201234567890', required: false, nullable: true })
     @IsPhoneNumber()
     @IsOptional()
-    phone?: string;
+    phone?: string | null;
 
-    @ApiProperty({ example: 'B2-405', required: false })
+    @ApiProperty({ example: 'B2-405', required: false, nullable: true })
     @IsString()
     @IsOptional()
-    unitNumber?: string;
+    unitNumber?: string | null;
 
     @ApiProperty({
         example: 'https://storage.example.com/avatars/user.jpg',
         required: false,
+        nullable: true,
     })
     @IsUrl()
     @IsOptional()
-    avatarUrl?: string;
+    avatarUrl?: string | null;
 }
