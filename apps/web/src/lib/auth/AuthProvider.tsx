@@ -2,8 +2,9 @@
 
 import type { AuthUser, LoginPayload } from '@/lib/api/contracts';
 
-import { useRouter } from 'next/navigation';
 import * as React from 'react';
+
+import { useSessionInterceptor } from '@/lib/auth/useSessionInterceptor';
 
 export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'validation';
 type LoginResult = { ok: true; user: AuthUser } | { ok: false; error: LoginError };
@@ -20,62 +21,9 @@ type AuthContextValue = {
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
-const PUBLIC_AUTH_ENDPOINTS = new Set([
-  '/api/auth/accept-invitation',
-  '/api/auth/forgot-password',
-  '/api/auth/login',
-  '/api/auth/logout',
-  '/api/auth/register',
-  '/api/auth/resend-otp',
-  '/api/auth/reset-password',
-  '/api/auth/session',
-  '/api/auth/verify-otp',
-]);
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const [user, setUser] = React.useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const userRef = React.useRef<AuthUser | null>(null);
-  const redirectingRef = React.useRef(false);
-
-  React.useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  const redirectToLogin = React.useCallback(() => {
-    if (redirectingRef.current || window.location.pathname === '/login') return;
-    redirectingRef.current = true;
-    userRef.current = null;
-    setUser(null);
-    const requestedPath = `${window.location.pathname}${window.location.search}`;
-    router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
-  }, [router]);
-
-  React.useEffect(() => {
-    const originalFetch = window.fetch.bind(window);
-    const interceptedFetch: typeof window.fetch = async (input, init) => {
-      const response = await originalFetch(input, init);
-      const rawUrl = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
-      const url = new URL(rawUrl, window.location.origin);
-
-      if (
-        response.status === 401 &&
-        url.origin === window.location.origin &&
-        url.pathname.startsWith('/api/') &&
-        !PUBLIC_AUTH_ENDPOINTS.has(url.pathname)
-      ) {
-        redirectToLogin();
-      }
-
-      return response;
-    };
-
-    window.fetch = interceptedFetch;
-    return () => {
-      if (window.fetch === interceptedFetch) window.fetch = originalFetch;
-    };
-  }, [redirectToLogin]);
 
   const refreshUser = React.useCallback(async (): Promise<AuthUser | null> => {
     try {
@@ -85,13 +33,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!response.ok) return null;
       const payload = (await response.json()) as { data: { user: AuthUser | null } };
-      if (!payload.data.user && userRef.current) redirectToLogin();
       setUser(payload.data.user);
       return payload.data.user;
     } catch {
       return null;
     }
-  }, [redirectToLogin]);
+  }, []);
 
   React.useEffect(() => {
     let active = true;
@@ -117,17 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  React.useEffect(() => {
-    const validateVisibleSession = () => {
-      if (document.visibilityState === 'visible' && userRef.current) void refreshUser();
-    };
-    window.addEventListener('focus', validateVisibleSession);
-    document.addEventListener('visibilitychange', validateVisibleSession);
-    return () => {
-      window.removeEventListener('focus', validateVisibleSession);
-      document.removeEventListener('visibilitychange', validateVisibleSession);
-    };
-  }, [refreshUser]);
+  const clearSession = React.useCallback(() => setUser(null), []);
+  useSessionInterceptor({ user, clearSession, validateSession: refreshUser });
 
   const authenticate = React.useCallback(async (path: string, payload: unknown): Promise<LoginResult> => {
     try {
@@ -146,7 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(result.data.user);
-      redirectingRef.current = false;
       return { ok: true, user: result.data.user };
     } catch {
       return { ok: false, error: 'network' };
