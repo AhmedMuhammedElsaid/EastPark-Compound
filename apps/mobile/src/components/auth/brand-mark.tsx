@@ -1,8 +1,7 @@
 import * as React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { BRAND, FONT, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 type Size = "sm" | "md" | "lg";
 
@@ -14,30 +13,45 @@ type Props = { size?: Size };
  * Caption "INTEGRATED COMMUNITY" in Cairo.
  */
 export function BrandMark({ size = "md" }: Props) {
-  const colors = useAppColors();
-  const styles = useStyles(colors);
+  const styles = useStyles();
   const titleSize = size === "sm" ? 24 : size === "md" ? 32 : 40;
   const captionSize = size === "sm" ? 9 : size === "md" ? 10 : 12;
+  const plateStyle = size === "sm" ? styles.plateSm : size === "lg" ? styles.plateLg : styles.plateMd;
 
   return (
-    <View style={styles.container}>
-      {/* Diamond mark — geometric approximation */}
-      <View style={[styles.diamond, size === "sm" && styles.diamondSm, size === "lg" && styles.diamondLg]}>
-        <View style={[styles.diamondInner, size === "sm" && styles.diamondInnerSm]} />
-      </View>
+    <View style={[styles.plate, plateStyle]}>
+      <View style={styles.container}>
+        {/* Diamond mark — geometric approximation */}
+        <View style={[styles.diamond, size === "sm" && styles.diamondSm, size === "lg" && styles.diamondLg]}>
+          <View style={[styles.diamondInner, size === "sm" && styles.diamondInnerSm]} />
+        </View>
 
-      <Text style={[styles.wordmark, { fontSize: titleSize }]}>EAST PARK</Text>
-      <Text style={[styles.caption, { fontSize: captionSize, letterSpacing: captionSize * 0.25 }]}>
-        INTEGRATED COMMUNITY
-      </Text>
+        <Text style={[styles.wordmark, { fontSize: titleSize }]}>EAST PARK</Text>
+        <Text style={[styles.caption, { fontSize: captionSize, letterSpacing: captionSize * 0.25 }]}>INTEGRATED COMMUNITY</Text>
+      </View>
     </View>
   );
 }
 
-function useStyles(colors: ReturnType<typeof useAppColors>) {
+function useStyles() {
   return React.useMemo(
     () =>
       StyleSheet.create({
+        plate: {
+          alignSelf: "center",
+          backgroundColor: BRAND.ink,
+          borderColor: BRAND.goldDark,
+          borderWidth: 1,
+          borderRadius: RADIUS.lg,
+          shadowColor: BRAND.ink,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.22,
+          shadowRadius: 18,
+          elevation: 5,
+        },
+        plateSm: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
+        plateMd: { paddingHorizontal: SPACING["2xl"], paddingVertical: SPACING.lg },
+        plateLg: { paddingHorizontal: SPACING["3xl"], paddingVertical: SPACING.xl },
         container: { alignItems: "center", gap: SPACING.xs },
 
         diamond: {
@@ -54,7 +68,7 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
         diamondInner: {
           width: 16,
           height: 16,
-          backgroundColor: colors.bg,
+          backgroundColor: BRAND.ink,
           transform: [{ rotate: "0deg" }],
         },
         diamondInnerSm: { width: 10, height: 10 },
@@ -62,7 +76,7 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
         wordmark: {
           fontFamily: FONT.display,
           fontWeight: "400",
-          color: colors.text,
+          color: BRAND.white,
           letterSpacing: 6,
         },
 
@@ -74,6 +88,6 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
           marginTop: 2,
         },
       }),
-    [colors],
+    [],
   );
 }

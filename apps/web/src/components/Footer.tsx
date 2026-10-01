@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { MapPin } from 'lucide-react';
 
 import { useTranslation } from '@/lib/i18n';
 
@@ -59,16 +60,18 @@ export function Footer() {
     'inline-flex min-h-11 min-w-0 items-center gap-3 text-body text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none';
   const contactLinkClass =
     `${linkClass} w-full rounded-md border border-border bg-muted px-4 lg:w-auto lg:border-transparent lg:bg-transparent lg:px-0`;
+  const developerContactLinkClass =
+    `${linkClass} min-h-[72px] w-full justify-center rounded-md border border-border bg-muted px-3 text-center text-caption lg:min-h-11 lg:w-auto lg:justify-start lg:border-transparent lg:bg-transparent lg:px-0 lg:text-body`;
   const socialLinkClass =
-    'flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-2 rounded-md border border-border bg-muted px-2 text-center text-caption font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none lg:min-h-11 lg:w-fit lg:flex-row lg:justify-start lg:border-transparent lg:bg-transparent lg:px-0 lg:text-body';
+    'flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-2 rounded-md border border-border bg-muted px-2 text-center text-caption font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none';
 
   return (
     <footer className="border-t border-border bg-background text-foreground">
       <Container className="py-8 sm:py-12 lg:py-16">
-        <div className="grid lg:grid-cols-3 lg:gap-12">
+        <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:gap-32">
           <section
             aria-labelledby="footer-developer-title"
-            className="order-2 border-b border-border py-8 lg:order-1 lg:border-0 lg:py-0"
+            className="order-2 border-b border-border py-8 text-center lg:order-1 lg:border-0 lg:py-0 lg:text-start"
           >
             <h2 className="text-caption font-semibold uppercase text-muted-foreground lg:text-label lg:normal-case lg:text-card-foreground">
               <span id="footer-developer-title">{t('footer.developed_by')}</span>
@@ -79,23 +82,11 @@ export function Footer() {
             <p className="mt-1 text-caption text-muted-foreground">
               {t('footer.developer_role')}
             </p>
-            <ul className="mt-3 flex min-w-0 flex-col border-t border-border pt-2 lg:border-0 lg:pt-0">
-              <li className="min-w-0"><a href="mailto:ahmed.muhammed.elsaid@gmail.com" className={`${linkClass} max-w-full text-label`} dir={dir}><ContactIcon name="email" /><span dir="ltr" className="min-w-0 wrap-anywhere">ahmed.muhammed.elsaid@gmail.com</span></a></li>
-              <li><a href="tel:+201017134627" className={linkClass} dir={dir}><ContactIcon name="phone" /><span dir="ltr">+20 101 713 4627</span></a></li>
+            <ul className="mt-4 grid min-w-0 grid-cols-2 gap-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
+              <li className="min-w-0"><a href="mailto:ahmed.muhammed.elsaid@gmail.com" className={developerContactLinkClass} dir={dir}><ContactIcon name="email" /><span dir="ltr" className="min-w-0 wrap-anywhere">ahmed.muhammed.elsaid@gmail</span></a></li>
+              <li className="min-w-0"><a href="tel:+201017134627" className={developerContactLinkClass} dir={dir}><ContactIcon name="phone" /><span dir="ltr" className="whitespace-nowrap">+20 101 713 4627</span></a></li>
             </ul>
-          </section>
-
-          <section
-            aria-labelledby="footer-contact-title"
-            className="order-3 pt-8 lg:order-2 lg:pt-0"
-          >
-            <h2
-              id="footer-contact-title"
-              className="text-label font-semibold text-card-foreground"
-            >
-              {t('footer.contact')}
-            </h2>
-            <ul className="mt-4 grid grid-cols-3 gap-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
+            <ul className="mt-2 grid grid-cols-3 gap-2">
               <li><a href="https://www.linkedin.com/in/ahmedmuhammedelsaid" target="_blank" rel="noreferrer" className={socialLinkClass} dir={dir}><ContactIcon name="linkedin" /><span>{t('footer.linkedin')}</span></a></li>
               <li><a href="https://github.com/AhmedMuhammedElsaid" target="_blank" rel="noreferrer" className={socialLinkClass} dir={dir}><ContactIcon name="github" /><span>{t('footer.github')}</span></a></li>
               <li><a href="https://ahmed-muhammed-elsaid.dev/" target="_blank" rel="noreferrer" className={socialLinkClass} dir={dir}><ContactIcon name="website" /><span>{t('footer.portfolio')}</span></a></li>
@@ -104,7 +95,7 @@ export function Footer() {
 
           <section
             aria-label={t('nav.brand')}
-            className="order-1 border-b border-border pb-8 lg:order-3 lg:border-0 lg:pb-0"
+            className="order-1 border-b border-border pb-8 lg:order-2 lg:border-0 lg:pb-0"
           >
             <div className="flex flex-col items-center text-center lg:items-start lg:text-start">
               <Link
@@ -116,12 +107,18 @@ export function Footer() {
                   {t('nav.brand')}
                 </span>
               </Link>
-              <div className="mt-5 grid w-full gap-2 sm:grid-cols-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
+              <div className="mt-5 grid w-full grid-cols-2 gap-2 lg:mt-3 lg:flex lg:flex-col lg:gap-0">
                 <a href={`mailto:${email}`} className={contactLinkClass} dir={dir}>
                   <ContactIcon name="email" /><span dir="ltr" className="min-w-0 wrap-anywhere">{email}</span>
                 </a>
                 <a href={`tel:${phone}`} className={contactLinkClass} dir={dir}>
                   <ContactIcon name="phone" /><span dir="ltr">{phone}</span>
+                </a>
+                <a href="https://maps.app.goo.gl/ht4YpvCpQQ2fQdnR9?g_st=aw" target="_blank" rel="noreferrer" className={contactLinkClass} dir={dir}>
+                  <MapPin className="size-4 shrink-0" aria-hidden="true" /><span>{t('footer.company_location')}</span>
+                </a>
+                <a href="https://maps.app.goo.gl/jo1zgoUW2g2Upsp7A?g_st=ic" target="_blank" rel="noreferrer" className={contactLinkClass} dir={dir}>
+                  <MapPin className="size-4 shrink-0" aria-hidden="true" /><span>{t('footer.eastpark_location')}</span>
                 </a>
               </div>
               <p className="mt-5 text-caption text-muted-foreground lg:mt-2">

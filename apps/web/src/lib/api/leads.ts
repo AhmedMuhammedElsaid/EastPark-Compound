@@ -30,19 +30,14 @@ export type LeadError =
 export type LeadResult = { ok: true } | { ok: false; error: LeadError };
 
 const TIMEOUT_MS = 22_000;
-
-function residentLeadsUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) throw new Error('NEXT_PUBLIC_API_URL is not configured');
-  return `${apiUrl.replace(/\/+$/, '')}/v1/residents/leads`;
-}
+const RESIDENT_LEADS_URL = '/api/resident-leads';
 
 export async function submitLead(payload: LeadPayload): Promise<LeadResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(residentLeadsUrl(), {
+    const response = await fetch(RESIDENT_LEADS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

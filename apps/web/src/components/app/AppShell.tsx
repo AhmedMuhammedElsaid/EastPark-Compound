@@ -55,38 +55,15 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-background pb-20 text-foreground md:pb-0">
       <SkipLink />
-      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-xl">
-        <Container className="flex min-h-[72px] items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/97 shadow-[0_1px_0_color-mix(in_srgb,var(--color-border)_28%,transparent)] backdrop-blur-xl">
+        <Container className="flex min-h-16 items-center justify-between gap-4 md:min-h-[68px]">
           <Link
             href="/home"
-            className="flex min-h-11 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+            className="flex min-h-11 items-center gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
           >
-            <span className="text-primary"><BrandMark size={26} /></span>
-            <span className="font-bold text-foreground">{t('nav.brand')}</span>
+            <span className="text-primary"><BrandMark size={28} /></span>
+            <span className="text-[length:var(--text-body-lg)] font-bold text-foreground">{t('nav.brand')}</span>
           </Link>
-
-          <nav aria-label={t('nav.brand')} className="hidden items-center gap-1 md:flex">
-            {navItems.map(({ activePaths, href, icon: Icon, label }) => {
-              const active = activePaths
-                ? activePaths.some((path) => pathname.startsWith(path))
-                : href === '/home' ? pathname === href : pathname.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`inline-flex min-h-11 items-center gap-2 rounded-md px-4 text-[length:var(--text-label)] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none ${
-                    active
-                      ? 'bg-muted text-primary'
-                      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-                  }`}
-                >
-                  <Icon aria-hidden="true" className="size-4.5" />
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
 
           <div className="flex items-center gap-2">
             <Link
@@ -137,6 +114,33 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
         </Container>
+
+        <div className="hidden border-t border-border/70 bg-card/45 md:block">
+          <Container>
+            <nav aria-label={t('nav.brand')} className="flex min-h-12 items-stretch justify-center gap-1 lg:gap-3">
+              {navItems.map(({ activePaths, href, icon: Icon, label }) => {
+                const active = activePaths
+                  ? activePaths.some((path) => pathname.startsWith(path))
+                  : href === '/home' ? pathname === href : pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-current={active ? 'page' : undefined}
+                    className={`relative inline-flex min-h-12 items-center justify-center gap-2 px-3 text-[length:var(--text-label)] font-semibold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:origin-center after:scale-x-0 after:bg-primary after:transition-transform focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:after:transition-none lg:px-4 ${
+                      active
+                        ? 'text-primary after:scale-x-100'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className="size-4" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </Container>
+        </div>
       </header>
 
       <main id="main">{children}</main>

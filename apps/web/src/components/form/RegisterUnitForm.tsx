@@ -52,6 +52,10 @@ export function RegisterUnitForm() {
   const [building, floor] = useWatch({ control, name: ['building', 'floor'] });
   const floorOptions = React.useMemo(() => getFloorOptions(building), [building]);
 
+  React.useEffect(() => {
+    void fetch('/api/resident-leads', { cache: 'no-store' }).catch(() => undefined);
+  }, []);
+
   // Floors are per-building: phases 2 and 3 have a ground floor, 1 and 4 do
   // not. If the chosen floor no longer exists in the newly-chosen building
   // (pick A2 -> "G", then switch to A1), clear it rather than submitting a
