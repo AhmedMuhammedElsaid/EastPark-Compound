@@ -300,7 +300,7 @@
     "write_review": "Write a review"
   },
   "errors": {
-    "network": "No internet connection",
+    "network": "We couldn't reach the server. Check your connection and try again.",
     "server": "Server error. Please try again later.",
     "session_expired": "Your session has expired. Please sign in again.",
     "unknown": "Something went wrong"

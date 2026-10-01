@@ -6,7 +6,7 @@ const ACCESS_COOKIE = 'eastpark_access';
 const REFRESH_COOKIE = 'eastpark_refresh';
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
-const API_TIMEOUT_MS = 10_000;
+const API_TIMEOUT_MS = 25_000;
 
 function apiBase(): string {
   const value = process.env.NEXT_PUBLIC_API_URL;
@@ -20,6 +20,17 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
     cache: 'no-store',
     signal: AbortSignal.timeout(API_TIMEOUT_MS),
   });
+}
+
+export async function wakeBackend(): Promise<void> {
+  try {
+    await fetch(`${apiBase()}/health`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    // Best-effort cold-start wake-up; the auth request reports its own result.
+  }
 }
 
 export async function authCookies(): Promise<{

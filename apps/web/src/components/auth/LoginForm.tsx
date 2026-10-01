@@ -33,6 +33,10 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
+  React.useEffect(() => {
+    void fetch('/api/auth/login', { cache: 'no-store' }).catch(() => undefined);
+  }, []);
+
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     const result = await login(values);

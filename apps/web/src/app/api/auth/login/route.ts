@@ -2,13 +2,18 @@ import type { ApiEnvelope, AuthResponse } from '@/lib/api/contracts';
 
 import { NextResponse } from 'next/server';
 
-import { backendFetch, setAuthCookies } from '@/lib/auth/server';
+import { backendFetch, setAuthCookies, wakeBackend } from '@/lib/auth/server';
 import { loginSchema } from '@/lib/validation/auth';
 
 function failure(status: number) {
   if (status === 401) return NextResponse.json({ error: 'invalid_credentials' }, { status });
   if (status === 429) return NextResponse.json({ error: 'rate_limited' }, { status });
   return NextResponse.json({ error: 'server' }, { status: status >= 500 ? status : 400 });
+}
+
+export async function GET() {
+  await wakeBackend();
+  return new Response(null, { status: 204 });
 }
 
 export async function POST(request: Request) {

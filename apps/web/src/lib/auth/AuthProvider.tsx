@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch('/api/auth/session', {
         cache: 'no-store',
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(30_000),
       });
       if (!response.ok) return null;
       const payload = (await response.json()) as { data: { user: AuthUser | null } };
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(30_000),
       });
       const result = (await response.json()) as
         | { data: { user: AuthUser } }
