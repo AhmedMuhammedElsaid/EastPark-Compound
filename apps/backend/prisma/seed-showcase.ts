@@ -457,6 +457,23 @@ async function upsertPoll() {
         'Which shared-area improvement should be prioritized next?';
     const questionAr =
         'ما التحسين الذي يجب إعطاؤه الأولوية في المناطق المشتركة؟';
+    const options = [
+        {
+            previousLabel: 'Landscape and garden upgrades',
+            label: 'Repaint the residential buildings',
+            labelAr: 'تجديد المباني عن طريق طلائها مجددًا',
+        },
+        {
+            previousLabel: 'Additional security cameras',
+            label: 'Add security cameras to the elevators',
+            labelAr: 'إضافة كاميرات مراقبة للمصاعد',
+        },
+        {
+            previousLabel: 'Children’s play area improvements',
+            label: 'Hire more security personnel',
+            labelAr: 'تعيين المزيد من أفراد الأمن',
+        },
+    ];
     let poll = await db.poll.findFirst({
         where: { question },
         include: { options: true },
@@ -468,20 +485,10 @@ async function upsertPoll() {
                 questionAr,
                 expiresAt: new Date(Date.now() + 21 * DAY_MS),
                 options: {
-                    create: [
-                        {
-                            label: 'Landscape and garden upgrades',
-                            labelAr: 'تطوير المساحات الخضراء والحدائق',
-                        },
-                        {
-                            label: 'Additional security cameras',
-                            labelAr: 'إضافة كاميرات مراقبة',
-                        },
-                        {
-                            label: 'Children’s play area improvements',
-                            labelAr: 'تطوير منطقة ألعاب الأطفال',
-                        },
-                    ],
+                    create: options.map(({ label, labelAr }) => ({
+                        label,
+                        labelAr,
+                    })),
                 },
             },
             include: { options: true },
@@ -491,6 +498,22 @@ async function upsertPoll() {
             where: { id: poll.id },
             data: { questionAr },
         });
+        await Promise.all(
+            options.map(async ({ previousLabel, label, labelAr }) => {
+                const existing = poll.options.find(
+                    option =>
+                        option.label === previousLabel || option.label === label
+                );
+                return existing
+                    ? db.pollOption.update({
+                          where: { id: existing.id },
+                          data: { label, labelAr },
+                      })
+                    : db.pollOption.create({
+                          data: { pollId: poll.id, label, labelAr },
+                      });
+            })
+        );
     }
     return poll;
 }
