@@ -28,7 +28,11 @@ export default registerAs('app', (): Record<string, unknown> => {
         env,
         name: process.env.APP_NAME ?? 'EastPark API',
         url: process.env.APP_URL ?? 'http://localhost:3000',
-        webUrl: process.env.WEB_APP_URL ?? 'http://localhost:3000',
+        webUrl:
+            process.env.WEB_APP_URL ??
+            (env === 'production'
+                ? 'https://eastpark-web-app.vercel.app'
+                : 'http://localhost:3000'),
 
         throttle: {
             ttl: 60,
