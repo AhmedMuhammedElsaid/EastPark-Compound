@@ -20,6 +20,7 @@ import { UploadsModule } from 'src/modules/uploads/uploads.module';
 import { UserModule } from 'src/modules/user/user.module';
 
 import { HealthController } from './controllers/health.controller';
+import { RootController } from './controllers/root.controller';
 
 @Module({
     imports: [
@@ -59,6 +60,6 @@ import { HealthController } from './controllers/health.controller';
         ResidentsModule,
         SupportModule,
     ],
-    controllers: [HealthController],
+    controllers: [RootController, HealthController],
 })
 export class AppModule {}
