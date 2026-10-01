@@ -19,7 +19,7 @@ export function Header() {
 
   const navItems = [
     { href: '/', label: t('nav.home') },
-    { href: '/register-unit', label: t('nav.register') },
+    ...(!isLoading && !user ? [{ href: '/register-unit', label: t('nav.register') }] : []),
   ];
 
   return (

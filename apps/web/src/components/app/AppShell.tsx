@@ -33,11 +33,13 @@ export function AppShell({ children }: AppShellProps) {
   const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
   const serviceItem = canSubmitFeedback
     ? { href: '/feedback', label: t('feedback.title'), mobileLabel: t('home.feedback'), icon: MessageSquareText }
-    : { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 };
+    : !user
+      ? { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 }
+      : null;
   const navItems: NavItem[] = [
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
     ...(user?.role === 'ADMIN'
-      ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.title'), icon: ShieldCheck }]
+      ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.nav_label'), icon: ShieldCheck }]
       : []),
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     {
@@ -48,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
       activePaths: ['/announcements', '/reports'],
     },
     { href: '/governance', label: t('governance.title'), mobileLabel: t('governance.title'), icon: Landmark },
-    serviceItem,
+    ...(serviceItem ? [serviceItem] : []),
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
   ];
   const mobileNavItems = navItems.filter(({ href }) =>

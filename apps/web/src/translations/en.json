@@ -49,7 +49,8 @@
     "statement_ar": "Statement (Arabic)",
     "statement_en": "Statement (English)",
     "submit_error": "The change could not be saved. Check your session and try again.",
-    "title": "Admin Portal",
+    "title": "Admin",
+    "nav_label": "Admin",
     "title_ar": "Title (Arabic)",
     "title_en": "Title (English)",
     "tools": "Admin Tools",
@@ -571,7 +572,7 @@
   "nav": {
     "brand": "EastPark",
     "home": "Home",
-    "register": "Register your unit",
+    "register": "Register Unit",
     "unit": "Unit",
     "skip_to_content": "Skip to main content",
     "toggle_language": "Switch to Arabic",

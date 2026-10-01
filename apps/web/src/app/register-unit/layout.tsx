@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Register Your Unit',
+  title: 'Register Unit',
   description: 'Register your EastPark unit to receive your resident app invitation after verification.',
   alternates: { canonical: '/register-unit' },
   openGraph: {

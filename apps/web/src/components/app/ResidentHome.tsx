@@ -28,13 +28,16 @@ export function ResidentHome() {
   const localHour = useSyncExternalStore(subscribeToClock, getLocalHour, getServerHour);
   const greeting = t(localHour >= 17 ? 'home.greeting_evening' : 'home.greeting_morning');
   const canSubmitFeedback = user?.role === 'RESIDENT' || user?.role === 'MERCHANT';
+  const serviceAction = canSubmitFeedback
+    ? { href: '/feedback', icon: MessageSquareText, label: t('home.feedback') }
+    : !user
+      ? { href: '/register-unit', icon: Building2, label: t('nav.register') }
+      : null;
   const quickActions: Array<{ href: string; icon: LucideIcon; label: string }> = [
     { href: '/directory', icon: Store, label: t('home.shops') },
     { href: '/announcements', icon: Megaphone, label: t('home.community') },
     { href: '/governance', icon: Landmark, label: t('governance.title') },
-    canSubmitFeedback
-      ? { href: '/feedback', icon: MessageSquareText, label: t('home.feedback') }
-      : { href: '/register-unit', icon: Building2, label: t('nav.register') },
+    ...(serviceAction ? [serviceAction] : []),
     { href: '/reports', icon: FileText, label: t('home.reports') },
   ];
 

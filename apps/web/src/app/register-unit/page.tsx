@@ -1,14 +1,38 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 import { Container } from '@/components/Container';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
+import { PendingMark } from '@/components/PendingMark';
 import { SkipLink } from '@/components/SkipLink';
 import { RegisterUnitForm } from '@/components/form/RegisterUnitForm';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 
 export default function RegisterUnitPage() {
+  const router = useRouter();
+  const { isLoading, user } = useAuth();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace(user.role === 'ADMIN' ? '/admin' : '/home');
+    }
+  }, [isLoading, router, user]);
+
+  if (isLoading || user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center" aria-busy="true">
+        <span role="status" className="text-primary">
+          <span className="sr-only">{t('common.loading')}</span>
+          <PendingMark size={48} />
+        </span>
+      </main>
+    );
+  }
 
   return (
     <>
