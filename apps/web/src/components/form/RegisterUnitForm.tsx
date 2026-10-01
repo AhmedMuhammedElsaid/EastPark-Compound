@@ -46,6 +46,8 @@ export function RegisterUnitForm() {
       floor: '',
       flatNumber: '',
       parking: '',
+      jobTitle: '',
+      maritalStatus: '',
     },
   });
 
@@ -79,6 +81,7 @@ export function RegisterUnitForm() {
     setSubmitError(null);
 
     const parking = values.parking?.trim();
+    const jobTitle = values.jobTitle?.trim();
     const result = await submitLead({
       name: values.name.trim(),
       email: values.email.trim().toLowerCase(),
@@ -88,6 +91,8 @@ export function RegisterUnitForm() {
       flatNumber: values.flatNumber,
       // Omit when blank: sending "" would overwrite a previously stored space.
       ...(parking ? { parking } : {}),
+      ...(jobTitle ? { jobTitle } : {}),
+      ...(values.maritalStatus ? { maritalStatus: values.maritalStatus } : {}),
     });
 
     if (result.ok) {
@@ -157,6 +162,32 @@ export function RegisterUnitForm() {
             />
           )}
         </Field>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field id="jobTitle" label={t('register.fields.job')} error={errorText(errors.jobTitle?.message)}>
+            {(props) => (
+              <input
+                {...props}
+                {...register('jobTitle')}
+                type="text"
+                autoComplete="organization-title"
+                placeholder={t('register.fields.job_placeholder')}
+                className={`${CONTROL_CLASS} ${controlBorder(Boolean(errors.jobTitle))}`}
+              />
+            )}
+          </Field>
+
+          <Field id="maritalStatus" label={t('register.fields.marital_status')}>
+            {(props) => (
+              <select {...props} {...register('maritalStatus')} className={`${CONTROL_CLASS} ${controlBorder(false)}`}>
+                <option value="">{t('register.fields.marital_status_placeholder')}</option>
+                <option value="MARRIED">{t('register.fields.marital_statuses.married')}</option>
+                <option value="SINGLE">{t('register.fields.marital_statuses.single')}</option>
+                <option value="DIVORCED">{t('register.fields.marital_statuses.divorced')}</option>
+              </select>
+            )}
+          </Field>
+        </div>
       </fieldset>
 
       <fieldset className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6">

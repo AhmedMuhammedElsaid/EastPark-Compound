@@ -14,6 +14,7 @@ import { PendingMark } from "@/components/PendingMark";
 import { useTranslation } from "@/lib/i18n";
 
 type LeadStatus = "PENDING" | "INVITED" | "CONVERTED" | "REJECTED";
+type MaritalStatus = "MARRIED" | "SINGLE" | "DIVORCED";
 type FeedbackStatus = "SUBMITTED" | "ACKNOWLEDGED" | "IN_PROGRESS" | "RESOLVED";
 type ResidentLead = {
   id: string;
@@ -23,6 +24,8 @@ type ResidentLead = {
   building: string;
   floor: string;
   flatNumber: string;
+  jobTitle?: string | null;
+  maritalStatus?: MaritalStatus | null;
   status: LeadStatus;
   createdAt: string;
 };
@@ -48,6 +51,16 @@ const feedbackStatuses: FeedbackStatus[] = [
   "IN_PROGRESS",
   "RESOLVED",
 ];
+const maritalLabelsEn: Record<MaritalStatus, string> = {
+  MARRIED: "Married",
+  SINGLE: "Single",
+  DIVORCED: "Divorced",
+};
+const maritalLabelsAr: Record<MaritalStatus, string> = {
+  MARRIED: "متزوج",
+  SINGLE: "أعزب",
+  DIVORCED: "منفصل",
+};
 
 function itemsFrom<T>(payload: PagePayload<T> | null): T[] {
   return payload?.data?.items ?? [];
@@ -171,6 +184,13 @@ export function ResidentRequestsPanel() {
                   {ar ? "دور" : "Floor"} {item.floor} · {ar ? "شقة" : "Flat"}{" "}
                   {item.flatNumber}
                 </p>
+                {(item.jobTitle || item.maritalStatus) && (
+                  <p className="mt-1 text-[length:var(--text-label)] text-muted-foreground">
+                    {item.jobTitle && <span>{ar ? "الوظيفة" : "Job"}: {item.jobTitle}</span>}
+                    {item.jobTitle && item.maritalStatus && " · "}
+                    {item.maritalStatus && (ar ? maritalLabelsAr : maritalLabelsEn)[item.maritalStatus]}
+                  </p>
+                )}
               </div>
               {item.status === "PENDING" && (
                 <button

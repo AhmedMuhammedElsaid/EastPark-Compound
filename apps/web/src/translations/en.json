@@ -631,6 +631,15 @@
       "email_placeholder": "you@example.com",
       "phone": "Phone number",
       "phone_placeholder": "01xxxxxxxxx",
+      "job": "Job",
+      "job_placeholder": "Your job title",
+      "marital_status": "Marital status",
+      "marital_status_placeholder": "Select your status",
+      "marital_statuses": {
+        "married": "Married",
+        "single": "Single",
+        "divorced": "Divorced"
+      },
       "building": "Building",
       "building_placeholder": "Select your building",
       "floor": "Floor",
@@ -655,6 +664,7 @@
       "invalid_floor": "Select a floor from the list",
       "flat_required": "Select your flat number",
       "invalid_flat": "Select a flat number from the list",
+      "job_too_long": "Job title must be 100 characters or fewer",
       "parking_too_long": "Parking details are too long"
     },
     "submit_error": {

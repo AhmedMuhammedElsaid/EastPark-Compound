@@ -16,6 +16,8 @@ export type LeadPayload = {
   flatNumber: string;
   /** Omitted entirely when blank — sending "" would overwrite a stored value. */
   parking?: string;
+  jobTitle?: string;
+  maritalStatus?: 'MARRIED' | 'SINGLE' | 'DIVORCED';
 };
 
 /** Discriminates the failure so the UI can show a specific, honest message. */

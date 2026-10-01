@@ -6,10 +6,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Supabase transaction pooler, port 6543 (?pgbouncer=true&connection_limit=1)
   // — runtime queries.
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
   // Supabase session pooler, port 5432 — migrations only. The transaction
   // pooler breaks the advisory locks and prepared statements that
   // `prisma migrate deploy` relies on.
@@ -93,6 +93,12 @@ enum ResidentLeadStatus {
   REJECTED
 }
 
+enum MaritalStatus {
+  MARRIED
+  SINGLE
+  DIVORCED
+}
+
 // ─── Auth & Users ─────────────────────────────────────────────────────────────
 
 model User {
@@ -121,23 +127,23 @@ model User {
   notificationPrefs NotificationPreference[]
   notifications     Notification[]
   auditLogs         AuditLog[]
-  invitations       Invitation[]   @relation("InvitedBy")
-  residentLeads     ResidentLead[] @relation("ResidentLeadUser")
+  invitations       Invitation[]             @relation("InvitedBy")
+  residentLeads     ResidentLead[]           @relation("ResidentLeadUser")
 
   @@map("users")
 }
 
 model Invitation {
-  id          String    @id @default(cuid())
-  email       String
-  role        Role
-  token       String    @unique
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdAt   DateTime  @default(now())
+  id        String    @id @default(cuid())
+  email     String
+  role      Role
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   invitedById String
-  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+  invitedBy   User   @relation("InvitedBy", fields: [invitedById], references: [id])
 
   @@index([invitedById])
   @@map("invitations")
@@ -146,18 +152,20 @@ model Invitation {
 // ─── Resident Leads ───────────────────────────────────────────────────────────
 
 model ResidentLead {
-  id          String             @id @default(cuid())
-  name        String
-  email       String
-  phone       String
-  building    String
-  floor       String
-  flatNumber  String
-  parking     String?
-  status      ResidentLeadStatus @default(PENDING)
-  notes       String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id            String             @id @default(cuid())
+  name          String
+  email         String
+  phone         String
+  building      String
+  floor         String
+  flatNumber    String
+  parking       String?
+  jobTitle      String?
+  maritalStatus MaritalStatus?
+  status        ResidentLeadStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   userId String?
   user   User?   @relation("ResidentLeadUser", fields: [userId], references: [id], onDelete: SetNull)
@@ -178,11 +186,11 @@ model Shop {
   description   String?
   descriptionAr String?
   category      ShopCategory
-  workingHours  Json?        // { mon: { open: "09:00", close: "22:00", closed: false }, ... }
+  workingHours  Json? // { mon: { open: "09:00", close: "22:00", closed: false }, ... }
   isOpen        Boolean      @default(true) // manual emergency override
   phone         String?
   whatsapp      String?
-  deliveryTime  Int?         // estimated minutes
+  deliveryTime  Int? // estimated minutes
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -240,12 +248,12 @@ model Product {
 model Order {
   id            String        @id @default(cuid())
   status        OrderStatus   @default(PLACED)
-  totalAmount   Float         // computed server-side — never trust client
-  notes         String?       // free-text delivery notes (no time slots)
-  deliveryUnit  String        // pre-filled from resident profile
+  totalAmount   Float // computed server-side — never trust client
+  notes         String? // free-text delivery notes (no time slots)
+  deliveryUnit  String // pre-filled from resident profile
   paymentMethod PaymentMethod @default(CASH)
   isPaid        Boolean       @default(false)
-  paymobOrderId String?       // Paymob transaction reference
+  paymobOrderId String? // Paymob transaction reference
   cancelledAt   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -284,7 +292,7 @@ model OrderItem {
 
 model Review {
   id        String   @id @default(cuid())
-  rating    Int      // 1–5
+  rating    Int // 1–5
   comment   String?
   createdAt DateTime @default(now())
 
@@ -395,12 +403,12 @@ model Vote {
 }
 
 model Election {
-  id            String   @id @default(cuid())
-  title         String
-  titleAr       String
-  description   String?
-  descriptionAr String?
-  expiresAt     DateTime
+  id             String                 @id @default(cuid())
+  title          String
+  titleAr        String
+  description    String?
+  descriptionAr  String?
+  expiresAt      DateTime
   resultsOpen    Boolean                @default(false) // flipped by @Cron every 5min when expiresAt passed
   visibilityMode ElectionVisibilityMode @default(SEALED_UNTIL_DEADLINE)
   createdAt      DateTime               @default(now())
@@ -451,7 +459,7 @@ model Feedback {
   body        String
   isAnonymous Boolean          @default(false)
   status      FeedbackStatus   @default(SUBMITTED)
-  attachments String[]         // Supabase Storage URLs (max 3)
+  attachments String[] // Supabase Storage URLs (max 3)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -499,7 +507,7 @@ model Notification {
   titleAr   String
   body      String
   bodyAr    String
-  data      Json?            // deep-link payload
+  data      Json? // deep-link payload
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
@@ -514,10 +522,10 @@ model Notification {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // e.g. "CREATE_POLL", "UPDATE_ORDER_STATUS"
-  entity    String   // e.g. "Poll", "Order"
+  action    String // e.g. "CREATE_POLL", "UPDATE_ORDER_STATUS"
+  entity    String // e.g. "Poll", "Order"
   entityId  String?
-  meta      Json?    // extra context
+  meta      Json? // extra context
   createdAt DateTime @default(now())
 
   userId String

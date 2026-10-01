@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ResidentLeadStatus } from '@prisma/client';
+import { MaritalStatus, ResidentLeadStatus } from '@prisma/client';
 
 export class ResidentLeadResponseDto {
     @ApiProperty() id: string;
@@ -10,6 +10,9 @@ export class ResidentLeadResponseDto {
     @ApiProperty() floor: string;
     @ApiProperty() flatNumber: string;
     @ApiPropertyOptional() parking?: string | null;
+    @ApiPropertyOptional() jobTitle?: string | null;
+    @ApiPropertyOptional({ enum: MaritalStatus })
+    maritalStatus?: MaritalStatus | null;
     @ApiProperty({ enum: ResidentLeadStatus }) status: ResidentLeadStatus;
     @ApiPropertyOptional() notes?: string | null;
     @ApiPropertyOptional() userId?: string | null;

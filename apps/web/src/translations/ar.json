@@ -631,6 +631,15 @@
       "email_placeholder": "you@example.com",
       "phone": "رقم الهاتف",
       "phone_placeholder": "01xxxxxxxxx",
+      "job": "الوظيفة",
+      "job_placeholder": "اكتب وظيفتك",
+      "marital_status": "الحالة الاجتماعية",
+      "marital_status_placeholder": "اختر حالتك",
+      "marital_statuses": {
+        "married": "متزوج",
+        "single": "أعزب",
+        "divorced": "منفصل"
+      },
       "building": "العمارة",
       "building_placeholder": "اختر العمارة",
       "floor": "الدور",
@@ -655,6 +664,7 @@
       "invalid_floor": "اختر دوراً من القائمة",
       "flat_required": "اختر رقم الشقة",
       "invalid_flat": "اختر رقم شقة من القائمة",
+      "job_too_long": "يجب ألا تزيد الوظيفة عن 100 حرف",
       "parking_too_long": "بيانات الموقف طويلة جداً"
     },
     "submit_error": {

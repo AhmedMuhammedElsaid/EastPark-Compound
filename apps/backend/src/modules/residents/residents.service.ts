@@ -26,7 +26,9 @@ function isSameSubmission(
         existing.name === name &&
         existing.email === email &&
         existing.phone === dto.phone &&
-        (existing.parking ?? undefined) === dto.parking
+        (existing.parking ?? undefined) === dto.parking &&
+        (existing.jobTitle ?? undefined) === dto.jobTitle?.trim() &&
+        (existing.maritalStatus ?? undefined) === dto.maritalStatus
     );
 }
 
@@ -65,6 +67,8 @@ export class ResidentsService {
                     floor: dto.floor,
                     flatNumber: dto.flatNumber,
                     parking: dto.parking,
+                    jobTitle: dto.jobTitle?.trim(),
+                    maritalStatus: dto.maritalStatus,
                     status: ResidentLeadStatus.PENDING,
                 },
             });

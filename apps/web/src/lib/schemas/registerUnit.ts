@@ -17,6 +17,7 @@ import { isValidBuilding, isValidFlat, isValidFloorForBuilding } from '@/config/
 // more than storing an oddly-formatted number. Matches the backend's Egyptian
 // regex, which also strips separators before validating.
 const PHONE_PATTERN = /^(?:\+?20|0)1[0125]\d{8}$/;
+export const maritalStatuses = ['MARRIED', 'SINGLE', 'DIVORCED'] as const;
 
 export const registerUnitSchema = z
   .object({
@@ -48,6 +49,8 @@ export const registerUnitSchema = z
       .min(1, 'register.errors.flat_required')
       .refine(isValidFlat, { message: 'register.errors.invalid_flat' }),
     parking: z.string().trim().max(60, 'register.errors.parking_too_long').optional(),
+    jobTitle: z.string().trim().max(100, 'register.errors.job_too_long').optional(),
+    maritalStatus: z.union([z.enum(maritalStatuses), z.literal('')]).optional(),
   })
   // Floor validity depends on the building's phase, so it can only be checked
   // once both are known. "G" is valid for A2 (phase 2) and invalid for A1

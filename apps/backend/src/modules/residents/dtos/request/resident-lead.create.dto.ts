@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MaritalStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
     IsEmail,
+    IsEnum,
     IsNotEmpty,
     IsOptional,
     IsString,
@@ -31,7 +33,7 @@ export class ResidentLeadCreateDto {
         description: 'Egyptian mobile — "01xxxxxxxxx" or "+201xxxxxxxxx"',
     })
     @Transform(({ value }) =>
-        typeof value === 'string' ? value.replace(/[\s()-]/g, '') : value,
+        typeof value === 'string' ? value.replace(/[\s()-]/g, '') : value
     )
     @IsString()
     @IsNotEmpty()
@@ -66,4 +68,15 @@ export class ResidentLeadCreateDto {
     @IsString()
     @IsOptional()
     parking?: string;
+
+    @ApiPropertyOptional({ example: 'Engineer', maxLength: 100 })
+    @IsString()
+    @IsOptional()
+    @Length(1, 100)
+    jobTitle?: string;
+
+    @ApiPropertyOptional({ enum: MaritalStatus })
+    @IsEnum(MaritalStatus)
+    @IsOptional()
+    maritalStatus?: MaritalStatus;
 }

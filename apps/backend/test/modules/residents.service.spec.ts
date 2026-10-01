@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { ResidentLeadStatus, Role } from '@prisma/client';
+import { MaritalStatus, ResidentLeadStatus, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
@@ -21,6 +21,8 @@ const validCreateDto = (overrides: Record<string, unknown> = {}) => ({
     floor: '3',
     flatNumber: '2',
     parking: 'B-12',
+    jobTitle: 'Engineer',
+    maritalStatus: MaritalStatus.MARRIED,
     ...overrides,
 });
 
@@ -33,6 +35,8 @@ const mockLead = (overrides: Record<string, unknown> = {}) => ({
     floor: '3',
     flatNumber: '2',
     parking: 'B-12',
+    jobTitle: 'Engineer',
+    maritalStatus: MaritalStatus.MARRIED,
     status: ResidentLeadStatus.PENDING,
     notes: null,
     userId: null,
@@ -119,6 +123,21 @@ describe('ResidentsService', () => {
 
             const createCall = db.residentLead.create.mock.calls[0]?.[0];
             expect(createCall?.data?.name).toBe('Jane Doe');
+        });
+
+        it('persists optional personal details and trims the job title', async () => {
+            db.residentLead.findFirst.mockResolvedValue(null);
+            db.residentLead.create.mockResolvedValue(mockLead());
+
+            await service.create(
+                validCreateDto({
+                    jobTitle: '  Engineer  ',
+                }) as ResidentLeadCreateDto
+            );
+
+            const createCall = db.residentLead.create.mock.calls[0]?.[0];
+            expect(createCall?.data?.jobTitle).toBe('Engineer');
+            expect(createCall?.data?.maritalStatus).toBe(MaritalStatus.MARRIED);
         });
 
         it('rejects a submission when the unit already has a non-REJECTED lead', async () => {
@@ -257,9 +276,9 @@ describe('ResidentsService', () => {
                 new ConflictException('invitation.error.alreadyPending')
             );
 
-            await expect(
-                service.invite('lead-1', adminActor)
-            ).resolves.toEqual({ message: 'residentLead.success.invited' });
+            await expect(service.invite('lead-1', adminActor)).resolves.toEqual(
+                { message: 'residentLead.success.invited' }
+            );
 
             expect(db.residentLead.update).toHaveBeenCalledWith({
                 where: { id: 'lead-1' },
@@ -270,7 +289,9 @@ describe('ResidentsService', () => {
         it('does not mark the lead invited when invitation creation fails', async () => {
             db.residentLead.findUnique.mockResolvedValue(mockLead());
             db.user.findUnique.mockResolvedValue(null);
-            invitationsService.create.mockRejectedValue(new Error('email failed'));
+            invitationsService.create.mockRejectedValue(
+                new Error('email failed')
+            );
 
             await expect(service.invite('lead-1', adminActor)).rejects.toThrow(
                 'email failed'
@@ -425,6 +446,32 @@ describe('ResidentLeadCreateDto validation', () => {
             const instance = plainToInstance(ResidentLeadCreateDto, base);
             const errors = await validate(instance);
             expect(errors).toHaveLength(0);
+        });
+    });
+
+    describe('optional personal details', () => {
+        it('accepts an omitted job title and marital status', async () => {
+            const instance = plainToInstance(ResidentLeadCreateDto, base);
+            const errors = await validate(instance);
+            expect(errors).toHaveLength(0);
+        });
+
+        it.each(Object.values(MaritalStatus))(
+            'accepts marital status %s',
+            async maritalStatus => {
+                const errors = await validateDto({ maritalStatus });
+                expect(
+                    errors.filter(error => error.property === 'maritalStatus')
+                ).toHaveLength(0);
+            }
+        );
+
+        it('rejects an unsupported marital status', async () => {
+            const errors = await validateDto({ maritalStatus: 'SEPARATED' });
+            expect(
+                errors.filter(error => error.property === 'maritalStatus')
+                    .length
+            ).toBeGreaterThan(0);
         });
     });
 });
