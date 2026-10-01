@@ -1,6 +1,7 @@
 'use client';
 
 import { Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, Package, ShoppingBag, Store, UserRound } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -14,6 +15,13 @@ import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
 
 type AppShellProps = { children: React.ReactNode };
+type NavItem = {
+  activePaths?: string[];
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  mobileLabel: string;
+};
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
@@ -25,7 +33,7 @@ export function AppShell({ children }: AppShellProps) {
   const serviceItem = canSubmitFeedback
     ? { href: '/feedback', label: t('feedback.title'), mobileLabel: t('home.feedback'), icon: MessageSquareText }
     : { href: '/register-unit', label: t('nav.register'), mobileLabel: t('nav.unit'), icon: Building2 };
-  const navItems = [
+  const navItems: NavItem[] = [
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     { href: '/orders', label: t('orders.title'), mobileLabel: t('orders.title'), icon: Package },
