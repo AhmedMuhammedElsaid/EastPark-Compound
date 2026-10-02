@@ -4,6 +4,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    Patch,
     Post,
     Query,
 } from '@nestjs/common';
@@ -43,5 +44,13 @@ export class ResidentsAdminController {
         @AuthUser() actor: IAuthUser,
     ): Promise<{ message: string }> {
         return this.residentsService.invite(id, actor);
+    }
+
+    @Patch('leads/:id/reject')
+    @AllowedRoles([Role.ADMIN])
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Reject a resident lead [ADMIN]' })
+    reject(@Param('id') id: string): Promise<{ message: string }> {
+        return this.residentsService.reject(id);
     }
 }

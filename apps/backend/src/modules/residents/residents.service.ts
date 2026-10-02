@@ -163,4 +163,51 @@ export class ResidentsService {
 
         return { message: 'residentLead.success.invited' };
     }
+
+    /**
+     * Reject a lead. A CONVERTED lead already has an account and cannot be
+     * rejected. Rejecting an INVITED lead also expires its pending RESIDENT
+     * invitation, so the emailed link can no longer create the account.
+     * Rejecting frees the unit for a new submission (partial unique index).
+     */
+    async reject(id: string): Promise<{ message: string }> {
+        const lead = await this.db.residentLead.findUnique({ where: { id } });
+        if (!lead) throw new NotFoundException('residentLead.error.notFound');
+        if (lead.status === ResidentLeadStatus.CONVERTED)
+            throw new ConflictException('residentLead.error.alreadyConverted');
+        if (lead.status === ResidentLeadStatus.REJECTED)
+            return { message: 'residentLead.success.rejected' };
+
+        await this.db.$transaction(async tx => {
+            await tx.residentLead.update({
+                where: { id: lead.id },
+                data: { status: ResidentLeadStatus.REJECTED },
+            });
+
+            if (lead.status !== ResidentLeadStatus.INVITED) return;
+
+            // Another still-invited lead for the same email keeps the link.
+            const otherInvited = await tx.residentLead.count({
+                where: {
+                    email: lead.email,
+                    status: ResidentLeadStatus.INVITED,
+                    id: { not: lead.id },
+                },
+            });
+            if (otherInvited > 0) return;
+
+            const now = new Date();
+            await tx.invitation.updateMany({
+                where: {
+                    email: lead.email,
+                    role: Role.RESIDENT,
+                    usedAt: null,
+                    expiresAt: { gt: now },
+                },
+                data: { expiresAt: now },
+            });
+        });
+
+        return { message: 'residentLead.success.rejected' };
+    }
 }
