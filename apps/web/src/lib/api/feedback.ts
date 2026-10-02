@@ -47,11 +47,25 @@ const feedbackPageSchema = z.object({
   nextCursor: z.string().nullish().transform((value) => value ?? undefined),
 });
 
+// Uploaded attachment URLs must be https and, when configured, served from the storage origin.
+const STORAGE_ORIGIN = process.env.NEXT_PUBLIC_STORAGE_ORIGIN
+  ? new URL(process.env.NEXT_PUBLIC_STORAGE_ORIGIN).origin
+  : null;
+
+const attachmentUrlSchema = z.url().refine((value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && (!STORAGE_ORIGIN || url.origin === STORAGE_ORIGIN);
+  } catch {
+    return false;
+  }
+});
+
 export const createFeedbackSchema = z.object({
   category: feedbackCategorySchema,
   body: z.string().trim().min(10).max(4000),
   isAnonymous: z.boolean().optional().default(false),
-  attachments: z.array(z.url()).max(3).optional().default([]),
+  attachments: z.array(attachmentUrlSchema).max(3).optional().default([]),
 });
 
 export const uploadResultSchema = z.object({
