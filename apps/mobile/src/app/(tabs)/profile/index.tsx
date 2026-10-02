@@ -171,7 +171,7 @@ function GuestProfile({ styles, colors }: { styles: AppStyles; colors: AppColors
           style={styles.signInBtn}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/(auth)/login" as any);
+            router.push("/(auth)/login");
           }}
           accessibilityRole="button"
           accessibilityLabel={t("auth.login")}
@@ -283,11 +283,11 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
       {role === "MERCHANT" && (
-        <ProfileRow icon={<Storefront size={20} color={colors.text} />} label={t("profile.manage_shop")} onPress={() => router.push("/(merchant)/dashboard" as any)} styles={styles} colors={colors} />
+        <ProfileRow icon={<Storefront size={20} color={colors.text} />} label={t("profile.manage_shop")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />
       )}
-      <ProfileRow icon={<Package size={20} color={colors.text} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders" as any)} styles={styles} colors={colors} />
-      <ProfileRow icon={<ChatCircle size={20} color={colors.text} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback" as any)} styles={styles} colors={colors} />
-      <ProfileRow icon={<BookmarkSimple size={20} color={colors.text} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/directory" as any)} styles={styles} colors={colors} />
+      <ProfileRow icon={<Package size={20} color={colors.text} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
+      <ProfileRow icon={<ChatCircle size={20} color={colors.text} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback")} styles={styles} colors={colors} />
+      <ProfileRow icon={<BookmarkSimple size={20} color={colors.text} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/directory")} styles={styles} colors={colors} />
     </View>
   );
 }

@@ -106,7 +106,7 @@ export default function ConfirmationScreen() {
           style={styles.viewOrderBtn}
           onPress={() => {
             if (orderId)
-              router.replace(`/(tabs)/orders/${orderId}` as any);
+              router.replace(`/(tabs)/orders/${orderId}`);
           }}
           accessibilityRole="button"
           accessibilityLabel={t("home.my_orders")}
@@ -116,7 +116,7 @@ export default function ConfirmationScreen() {
 
         <Pressable
           style={styles.continueBtn}
-          onPress={() => router.replace("/(tabs)/directory" as any)}
+          onPress={() => router.replace("/(tabs)/directory")}
           accessibilityRole="button"
           accessibilityLabel={t("directory.title")}
         >

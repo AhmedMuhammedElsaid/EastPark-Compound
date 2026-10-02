@@ -88,7 +88,7 @@ export default function AddressScreen() {
   const colors = useAppColors();
 
   function handleNext() {
-    router.push({ pathname: "/checkout/payment" as any, params: { notes } });
+    router.push({ pathname: "/checkout/payment", params: { notes } });
   }
 
   return (

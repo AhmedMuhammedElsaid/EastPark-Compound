@@ -133,7 +133,7 @@ function OrderCard({ order, isAr, colors, styles }: { order: Order; isAr: boolea
   return (
     <Pressable
       style={styles.card}
-      onPress={() => router.push(`/(tabs)/orders/${order.id}` as any)}
+      onPress={() => router.push(`/(tabs)/orders/${order.id}`)}
     >
       <View style={styles.cardTop}>
         <Text style={styles.shopName} numberOfLines={1}>{shopName ?? t("orders.unknown_shop")}</Text>

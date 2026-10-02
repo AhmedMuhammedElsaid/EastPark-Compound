@@ -124,7 +124,7 @@ export default function PaymentScreen() {
         }
       }
       dispatch(clearCart());
-      router.replace({ pathname: "/checkout/confirmation" as any, params: { orderId } });
+      router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
     },
   });
 

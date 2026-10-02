@@ -521,7 +521,7 @@ function CartBar({ shopId, bottomInset }: { shopId: string; bottomInset: number 
   return (
     <Pressable
       style={[styles.cartBar, { paddingBottom: bottomInset + SPACING.sm }]}
-      onPress={() => router.push("/checkout/cart" as any)}
+      onPress={() => router.push("/checkout/cart")}
       accessibilityRole="button"
       accessibilityLabel={t("cart.checkout")}
     >

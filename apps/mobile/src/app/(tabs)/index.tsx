@@ -118,7 +118,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t("home.whats_new")}</Text>
           <Pressable
-            onPress={() => router.push("/(tabs)/community" as any)}
+            onPress={() => router.push("/(tabs)/community")}
             accessibilityRole="button"
             accessibilityLabel={t("common.see_all")}
           >
@@ -134,7 +134,7 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t("home.shops")}</Text>
           <Pressable
-            onPress={() => router.push("/(tabs)/directory" as any)}
+            onPress={() => router.push("/(tabs)/directory")}
             accessibilityRole="button"
             accessibilityLabel={t("common.see_all")}
           >
@@ -180,7 +180,7 @@ function QuickActionsGrid({ requireAuthNavigation, colors }: { requireAuthNaviga
           onPress={() => {
             if (action.authRequired)
               requireAuthNavigation(action.route);
-            else router.push(action.route as any);
+            else router.push(action.route);
           }}
         >
           {action.renderIcon(colors.textMuted)}
@@ -206,7 +206,7 @@ function AnnouncementsPreview({ announcements, isAr }: { announcements: any[]; i
             style={styles.annCard}
             accessibilityRole="button"
             accessibilityLabel={isAr ? ann.titleAr : ann.title}
-            onPress={() => router.push(`/(tabs)/community/${ann.id}` as any)}
+            onPress={() => router.push(`/(tabs)/community/${ann.id}`)}
           >
             <Text style={styles.annCategory}>{t(`community.${ann.category}` as any)}</Text>
             <Text style={styles.annTitle} numberOfLines={2}>{title}</Text>
@@ -233,7 +233,7 @@ function ShopsGrid({ shops, isAr }: { shops: any[]; isAr: boolean }) {
             style={styles.shopCard}
             accessibilityRole="button"
             accessibilityLabel={name}
-            onPress={() => router.push(`/(tabs)/directory/${shop.id}` as any)}
+            onPress={() => router.push(`/(tabs)/directory/${shop.id}`)}
           >
             {cover
               ? <Image source={{ uri: cover.url }} style={styles.shopImg} resizeMode="cover" accessibilityRole="image" accessibilityLabel={name} />

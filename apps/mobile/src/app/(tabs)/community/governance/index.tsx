@@ -233,7 +233,7 @@ function PollCard({ poll, styles }: { poll: Poll; styles: any }) {
   return (
     <Pressable
       style={[styles.card, poll.myVote && styles.cardVoted]}
-      onPress={() => router.push(`/(tabs)/community/governance/polls/${poll.id}` as any)}
+      onPress={() => router.push(`/(tabs)/community/governance/polls/${poll.id}`)}
       accessibilityRole="button"
       accessibilityLabel={question}
     >
@@ -271,7 +271,7 @@ function ElectionCard({ election, styles }: { election: Election; styles: any })
   return (
     <Pressable
       style={[styles.card, election.myVote && styles.cardVoted]}
-      onPress={() => router.push(`/(tabs)/community/governance/elections/${election.id}` as any)}
+      onPress={() => router.push(`/(tabs)/community/governance/elections/${election.id}`)}
       accessibilityRole="button"
       accessibilityLabel={title}
     >

@@ -26,7 +26,7 @@ export function ShopCard({ shop }: Props) {
   const categoryLabel = t(`directory.${shop.category.toLowerCase().replace("_and_", "_")}`);
 
   function handlePress() {
-    router.push(`/(tabs)/directory/${shop.id}` as any);
+    router.push(`/(tabs)/directory/${shop.id}`);
   }
 
   return (

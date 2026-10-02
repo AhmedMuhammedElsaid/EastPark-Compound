@@ -109,8 +109,8 @@ export default function CommunityScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CommunityHeader
-        onGovernance={() => router.push("/(tabs)/community/governance" as any)}
-        onReports={() => router.push("/(tabs)/community/reports" as any)}
+        onGovernance={() => router.push("/(tabs)/community/governance")}
+        onReports={() => router.push("/(tabs)/community/reports")}
         onFeedback={() => requireAuthNavigation("/(tabs)/community/feedback")}
         styles={styles}
       />
@@ -253,7 +253,7 @@ function AnnouncementCard({ announcement, styles, colors }: { announcement: Anno
   return (
     <Pressable
       style={[styles.card, announcement.isPinned && styles.cardPinned]}
-      onPress={() => router.push(`/(tabs)/community/${announcement.id}` as any)}
+      onPress={() => router.push(`/(tabs)/community/${announcement.id}`)}
     >
       <View style={styles.cardTop}>
         <View style={[styles.catBadge, { backgroundColor: catColor }]}>

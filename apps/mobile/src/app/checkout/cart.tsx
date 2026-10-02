@@ -132,7 +132,7 @@ export default function CartScreen() {
           <ShoppingCart size={64} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>{t("cart.empty")}</Text>
           <Text style={styles.emptyBody}>{t("cart.empty_subtitle")}</Text>
-          <Pressable style={styles.browseBtn} onPress={() => router.replace("/(tabs)/directory" as any)} accessibilityRole="button" accessibilityLabel={t("directory.title")}>
+          <Pressable style={styles.browseBtn} onPress={() => router.replace("/(tabs)/directory")} accessibilityRole="button" accessibilityLabel={t("directory.title")}>
             <Text style={styles.browseBtnText}>{t("directory.title")}</Text>
           </Pressable>
         </View>
@@ -184,7 +184,7 @@ export default function CartScreen() {
           style={styles.checkoutBtn}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push("/checkout/address" as any);
+            router.push("/checkout/address");
           }}
           accessibilityRole="button"
           accessibilityLabel={t("cart.checkout")}
