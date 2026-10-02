@@ -225,6 +225,40 @@ export class PaymentsService {
         );
     }
 
+    private async registerPaymobOrder(
+        authToken: string,
+        amountCents: number,
+        orderId: string
+    ): Promise<number> {
+        const orderRes = await fetch(
+            'https://accept.paymob.com/api/ecommerce/orders',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                    amount_cents: amountCents,
+                    currency: 'EGP',
+                    merchant_order_id: orderId,
+                    items: [],
+                }),
+            }
+        );
+        if (!orderRes.ok)
+            throw new BadGatewayException('payments.error.paymobUnavailable');
+        const { id: paymobOrderId } = (await orderRes.json()) as { id: number };
+
+        // Persist the Paymob ORDER id — the webhook verifies obj.order.id
+        // against it before marking the order paid.
+        await this.db.order.update({
+            where: { id: orderId },
+            data: { paymobOrderId: String(paymobOrderId) },
+        });
+        return paymobOrderId;
+    }
+
     async initiatePayment(
         orderId: string,
         actorId: string
@@ -266,33 +300,18 @@ export class PaymentsService {
             token: string;
         };
 
-        // Step 2 — Register order
-        const orderRes = await fetch(
-            'https://accept.paymob.com/api/ecommerce/orders',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({
-                    amount_cents: amountCents,
-                    currency: 'EGP',
-                    merchant_order_id: order.id,
-                    items: [],
-                }),
-            }
-        );
-        if (!orderRes.ok)
-            throw new BadGatewayException('payments.error.paymobUnavailable');
-        const { id: paymobOrderId } = (await orderRes.json()) as { id: number };
-
-        // Persist the Paymob ORDER id — the webhook verifies obj.order.id
-        // against it before marking the order paid.
-        await this.db.order.update({
-            where: { id: order.id },
-            data: { paymobOrderId: String(paymobOrderId) },
-        });
+        // Step 2 — Register order (once). A retry reuses the Paymob order
+        // registered on the first attempt: the amount cannot change after the
+        // order is placed, and the webhook only accepts callbacks for the
+        // stored Paymob order id — re-registering would orphan a payment
+        // completed in an earlier iframe.
+        const paymobOrderId = order.paymobOrderId
+            ? Number(order.paymobOrderId)
+            : await this.registerPaymobOrder(
+                  authToken,
+                  amountCents,
+                  order.id
+              );
 
         // Step 3 — Payment key
         const nameParts = user.name.split(' ');

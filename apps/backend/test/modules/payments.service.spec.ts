@@ -410,5 +410,32 @@ describe('PaymentsService', () => {
             expect(orderBody.amount_cents).toBe(29);
             expect(result.paymentKey).toBe('pay-key');
         });
+
+        it('reuses the stored Paymob order on retry instead of re-registering', async () => {
+            db.order.findUnique.mockResolvedValue({
+                ...paymobOrderRow(),
+                resident: {
+                    name: 'Test Resident',
+                    email: 'r@example.test',
+                    phone: null,
+                },
+            });
+            fetchMock
+                .mockResolvedValueOnce(jsonResponse({ token: 'auth' }))
+                .mockResolvedValueOnce(jsonResponse({ token: 'pay-key-2' }));
+
+            const result = await service.initiatePayment(
+                ORDER_ID,
+                'resident-1'
+            );
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(fetchMock.mock.calls[1][0]).toContain('payment_keys');
+            const keyBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+            expect(keyBody.order_id).toBe(PAYMOB_ORDER_ID);
+            expect(keyBody.amount_cents).toBe(12550);
+            expect(db.order.update).not.toHaveBeenCalled();
+            expect(result.paymentKey).toBe('pay-key-2');
+        });
     });
 });
