@@ -106,32 +106,6 @@ jest.mock("expo-localization", () => ({
   ]),
 }));
 
-// Mock react-native-mmkv
-jest.mock("react-native-mmkv", () => ({
-  MMKV: jest.fn(() => ({
-    set: jest.fn(),
-    getString: jest.fn(),
-    getNumber: jest.fn(),
-    getBoolean: jest.fn(),
-    delete: jest.fn(),
-    clearAll: jest.fn(),
-    getAllKeys: jest.fn(() => []),
-  })),
-  useMMKVString: jest.fn((_key: string) => [undefined, jest.fn()]),
-  useMMKVNumber: jest.fn((_key: string) => [undefined, jest.fn()]),
-  useMMKVBoolean: jest.fn((_key: string) => [undefined, jest.fn()]),
-  useMMKVObject: jest.fn((_key: string) => [undefined, jest.fn()]),
-  createMMKV: jest.fn(() => ({
-    set: jest.fn(),
-    getString: jest.fn(),
-    getNumber: jest.fn(),
-    getBoolean: jest.fn(),
-    delete: jest.fn(),
-    clearAll: jest.fn(),
-    getAllKeys: jest.fn(() => []),
-  })),
-}));
-
 // Global window object setup for React Native testing
 // @ts-expect-error
 global.window = {};
