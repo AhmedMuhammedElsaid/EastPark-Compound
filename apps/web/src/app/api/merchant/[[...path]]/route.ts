@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { backendFetch, bearer } from '@/lib/auth/server';
+import { relayBackendResponse } from '@/lib/api/bff-errors';
+import { backendFetch, bearer, clientIpFrom } from '@/lib/auth/server';
 import { requireMerchant } from '@/lib/auth/merchant.server';
 import {
   orderStatusSchema,
@@ -9,6 +10,8 @@ import {
   productUpdateSchema,
   shopUpdateSchema,
 } from '@/lib/schemas/merchant';
+
+export const maxDuration = 30;
 
 const paramsSchema = z.object({ path: z.array(z.string()).default([]) });
 const productQuerySchema = z.object({
@@ -73,11 +76,8 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
       method: request.method,
       headers: { ...bearer(auth.token), ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body,
-    });
-    if (response.status === 204) return new NextResponse(null, { status: 204 });
-
-    const payload = await response.json().catch(() => ({ error: 'upstream' }));
-    return NextResponse.json(payload, { status: response.status });
+    }, { clientIp: clientIpFrom(request.headers) });
+    return relayBackendResponse(response);
   } catch {
     return NextResponse.json({ error: 'network' }, { status: 503 });
   }

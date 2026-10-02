@@ -6,7 +6,7 @@ import * as React from 'react';
 
 import { useSessionInterceptor } from '@/lib/auth/useSessionInterceptor';
 
-export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'validation';
+export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'unverified' | 'validation';
 type LoginResult = { ok: true; user: AuthUser } | { ok: false; error: LoginError };
 
 type AuthContextValue = {

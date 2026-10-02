@@ -4,6 +4,8 @@ import { ZodError } from 'zod';
 import { electionVoteSchema } from '@/lib/api/governance';
 import { GovernanceVoteError, voteElection } from '@/lib/api/governance.server';
 
+export const maxDuration = 30;
+
 type ElectionVoteRouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: ElectionVoteRouteContext) {

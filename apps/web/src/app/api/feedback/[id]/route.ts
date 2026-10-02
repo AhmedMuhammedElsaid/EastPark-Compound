@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { parseFeedbackDetail } from '@/lib/api/feedback';
-import { authenticatedBackendFetch } from '@/lib/auth/proxy';
+import { authenticatedBackendFetch } from '@/lib/auth/server';
+
+export const maxDuration = 30;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -12,7 +14,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const response = await authenticatedBackendFetch(`/feedback/${encodeURIComponent(id)}`);
+    const response = await authenticatedBackendFetch(`/feedback/${encodeURIComponent(id)}`, {}, { mutateCookies: true });
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     if (!response.ok) {
       const status = [401, 403, 404, 429].includes(response.status) ? response.status : 502;

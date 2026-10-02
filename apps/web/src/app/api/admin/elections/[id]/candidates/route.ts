@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { forwardAdminWrite } from '@/lib/auth/admin.server';
 import { candidateCreateSchema } from '@/lib/validation/admin';
 
+export const maxDuration = 30;
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const body = await request.json().catch(() => null);
   const parsed = candidateCreateSchema.omit({ electionId: true }).safeParse(body);

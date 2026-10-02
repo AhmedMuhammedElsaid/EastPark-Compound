@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 
 import { getPoll, GovernanceRequestError } from '@/lib/api/governance.server';
 
+export const maxDuration = 30;
+
 type PollRouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, { params }: PollRouteContext) {
   const { id } = await params;
   try {
-    return NextResponse.json({ data: await getPoll(id, true) });
+    return NextResponse.json({ data: await getPoll(id, { session: { mutateCookies: true } }) });
   } catch (error) {
     if (error instanceof GovernanceRequestError && error.status === 404) {
       return NextResponse.json({ error: 'Poll not found.' }, { status: 404 });

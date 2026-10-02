@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { forwardAdminRequest } from '@/lib/auth/admin.server';
 
+export const maxDuration = 30;
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: RouteContext) {

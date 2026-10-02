@@ -6,7 +6,11 @@ import {
   parseFeedback,
   parseFeedbackPage,
 } from '@/lib/api/feedback';
-import { authenticatedBackendFetch } from '@/lib/auth/proxy';
+import { authenticatedBackendFetch } from '@/lib/auth/server';
+
+export const maxDuration = 30;
+
+const ROUTE_SESSION = { mutateCookies: true } as const;
 
 export async function GET(request: NextRequest) {
   const params = new URLSearchParams({ limit: '20' });
@@ -16,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (isFeedbackStatus(status)) params.set('status', status);
 
   try {
-    const response = await authenticatedBackendFetch(`/feedback?${params.toString()}`);
+    const response = await authenticatedBackendFetch(`/feedback?${params.toString()}`, {}, ROUTE_SESSION);
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     if (!response.ok) return proxyError(response);
     return NextResponse.json({ data: parseFeedbackPage(await response.json()) });
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
-    });
+    }, ROUTE_SESSION);
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     if (!response.ok) return proxyError(response);
     return NextResponse.json({ data: parseFeedback(await response.json()) }, { status: 201 });

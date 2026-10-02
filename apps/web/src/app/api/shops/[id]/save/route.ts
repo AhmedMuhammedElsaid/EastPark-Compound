@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AuthenticatedRequestError } from "@/lib/api/authenticated.server";
+import { AuthenticatedRequestError, ROUTE_SESSION } from "@/lib/api/authenticated.server";
 import { getShopSaved, setShopSaved } from "@/lib/api/shop-interactions.server";
+
+export const maxDuration = 30;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
-    return NextResponse.json({ data: { saved: await getShopSaved(id) } });
+    return NextResponse.json({ data: { saved: await getShopSaved(id, ROUTE_SESSION) } });
   } catch (error) {
     return savedError(error);
   }
@@ -25,7 +27,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
 async function updateSaved(params: Promise<{ id: string }>, saved: boolean) {
   try {
     const { id } = await params;
-    await setShopSaved(id, saved);
+    await setShopSaved(id, saved, ROUTE_SESSION);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return savedError(error);

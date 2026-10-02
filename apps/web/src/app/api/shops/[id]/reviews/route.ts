@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { AuthenticatedRequestError } from "@/lib/api/authenticated.server";
+import { AuthenticatedRequestError, ROUTE_SESSION } from "@/lib/api/authenticated.server";
 import { reviewInputSchema } from "@/lib/api/shop-interactions";
 import {
   deleteReview,
   getReviews,
   upsertReview,
 } from "@/lib/api/shop-interactions.server";
+import { clientIpFrom } from "@/lib/auth/server";
+
+export const maxDuration = 30;
 
 type RouteContext = { params: Promise<{ id: string }> };
 const querySchema = z.object({ cursor: z.string().min(1).max(200).optional() });
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params;
-    return NextResponse.json({ data: await getReviews(id, query.data.cursor) });
+    return NextResponse.json({ data: await getReviews(id, query.data.cursor, { clientIp: clientIpFrom(request.headers) }) });
   } catch (error) {
     console.error("Reviews proxy failed", error);
     return NextResponse.json({ error: "Reviews are temporarily unavailable." }, { status: 502 });
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { id } = await params;
-    return NextResponse.json({ data: await upsertReview(id, input.data) });
+    return NextResponse.json({ data: await upsertReview(id, input.data, ROUTE_SESSION) });
   } catch (error) {
     return interactionError(error, "Review could not be saved.");
   }
@@ -42,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
-    await deleteReview(id);
+    await deleteReview(id, ROUTE_SESSION);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return interactionError(error, "Review could not be deleted.");

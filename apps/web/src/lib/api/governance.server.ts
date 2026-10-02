@@ -8,12 +8,16 @@ import {
   parsePollPage,
 } from '@/lib/api/governance';
 import {
-  authCookies,
   backendFetch,
   bearer,
-  refreshAuthTokens,
+  getProfile,
+  requestClientIp,
+  SessionRefreshRequiredError,
+  sessionFetch,
+  type SessionOptions,
 } from '@/lib/auth/server';
-import { z } from 'zod';
+
+export { SessionRefreshRequiredError };
 
 export class GovernanceRequestError extends Error {
   constructor(public readonly status: number) {
@@ -21,54 +25,60 @@ export class GovernanceRequestError extends Error {
   }
 }
 
-async function governanceFetch(path: string, includeSession = false): Promise<Response> {
-  const tokens = includeSession ? await authCookies() : {};
-  let accessToken = tokens.accessToken;
+/**
+ * `session` personalises the public read (e.g. `hasVoted`). Route handlers pass
+ * `{ mutateCookies: true }`; Server Components pass `{ mutateCookies: false }` and must redirect
+ * through `sessionRefreshPath(..., { optional: true })` on `SessionRefreshRequiredError`.
+ * Omit it for a purely anonymous read.
+ */
+export type GovernanceReadOptions = { session?: SessionOptions; clientIp?: string | null };
 
-  let response = await fetchWithTransportRetry(path, accessToken);
-  if (response.status === 401 && tokens.refreshToken) {
-    accessToken = (await refreshAuthTokens(tokens.refreshToken))?.accessToken;
-    response = await fetchWithTransportRetry(path, accessToken);
+async function governanceFetch(path: string, options: GovernanceReadOptions = {}): Promise<Response> {
+  if (!options.session) {
+    return withTransportRetry(() => backendFetch(path, {}, { clientIp: options.clientIp }));
   }
 
+  // Session reads are request-bound (they read cookies), so the client IP can come from headers().
+  const clientIp = options.clientIp ?? options.session.clientIp ?? (await requestClientIp());
+  const result = await withTransportRetry(() => sessionFetch(path, {}, { ...options.session!, clientIp }));
+  if (result.status === 'ok') return result.response;
+  if (result.status === 'refresh-required') throw new SessionRefreshRequiredError();
   // Reads are public. A stale session must not make governance unavailable.
-  if (response.status === 401 && accessToken) return fetchWithTransportRetry(path);
-  return response;
+  return withTransportRetry(() => backendFetch(path, {}, { clientIp }));
 }
 
-async function fetchWithTransportRetry(path: string, accessToken?: string): Promise<Response> {
-  const init = accessToken ? { headers: bearer(accessToken) } : undefined;
+async function withTransportRetry<T>(request: () => Promise<T>): Promise<T> {
   try {
-    return await backendFetch(path, init);
+    return await request();
   } catch {
-    return backendFetch(path, init);
+    return request();
   }
 }
 
-export async function getPolls(cursor?: string, includeSession = false): Promise<PollPage> {
+export async function getPolls(cursor?: string, options: GovernanceReadOptions = {}): Promise<PollPage> {
   const params = new URLSearchParams({ limit: '12' });
   if (cursor) params.set('cursor', cursor);
-  const response = await governanceFetch(`/polls?${params.toString()}`, includeSession);
+  const response = await governanceFetch(`/polls?${params.toString()}`, options);
   if (!response.ok) throw new GovernanceRequestError(response.status);
   return parsePollPage(await response.json());
 }
 
-export async function getPoll(id: string, includeSession = false): Promise<Poll> {
-  const response = await governanceFetch(`/polls/${encodeURIComponent(id)}`, includeSession);
+export async function getPoll(id: string, options: GovernanceReadOptions = {}): Promise<Poll> {
+  const response = await governanceFetch(`/polls/${encodeURIComponent(id)}`, options);
   if (!response.ok) throw new GovernanceRequestError(response.status);
   return parsePoll(await response.json());
 }
 
-export async function getElections(cursor?: string, includeSession = false): Promise<ElectionPage> {
+export async function getElections(cursor?: string, options: GovernanceReadOptions = {}): Promise<ElectionPage> {
   const params = new URLSearchParams({ limit: '12' });
   if (cursor) params.set('cursor', cursor);
-  const response = await governanceFetch(`/elections?${params.toString()}`, includeSession);
+  const response = await governanceFetch(`/elections?${params.toString()}`, options);
   if (!response.ok) throw new GovernanceRequestError(response.status);
   return parseElectionPage(await response.json());
 }
 
-export async function getElection(id: string, includeSession = false): Promise<Election> {
-  const response = await governanceFetch(`/elections/${encodeURIComponent(id)}`, includeSession);
+export async function getElection(id: string, options: GovernanceReadOptions = {}): Promise<Election> {
+  const response = await governanceFetch(`/elections/${encodeURIComponent(id)}`, options);
   if (!response.ok) throw new GovernanceRequestError(response.status);
   return parseElection(await response.json());
 }
@@ -79,52 +89,37 @@ export class GovernanceVoteError extends Error {
   }
 }
 
-const profileEnvelopeSchema = z.object({
-  data: z.object({ role: z.enum(['GUEST', 'RESIDENT', 'MERCHANT', 'ADMIN']) }),
-});
+const ROUTE_SESSION: SessionOptions = { mutateCookies: true };
 
+/** Route handlers only: refreshes cookies when needed and requires a RESIDENT profile. */
 async function residentAccessToken(): Promise<string> {
-  const tokens = await authCookies();
-  let accessToken = tokens.accessToken;
+  const profile = await getProfile(ROUTE_SESSION);
+  if (profile.status === 'unavailable') throw new GovernanceVoteError(502);
+  if (profile.status !== 'authenticated') throw new GovernanceVoteError(401);
+  if (profile.user.role !== 'RESIDENT') throw new GovernanceVoteError(403);
+  return profile.accessToken;
+}
 
-  if (!accessToken && tokens.refreshToken) {
-    accessToken = (await refreshAuthTokens(tokens.refreshToken))?.accessToken;
-  }
-  if (!accessToken) throw new GovernanceVoteError(401);
-
-  let profileResponse = await backendFetch('/user/profile', { headers: bearer(accessToken) });
-  if (profileResponse.status === 401 && tokens.refreshToken) {
-    const refreshed = await refreshAuthTokens(tokens.refreshToken);
-    if (refreshed) {
-      accessToken = refreshed.accessToken;
-      profileResponse = await backendFetch('/user/profile', { headers: bearer(accessToken) });
-    }
-  }
-  if (!profileResponse.ok) throw new GovernanceVoteError(profileResponse.status === 401 ? 401 : 502);
-
-  const profile = profileEnvelopeSchema.parse(await profileResponse.json()).data;
-  if (profile.role !== 'RESIDENT') throw new GovernanceVoteError(403);
-  return accessToken;
+async function castVote(path: string, body: unknown): Promise<void> {
+  const accessToken = await residentAccessToken();
+  const response = await backendFetch(
+    path,
+    {
+      method: 'POST',
+      headers: { ...bearer(accessToken), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    { clientIp: await requestClientIp() },
+  );
+  if (!response.ok) throw new GovernanceVoteError(response.status);
 }
 
 export async function votePoll(id: string, optionId: string): Promise<Poll> {
-  const accessToken = await residentAccessToken();
-  const response = await backendFetch(`/polls/${encodeURIComponent(id)}/vote`, {
-    method: 'POST',
-    headers: { ...bearer(accessToken), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ optionId }),
-  });
-  if (!response.ok) throw new GovernanceVoteError(response.status);
-  return getPoll(id, true);
+  await castVote(`/polls/${encodeURIComponent(id)}/vote`, { optionId });
+  return getPoll(id, { session: ROUTE_SESSION });
 }
 
 export async function voteElection(id: string, candidateId: string): Promise<Election> {
-  const accessToken = await residentAccessToken();
-  const response = await backendFetch(`/elections/${encodeURIComponent(id)}/vote`, {
-    method: 'POST',
-    headers: { ...bearer(accessToken), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidateId }),
-  });
-  if (!response.ok) throw new GovernanceVoteError(response.status);
-  return getElection(id, true);
+  await castVote(`/elections/${encodeURIComponent(id)}/vote`, { candidateId });
+  return getElection(id, { session: ROUTE_SESSION });
 }

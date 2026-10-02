@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { forwardAdminRequest } from '@/lib/auth/admin.server';
 
+export const maxDuration = 30;
+
 const STATUSES = new Set(['SUBMITTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED']);
 type RouteContext = { params: Promise<{ id: string }> };
 

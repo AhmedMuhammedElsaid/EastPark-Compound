@@ -1,23 +1,10 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 
+import { authUserEnvelopeSchema } from '@/lib/api/auth-schemas';
 import { authenticatedBackendFetch, clearAuthCookies } from '@/lib/auth/server';
 import { profileFormSchema, toProfileUpdate } from '@/lib/validation/profile';
 
-const profileEnvelopeSchema = z.object({
-  data: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.email(),
-    phone: z.string().nullable(),
-    unitNumber: z.string().nullable(),
-    avatarUrl: z.string().nullable(),
-    role: z.enum(['GUEST', 'RESIDENT', 'MERCHANT', 'ADMIN']),
-    isVerified: z.boolean(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  }),
-});
+export const maxDuration = 30;
 
 function upstreamError(status: number): NextResponse {
   const safeStatus = [400, 401, 403, 404, 409, 422, 429].includes(status) ? status : 502;
@@ -29,7 +16,7 @@ function upstreamError(status: number): NextResponse {
 
 async function proxy(path: string, init?: RequestInit): Promise<NextResponse> {
   try {
-    const response = await authenticatedBackendFetch(path, init);
+    const response = await authenticatedBackendFetch(path, init ?? {}, { mutateCookies: true });
     if (!response) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
@@ -37,7 +24,7 @@ async function proxy(path: string, init?: RequestInit): Promise<NextResponse> {
     if (response.status === 204) return new NextResponse(null, { status: 204 });
     if (!response.ok) return upstreamError(response.status);
 
-    const parsed = profileEnvelopeSchema.safeParse(await response.json().catch(() => null));
+    const parsed = authUserEnvelopeSchema.safeParse(await response.json().catch(() => null));
     if (!parsed.success) return upstreamError(502);
     return NextResponse.json(parsed.data);
   } catch {

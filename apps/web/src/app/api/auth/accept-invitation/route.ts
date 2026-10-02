@@ -1,9 +1,10 @@
-import type { ApiEnvelope, AuthResponse } from '@/lib/api/contracts';
-
 import { NextResponse } from 'next/server';
 
-import { backendFetch, setAuthCookies } from '@/lib/auth/server';
+import { readAuthResponse } from '@/lib/api/auth-schemas';
+import { backendFetch, clientIpFrom, setAuthCookies } from '@/lib/auth/server';
 import { acceptInvitationSchema } from '@/lib/validation/auth';
+
+export const maxDuration = 30;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -15,19 +16,25 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
-    });
+    }, { clientIp: clientIpFrom(request.headers) });
 
     if (!response.ok) {
       if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-      if (response.status === 400 || response.status === 404 || response.status === 409) {
+      // 409: the email already has an account and the submitted password is not its current one.
+      if (response.status === 409) return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+      if (response.status === 400 || response.status === 404) {
         return NextResponse.json({ error: 'invalid_invitation' }, { status: 400 });
       }
       return NextResponse.json({ error: 'server' }, { status: response.status >= 500 ? response.status : 400 });
     }
 
-    const payload = (await response.json()) as ApiEnvelope<AuthResponse>;
-    await setAuthCookies(payload.data);
-    return NextResponse.json({ data: { user: payload.data.user } });
+    const auth = await readAuthResponse(response);
+    if (!auth) {
+      console.error('Auth response contract mismatch', { endpoint: '/auth/accept-invitation' });
+      return NextResponse.json({ error: 'server' }, { status: 502 });
+    }
+    await setAuthCookies(auth);
+    return NextResponse.json({ data: { user: auth.user } });
   } catch {
     return NextResponse.json({ error: 'network' }, { status: 503 });
   }

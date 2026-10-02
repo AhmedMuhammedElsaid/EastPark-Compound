@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { isAnnouncementCategory } from '@/lib/api/announcements';
 import { getAnnouncements } from '@/lib/api/announcements.server';
+import { clientIpFrom } from '@/lib/auth/server';
+
+export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   const categoryValue = request.nextUrl.searchParams.get('category');
@@ -9,7 +12,7 @@ export async function GET(request: NextRequest) {
   const category = isAnnouncementCategory(categoryValue) ? categoryValue : undefined;
 
   try {
-    const page = await getAnnouncements({ category, cursor });
+    const page = await getAnnouncements({ category, cursor }, { clientIp: clientIpFrom(request.headers) });
     return NextResponse.json({ data: page });
   } catch (error) {
     console.error('Announcements proxy failed', error);

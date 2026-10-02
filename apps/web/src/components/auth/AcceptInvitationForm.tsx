@@ -42,7 +42,9 @@ export function AcceptInvitationForm({ token }: { token: string | null }) {
       if (!response.ok || !result.data) {
         const key = result.error === 'invalid_invitation'
           ? 'auth.invitation_invalid'
-          : result.error === 'rate_limited' ? 'auth.errors.rate_limited' : 'errors.server';
+          : result.error === 'account_exists'
+            ? 'auth.errors.invitation_account_exists'
+            : result.error === 'rate_limited' ? 'auth.errors.rate_limited' : 'errors.server';
         setSubmitError(t(key));
         return;
       }

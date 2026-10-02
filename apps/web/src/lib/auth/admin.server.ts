@@ -1,8 +1,9 @@
-import type { ApiEnvelope, AuthUser } from '@/lib/api/contracts';
+import type { AuthUser } from '@/lib/api/contracts';
 
 import { NextResponse } from 'next/server';
 
-import { authCookies, backendFetch, bearer, refreshAuthTokens } from '@/lib/auth/server';
+import { relayBackendResponse } from '@/lib/api/bff-errors';
+import { backendFetch, bearer, getProfile, requestClientIp } from '@/lib/auth/server';
 
 type AdminAuthResult =
   | { token: string; user: AuthUser }
@@ -12,32 +13,15 @@ export type AdminSession =
   | { status: 'authenticated'; token: string; user: AuthUser }
   | { status: 'unauthenticated' | 'refresh-required' | 'forbidden' | 'unavailable' };
 
-async function profile(token: string): Promise<AuthUser | null> {
-  const response = await backendFetch('/user/profile', { headers: bearer(token) });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as ApiEnvelope<AuthUser>;
-  return payload.data;
-}
-
+/**
+ * `allowRefresh` must be `true` only in route handlers. Server Components (the admin layout) pass
+ * `false` and redirect through `/api/auth/refresh` on `refresh-required`.
+ */
 export async function getAdminSession(allowRefresh = false): Promise<AdminSession> {
-  try {
-    const tokens = await authCookies();
-    let token = tokens.accessToken;
-    let user = token ? await profile(token) : null;
-
-    if (!user && tokens.refreshToken && allowRefresh) {
-      const refreshed = await refreshAuthTokens(tokens.refreshToken);
-      token = refreshed?.accessToken;
-      user = token ? await profile(token) : null;
-    }
-
-    if (!user && tokens.refreshToken && !allowRefresh) return { status: 'refresh-required' };
-    if (!token || !user) return { status: 'unauthenticated' };
-    if (user.role !== 'ADMIN') return { status: 'forbidden' };
-    return { status: 'authenticated', token, user };
-  } catch {
-    return { status: 'unavailable' };
-  }
+  const profile = await getProfile({ mutateCookies: allowRefresh });
+  if (profile.status !== 'authenticated') return { status: profile.status };
+  if (profile.user.role !== 'ADMIN') return { status: 'forbidden' };
+  return { status: 'authenticated', token: profile.accessToken, user: profile.user };
 }
 
 export async function requireAdmin(): Promise<AdminAuthResult> {
@@ -59,12 +43,12 @@ export async function forwardAdminRequest(path: string, init: RequestInit = {}):
     const auth = await requireAdmin();
     if ('response' in auth) return auth.response;
 
-    const response = await backendFetch(path, {
-      ...init,
-      headers: { ...init.headers, ...bearer(auth.token) },
-    });
-    const payload = await response.json().catch(() => ({ error: 'upstream' }));
-    return NextResponse.json(payload, { status: response.status });
+    const response = await backendFetch(
+      path,
+      { ...init, headers: { ...init.headers, ...bearer(auth.token) } },
+      { clientIp: await requestClientIp() },
+    );
+    return relayBackendResponse(response);
   } catch {
     return NextResponse.json({ error: 'network' }, { status: 503 });
   }

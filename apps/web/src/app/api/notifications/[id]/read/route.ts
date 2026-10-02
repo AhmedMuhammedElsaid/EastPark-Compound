@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { authenticatedBackendFetch, AuthenticatedRequestError } from '@/lib/api/authenticated.server';
+import { authenticatedBackendFetch, AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+
+export const maxDuration = 30;
 
 type NotificationRouteContext = { params: Promise<{ id: string }> };
 
@@ -17,6 +19,7 @@ export async function PATCH(_request: Request, { params }: NotificationRouteCont
     const response = await authenticatedBackendFetch(
       `/notifications/${encodeURIComponent(id.data)}/read`,
       { method: 'PATCH' },
+      ROUTE_SESSION,
     );
     if (!response.ok) throw new AuthenticatedRequestError('Mark notification read failed', response.status);
     return NextResponse.json({ data: null });

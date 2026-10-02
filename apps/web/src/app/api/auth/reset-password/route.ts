@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { backendFetch } from '@/lib/auth/server';
+import { backendFetch, clientIpFrom } from '@/lib/auth/server';
 import { resetPasswordSchema } from '@/lib/validation/auth';
+
+export const maxDuration = 30;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
-    });
+    }, { clientIp: clientIpFrom(request.headers) });
 
     if (response.ok) return NextResponse.json({ data: { success: true } });
     if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });

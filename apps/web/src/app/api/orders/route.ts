@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { relayBackendResponse } from '@/lib/api/bff-errors';
 import { createOrderSchema, isOrderStatus } from '@/lib/api/orders';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 import { residentOrderingEnabled } from '@/config/features';
+
+export const maxDuration = 30;
+
+const ROUTE_SESSION = { mutateCookies: true } as const;
 
 export async function GET(request: NextRequest) {
   const cursor = request.nextUrl.searchParams.get('cursor');
@@ -12,9 +17,9 @@ export async function GET(request: NextRequest) {
   if (isOrderStatus(statusValue)) params.set('status', statusValue);
 
   try {
-    const response = await authenticatedBackendFetch(`/orders?${params}`);
+    const response = await authenticatedBackendFetch(`/orders?${params}`, {}, ROUTE_SESSION);
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-    return relay(response);
+    return relayBackendResponse(response);
   } catch (error) {
     console.error('Orders proxy failed', error);
     return NextResponse.json({ error: 'network' }, { status: 503 });
@@ -39,24 +44,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await authenticatedBackendFetch('/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsed.data),
-    });
+    const response = await authenticatedBackendFetch(
+      '/orders',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed.data),
+      },
+      ROUTE_SESSION,
+    );
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-    const payload = await response.json();
-    return NextResponse.json(payload, { status: response.status });
+    return relayBackendResponse(response);
   } catch (error) {
     console.error('Order creation proxy failed', error);
     return NextResponse.json({ error: 'network' }, { status: 502 });
   }
-}
-
-function relay(response: Response): Response {
-  return new Response(response.body, {
-    status: response.status,
-    headers: { 'Content-Type': response.headers.get('Content-Type') ?? 'application/json' },
-  });
 }

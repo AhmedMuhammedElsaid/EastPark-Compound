@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { requireAdmin } from '@/lib/auth/admin.server';
+import { sessionRefreshPath } from '@/lib/auth/return-path';
 
-export async function GET(request: Request) {
-  const auth = await requireAdmin();
-  if (!('response' in auth)) {
-    return NextResponse.redirect(new URL('/admin', request.url));
-  }
-
-  if (auth.response.status === 401) {
-    return NextResponse.redirect(new URL('/login?next=%2Fadmin', request.url));
-  }
-
-  return auth.response;
+/** Kept for existing links; the generic session bounce handles refresh and the return path. */
+export function GET(request: Request) {
+  return NextResponse.redirect(new URL(sessionRefreshPath('/admin'), request.url));
 }

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getNotifications } from '@/lib/api/notifications.server';
-import { AuthenticatedRequestError } from '@/lib/api/authenticated.server';
+import { AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+
+export const maxDuration = 30;
 
 const querySchema = z.object({
   cursor: z.string().min(1).max(200).optional(),
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
       cursor: result.data.cursor,
       isRead: result.data.isRead === undefined ? undefined : result.data.isRead === 'true',
       limit: result.data.limit,
-    });
+    }, ROUTE_SESSION);
     return NextResponse.json({ data: page });
   } catch (error) {
     return notificationError(error, 'Notifications are temporarily unavailable.');

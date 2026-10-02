@@ -139,7 +139,9 @@
       "password_weak": "Complete the missing password requirements below",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
-      "unit_required": "Unit number is required"
+      "unit_required": "Unit number is required",
+      "unverified": "Verify your email first. Enter the code we sent you, or register again to get a new one.",
+      "invitation_account_exists": "This email already has an account. Enter that account's current password to accept the invitation."
     },
     "password_requirements": {
       "title": "Your password needs:",

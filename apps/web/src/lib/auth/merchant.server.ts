@@ -1,8 +1,8 @@
-import type { ApiEnvelope, AuthUser } from '@/lib/api/contracts';
+import type { AuthUser } from '@/lib/api/contracts';
 
 import { NextResponse } from 'next/server';
 
-import { authCookies, backendFetch, bearer, refreshAuthTokens } from '@/lib/auth/server';
+import { getProfile } from '@/lib/auth/server';
 
 type MerchantAuthResult =
   | { token: string; user: AuthUser }
@@ -10,37 +10,21 @@ type MerchantAuthResult =
 
 export type MerchantSession =
   | { status: 'authenticated'; token: string; user: AuthUser }
-  | { status: 'unauthenticated' | 'forbidden' | 'unavailable' };
+  | { status: 'unauthenticated' | 'refresh-required' | 'forbidden' | 'unavailable' };
 
-async function profile(token: string): Promise<AuthUser | null> {
-  const response = await backendFetch('/user/profile', { headers: bearer(token) });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as ApiEnvelope<AuthUser>;
-  return payload.data;
-}
-
-export async function getMerchantSession(): Promise<MerchantSession> {
-  try {
-    const tokens = await authCookies();
-    let token = tokens.accessToken;
-    let user = token ? await profile(token) : null;
-
-    if (!user && tokens.refreshToken) {
-      const refreshed = await refreshAuthTokens(tokens.refreshToken);
-      token = refreshed?.accessToken;
-      user = token ? await profile(token) : null;
-    }
-
-    if (!token || !user) return { status: 'unauthenticated' };
-    if (user.role !== 'MERCHANT') return { status: 'forbidden' };
-    return { status: 'authenticated', token, user };
-  } catch {
-    return { status: 'unavailable' };
-  }
+/**
+ * `allowRefresh` must be `true` only in route handlers. The merchant layout (a Server Component)
+ * uses the default and redirects through `/api/auth/refresh` on `refresh-required`.
+ */
+export async function getMerchantSession(allowRefresh = false): Promise<MerchantSession> {
+  const profile = await getProfile({ mutateCookies: allowRefresh });
+  if (profile.status !== 'authenticated') return { status: profile.status };
+  if (profile.user.role !== 'MERCHANT') return { status: 'forbidden' };
+  return { status: 'authenticated', token: profile.accessToken, user: profile.user };
 }
 
 export async function requireMerchant(): Promise<MerchantAuthResult> {
-  const session = await getMerchantSession();
+  const session = await getMerchantSession(true);
   if (session.status === 'authenticated') return session;
   if (session.status === 'forbidden') {
     return { response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };

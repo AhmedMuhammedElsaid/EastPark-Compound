@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseUploadResult } from '@/lib/api/feedback';
 import { authenticatedBackendFetch } from '@/lib/auth/proxy';
 
+export const maxDuration = 30;
+
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type');

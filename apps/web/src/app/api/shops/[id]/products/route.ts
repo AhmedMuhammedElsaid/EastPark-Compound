@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import { parseProductPage } from '@/lib/api/products';
-import { backendFetch } from '@/lib/auth/server';
+import { backendFetch, clientIpFrom } from '@/lib/auth/server';
+
+export const maxDuration = 30;
 
 type ProductRouteContext = { params: Promise<{ id: string }> };
 
@@ -13,7 +15,11 @@ export async function GET(request: Request, { params }: ProductRouteContext) {
   if (cursor) query.set('cursor', cursor);
 
   try {
-    const response = await backendFetch(`/shops/${encodeURIComponent(id)}/products?${query}`);
+    const response = await backendFetch(
+      `/shops/${encodeURIComponent(id)}/products?${query}`,
+      {},
+      { clientIp: clientIpFrom(request.headers) },
+    );
     if (!response.ok) {
       return NextResponse.json({ error: 'Products are temporarily unavailable.' }, { status: response.status });
     }

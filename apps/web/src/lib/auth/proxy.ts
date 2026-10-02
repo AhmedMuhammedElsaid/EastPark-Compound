@@ -1,28 +1,9 @@
-import { authCookies, backendFetch, refreshAuthTokens } from '@/lib/auth/server';
+import { authenticatedBackendFetch as sessionBackendFetch } from '@/lib/auth/server';
 
-export async function authenticatedBackendFetch(
-  path: string,
-  init: RequestInit = {},
-): Promise<Response | null> {
-  const tokens = await authCookies();
-  let accessToken = tokens.accessToken;
-
-  if (!accessToken && tokens.refreshToken) {
-    accessToken = (await refreshAuthTokens(tokens.refreshToken))?.accessToken;
-  }
-  if (!accessToken) return null;
-
-  let response = await backendFetch(path, withBearer(init, accessToken));
-  if (response.status !== 401 || !tokens.refreshToken) return response;
-
-  const refreshed = await refreshAuthTokens(tokens.refreshToken);
-  if (!refreshed) return response;
-  response = await backendFetch(path, withBearer(init, refreshed.accessToken));
-  return response;
-}
-
-function withBearer(init: RequestInit, accessToken: string): RequestInit {
-  const headers = new Headers(init.headers);
-  headers.set('Authorization', `Bearer ${accessToken}`);
-  return { ...init, headers };
+/**
+ * Route-handler shorthand for the shared backend client: refreshes and rotates session cookies when
+ * needed. Never import this from a Server Component (use `mutateCookies: false` there).
+ */
+export function authenticatedBackendFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
+  return sessionBackendFetch(path, init, { mutateCookies: true });
 }

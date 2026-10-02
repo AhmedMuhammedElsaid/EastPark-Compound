@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { authenticatedBackendFetch, AuthenticatedRequestError } from '@/lib/api/authenticated.server';
+import { authenticatedBackendFetch, AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
 import { isNotificationType, parseNotificationPreference } from '@/lib/api/notifications';
+
+export const maxDuration = 30;
 
 type PreferenceRouteContext = { params: Promise<{ type: string }> };
 
@@ -27,6 +29,7 @@ export async function PUT(request: Request, { params }: PreferenceRouteContext) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body.data),
       },
+      ROUTE_SESSION,
     );
     if (!response.ok) throw new AuthenticatedRequestError('Preference update failed', response.status);
     return NextResponse.json({ data: parseNotificationPreference(await response.json()) });

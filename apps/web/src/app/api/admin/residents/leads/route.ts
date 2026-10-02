@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 
 import { forwardAdminRequest } from '@/lib/auth/admin.server';
 
+export const maxDuration = 30;
+
 const STATUSES = new Set(['PENDING', 'INVITED', 'CONVERTED', 'REJECTED']);
 
 export function GET(request: NextRequest) {

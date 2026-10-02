@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
 
 import { getReport, ReportRequestError } from '@/lib/api/reports.server';
+import { clientIpFrom } from '@/lib/auth/server';
+
+export const maxDuration = 30;
 
 type ReportRouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: Request, { params }: ReportRouteContext) {
+export async function GET(request: Request, { params }: ReportRouteContext) {
   const { id } = await params;
 
   try {
-    const report = await getReport(id);
+    const report = await getReport(id, { clientIp: clientIpFrom(request.headers) });
     return NextResponse.json({ data: report });
   } catch (error) {
     if (error instanceof ReportRequestError && error.status === 404) {
