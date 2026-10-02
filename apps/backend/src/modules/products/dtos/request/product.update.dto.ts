@@ -30,8 +30,8 @@ export class ProductUpdateDto {
     descriptionAr?: string;
 
     @ApiPropertyOptional()
-    @IsNumber()
-    @Min(0)
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0.01)
     @IsOptional()
     price?: number;
 

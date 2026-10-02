@@ -9,9 +9,12 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    Max,
     Min,
     ValidateNested,
 } from 'class-validator';
+
+export const ORDER_ITEM_MAX_QUANTITY = 99;
 
 export class OrderItemDto {
     @ApiProperty()
@@ -19,9 +22,10 @@ export class OrderItemDto {
     @IsNotEmpty()
     productId: string;
 
-    @ApiProperty({ minimum: 1 })
+    @ApiProperty({ minimum: 1, maximum: ORDER_ITEM_MAX_QUANTITY })
     @IsInt()
     @Min(1)
+    @Max(ORDER_ITEM_MAX_QUANTITY)
     quantity: number;
 }
 

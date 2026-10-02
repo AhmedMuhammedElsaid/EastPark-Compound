@@ -31,8 +31,8 @@ export class ProductCreateDto {
     descriptionAr?: string;
 
     @ApiProperty({ example: 35.5, description: 'Price in EGP' })
-    @IsNumber()
-    @Min(0)
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0.01)
     price: number;
 
     @ApiPropertyOptional({ description: 'Image URL from /uploads/image' })

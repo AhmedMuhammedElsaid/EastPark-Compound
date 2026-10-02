@@ -1,5 +1,6 @@
 import {
     BadRequestException,
+    ConflictException,
     ForbiddenException,
     Injectable,
     NotFoundException,
@@ -8,10 +9,12 @@ import {
     NotificationType,
     OrderStatus,
     PaymentMethod,
+    Prisma,
     Role,
 } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 
@@ -37,6 +40,91 @@ const STATUS_LABEL: Record<OrderStatus, { en: string; ar: string }> = {
     [OrderStatus.CANCELLED]: { en: 'Order cancelled', ar: 'تم إلغاء طلبك' },
 };
 
+/**
+ * Order state machine (merchant/admin). Forward-only, one step at a time:
+ * PLACED → CONFIRMED → PREPARING → READY → ON_THE_WAY → DELIVERED.
+ * CANCELLED is reachable from every non-terminal state (i.e. before DELIVERED).
+ */
+export const ORDER_STATUS_TRANSITIONS: Record<
+    OrderStatus,
+    readonly OrderStatus[]
+> = {
+    [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+    [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+    [OrderStatus.READY]: [OrderStatus.ON_THE_WAY, OrderStatus.CANCELLED],
+    [OrderStatus.ON_THE_WAY]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+    [OrderStatus.DELIVERED]: [],
+    [OrderStatus.CANCELLED]: [],
+};
+
+export function canTransitionOrder(
+    from: OrderStatus,
+    to: OrderStatus
+): boolean {
+    return ORDER_STATUS_TRANSITIONS[from].includes(to);
+}
+
+const SHOP_SUMMARY_SELECT = {
+    id: true,
+    name: true,
+    nameAr: true,
+} satisfies Prisma.ShopSelect;
+
+// Never select phone/email/passwordHash — merchants/admins only need these.
+const RESIDENT_SUMMARY_SELECT = {
+    id: true,
+    name: true,
+    unitNumber: true,
+} satisfies Prisma.UserSelect;
+
+type OrderRow = Prisma.OrderGetPayload<{
+    include: {
+        items: true;
+        shop: { select: typeof SHOP_SUMMARY_SELECT };
+    };
+}> & {
+    resident?: Prisma.UserGetPayload<{
+        select: typeof RESIDENT_SUMMARY_SELECT;
+    }>;
+};
+
+function orderInclude(actor: IAuthUser) {
+    const includeResident =
+        actor.role === Role.MERCHANT || actor.role === Role.ADMIN;
+    return {
+        items: true,
+        shop: { select: SHOP_SUMMARY_SELECT },
+        ...(includeResident
+            ? { resident: { select: RESIDENT_SUMMARY_SELECT } }
+            : {}),
+    } satisfies Prisma.OrderInclude;
+}
+
+/** Prisma row → API shape. Money leaves the service as plain numbers. */
+export function toOrderResponse(order: OrderRow): OrderResponseDto {
+    const { items, resident, ...rest } = order;
+    return {
+        ...rest,
+        totalAmount: toMoneyNumber(order.totalAmount),
+        items: items.map(item => ({
+            ...item,
+            unitPrice: toMoneyNumber(item.unitPrice),
+            lineTotal: toMoneyNumber(
+                toDecimal(item.unitPrice).mul(item.quantity)
+            ),
+        })),
+        ...(resident ? { resident } : {}),
+    };
+}
+
+function isRecordNotFound(error: unknown): boolean {
+    return (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+    );
+}
+
 @Injectable()
 export class OrdersService {
     constructor(
@@ -50,6 +138,9 @@ export class OrdersService {
         actor: IAuthUser
     ): Promise<OrderResponseDto> {
         const productIds = dto.items.map(i => i.productId);
+        if (new Set(productIds).size !== productIds.length) {
+            throw new BadRequestException('order.error.duplicateProducts');
+        }
 
         // Fetch all products in one query
         const products = await this.db.product.findMany({
@@ -75,19 +166,30 @@ export class OrdersService {
         }
         const shopId = shopIds[0]!;
 
+        // Manual emergency override only — "open now" from workingHours is a
+        // client-side presentation concern.
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { isOpen: true },
+        });
+        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop.isOpen) {
+            throw new ConflictException('order.error.shopClosed');
+        }
+
         // Build item map for quantity lookup
         const productMap = new Map(products.map(p => [p.id, p]));
 
-        // Compute total server-side
-        let totalAmount = 0;
+        // Compute total server-side in exact decimal arithmetic
+        let totalAmount = new Prisma.Decimal(0);
         const orderItems = dto.items.map(item => {
             const product = productMap.get(item.productId)!;
-            const lineTotal = product.price * item.quantity;
-            totalAmount += lineTotal;
+            const unitPrice = toDecimal(product.price);
+            totalAmount = totalAmount.add(unitPrice.mul(item.quantity));
             return {
                 productId: item.productId,
                 quantity: item.quantity,
-                unitPrice: product.price,
+                unitPrice,
                 productNameSnapshot: product.name,
                 productNameArSnapshot: product.nameAr,
             };
@@ -103,10 +205,10 @@ export class OrdersService {
                 paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH,
                 items: { create: orderItems },
             },
-            include: { items: true },
+            include: orderInclude(actor),
         });
 
-        return order;
+        return toOrderResponse(order);
     }
 
     async findAll(
@@ -116,7 +218,7 @@ export class OrdersService {
         const limit = query.limit ?? 20;
 
         // Build access-control where clause
-        let where: Record<string, unknown> = {};
+        let where: Prisma.OrderWhereInput = {};
         if (actor.role === Role.RESIDENT) {
             where = { residentId: actor.userId };
         } else if (actor.role === Role.MERCHANT) {
@@ -129,14 +231,14 @@ export class OrdersService {
         }
         // ADMIN: no restriction
 
-        if (query.status) where['status'] = query.status;
+        if (query.status) where.status = query.status;
 
         const items = await this.db.order.findMany({
             where,
             take: limit + 1,
             ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
             orderBy: { createdAt: 'desc' },
-            include: { items: true },
+            include: orderInclude(actor),
         });
 
         let nextCursor: string | undefined;
@@ -145,13 +247,13 @@ export class OrdersService {
             nextCursor = last?.id;
         }
 
-        return { items, nextCursor };
+        return { items: items.map(toOrderResponse), nextCursor };
     }
 
     async findOne(id: string, actor: IAuthUser): Promise<OrderResponseDto> {
         const order = await this.db.order.findUnique({
             where: { id },
-            include: { items: true },
+            include: orderInclude(actor),
         });
 
         if (!order) throw new NotFoundException('order.error.notFound');
@@ -161,15 +263,10 @@ export class OrdersService {
         }
 
         if (actor.role === Role.MERCHANT) {
-            const shop = await this.db.shop.findUnique({
-                where: { id: order.shopId },
-            });
-            if (!shop || shop.merchantId !== actor.userId) {
-                throw new ForbiddenException('order.error.forbidden');
-            }
+            await this.assertMerchantOwnsShop(order.shopId, actor);
         }
 
-        return order;
+        return toOrderResponse(order);
     }
 
     async updateStatus(
@@ -179,24 +276,32 @@ export class OrdersService {
     ): Promise<OrderResponseDto> {
         const order = await this.db.order.findUnique({
             where: { id },
-            include: { items: true },
+            select: { id: true, shopId: true, status: true, isPaid: true },
         });
         if (!order) throw new NotFoundException('order.error.notFound');
 
         if (actor.role === Role.MERCHANT) {
-            const shop = await this.db.shop.findUnique({
-                where: { id: order.shopId },
-            });
-            if (!shop || shop.merchantId !== actor.userId) {
-                throw new ForbiddenException('order.error.forbidden');
-            }
+            await this.assertMerchantOwnsShop(order.shopId, actor);
         }
 
-        const updated = await this.db.order.update({
-            where: { id },
-            data: { status: dto.status },
-            include: { items: true },
-        });
+        if (!canTransitionOrder(order.status, dto.status)) {
+            throw new ConflictException('order.error.invalidStatusTransition');
+        }
+
+        const isCancel = dto.status === OrderStatus.CANCELLED;
+        if (isCancel && order.isPaid) {
+            throw new ConflictException('order.error.cannotCancelPaidOrder');
+        }
+
+        const updated = await this.guardedUpdate(
+            id,
+            order.status,
+            {
+                status: dto.status,
+                ...(isCancel ? { cancelledAt: new Date() } : {}),
+            },
+            actor
+        );
 
         // Emit real-time update to order room
         this.gateway.emitStatusUpdate(id, dto.status);
@@ -215,13 +320,18 @@ export class OrdersService {
             )
             .catch(() => undefined); // fire-and-forget — never block status update
 
-        return updated;
+        return toOrderResponse(updated);
     }
 
     async cancel(id: string, actor: IAuthUser): Promise<OrderResponseDto> {
         const order = await this.db.order.findUnique({
             where: { id },
-            include: { items: true },
+            select: {
+                id: true,
+                residentId: true,
+                status: true,
+                isPaid: true,
+            },
         });
 
         if (!order) throw new NotFoundException('order.error.notFound');
@@ -233,12 +343,16 @@ export class OrdersService {
                 'order.error.cannotCancelAfterConfirmation'
             );
         }
+        if (order.isPaid) {
+            throw new ConflictException('order.error.cannotCancelPaidOrder');
+        }
 
-        const updated = await this.db.order.update({
-            where: { id },
-            data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
-            include: { items: true },
-        });
+        const updated = await this.guardedUpdate(
+            id,
+            OrderStatus.PLACED,
+            { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
+            actor
+        );
 
         this.gateway.emitStatusUpdate(id, OrderStatus.CANCELLED);
 
@@ -261,6 +375,49 @@ export class OrdersService {
                 .catch(() => undefined);
         }
 
-        return updated;
+        return toOrderResponse(updated);
+    }
+
+    private async assertMerchantOwnsShop(
+        shopId: string,
+        actor: IAuthUser
+    ): Promise<void> {
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { merchantId: true },
+        });
+        if (!shop || shop.merchantId !== actor.userId) {
+            throw new ForbiddenException('order.error.forbidden');
+        }
+    }
+
+    /**
+     * Compare-and-set update: only applies if the order is still in
+     * `expected` status (and unpaid when cancelling), so two concurrent
+     * transitions cannot both win. A lost race surfaces as HTTP 409.
+     */
+    private async guardedUpdate(
+        id: string,
+        expected: OrderStatus,
+        data: Prisma.OrderUpdateInput,
+        actor: IAuthUser
+    ): Promise<OrderRow> {
+        const cancelling = data.status === OrderStatus.CANCELLED;
+        try {
+            return await this.db.order.update({
+                where: {
+                    id,
+                    status: expected,
+                    ...(cancelling ? { isPaid: false } : {}),
+                },
+                data,
+                include: orderInclude(actor),
+            });
+        } catch (error) {
+            if (isRecordNotFound(error)) {
+                throw new ConflictException('order.error.statusChanged');
+            }
+            throw error;
+        }
     }
 }
