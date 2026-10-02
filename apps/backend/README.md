@@ -119,7 +119,7 @@ This starts:
 - **PostgreSQL 16** on `localhost:5432`
 - **Redis 7** on `localhost:6379`
 - **Mailpit** SMTP on `localhost:1025` · Web UI on `localhost:8025`
-- **MinIO** S3-compatible on `localhost:9000` · Console on `localhost:9001`
+- **MinIO** S3-compatible on `localhost:9002` (container port 9000) · Console on `localhost:9001`
 - **minio-init** — one-shot container that creates the `eastpark-uploads` bucket
 
 Verify all containers are healthy:
@@ -174,13 +174,12 @@ Full reference is in `.env.example`. Every variable is documented with inline co
 | `AUTH_REFRESH_TOKEN_SECRET` | Yes | JWT refresh token secret — must differ from access |
 | `AUTH_ACCESS_TOKEN_EXP` | No | Default `15m` |
 | `AUTH_REFRESH_TOKEN_EXP` | No | Default `7d` |
-| `AUTH_RESET_TOKEN_TTL_SEC` | No | Password-reset token TTL. Default `1800` (30 min) |
 | `SMTP_HOST` | Yes | `localhost` (dev via Mailpit) · `smtp-relay.brevo.com` (prod) |
 | `SMTP_PORT` | Yes | `1025` (Mailpit) · `587` (Brevo) |
 | `SMTP_USER` | Prod | Brevo SMTP login |
 | `SMTP_PASS` | Prod | Brevo SMTP key |
 | `EMAIL_FROM` | Yes | Sender address |
-| `SUPABASE_URL` | Yes | `http://localhost:9000` (dev MinIO) · Supabase project URL (prod) |
+| `SUPABASE_URL` | Yes | `http://localhost:9002` (dev MinIO) · Supabase project URL (prod) |
 | `SUPABASE_SERVICE_KEY` | Yes | MinIO root password (dev) · Supabase service role key (prod) |
 | `SUPABASE_BUCKET` | Yes | `eastpark-uploads` |
 | `PAYMOB_API_KEY` | Prod | Paymob API key |

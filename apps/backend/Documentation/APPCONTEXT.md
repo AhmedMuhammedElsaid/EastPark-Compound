@@ -179,7 +179,6 @@ MinIO credentials: set via `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` env vars (s
 | `AUTH_REFRESH_TOKEN_SECRET` | **Must generate** (different from above)                            | Yes       |
 | `AUTH_ACCESS_TOKEN_EXP`     | `15m`                                                               | No        |
 | `AUTH_REFRESH_TOKEN_EXP`    | `7d`                                                                | No        |
-| `AUTH_RESET_TOKEN_TTL_SEC`  | `1800`                                                              | No        |
 | `SMTP_HOST`                 | `localhost`                                                         | Yes       |
 | `SMTP_PORT`                 | `1025`                                                              | Yes       |
 | `SMTP_USER`                 | (blank for dev)                                                     | Prod only |
@@ -197,7 +196,6 @@ MinIO credentials: set via `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` env vars (s
 | `PAYMOB_HMAC_SECRET`        | (blank)                                                             | Prod only |
 | `PAYMOB_INTEGRATION_ID`     | (blank)                                                             | Prod only |
 | `PAYMOB_IFRAME_ID`          | (blank)                                                             | Prod only |
-| `EXPO_ACCESS_TOKEN`         | (blank)                                                             | No        |
 | `APP_URL`                   | `http://localhost:3000`                                             | Yes       |
 | `HTTP_HOST`                 | `0.0.0.0`                                                           | No        |
 | `HTTP_PORT`                 | `3000`                                                              | No        |
