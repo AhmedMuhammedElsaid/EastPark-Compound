@@ -3,6 +3,7 @@ import { NotificationType } from '@prisma/client';
 import Expo from 'expo-server-sdk';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { maskToken } from 'src/common/helper/utils/redact';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { NotificationQueryDto } from './dtos/request/notification.query.dto';
@@ -65,7 +66,7 @@ export class NotificationsService {
 
         if (!Expo.isExpoPushToken(user.pushToken)) {
             this.logger.warn(
-                `Invalid Expo push token for user ${userId}: ${user.pushToken}`
+                `Invalid Expo push token for user ${userId}: ${maskToken(user.pushToken)}`
             );
             return;
         }

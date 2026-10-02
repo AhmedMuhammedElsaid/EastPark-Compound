@@ -10,6 +10,8 @@ import { ConfigService } from '@nestjs/config';
 import Handlebars from 'handlebars';
 import * as nodemailer from 'nodemailer';
 
+import { maskEmail } from '../helper/utils/redact';
+
 interface SendEmailOptions {
     to: string | string[];
     subject: string;
@@ -83,8 +85,9 @@ export class EmailService {
                     },
                 ],
             });
+            const recipients = (Array.isArray(to) ? to : [to]).map(maskEmail);
             this.logger.log(
-                `Email sent to ${JSON.stringify(to)} [${template}]`
+                `Email sent to ${recipients.join(', ')} [${template}]`
             );
         } catch (error) {
             const transportError = error as EmailTransportError;
