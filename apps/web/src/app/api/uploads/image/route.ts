@@ -5,11 +5,18 @@ import { authenticatedBackendFetch } from '@/lib/auth/proxy';
 
 export const maxDuration = 30;
 
+const MAX_BODY_BYTES = 4.5 * 1024 * 1024;
+
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type');
     if (!contentType || !contentType.toLowerCase().startsWith('multipart/form-data')) {
       return NextResponse.json({ error: 'validation' }, { status: 400 });
+    }
+
+    // Vercel rejects function request bodies above 4.5 MB before this handler runs.
+    if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'upload_failed' }, { status: 413 });
     }
 
     const body = await request.arrayBuffer();
@@ -20,6 +27,7 @@ export async function POST(request: NextRequest) {
     });
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     if (!response.ok) {
+      console.error('Image upload rejected by backend', { status: response.status });
       const status = [400, 401, 403, 413, 415, 422, 429].includes(response.status) ? response.status : 502;
       return NextResponse.json({ error: status === 401 ? 'unauthorized' : 'upload_failed' }, { status });
     }
