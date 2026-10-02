@@ -156,7 +156,7 @@ export default function ResetPasswordScreen() {
               autoComplete="new-password"
               returnKeyType="next"
               rightSlot={(
-                <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showPwd ? "Hide password" : "Show password"}>
+                <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showPwd ? t("auth.hide_password") : t("auth.show_password")}>
                   {showPwd ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
                 </Pressable>
               )}
@@ -177,7 +177,7 @@ export default function ResetPasswordScreen() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit(onSubmit)}
               rightSlot={(
-                <Pressable onPress={() => setShowConfirm(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showConfirm ? "Hide password" : "Show password"}>
+                <Pressable onPress={() => setShowConfirm(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showConfirm ? t("auth.hide_password") : t("auth.show_password")}>
                   {showConfirm ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
                 </Pressable>
               )}

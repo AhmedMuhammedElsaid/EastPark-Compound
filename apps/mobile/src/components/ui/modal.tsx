@@ -35,12 +35,13 @@ import type {
 } from "@gorhom/bottom-sheet";
 import { BottomSheetModal, useBottomSheet } from "@gorhom/bottom-sheet";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Animated, Pressable, View } from "react-native";
 import { Path, Svg } from "react-native-svg";
 
-import { Text } from "./text";
 import { OVERLAY } from "@/theme/tokens";
 
+import { Text } from "./text";
 
 type ModalProps = BottomSheetModalProps & {
   title?: string;
@@ -170,14 +171,14 @@ const ModalHeader = React.memo(({ title, dismiss }: ModalHeaderProps) => {
 });
 
 function CloseButton({ close }: { close: () => void }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={close}
       className="absolute top-3 right-3 size-6 items-center justify-center"
       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-      accessibilityLabel="close modal"
+      accessibilityLabel={t("common.close")}
       accessibilityRole="button"
-      accessibilityHint="closes the modal"
     >
       <Svg
         className="fill-neutral-300 dark:fill-white"

@@ -230,6 +230,7 @@ function CartItemRow({
   styles: any;
 }) {
   const colors = useAppColors();
+  const { t } = useTranslation();
   const name = isAr ? item.nameAr : item.name;
 
   const renderRightActions = () => (
@@ -237,7 +238,7 @@ function CartItemRow({
       style={styles.deleteAction}
       onPress={onDelete}
       accessibilityRole="button"
-      accessibilityLabel="Delete item"
+      accessibilityLabel={t("common.delete")}
     >
       <Trash size={22} color={LIGHT.bg} weight="bold" />
     </Pressable>

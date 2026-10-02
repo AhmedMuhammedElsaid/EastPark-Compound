@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { AxiosError } from "axios";
 import { Dimensions, Platform } from "react-native";
+import i18n from "i18next";
 import { showMessage } from "react-native-flash-message";
 
 export const IS_IOS = Platform.OS === "ios";
@@ -16,7 +17,7 @@ export function showError(error: AxiosError) {
   const description = extractError(error?.response?.data).trimEnd();
 
   showMessage({
-    message: "Error",
+    message: i18n.t("common.error_title"),
     description,
     type: "danger",
     duration: 4000,
@@ -24,7 +25,7 @@ export function showError(error: AxiosError) {
   });
 }
 
-export function showErrorMessage(message: string = "Something went wrong ") {
+export function showErrorMessage(message: string = i18n.t("common.error")) {
   showMessage({
     message,
     type: "danger",
@@ -53,5 +54,5 @@ export function extractError(data: unknown): string {
     });
     return `${messages.join("")} `;
   }
-  return "Something went wrong ";
+  return i18n.t("common.error");
 }
