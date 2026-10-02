@@ -20,11 +20,10 @@ import { getSecureItem, setSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
 import { usersApi } from "@/services/api/users";
-import { registerPushToken } from "@/services/push";
-import { queryClient } from "@/services/query/client";
-import { useAppDispatch } from "@/store";
-import { login } from "@/store/slices/auth-slice";
+import { completeLogin } from "@/services/auth/session";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+
+const SERVER_WAKING_HINT_MS = 5_000;
 
 const schema = z.object({
   email: z.string().email("auth.errors.invalid_email"),
@@ -45,6 +44,7 @@ function useStyles() {
     footerText: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted },
     footerLink: { fontFamily: FONT.sans, fontSize: 14, color: BRAND.gold, fontWeight: "600" },
     bottomPad: { height: SPACING["2xl"] },
+    wakingText: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, textAlign: "center" as const, marginTop: SPACING.sm },
     biometricBtn: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -68,24 +68,15 @@ function useStyles() {
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const styles = useStyles();
   const biometric = useBiometric();
   const [showPassword, setShowPassword] = React.useState(false);
   const [biometricSubmitting, setBiometricSubmitting] = React.useState(false);
+  const [serverWaking, setServerWaking] = React.useState(false);
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
-
-  async function finalizeLogin(user: any, accessToken: string, refreshToken: string) {
-    await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-    await setSecureItem(SECURE_KEY_REFRESH, refreshToken);
-    queryClient.clear();
-    dispatch(login({ user, accessToken, refreshToken }));
-    await registerPushToken();
-    router.replace("/(tabs)");
-  }
 
   function maybePromptEnableBiometric(email: string) {
     if (!biometric.ready || !biometric.isAvailable || biometric.enabled)
@@ -114,15 +105,31 @@ export default function LoginScreen() {
   }
 
   async function onSubmit({ email, password }: LoginFormData) {
+    // Render cold starts take 25-50 s: explain the wait instead of looking stuck.
+    const wakingTimer = setTimeout(setServerWaking, SERVER_WAKING_HINT_MS, true);
     try {
       const res = await authApi.login({ email, password });
       const { user, accessToken, refreshToken } = res.data.data;
-      await finalizeLogin(user, accessToken, refreshToken);
+      await completeLogin({ user, accessToken, refreshToken });
       // Post-login: offer biometric enrollment (does not block navigation).
       maybePromptEnableBiometric(email);
     }
-    catch {
-      showMessage({ message: t("auth.errors.login_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+    catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        // Account exists but the email is not verified yet.
+        showMessage({ message: t("auth.errors.email_not_verified"), type: "warning", backgroundColor: SEMANTIC.warning });
+        router.push({ pathname: "/(auth)/verify-otp", params: { email } });
+        return;
+      }
+      const message = status === undefined
+        ? t("auth.errors.server_unreachable")
+        : t("auth.errors.login_failed");
+      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
+    }
+    finally {
+      clearTimeout(wakingTimer);
+      setServerWaking(false);
     }
   }
 
@@ -150,19 +157,22 @@ export default function LoginScreen() {
       await setSecureItem(SECURE_KEY_ACCESS, accessToken);
       await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
       const profile = await usersApi.getProfile();
-      queryClient.clear();
-      dispatch(login({ user: profile.data.data, accessToken, refreshToken: newRefresh }));
-      await registerPushToken();
-      router.replace("/(tabs)");
+      await completeLogin({ user: profile.data.data, accessToken, refreshToken: newRefresh });
     }
-    catch {
-      // Refresh failed (token revoked/expired). Disable biometric so user re-enters password.
-      await biometric.disable();
-      showMessage({
-        message: t("auth.biometric.session_expired"),
-        type: "warning",
-        backgroundColor: SEMANTIC.warning,
-      });
+    catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) {
+        // Refresh token revoked/expired. Disable biometric so user re-enters password.
+        await biometric.disable();
+        showMessage({
+          message: t("auth.biometric.session_expired"),
+          type: "warning",
+          backgroundColor: SEMANTIC.warning,
+        });
+        return;
+      }
+      // Network error / timeout / 5xx: keep biometric + tokens so the user can retry.
+      showMessage({ message: t("auth.errors.server_unreachable"), type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {
       setBiometricSubmitting(false);
@@ -222,6 +232,9 @@ export default function LoginScreen() {
         <Text style={styles.forgotText}>{t("auth.forgot_password")}</Text>
       </Pressable>
       <GoldButton label={t("auth.login")} onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+      {serverWaking
+        ? <Text style={styles.wakingText} accessibilityLiveRegion="polite">{t("common.server_waking")}</Text>
+        : null}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
           {t("auth.no_account")}

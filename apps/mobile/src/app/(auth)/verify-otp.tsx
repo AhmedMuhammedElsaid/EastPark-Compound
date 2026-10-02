@@ -10,13 +10,8 @@ import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { setSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
-import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
-import { registerPushToken } from "@/services/push";
-import { queryClient } from "@/services/query/client";
-import { useAppDispatch } from "@/store";
-import { login } from "@/store/slices/auth-slice";
+import { completeLogin } from "@/services/auth/session";
 import { BRAND, FONT, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const RESEND_COOLDOWN = 60;
@@ -41,7 +36,6 @@ function useStyles() {
 export default function VerifyOtpScreen() {
   const { t } = useTranslation();
   const { email } = useLocalSearchParams<{ email: string }>();
-  const dispatch = useAppDispatch();
   const colors = useAppColors();
   const styles = useStyles();
   const [otp, setOtp] = React.useState("");
@@ -71,12 +65,7 @@ export default function VerifyOtpScreen() {
     try {
       const res = await authApi.verifyOtp(email, otpToVerify);
       const { user, accessToken, refreshToken } = res.data.data;
-      await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-      await setSecureItem(SECURE_KEY_REFRESH, refreshToken);
-      queryClient.clear();
-      dispatch(login({ user, accessToken, refreshToken }));
-      await registerPushToken();
-      router.replace("/(tabs)");
+      await completeLogin({ user, accessToken, refreshToken });
     }
     catch {
       showMessage({ message: t("auth.errors.invalid_otp"), type: "danger", backgroundColor: SEMANTIC.error });

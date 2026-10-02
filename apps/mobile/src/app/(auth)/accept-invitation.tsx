@@ -1,7 +1,7 @@
 import type { Control, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Haptics from "expo-haptics";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Eye, EyeSlash } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -14,18 +14,15 @@ import { AuthInput } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
+import { newPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { setSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
-import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
-import { registerPushToken } from "@/services/push";
-import { useAppDispatch } from "@/store";
-import { login } from "@/store/slices/auth-slice";
+import { completeLogin } from "@/services/auth/session";
 import { BRAND, FONT, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z.object({
   name: z.string().min(2, "auth.errors.name_too_short"),
-  password: z.string().min(8, "auth.errors.password_too_short"),
+  password: newPasswordSchema,
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, { message: "auth.errors.passwords_no_match", path: ["confirmPassword"] });
 type FormData = z.infer<typeof schema>;
@@ -50,7 +47,6 @@ function useStyles() {
 export default function AcceptInvitationScreen() {
   const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string; role?: string }>();
-  const dispatch = useAppDispatch();
   const styles = useStyles();
   // confirmedRole is set from the API response, not from the URL param, to reflect what the backend actually assigned
   const [confirmedRole, setConfirmedRole] = React.useState<string | null>(null);
@@ -66,20 +62,17 @@ export default function AcceptInvitationScreen() {
       const res = await authApi.acceptInvitation(token, name, password);
       const { user, accessToken, refreshToken } = res.data.data;
       setConfirmedRole(user.role);
-      await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-      await setSecureItem(SECURE_KEY_REFRESH, refreshToken);
-      dispatch(login({ user, accessToken, refreshToken }));
-      await registerPushToken();
-      router.replace(
-        user.role === "MERCHANT"
-          ? "/(merchant)/dashboard"
-          : user.role === "ADMIN"
-            ? "/(admin)"
-            : "/(tabs)",
-      );
+      // Routes MERCHANT → merchant dashboard, ADMIN → admin, else tabs.
+      await completeLogin({ user, accessToken, refreshToken });
     }
-    catch {
-      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      // 409: the invited email already has an account — the password field
+      // must contain that account's CURRENT password.
+      const message = status === 409
+        ? t("auth.errors.invitation_existing_account")
+        : t("common.error");
+      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     }
   }
 

@@ -1,4 +1,5 @@
-import { router } from "expo-router";
+import type { Href } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { useCallback } from "react";
 
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -12,13 +13,16 @@ import { showAuthWall } from "@/store/slices/auth-slice";
  *   <Pressable onPress={() => requireAuth(() => addToCart(item))} />
  *
  * If authenticated → runs the action immediately.
- * If not authenticated → opens AuthWallSheet.
- * The action re-plays after successful login is not automatic in this version —
- * screens with critical post-login actions should check isAuthenticated on re-render.
+ * If not authenticated → opens AuthWallSheet and remembers where the guest was
+ * (`pendingRedirect`). After a successful login, `completeLogin()` replaces
+ * the route with it, so the guest lands back on the same screen and can
+ * finish the action. Callbacks cannot be stored in Redux, so the screen —
+ * not the closure — is what replays.
  */
 export function useAuthGuard() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  const pathname = usePathname();
 
   const requireAuth = useCallback(
     (action: () => void, message?: string) => {
@@ -26,23 +30,23 @@ export function useAuthGuard() {
         action();
       }
       else {
-        dispatch(showAuthWall({ message }));
+        dispatch(showAuthWall({ message, redirectAction: pathname || undefined }));
       }
     },
-    [isAuthenticated, dispatch],
+    [isAuthenticated, dispatch, pathname],
   );
 
   /**
    * requireAuthNavigation — for tab/route navigation that requires auth.
-   * If not auth → shows auth wall. If auth → navigates to the route.
+   * If not auth → shows auth wall and replays the navigation after login.
    */
   const requireAuthNavigation = useCallback(
     (href: string, message?: string) => {
       if (isAuthenticated) {
-        router.push(href as any);
+        router.push(href as Href);
       }
       else {
-        dispatch(showAuthWall({ message }));
+        dispatch(showAuthWall({ message, redirectAction: href }));
       }
     },
     [isAuthenticated, dispatch],

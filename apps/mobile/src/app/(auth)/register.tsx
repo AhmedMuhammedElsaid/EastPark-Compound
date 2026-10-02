@@ -14,6 +14,7 @@ import { AuthInput } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
+import { newPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { authApi } from "@/services/api/auth";
 import { BRAND, FONT, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -23,7 +24,7 @@ const schema = z.object({
   email: z.string().email("auth.errors.invalid_email"),
   phone: z.string().min(8, "auth.errors.invalid_phone"),
   unitNumber: z.string().min(1, "auth.errors.unit_required"),
-  password: z.string().min(8, "auth.errors.password_too_short"),
+  password: newPasswordSchema,
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, { message: "auth.errors.passwords_no_match", path: ["confirmPassword"] });
 type FormData = z.infer<typeof schema>;

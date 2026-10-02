@@ -26,6 +26,9 @@ type AuthState = {
   // Auth-wall bottom sheet
   showAuthWall: boolean;
   authWallConfig: AuthWallConfig | null;
+  // Route to return to after a successful login (auth-wall replay). Kept
+  // separate from authWallConfig because hiding the sheet clears that.
+  pendingRedirect: string | null;
 };
 
 const initialState: AuthState = {
@@ -35,6 +38,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   showAuthWall: false,
   authWallConfig: null,
+  pendingRedirect: null,
 };
 
 export const authSlice = createSlice({
@@ -63,6 +67,7 @@ export const authSlice = createSlice({
       state.isAuthenticated = false;
       state.showAuthWall = false;
       state.authWallConfig = null;
+      state.pendingRedirect = null;
     },
     updateTokens(
       state,
@@ -79,10 +84,18 @@ export const authSlice = createSlice({
     showAuthWall(state, action: PayloadAction<AuthWallConfig | undefined>) {
       state.showAuthWall = true;
       state.authWallConfig = action.payload ?? null;
+      if (action.payload?.redirectAction)
+        state.pendingRedirect = action.payload.redirectAction;
     },
     hideAuthWall(state) {
       state.showAuthWall = false;
       state.authWallConfig = null;
+    },
+    setPendingRedirect(state, action: PayloadAction<string | null>) {
+      state.pendingRedirect = action.payload;
+    },
+    clearPendingRedirect(state) {
+      state.pendingRedirect = null;
     },
   },
 });
@@ -94,6 +107,8 @@ export const {
   updateUser,
   showAuthWall,
   hideAuthWall,
+  setPendingRedirect,
+  clearPendingRedirect,
 } = authSlice.actions;
 
 export default authSlice.reducer;

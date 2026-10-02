@@ -8,13 +8,14 @@ import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAppDispatch, useAppSelector } from "@/store";
-import { hideAuthWall } from "@/store/slices/auth-slice";
+import { clearPendingRedirect, hideAuthWall } from "@/store/slices/auth-slice";
 import { FONT, SPACING } from "@/theme/tokens";
 
 /**
  * Global auth-wall bottom sheet.
  * Rendered once in _layout.tsx, controlled by Redux authSlice.showAuthWall.
- * When the user logs in via this sheet, the pending redirectAction auto-replays.
+ * When the user logs in via this sheet, completeLogin() returns them to the
+ * screen stored in auth.pendingRedirect.
  */
 export function AuthWallSheet() {
   const { t } = useTranslation();
@@ -34,17 +35,26 @@ export function AuthWallSheet() {
     }
   }, [showAuthWall]);
 
+  // True while the sheet closes because the guest chose to sign in/up: the
+  // pending redirect must survive so completeLogin() can replay it.
+  const continuingToAuthRef = React.useRef(false);
+
   function handleDismiss() {
+    if (!continuingToAuthRef.current)
+      dispatch(clearPendingRedirect());
+    continuingToAuthRef.current = false;
     dispatch(hideAuthWall());
   }
 
   function handleLogin() {
-    handleDismiss();
+    continuingToAuthRef.current = true;
+    dispatch(hideAuthWall());
     router.push("/(auth)/login");
   }
 
   function handleRegister() {
-    handleDismiss();
+    continuingToAuthRef.current = true;
+    dispatch(hideAuthWall());
     router.push("/(auth)/register");
   }
 

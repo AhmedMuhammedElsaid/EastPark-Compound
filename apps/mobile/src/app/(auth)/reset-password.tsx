@@ -12,13 +12,14 @@ import { AuthInput } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
+import { newPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { authApi } from "@/services/api/auth";
 import { FONT, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z
   .object({
-    password: z.string().min(8, "auth.errors.password_too_short"),
+    password: newPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine(d => d.password === d.confirmPassword, {

@@ -14,13 +14,12 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { deleteSecureItem, getSecureItem } from "@/lib/secure-storage";
+import { getSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
-import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
+import { SECURE_KEY_REFRESH } from "@/services/api/client";
 import { usersApi } from "@/services/api/users";
-import { queryClient } from "@/services/query/client";
-import { useAppDispatch, useAppSelector } from "@/store";
-import { logout } from "@/store/slices/auth-slice";
+import { teardownSession } from "@/services/auth/session";
+import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -186,17 +185,12 @@ function GuestProfile({ styles, colors }: { styles: AppStyles; colors: AppColors
 
 function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const biometric = useBiometric();
   const { mutate: deleteAccount } = useMutation({
     mutationFn: () => usersApi.deleteAccount(),
     onSuccess: async () => {
-      await deleteSecureItem(SECURE_KEY_ACCESS);
-      await deleteSecureItem(SECURE_KEY_REFRESH);
       await biometric.disable();
-      dispatch(logout());
-      queryClient.clear();
-      router.replace("/(auth)/login" as any);
+      await teardownSession();
     },
     onError: () => {
       showMessage({ message: t("profile.delete_account_error"), type: "danger" });
@@ -212,10 +206,7 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
           // Biometric-aware logout: keep refresh token + skip server-side revoke
           // so user can sign back in via Face ID/Fingerprint instantly.
           if (biometric.enabled) {
-            await deleteSecureItem(SECURE_KEY_ACCESS);
-            dispatch(logout());
-            queryClient.clear();
-            router.replace("/(auth)/login" as any);
+            await teardownSession({ keepRefreshToken: true });
             return;
           }
           const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
@@ -223,11 +214,7 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
             try { await authApi.logout(refreshToken); }
             catch {}
           }
-          await deleteSecureItem(SECURE_KEY_ACCESS);
-          await deleteSecureItem(SECURE_KEY_REFRESH);
-          dispatch(logout());
-          queryClient.clear();
-          router.replace("/(auth)/login" as any);
+          await teardownSession();
         },
       },
     ]);

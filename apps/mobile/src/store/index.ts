@@ -14,7 +14,7 @@ const authPersistConfig = {
   storage: AsyncStorage,
   // Tokens kept in SecureStore; Redux holds in-memory copy only for interceptors.
   // We still persist user + isAuthenticated for UI state (tokens re-read from SecureStore on startup).
-  blacklist: ["showAuthWall", "authWallConfig", "accessToken", "refreshToken"],
+  blacklist: ["showAuthWall", "authWallConfig", "pendingRedirect", "accessToken", "refreshToken"],
 };
 
 const cartPersistConfig = {
