@@ -15,7 +15,7 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
-const optionSchema = z.object({ text: z.string().min(1), textAr: z.string().min(1) });
+const optionSchema = z.object({ label: z.string().min(1), labelAr: z.string().min(1) });
 const schema = z.object({
   question: z.string().min(5),
   questionAr: z.string().min(5),
@@ -58,7 +58,7 @@ export default function NewPollScreen() {
     defaultValues: {
       question: "",
       questionAr: "",
-      options: [{ text: "", textAr: "" }, { text: "", textAr: "" }],
+      options: [{ label: "", labelAr: "" }, { label: "", labelAr: "" }],
       expiresAt: "",
     },
   });
@@ -116,14 +116,14 @@ export default function NewPollScreen() {
           <View key={i} style={styles.optionRow}>
             <Controller
               control={control}
-              name={`options.${i}.text`}
+              name={`options.${i}.label`}
               render={({ field }) => (
                 <TextInput style={[styles.input, styles.optionInput]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={`${t("admin.option")} ${i + 1} (EN)`} />
               )}
             />
             <Controller
               control={control}
-              name={`options.${i}.textAr`}
+              name={`options.${i}.labelAr`}
               render={({ field }) => (
                 <TextInput style={[styles.input, styles.optionInput]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={`${t("admin.option")} ${i + 1} (AR)`} textAlign="right" />
               )}

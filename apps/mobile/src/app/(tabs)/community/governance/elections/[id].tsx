@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
-import { governanceApi } from "@/services/api/governance";
+import { governanceApi, votePercent } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -142,8 +142,10 @@ export default function ElectionScreen() {
 
   const title = isAr ? election.titleAr : election.title;
   const description = isAr ? election.descriptionAr : election.description;
-  const showVotes = election.resultsOpen && election.myVote !== null;
-  const totalVotes = election.totalVotes ?? 0;
+  // Backend includes voteCount when resultsOpen or visibilityMode is LIVE_COUNT.
+  const showVotes = election.resultsVisible;
+  const totalVotes = election.totalVotes;
+  const votingClosed = election.isExpired || new Date(election.expiresAt).getTime() <= Date.now();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -161,7 +163,7 @@ export default function ElectionScreen() {
         <Text style={styles.title}>{title}</Text>
         {description ? <Text style={styles.description}>{description}</Text> : null}
 
-        {election.myVote && !showVotes && (
+        {election.myVoteCandidateId && !showVotes && (
           <View style={styles.sealedBanner}>
             <Text style={styles.sealedText}>{t("governance.sealed")}</Text>
           </View>
@@ -172,7 +174,8 @@ export default function ElectionScreen() {
         <CandidateList
           candidates={election.candidates}
           isAr={isAr}
-          myVote={election.myVote}
+          myVote={election.myVoteCandidateId}
+          votingClosed={votingClosed}
           showVotes={showVotes}
           totalVotes={totalVotes}
           onVote={handleVote}
@@ -181,10 +184,7 @@ export default function ElectionScreen() {
         />
 
         <Text style={styles.meta}>
-          {election.totalVotes}
-          {" "}
-          {t("governance.votes_label")}
-          {" · "}
+          {totalVotes !== null && `${totalVotes} ${t("governance.votes_label")} · `}
           {t("governance.expires", {
             date: new Date(election.expiresAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
               month: "short",
@@ -203,6 +203,7 @@ function CandidateList({
   candidates,
   isAr,
   myVote,
+  votingClosed,
   showVotes,
   totalVotes,
   onVote,
@@ -212,8 +213,9 @@ function CandidateList({
   candidates: Candidate[];
   isAr: boolean;
   myVote: string | null;
+  votingClosed: boolean;
   showVotes: boolean;
-  totalVotes: number;
+  totalVotes: number | null;
   onVote: (id: string, name: string) => void;
   isPending: boolean;
   styles: any;
@@ -224,9 +226,8 @@ function CandidateList({
         const name = isAr ? candidate.nameAr : candidate.name;
         const statement = isAr ? candidate.statementAr : candidate.statement;
         const isSelected = myVote === candidate.id;
-        const pct = showVotes && candidate.votes !== undefined && totalVotes > 0
-          ? Math.round((candidate.votes / totalVotes) * 100)
-          : 0;
+        const pct = showVotes ? votePercent(candidate.voteCount, totalVotes) : 0;
+        const canVote = !myVote && !votingClosed;
 
         return (
           <CandidateCard
@@ -235,12 +236,12 @@ function CandidateList({
             statement={statement}
             photoUrl={candidate.photoUrl}
             isSelected={isSelected}
-            canVote={!myVote}
+            canVote={canVote}
             showVotes={showVotes}
-            votes={candidate.votes}
+            votes={candidate.voteCount}
             pct={pct}
             onVote={() => {
-              if (!myVote && !isPending)
+              if (canVote && !isPending)
                 onVote(candidate.id, name);
             }}
             styles={styles}

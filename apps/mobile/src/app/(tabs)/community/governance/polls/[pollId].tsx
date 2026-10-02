@@ -1,3 +1,4 @@
+import type { Poll, PollOption } from "@/services/api/governance";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "phosphor-react-native";
@@ -10,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
-import { governanceApi } from "@/services/api/governance";
+import { governanceApi, votePercent } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -130,8 +131,11 @@ export default function PollDetailScreen() {
     return <PollSkeleton insets={insets} />;
 
   const question = isAr ? poll.questionAr : poll.question;
-  const showResults = poll.resultsOpen && poll.myVote !== null;
-  const totalVotes = poll.totalVotes ?? 0;
+  // Backend only includes voteCount once the poll has expired.
+  const showResults = poll.resultsVisible;
+  const totalVotes = poll.totalVotes;
+  const votingClosed = poll.isExpired || new Date(poll.expiresAt).getTime() <= Date.now();
+  const canVote = !poll.myVoteOptionId && !votingClosed;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -148,7 +152,7 @@ export default function PollDetailScreen() {
       >
         <Text style={styles.question}>{question}</Text>
 
-        {poll.myVote && !showResults && (
+        {poll.myVoteOptionId && !showResults && (
           <View style={styles.sealedBanner}>
             <Text style={styles.sealedText}>{t("governance.sealed")}</Text>
           </View>
@@ -159,16 +163,14 @@ export default function PollDetailScreen() {
           isAr={isAr}
           showResults={showResults}
           totalVotes={totalVotes}
+          canVote={canVote}
           onVote={handleVote}
           isPending={isPending}
           styles={styles}
         />
 
         <Text style={styles.meta}>
-          {poll.totalVotes}
-          {" "}
-          {t("governance.votes_label")}
-          {" · "}
+          {totalVotes !== null && `${totalVotes} ${t("governance.votes_label")} · `}
           {t("governance.expires", {
             date: new Date(poll.expiresAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
               month: "short",
@@ -188,26 +190,26 @@ function OptionsList({
   isAr,
   showResults,
   totalVotes,
+  canVote,
   onVote,
   isPending,
   styles,
 }: {
-  poll: ReturnType<typeof useQuery<any>>["data"] extends undefined ? never : any;
+  poll: Poll;
   isAr: boolean;
   showResults: boolean;
-  totalVotes: number;
+  totalVotes: number | null;
+  canVote: boolean;
   onVote: (id: string, text: string) => void;
   isPending: boolean;
   styles: any;
 }) {
   return (
     <View style={styles.options}>
-      {poll.options?.map((option: any) => {
-        const text = isAr ? option.textAr : option.text;
-        const isSelected = poll.myVote === option.id;
-        const pct = showResults && option.votes !== undefined && totalVotes > 0
-          ? Math.round((option.votes / totalVotes) * 100)
-          : 0;
+      {poll.options.map((option: PollOption) => {
+        const text = isAr ? option.labelAr : option.label;
+        const isSelected = poll.myVoteOptionId === option.id;
+        const pct = showResults ? votePercent(option.voteCount, totalVotes) : 0;
 
         return (
           <Pressable
@@ -215,13 +217,13 @@ function OptionsList({
             style={[
               styles.option,
               isSelected && styles.optionSelected,
-              poll.myVote !== null && styles.optionDisabled,
+              !canVote && styles.optionDisabled,
             ]}
             onPress={() => {
-              if (!poll.myVote)
+              if (canVote)
                 onVote(option.id, text);
             }}
-            disabled={!!poll.myVote || isPending}
+            disabled={!canVote || isPending}
           >
             {showResults && (
               <View style={[styles.resultBar, { width: `${pct}%` }]} />
@@ -230,9 +232,9 @@ function OptionsList({
               <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
                 {text}
               </Text>
-              {showResults && option.votes !== undefined && (
+              {showResults && option.voteCount !== undefined && (
                 <Text style={styles.optionVotes}>
-                  {option.votes}
+                  {option.voteCount}
                   {" "}
                   (
                   {pct}

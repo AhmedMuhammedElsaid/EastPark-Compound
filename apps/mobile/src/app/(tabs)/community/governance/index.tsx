@@ -232,7 +232,7 @@ function PollCard({ poll, styles }: { poll: Poll; styles: any }) {
 
   return (
     <Pressable
-      style={[styles.card, poll.myVote && styles.cardVoted]}
+      style={[styles.card, !!poll.myVoteOptionId && styles.cardVoted]}
       onPress={() => router.push(`/(tabs)/community/governance/polls/${poll.id}`)}
       accessibilityRole="button"
       accessibilityLabel={question}
@@ -241,18 +241,22 @@ function PollCard({ poll, styles }: { poll: Poll; styles: any }) {
         <View style={styles.pollBadge}>
           <Text style={styles.pollBadgeText}>{t("governance.polls")}</Text>
         </View>
-        {poll.myVote && (
+        {!!poll.myVoteOptionId && (
           <Text style={styles.votedBadge}>{t("governance.voted")}</Text>
         )}
       </View>
       <Text style={styles.cardQuestion} numberOfLines={3}>{question}</Text>
       <View style={styles.cardMeta}>
-        <Text style={styles.metaText}>
-          {poll.totalVotes}
-          {" "}
-          {t("governance.votes_label")}
-        </Text>
-        <Text style={styles.metaDot}>·</Text>
+        {poll.totalVotes !== null && (
+          <>
+            <Text style={styles.metaText}>
+              {poll.totalVotes}
+              {" "}
+              {t("governance.votes_label")}
+            </Text>
+            <Text style={styles.metaDot}>·</Text>
+          </>
+        )}
         <Text style={styles.metaText}>{t("governance.expires", { date: expiry })}</Text>
       </View>
     </Pressable>
@@ -270,7 +274,7 @@ function ElectionCard({ election, styles }: { election: Election; styles: any })
 
   return (
     <Pressable
-      style={[styles.card, election.myVote && styles.cardVoted]}
+      style={[styles.card, !!election.myVoteCandidateId && styles.cardVoted]}
       onPress={() => router.push(`/(tabs)/community/governance/elections/${election.id}`)}
       accessibilityRole="button"
       accessibilityLabel={title}
@@ -279,7 +283,7 @@ function ElectionCard({ election, styles }: { election: Election; styles: any })
         <View style={[styles.pollBadge, styles.electionBadge]}>
           <Text style={styles.pollBadgeText}>{t("governance.elections")}</Text>
         </View>
-        {election.myVote && (
+        {!!election.myVoteCandidateId && (
           <Text style={styles.votedBadge}>{t("governance.voted")}</Text>
         )}
       </View>
