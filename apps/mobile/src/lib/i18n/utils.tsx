@@ -33,6 +33,11 @@ export async function changeLanguage(lang: Language) {
   await persistor.flush();
   I18nManager.allowRTL(lang === "ar");
   I18nManager.forceRTL(lang === "ar");
+  reloadApp();
+}
+
+/** Reloads the JS bundle so a forceRTL() change takes effect. */
+export function reloadApp() {
   if (Platform.OS === "ios" || Platform.OS === "android") {
     if (__DEV__)
       NativeModules.DevSettings.reload();

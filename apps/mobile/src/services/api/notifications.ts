@@ -1,13 +1,24 @@
+import type { NotificationType } from "@/services/notifications/routing";
+
 import { client } from "./client";
 
 export type AppNotification = {
   id: string;
-  type: string;
+  type: NotificationType;
   title: string;
+  titleAr: string;
   body: string;
-  data: Record<string, unknown>;
+  bodyAr: string;
+  data: Record<string, unknown> | null;
   isRead: boolean;
   createdAt: string;
+};
+
+export type NotificationPage = {
+  items: AppNotification[];
+  nextCursor: string | null;
+  /** Server-side unread count across ALL pages. */
+  unreadCount: number;
 };
 
 export type NotificationPreference = {
@@ -17,13 +28,13 @@ export type NotificationPreference = {
 
 export const notificationsApi = {
   getNotifications: (params?: { cursor?: string; limit?: number }) =>
-    client.get<{ data: { items: AppNotification[]; nextCursor: string | null } }>("/notifications", { params }),
+    client.get<{ data: NotificationPage }>("/notifications", { params }),
 
   markRead: (notificationId: string) =>
-    client.patch<{ data: AppNotification }>(`/notifications/${notificationId}/read`),
+    client.patch(`/notifications/${notificationId}/read`),
 
   markAllRead: () =>
-    client.patch<{ data: { success: boolean } }>("/notifications/read-all"),
+    client.patch("/notifications/read-all"),
 
   getPreferences: () =>
     client.get<{ data: NotificationPreference[] }>("/notifications/preferences"),

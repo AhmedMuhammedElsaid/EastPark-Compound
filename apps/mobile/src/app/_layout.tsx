@@ -1,12 +1,13 @@
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import type { Href } from "expo-router";
 
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { ThemeProvider } from "@react-navigation/native";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as React from "react";
-import { I18nManager, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import FlashMessage from "react-native-flash-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -17,16 +18,36 @@ import { CartConflictSheet } from "@/components/cart/cart-conflict-sheet";
 
 import { useThemeConfig } from "@/components/ui/use-theme-config";
 import { useAuthRehydration } from "@/lib/hooks/use-auth-rehydration";
+import { usePushTokenRefresh } from "@/lib/hooks/use-push-token-refresh";
 import { loadSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import i18n from "@/lib/i18n";
-import { injectStore } from "@/services/api/client";
-import { asyncStoragePersister, queryClient } from "@/services/query/client";
+import { ensureLayoutDirection } from "@/lib/i18n/layout-direction";
+import { injectStore, setSessionExpiredHandler, warmUpServer } from "@/services/api/client";
+import { teardownSession } from "@/services/auth/session";
+import { getNotificationHref } from "@/services/notifications/routing";
+import { queryClient, queryPersistOptions } from "@/services/query/client";
 import { persistor, store, useAppSelector } from "@/store";
 // Global CSS must be imported before other app modules
 import "../global.css";
 
 // Inject Redux store into the Axios client for 401 token refresh + logout dispatch
 injectStore(store);
+// A definitively rejected refresh token ends the session everywhere
+// (tokens, Redux, query cache, socket) and returns to login.
+setSessionExpiredHandler(() => teardownSession({ redirectToLogin: true }));
+
+// Render free tier cold-starts in 25-50 s — start waking it immediately.
+warmUpServer();
+
+// Show pushes received while the app is in the foreground.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 500, fade: true });
@@ -43,7 +64,7 @@ export default function RootLayout() {
       <PersistGate persistor={persistor} loading={null}>
         <PersistQueryClientProvider
           client={queryClient}
-          persistOptions={{ persister: asyncStoragePersister }}
+          persistOptions={queryPersistOptions}
         >
           <Providers>
             <Stack>
@@ -72,43 +93,27 @@ function Providers({ children }: { children: React.ReactNode }) {
     loadSelectedTheme();
   }, []);
 
-  // After redux-persist rehydrates, apply the saved language to i18n and RTL.
-  // This runs on first mount (initial state 'ar') and again after rehydration with persisted value.
+  const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  usePushTokenRefresh(isAuthenticated);
+
+  // After redux-persist rehydrates (Providers renders inside PersistGate), apply
+  // the saved language to i18n and make the NATIVE layout direction match it.
+  // On first launch that needs one reload (guarded against loops).
   React.useEffect(() => {
-    if (savedLanguage && i18n.language !== savedLanguage) {
+    if (!savedLanguage)
+      return;
+    if (i18n.language !== savedLanguage)
       i18n.changeLanguage(savedLanguage);
-      I18nManager.allowRTL(savedLanguage === "ar");
-      I18nManager.forceRTL(savedLanguage === "ar");
-    }
+    ensureLayoutDirection(savedLanguage);
   }, [savedLanguage]);
 
   // Navigate to the relevant screen when user taps a push notification.
   React.useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as {
-        type?: string;
-        referenceId?: string;
-      };
-      if (!data?.type || !data?.referenceId)
-        return;
-
-      switch (data.type) {
-        case "ORDER_UPDATE":
-          router.push(`/(tabs)/orders/${data.referenceId}` as any);
-          break;
-        case "ANNOUNCEMENT":
-          router.push(`/(tabs)/community/${data.referenceId}` as any);
-          break;
-        case "FEEDBACK_REPLY":
-          router.push(`/(tabs)/community/feedback/${data.referenceId}` as any);
-          break;
-        case "POLL":
-          router.push(`/(tabs)/community/governance/polls/${data.referenceId}` as any);
-          break;
-        case "ELECTION":
-          router.push(`/(tabs)/community/governance/elections/${data.referenceId}` as any);
-          break;
-      }
+      const data = response.notification.request.content.data as Record<string, unknown> | null;
+      const href = getNotificationHref(data?.type, data);
+      if (href)
+        router.push(href as Href);
     });
     return () => subscription.remove();
   }, [router]);

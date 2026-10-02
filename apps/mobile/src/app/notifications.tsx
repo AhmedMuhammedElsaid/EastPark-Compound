@@ -1,5 +1,6 @@
 import type { AxiosResponse } from "axios";
-import type { AppNotification } from "@/services/api/notifications";
+import type { Href } from "expo-router";
+import type { AppNotification, NotificationPage } from "@/services/api/notifications";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Redirect, router } from "expo-router";
@@ -12,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { notificationsApi } from "@/services/api/notifications";
+import { getNotificationHref } from "@/services/notifications/routing";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -92,8 +94,7 @@ const TYPE_COLOR: Record<string, string> = {
   ANNOUNCEMENT: SEMANTIC.info,
   POLL: SEMANTIC.success,
   ELECTION: SEMANTIC.warning,
-  FEEDBACK_REPLY: SEMANTIC.info,
-  GENERAL: "", // filled at runtime with colors.textMuted
+  FEEDBACK_UPDATE: SEMANTIC.info,
 };
 
 export default function NotificationsScreen() {
@@ -106,9 +107,9 @@ export default function NotificationsScreen() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
-      AxiosResponse<{ data: { items: AppNotification[]; nextCursor: string | null } }>,
+      AxiosResponse<{ data: NotificationPage }>,
       Error,
-      { pages: AxiosResponse<{ data: { items: AppNotification[]; nextCursor: string | null } }>[] },
+      { pages: AxiosResponse<{ data: NotificationPage }>[] },
       string[],
       string | undefined
     >({
@@ -135,35 +136,14 @@ export default function NotificationsScreen() {
   }
 
   const notifications = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // Server-side count covers every page, not just the ones loaded so far.
+  const unreadCount = data?.pages.at(-1)?.data.data.unreadCount ?? 0;
 
   function handleNotificationPress(notification: AppNotification) {
     markRead(notification.id);
-    const d = notification.data as Record<string, string>;
-    switch (notification.type) {
-      case "ORDER_UPDATE":
-        if (d.orderId)
-          router.push(`/(tabs)/orders/${d.orderId}` as any);
-        break;
-      case "ANNOUNCEMENT":
-        if (d.announcementId)
-          router.push(`/(tabs)/community/${d.announcementId}` as any);
-        break;
-      case "POLL":
-        if (d.pollId)
-          router.push(`/(tabs)/community/governance/polls/${d.pollId}` as any);
-        break;
-      case "ELECTION":
-        if (d.electionId)
-          router.push(`/(tabs)/community/governance/elections/${d.electionId}` as any);
-        break;
-      case "FEEDBACK_REPLY":
-        if (d.feedbackId)
-          router.push(`/(tabs)/community/feedback/${d.feedbackId}` as any);
-        break;
-      default:
-        break;
-    }
+    const href = getNotificationHref(notification.type, notification.data);
+    if (href)
+      router.push(href as Href);
   }
 
   return (
@@ -236,26 +216,27 @@ function NotificationItem({
   styles: any;
   colors: any;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  const title = (isAr ? notification.titleAr : notification.title) || notification.title;
+  const body = (isAr ? notification.bodyAr : notification.body) || notification.body;
   const timeAgo = formatRelativeTime(notification.createdAt, (key, opts) => String(t(key as any, opts as any)));
-  const typeColor = notification.type === "GENERAL"
-    ? colors.textMuted
-    : (TYPE_COLOR[notification.type] ?? colors.textMuted);
+  const typeColor = TYPE_COLOR[notification.type] ?? colors.textMuted;
 
   return (
     <Pressable
       style={[styles.card, !notification.isRead && styles.cardUnread]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={notification.title}
+      accessibilityLabel={title}
     >
       <View style={[styles.typeDot, { backgroundColor: typeColor }]} />
       <View style={styles.cardContent}>
         <View style={styles.cardTop}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{notification.title}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
           <Text style={styles.cardTime}>{timeAgo}</Text>
         </View>
-        <Text style={styles.cardBody} numberOfLines={2}>{notification.body}</Text>
+        <Text style={styles.cardBody} numberOfLines={2}>{body}</Text>
       </View>
       {!notification.isRead && <View style={styles.unreadDot} />}
     </Pressable>
