@@ -1,10 +1,11 @@
 import type { CartItem } from "@/store/slices/cart-slice";
+import { FlashList } from "@shopify/flash-list";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ArrowLeft, Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -143,13 +144,13 @@ export default function CartScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <CartNav shopName={shopName ?? undefined} onClear={() => dispatch(clearCart())} styles={styles} colors={colors} />
 
-      <ScrollView
+      <FlashList
+        data={items}
+        keyExtractor={(item: CartItem) => item.productId}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}
-      >
-        {items.map((item: CartItem) => (
+        contentContainerStyle={{ ...styles.scroll, paddingBottom: insets.bottom + 120 }}
+        renderItem={({ item }: { item: CartItem }) => (
           <CartItemRow
-            key={item.productId}
             item={item}
             isAr={isAr}
             onIncrease={() => {
@@ -171,8 +172,8 @@ export default function CartScreen() {
             }}
             styles={styles}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}>
         <View style={styles.totalRow}>
@@ -229,8 +230,8 @@ function CartItemRow({
   onDelete: () => void;
   styles: any;
 }) {
-  const colors = useAppColors();
   const { t } = useTranslation();
+  const colors = useAppColors();
   const name = isAr ? item.nameAr : item.name;
 
   const renderRightActions = () => (
