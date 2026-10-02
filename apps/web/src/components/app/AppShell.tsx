@@ -10,6 +10,7 @@ import { Container } from '@/components/Container';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { SkipLink } from '@/components/SkipLink';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ComingSoonProvider, GatedLink } from '@/lib/access/ComingSoon';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
@@ -24,6 +25,14 @@ type NavItem = {
 };
 
 export function AppShell({ children }: AppShellProps) {
+  return (
+    <ComingSoonProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </ComingSoonProvider>
+  );
+}
+
+function AppShellContent({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoading, logout, user } = useAuth();
@@ -74,7 +83,7 @@ export function AppShell({ children }: AppShellProps) {
           </Link>
 
           <div className="flex items-center gap-2">
-            <Link
+            <GatedLink
               href="/cart"
               aria-label={`${t('cart.title')}: ${isCartHydrated ? cart.items.reduce((count, item) => count + item.quantity, 0) : 0}`}
               className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-foreground hover:bg-muted hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
@@ -85,16 +94,16 @@ export function AppShell({ children }: AppShellProps) {
                   {cart.items.reduce((count, item) => count + item.quantity, 0)}
                 </span>
               )}
-            </Link>
+            </GatedLink>
             {user && (
-              <Link
+              <GatedLink
                 href="/notifications"
                 aria-label={t('notifications.title')}
                 aria-current={pathname.startsWith('/notifications') ? 'page' : undefined}
                 className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${pathname.startsWith('/notifications') ? 'bg-muted text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
               >
                 <Bell aria-hidden="true" className="size-5" />
-              </Link>
+              </GatedLink>
             )}
             {!isLoading &&
               (user ? (
@@ -136,7 +145,7 @@ export function AppShell({ children }: AppShellProps) {
                   ? activePaths.some((path) => pathname.startsWith(path))
                   : href === '/home' ? pathname === href : pathname.startsWith(href);
                 return (
-                  <Link
+                  <GatedLink
                     key={href}
                     href={href}
                     aria-current={active ? 'page' : undefined}
@@ -148,7 +157,7 @@ export function AppShell({ children }: AppShellProps) {
                   >
                     <Icon aria-hidden="true" className="size-5" />
                     {label}
-                  </Link>
+                  </GatedLink>
                 );
               })}
             </nav>
@@ -167,7 +176,7 @@ export function AppShell({ children }: AppShellProps) {
             ? activePaths.some((path) => pathname.startsWith(path))
             : href === '/home' ? pathname === href : pathname.startsWith(href);
           return (
-            <Link
+            <GatedLink
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
@@ -177,7 +186,7 @@ export function AppShell({ children }: AppShellProps) {
             >
               <Icon aria-hidden="true" className="size-6" />
               <span className="max-w-full truncate">{mobileLabel}</span>
-            </Link>
+            </GatedLink>
           );
         })}
       </nav>

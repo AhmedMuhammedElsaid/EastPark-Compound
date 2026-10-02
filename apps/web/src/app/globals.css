@@ -23,7 +23,7 @@
 
   /* ─── Light surfaces ────────────────────────────────────────────── */
   --color-light-bg:     #faf8f5;
-  --color-light-card:   #ffffff;
+  --color-light-card:   #fdfbf8;
   --color-light-border: #e4ceae;
   --color-light-text:   #1a1714;
   --color-light-muted:  #7a6e62;
@@ -126,7 +126,7 @@
 .light {
   --color-background:           #faf8f5;
   --color-foreground:           #1a1714;
-  --color-card:                 #ffffff;
+  --color-card:                 #fdfbf8;
   --color-card-foreground:      #1a1714;
   --color-muted:                #f0ece6;
   --color-muted-foreground:     #7a6e62;
@@ -369,6 +369,43 @@ button:disabled {
 
   .hero-logo-track .hero-logo-motion:not(:first-child) {
     display: none;
+  }
+}
+
+/* ─── Coming soon dialog ─────────────────────────────────────────────── */
+
+@keyframes coming-soon-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes coming-soon-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.coming-soon-backdrop {
+  animation: coming-soon-fade 180ms ease-out both;
+}
+
+.coming-soon-panel {
+  animation: coming-soon-rise 280ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.coming-soon-backdrop[data-closing] {
+  animation: coming-soon-fade 180ms ease-in reverse both;
+}
+
+.coming-soon-backdrop[data-closing] .coming-soon-panel {
+  animation: coming-soon-rise 180ms ease-in reverse both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coming-soon-backdrop,
+  .coming-soon-panel,
+  .coming-soon-backdrop[data-closing],
+  .coming-soon-backdrop[data-closing] .coming-soon-panel {
+    animation: none;
   }
 }
 
