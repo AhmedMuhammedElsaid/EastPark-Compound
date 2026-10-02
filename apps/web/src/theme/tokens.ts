@@ -5,12 +5,12 @@ export const BRAND = {
 	goldTint: '#f2e8d8',
 	goldText: '#7a5e38',
 	ink: '#0d0c0b',
-	white: '#ffffff',
+	white: '#fdfbf8',
 } as const;
 
 export const LIGHT = {
 	bg: '#faf8f5',
-	card: '#ffffff',
+	card: '#fdfbf8',
 	surface: '#faf8f5',
 	elevated: '#f2e8d8',
 	primary: '#b8966a',
