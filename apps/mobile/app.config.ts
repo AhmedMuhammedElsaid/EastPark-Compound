@@ -39,9 +39,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
-  updates: {
-    fallbackToCacheTimeout: 0,
-  },
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: false,

@@ -16,6 +16,13 @@ The parent repository has a deferred pnpm workspace experiment and private `pack
 package. This mobile repository remains independently installable and does not consume it. Read
 parent `restructure.md` before changing workspace resolution.
 
+> **OTA updates are intentionally not configured.** `expo-updates`, EAS Update channels, and
+> `runtimeVersion` are absent (the dangling `updates` block in `app.config.ts` and the `channel`
+> fields in `eas.json` were removed). To add OTA later: `pnpm expo install expo-updates`, run
+> `eas update:configure` (sets `updates.url` and `runtimeVersion`, e.g. `{ policy: "appVersion" }`),
+> add `"channel"` to each `eas.json` build profile, then ship with `eas update --channel <name>`.
+> Native builds are required once to embed the new config.
+
 ✅ **2026-09-30 production integration update:**
 
 - Backend is live at `https://eastpark-backend.fly.dev`; health and Prisma are verified.
