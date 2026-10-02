@@ -1,6 +1,7 @@
 import {
     BadGatewayException,
     BadRequestException,
+    ConflictException,
     ForbiddenException,
     Injectable,
     Logger,
@@ -10,22 +11,41 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'node:crypto';
-import { PaymentMethod } from '@prisma/client';
+import { OrderStatus, PaymentMethod } from '@prisma/client';
 
 import { CacheService } from 'src/common/cache/services/cache.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { toMinorUnits } from 'src/common/helper/money';
 
+/**
+ * Paymob "transaction processed" callback body. The HMAC is NOT part of the
+ * body — Paymob sends it as the `?hmac=` query parameter.
+ */
 export interface PaymobWebhookPayload {
     type: string;
     obj: {
         id: number;
         success: boolean;
+        pending: boolean;
         amount_cents: number;
         currency: string;
-        order: { id: number; merchant_order_id: string };
-        pending: boolean;
-        source_data: { type: string };
-        hmac: string;
+        created_at?: string;
+        error_occured?: boolean;
+        has_parent_transaction?: boolean;
+        integration_id?: number;
+        is_3d_secure?: boolean;
+        is_auth?: boolean;
+        is_capture?: boolean;
+        is_refunded?: boolean;
+        is_standalone_payment?: boolean;
+        is_voided?: boolean;
+        owner?: number;
+        order: { id: number; merchant_order_id?: string | null };
+        source_data?: {
+            pan?: string | null;
+            sub_type?: string | null;
+            type?: string | null;
+        };
     };
 }
 
@@ -35,8 +55,11 @@ export class PaymentsService {
     private readonly enabled: boolean;
     private readonly hmacSecret?: string;
 
-    // Paymob hashed keys used for HMAC-SHA512 signature
-    private static readonly HMAC_FIELDS = [
+    // Paymob transaction-callback HMAC fields, in Paymob's documented
+    // (lexicographic) order. Nested values use dot paths — note `order.id`,
+    // not `order` (an object would stringify to "[object Object]").
+    // TODO(owner): verify against a real Paymob sandbox callback.
+    static readonly HMAC_FIELDS: readonly string[] = [
         'amount_cents',
         'created_at',
         'currency',
@@ -50,7 +73,7 @@ export class PaymentsService {
         'is_refunded',
         'is_standalone_payment',
         'is_voided',
-        'order',
+        'order.id',
         'owner',
         'pending',
         'source_data.pan',
@@ -80,16 +103,21 @@ export class PaymentsService {
         return `paymob:processed:${txId}`;
     }
 
-    verifyHmac(body: Record<string, unknown>, hmac: string): boolean {
+    verifyHmac(
+        body: Record<string, unknown>,
+        hmac: string | undefined
+    ): boolean {
         this.ensureEnabled();
+        if (typeof hmac !== 'string' || hmac.length === 0) return false;
         const hmacSecret = this.hmacSecret!;
         const concatenated = PaymentsService.HMAC_FIELDS.map(field => {
-            const parts = field.split('.');
             let value: unknown = body;
-            for (const part of parts) {
-                value = (value as Record<string, unknown>)?.[part];
+            for (const part of field.split('.')) {
+                value = (value as Record<string, unknown> | null)?.[part];
             }
-            return value ?? '';
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') return ''; // never "[object Object]"
+            return String(value);
         }).join('');
 
         const computed = crypto
@@ -101,19 +129,21 @@ export class PaymentsService {
         try {
             return crypto.timingSafeEqual(
                 Buffer.from(computed),
-                Buffer.from(hmac)
+                Buffer.from(hmac.toLowerCase())
             );
         } catch {
             return false;
         }
     }
 
-    async handleWebhook(payload: PaymobWebhookPayload): Promise<void> {
+    async handleWebhook(
+        payload: PaymobWebhookPayload,
+        hmac: string | undefined
+    ): Promise<void> {
         this.ensureEnabled();
-        if (payload.type !== 'TRANSACTION') return;
+        if (payload?.type !== 'TRANSACTION' || !payload.obj) return;
 
         const { obj } = payload;
-        const hmac = obj.hmac;
 
         if (!this.verifyHmac(obj as unknown as Record<string, unknown>, hmac)) {
             this.logger.warn('Paymob HMAC verification failed');
@@ -137,7 +167,7 @@ export class PaymentsService {
             return;
         }
 
-        const merchantOrderId = obj.order.merchant_order_id;
+        const merchantOrderId = obj.order?.merchant_order_id;
         if (!merchantOrderId) {
             throw new BadRequestException('payments.error.missingOrderId');
         }
@@ -156,12 +186,35 @@ export class PaymentsService {
             return;
         }
 
-        await this.db.order.update({
-            where: { id: merchantOrderId },
-            data: {
-                isPaid: true,
-                paymobOrderId: String(obj.id),
-            },
+        // The callback must belong to the Paymob order registered for this
+        // order at initiation, for the exact amount, in EGP.
+        if (
+            !order.paymobOrderId ||
+            order.paymobOrderId !== String(obj.order.id)
+        ) {
+            this.logger.warn(
+                `Paymob order mismatch for order ${merchantOrderId} (tx ${obj.id})`
+            );
+            throw new BadRequestException('payments.error.orderMismatch');
+        }
+        if (obj.currency !== 'EGP') {
+            this.logger.warn(
+                `Paymob currency mismatch for order ${merchantOrderId} (tx ${obj.id})`
+            );
+            throw new BadRequestException('payments.error.currencyMismatch');
+        }
+        if (Number(obj.amount_cents) !== toMinorUnits(order.totalAmount)) {
+            this.logger.warn(
+                `Paymob amount mismatch for order ${merchantOrderId} (tx ${obj.id})`
+            );
+            throw new BadRequestException('payments.error.amountMismatch');
+        }
+
+        // Atomic flip: only one concurrent delivery can mark it paid. The
+        // stored paymobOrderId (Paymob ORDER id) is intentionally kept.
+        await this.db.order.updateMany({
+            where: { id: merchantOrderId, isPaid: false },
+            data: { isPaid: true },
         });
 
         // Mark transaction as processed in Redis (TTL: 24 hours)
@@ -185,13 +238,17 @@ export class PaymentsService {
         if (order.residentId !== actorId) throw new ForbiddenException();
         if (order.paymentMethod !== PaymentMethod.PAYMOB)
             throw new BadRequestException('order.error.notPaymobOrder');
+        if (order.isPaid)
+            throw new ConflictException('payments.error.alreadyPaid');
+        if (order.status === OrderStatus.CANCELLED)
+            throw new ConflictException('payments.error.orderCancelled');
 
         const apiKey = this.config.getOrThrow<string>('paymob.apiKey');
         const integrationId = this.config.getOrThrow<string>(
             'paymob.integrationId'
         );
         const iframeId = this.config.getOrThrow<string>('paymob.iframeId');
-        const amountCents = Math.round(order.totalAmount * 100);
+        const amountCents = toMinorUnits(order.totalAmount);
         const user = order.resident;
 
         // Step 1 — Auth token
@@ -229,6 +286,13 @@ export class PaymentsService {
         if (!orderRes.ok)
             throw new BadGatewayException('payments.error.paymobUnavailable');
         const { id: paymobOrderId } = (await orderRes.json()) as { id: number };
+
+        // Persist the Paymob ORDER id — the webhook verifies obj.order.id
+        // against it before marking the order paid.
+        await this.db.order.update({
+            where: { id: order.id },
+            data: { paymobOrderId: String(paymobOrderId) },
+        });
 
         // Step 3 — Payment key
         const nameParts = user.name.split(' ');
