@@ -19,7 +19,8 @@ import { profileFormSchema } from '@/lib/validation/profile';
 const fieldClass =
   'min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground';
 const ALLOWED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+// Vercel rejects request bodies over 4.5 MB; stay under it with room for multipart overhead.
+const MAX_AVATAR_SIZE = 4 * 1024 * 1024;
 
 export function ProfileManager() {
   const router = useRouter();
