@@ -76,7 +76,11 @@
       "name_too_short": "Name must be at least 2 characters",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
-      "unit_required": "Unit number is required"
+      "unit_required": "Unit number is required",
+      "password_requirements": "Use 8+ characters with an uppercase letter, a lowercase letter, a number and a symbol. English letters only, no spaces.",
+      "email_not_verified": "Please verify your email first. Enter the code we sent you.",
+      "server_unreachable": "We couldn't reach the server. Check your connection and try again.",
+      "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation."
     },
     "forgot": {
       "tryDifferentEmail": "Try a different email"
@@ -133,7 +137,9 @@
     "payment": "Payment method",
     "place_order": "Place order",
     "title": "Checkout",
-    "unit": "Unit {{number}}"
+    "unit": "Unit {{number}}",
+    "unit_missing": "Add your unit number to your profile before placing an order.",
+    "order_failed": "We couldn't place your order. Please try again."
   },
   "common": {
     "admin": "Admin",
@@ -163,7 +169,8 @@
     "save": "Save",
     "search": "Search",
     "see_all": "See all",
-    "submit": "Submit"
+    "submit": "Submit",
+    "server_waking": "Waking up the server. This can take up to a minute the first time."
   },
   "community": {
     "EVENT": "Event",
@@ -236,7 +243,8 @@
     "feedback_title": "Title",
     "new": "Submit feedback",
     "reply": "Reply from management",
-    "title": "My Feedback"
+    "title": "My Feedback",
+    "management": "Management"
   },
   "governance": {
     "active": "Active",
@@ -337,7 +345,9 @@
     "reorder": "Reorder",
     "title": "My Orders",
     "unknown_shop": "Unknown shop",
-    "unpaid": "Unpaid"
+    "unpaid": "Unpaid",
+    "guest_prompt": "Sign in to see your orders",
+    "guest_subtitle": "Track deliveries and reorder from shops in the compound."
   },
   "profile": {
     "account": "Account",

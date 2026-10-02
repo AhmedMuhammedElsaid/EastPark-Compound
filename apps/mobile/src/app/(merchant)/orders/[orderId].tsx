@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
-import { merchantApi } from "@/services/api/merchant";
+import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
+import { getOrderItemTotal } from "@/services/api/orders";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 // Merchants control: PLACED → CONFIRMED → PREPARING → READY
@@ -159,8 +160,8 @@ export default function MerchantOrderDetailScreen() {
           <ArrowLeft size={18} color={colors.text} />
         </Pressable>
         <View style={styles.navInfo}>
-          <Text style={styles.navUnit}>{t("checkout.unit", { number: order.user.unitNumber })}</Text>
-          <Text style={styles.navName}>{order.user.name}</Text>
+          <Text style={styles.navUnit}>{t("checkout.unit", { number: getOrderUnit(order) })}</Text>
+          {getOrderResidentName(order) ? <Text style={styles.navName}>{getOrderResidentName(order)}</Text> : null}
         </View>
         <Text style={styles.navTime}>{time}</Text>
       </View>
@@ -223,7 +224,7 @@ function OrderItemsList({ order, styles }: { order: MerchantOrder; styles: any }
             ×
           </Text>
           <Text style={styles.itemName} numberOfLines={1}>{item.productNameSnapshot}</Text>
-          <Text style={styles.itemPrice}>{formatCurrency(item.totalPrice)}</Text>
+          <Text style={styles.itemPrice}>{formatCurrency(getOrderItemTotal(item))}</Text>
         </View>
       ))}
       <View style={styles.totalRow}>

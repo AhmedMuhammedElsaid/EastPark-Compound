@@ -12,10 +12,10 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { ordersApi } from "@/services/api/orders";
+import { buildPlaceOrderPayload, ordersApi } from "@/services/api/orders";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearCart } from "@/store/slices/cart-slice";
-import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
@@ -87,6 +87,7 @@ function useStyles() {
       marginTop: SPACING.sm,
     },
     placeBtnDisabled: { opacity: 0.5 },
+    unitMissing: { fontFamily: FONT.sans, fontSize: 13, color: SEMANTIC.error, textAlign: "center" as const },
     placeBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.bg },
   }), [colors]);
 }
@@ -96,7 +97,10 @@ export default function PaymentScreen() {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const { notes } = useLocalSearchParams<{ notes?: string }>();
-  const { items, shopId } = useAppSelector(s => s.cart);
+  const items = useAppSelector(s => s.cart.items);
+  // Backend OrderCreateDto requires deliveryUnit (pre-filled from the profile).
+  const deliveryUnit = useAppSelector(s => s.auth.user?.unitNumber ?? "").trim();
+  const canPlaceOrder = items.length > 0 && deliveryUnit.length > 0;
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("CASH");
   const styles = useStyles();
   const colors = useAppColors();
@@ -105,12 +109,12 @@ export default function PaymentScreen() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
-      ordersApi.placeOrder({
-        shopId: shopId!,
+      ordersApi.placeOrder(buildPlaceOrderPayload({
         items: items.map((item: CartItem) => ({ productId: item.productId, quantity: item.quantity })),
         paymentMethod,
-        notes: notes || undefined,
-      }),
+        deliveryUnit,
+        notes,
+      })),
     onSuccess: async (res) => {
       const orderId = res.data.data.id;
       if (paymentMethod === "PAYMOB") {
@@ -125,6 +129,9 @@ export default function PaymentScreen() {
       }
       dispatch(clearCart());
       router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
+    },
+    onError: () => {
+      showMessage({ message: t("checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 
@@ -160,13 +167,17 @@ export default function PaymentScreen() {
           <Text style={styles.summaryValue}>{formatCurrency(total)}</Text>
         </View>
 
+        {!deliveryUnit
+          ? <Text style={styles.unitMissing}>{t("checkout.unit_missing")}</Text>
+          : null}
+
         <Pressable
-          style={[styles.placeBtn, isPending && styles.placeBtnDisabled]}
+          style={[styles.placeBtn, (isPending || !canPlaceOrder) && styles.placeBtnDisabled]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             mutate();
           }}
-          disabled={isPending}
+          disabled={isPending || !canPlaceOrder}
           accessibilityRole="button"
           accessibilityLabel={t("checkout.place_order")}
         >

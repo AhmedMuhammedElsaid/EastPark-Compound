@@ -18,8 +18,12 @@ export type OrderItem = {
   productNameArSnapshot: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
+  /** Additive backend field — may be absent; use getOrderItemTotal(). */
+  lineTotal?: number;
 };
+
+export type OrderShopSummary = { id: string; name: string; nameAr: string };
+export type OrderResidentSummary = { id: string; name: string; unitNumber: string | null };
 
 export type Order = {
   id: string;
@@ -28,18 +32,50 @@ export type Order = {
   isPaid: boolean;
   totalAmount: number;
   notes: string | null;
+  deliveryUnit: string;
   cancelledAt: string | null;
   createdAt: string;
-  shop: { id: string; name: string; nameAr: string };
+  shopId: string;
+  residentId: string;
+  /** Additive backend field — may be absent on older responses. */
+  shop?: OrderShopSummary | null;
+  /** Merchant/admin responses only; may be absent. */
+  resident?: OrderResidentSummary | null;
   items: OrderItem[];
 };
 
+/** Mirrors backend OrderCreateDto exactly (forbidNonWhitelisted). */
 export type PlaceOrderPayload = {
-  shopId: string;
   items: Array<{ productId: string; quantity: number }>;
   paymentMethod: PaymentMethod;
+  deliveryUnit: string;
   notes?: string;
 };
+
+export function buildPlaceOrderPayload(input: {
+  items: Array<{ productId: string; quantity: number }>;
+  paymentMethod: PaymentMethod;
+  deliveryUnit: string;
+  notes?: string | null;
+}): PlaceOrderPayload {
+  const notes = input.notes?.trim();
+  return {
+    items: input.items.map(({ productId, quantity }) => ({ productId, quantity })),
+    paymentMethod: input.paymentMethod,
+    deliveryUnit: input.deliveryUnit.trim(),
+    ...(notes ? { notes } : {}),
+  };
+}
+
+/** Line total: backend `lineTotal` when present, otherwise unitPrice × quantity. */
+export function getOrderItemTotal(item: { unitPrice?: number | null; quantity: number; lineTotal?: number | null }): number {
+  if (typeof item.lineTotal === "number")
+    return item.lineTotal;
+  return (Number(item.unitPrice) || 0) * item.quantity;
+}
+
+/** Statuses after which no further live updates are expected. */
+export const TERMINAL_ORDER_STATUSES: ReadonlySet<OrderStatus> = new Set(["DELIVERED", "CANCELLED"]);
 
 export const ordersApi = {
   placeOrder: (payload: PlaceOrderPayload) =>

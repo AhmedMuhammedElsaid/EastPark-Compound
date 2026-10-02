@@ -1,3 +1,5 @@
+import type { Order } from "./orders";
+
 import { client } from "./client";
 
 export type MerchantShop = {
@@ -29,22 +31,23 @@ export type Product = {
   isAvailable: boolean;
 };
 
-export type MerchantOrder = {
-  id: string;
-  status: string;
-  totalAmount: number;
-  paymentMethod: string;
-  notes: string | null;
-  createdAt: string;
-  items: Array<{
-    id: string;
-    productNameSnapshot: string;
-    productNameArSnapshot: string;
-    quantity: number;
-    totalPrice: number;
-  }>;
-  user: { name: string; unitNumber: string };
-};
+/**
+ * Merchant order = backend OrderResponseDto. `resident` (name/unitNumber) is
+ * an additive field; fall back to `deliveryUnit` when it is absent.
+ */
+export type MerchantOrder = Order;
+
+export function getOrderResidentName(order: Pick<Order, "resident">): string | null {
+  return order.resident?.name ?? null;
+}
+
+export function getOrderUnit(order: Pick<Order, "resident" | "deliveryUnit">): string {
+  return order.resident?.unitNumber ?? order.deliveryUnit ?? "";
+}
+
+/** ProductQueryDto max page size. */
+export const PRODUCT_PAGE_LIMIT = 50;
+const MAX_PRODUCT_PAGES = 20;
 
 export type ShopUpdatePayload = {
   name?: string;
@@ -72,8 +75,25 @@ export const merchantApi = {
     client.patch<{ data: MerchantShop }>(`/shops/${shopId}`, data),
 
   // Products
-  getMyProducts: (params?: { cursor?: string; limit?: number; includeUnavailable?: boolean }) =>
+  // ProductQueryDto: cursor, limit (1-50), search, isAvailable. Omitting
+  // isAvailable returns available AND unavailable products. Never send
+  // isAvailable=false: the backend's @Type(() => Boolean) coerces "false" to true.
+  getMyProducts: (params?: { cursor?: string; limit?: number; search?: string }) =>
     client.get<{ data: { items: Product[]; nextCursor: string | null } }>("/merchant/products", { params }),
+
+  /** Follows the cursor until every product is loaded (no GET-by-id route exists). */
+  getAllMyProducts: async (): Promise<Product[]> => {
+    const all: Product[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < MAX_PRODUCT_PAGES; page++) {
+      const res = await merchantApi.getMyProducts({ cursor, limit: PRODUCT_PAGE_LIMIT });
+      all.push(...res.data.data.items);
+      cursor = res.data.data.nextCursor ?? undefined;
+      if (!cursor)
+        break;
+    }
+    return all;
+  },
 
   createProduct: (data: {
     name: string;

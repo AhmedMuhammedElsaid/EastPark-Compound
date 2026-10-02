@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
-import { merchantApi } from "@/services/api/merchant";
+import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const STATUS_FILTERS = ["ALL", "PLACED", "CONFIRMED", "PREPARING", "READY"] as const;
@@ -216,8 +216,8 @@ function MerchantOrderCard({ order, styles, colors }: { order: MerchantOrder; st
     >
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
-          <Text style={styles.unitLabel}>{t("checkout.unit", { number: order.user.unitNumber })}</Text>
-          <Text style={styles.customerName}>{order.user.name}</Text>
+          <Text style={styles.unitLabel}>{t("checkout.unit", { number: getOrderUnit(order) })}</Text>
+          {getOrderResidentName(order) ? <Text style={styles.customerName}>{getOrderResidentName(order)}</Text> : null}
         </View>
         <View style={styles.cardRight}>
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>

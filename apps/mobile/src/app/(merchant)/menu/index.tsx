@@ -77,10 +77,10 @@ export default function MerchantMenuScreen() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["merchant-products"],
-    queryFn: () => merchantApi.getMyProducts({ limit: 100, includeUnavailable: true }),
+    queryFn: () => merchantApi.getAllMyProducts(),
   });
 
-  const products = data?.data.data.items ?? [];
+  const products = data ?? [];
 
   const { mutate: toggleAvailability } = useMutation({
     mutationFn: ({ productId, isAvailable }: { productId: string; isAvailable: boolean }) =>

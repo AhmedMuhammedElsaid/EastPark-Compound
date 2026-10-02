@@ -1,4 +1,3 @@
-import type { AxiosResponse } from "axios";
 import type { Resolver } from "react-hook-form";
 import type { Product } from "@/services/api/merchant";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,11 +93,10 @@ export default function ProductFormScreen() {
 
   const { data } = useQuery({
     queryKey: ["merchant-product", productId],
-    queryFn: () => merchantApi.getMyProducts({ limit: 100, includeUnavailable: true }),
+    queryFn: () => merchantApi.getAllMyProducts(),
     enabled: !isNew,
-    select: res => res.data.data.items.find(p => p.id === productId),
-    initialData: () =>
-      queryClient.getQueryData<AxiosResponse<{ data: { items: Product[]; nextCursor: string | null } }>>(["merchant-products"]),
+    select: products => products.find(p => p.id === productId),
+    initialData: () => queryClient.getQueryData<Product[]>(["merchant-products"]),
     initialDataUpdatedAt: () =>
       queryClient.getQueryState(["merchant-products"])?.dataUpdatedAt,
   });
