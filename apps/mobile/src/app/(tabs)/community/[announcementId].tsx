@@ -1,6 +1,5 @@
-import type { AxiosResponse } from "axios";
 import type { Comment } from "@/services/api/community";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, FilePdf, PaperPlaneTilt } from "phosphor-react-native";
 import * as React from "react";
@@ -151,7 +150,7 @@ export default function AnnouncementDetailScreen() {
 
         <View style={styles.divider} />
         <Text style={styles.sectionTitle}>{t("community.comments")}</Text>
-        <CommentsSection announcementId={announcementId} styles={styles} />
+        <CommentsSection comments={ann.comments ?? []} styles={styles} />
       </ScrollView>
 
       <AddCommentBar announcementId={announcementId} bottomInset={insets.bottom} styles={styles} />
@@ -161,49 +160,10 @@ export default function AnnouncementDetailScreen() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function CommentsSection({ announcementId, styles }: { announcementId: string; styles: any }) {
-  const { t } = useTranslation();
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage }
-    = useInfiniteQuery<
-      AxiosResponse<{ data: { items: Comment[]; nextCursor: string | null } }>,
-      Error,
-      { pages: AxiosResponse<{ data: { items: Comment[]; nextCursor: string | null } }>[] },
-      string[],
-      string | undefined
-    >({
-      queryKey: ["comments", announcementId],
-      queryFn: ({ pageParam }) =>
-        communityApi.getComments(announcementId, { cursor: pageParam, limit: 20 }),
-      getNextPageParam: last => last.data.data.nextCursor ?? undefined,
-      initialPageParam: undefined,
-    });
-
-  const comments = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
-
-  if (isLoading) {
-    return (
-      <View style={styles.commentsWrap}>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={`comment-sk-${i}`} width="100%" height={64} borderRadius={RADIUS.sm} style={{ marginBottom: 10 }} />
-        ))}
-      </View>
-    );
-  }
-
+function CommentsSection({ comments, styles }: { comments: Comment[]; styles: any }) {
   return (
     <View style={styles.commentsWrap}>
       {comments.map(c => <CommentRow key={c.id} comment={c} styles={styles} />)}
-      {hasNextPage && (
-        <Pressable
-          style={styles.loadMoreBtn}
-          onPress={() => {
-            if (!isFetchingNextPage)
-              fetchNextPage();
-          }}
-        >
-          <Text style={styles.loadMoreText}>{t("common.load_more")}</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -212,10 +172,10 @@ function CommentRow({ comment, styles }: { comment: Comment; styles: any }) {
   return (
     <View style={styles.commentRow}>
       <View style={styles.commentAvatar}>
-        <Text style={styles.commentAvatarText}>{comment.user.name.charAt(0).toUpperCase()}</Text>
+        <Text style={styles.commentAvatarText}>{(comment.user?.name ?? "?").charAt(0).toUpperCase()}</Text>
       </View>
       <View style={styles.commentContent}>
-        <Text style={styles.commentName}>{comment.user.name}</Text>
+        <Text style={styles.commentName}>{comment.user?.name ?? ""}</Text>
         <Text style={styles.commentBody}>{comment.body}</Text>
       </View>
     </View>
@@ -233,7 +193,8 @@ function AddCommentBar({ announcementId, bottomInset, styles }: { announcementId
     mutationFn: () => communityApi.addComment(announcementId, text),
     onSuccess: () => {
       setText("");
-      queryClient.invalidateQueries({ queryKey: ["comments", announcementId] });
+      // Comments are embedded in the announcement detail response.
+      queryClient.invalidateQueries({ queryKey: ["announcement", announcementId] });
     },
   });
 

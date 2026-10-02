@@ -1,4 +1,4 @@
-import type { FeedbackStatus } from "@/services/api/community";
+import type { FeedbackReply, FeedbackStatus } from "@/services/api/community";
 import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "phosphor-react-native";
@@ -75,7 +75,7 @@ function useStyles() {
       borderRadius: RADIUS.full,
     },
     adminBadgeText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 11, color: BRAND.goldText },
-    replyAuthor: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.text, flex: 1 },
+    replySpacer: { flex: 1 },
     replyDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
     replyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 22 },
   }), [colors]);
@@ -158,14 +158,13 @@ function FeedbackMeta({ feedback, date, styles, colors }: { feedback: any; date:
           </View>
         )}
       </View>
-      <Text style={styles.fbTitle}>{feedback.title}</Text>
       <Text style={styles.fbBody}>{feedback.body}</Text>
       <Text style={styles.fbDate}>{date}</Text>
     </View>
   );
 }
 
-function ReplyCard({ reply, styles }: { reply: any; styles: any }) {
+function ReplyCard({ reply, styles }: { reply: FeedbackReply; styles: any }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const date = new Date(reply.createdAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
@@ -178,11 +177,10 @@ function ReplyCard({ reply, styles }: { reply: any; styles: any }) {
     <View style={styles.replyCard}>
       <View style={styles.replyHeader}>
         <View style={styles.adminBadge}>
-          <Text style={styles.adminBadgeText}>{t("auth.role_admin")}</Text>
+          {/* Replies come from compound management; the API exposes only authorId. */}
+          <Text style={styles.adminBadgeText}>{t("feedback.management")}</Text>
         </View>
-        {reply.author && (
-          <Text style={styles.replyAuthor}>{reply.author.name}</Text>
-        )}
+        <View style={styles.replySpacer} />
         <Text style={styles.replyDate}>{date}</Text>
       </View>
       <Text style={styles.replyBody}>{reply.body}</Text>

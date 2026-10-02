@@ -158,7 +158,7 @@ function FeedbackRow({ feedback, styles, colors }: { feedback: Feedback; styles:
       style={styles.row}
       onPress={() => router.push(`/(tabs)/community/feedback/${feedback.id}`)}
       accessibilityRole="button"
-      accessibilityLabel={feedback.title}
+      accessibilityLabel={feedback.body}
     >
       <View style={styles.rowTop}>
         <View style={[styles.catBadge, { backgroundColor: colors.elevated }]}>
@@ -168,7 +168,7 @@ function FeedbackRow({ feedback, styles, colors }: { feedback: Feedback; styles:
           <Text style={styles.statusBadgeText}>{t(`feedback.${feedback.status}`)}</Text>
         </View>
       </View>
-      <Text style={styles.rowTitle} numberOfLines={1}>{feedback.title}</Text>
+      <Text style={styles.rowTitle} numberOfLines={2}>{feedback.body}</Text>
       <View style={styles.rowMeta}>
         <Text style={styles.rowDate}>{date}</Text>
         {(feedback.replies?.length ?? 0) > 0 && (

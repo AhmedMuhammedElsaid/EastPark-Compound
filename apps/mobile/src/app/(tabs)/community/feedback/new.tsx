@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
@@ -36,7 +37,6 @@ const CATEGORIES: FeedbackCategory[] = [
 
 const schema = z.object({
   category: z.enum(["MAINTENANCE", "SECURITY", "CLEANLINESS", "NOISE", "SUGGESTION", "OTHER"]),
-  title: z.string().min(3).max(200),
   body: z.string().min(10).max(2000),
   isAnonymous: z.boolean(),
 });
@@ -129,7 +129,7 @@ export default function NewFeedbackScreen() {
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { category: "MAINTENANCE", title: "", body: "", isAnonymous: false },
+    defaultValues: { category: "MAINTENANCE", body: "", isAnonymous: false },
   });
 
   const { mutate, isPending } = useMutation({
@@ -137,6 +137,9 @@ export default function NewFeedbackScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-feedback"] });
       router.back();
+    },
+    onError: () => {
+      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 
@@ -158,7 +161,6 @@ export default function NewFeedbackScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <CategoryPickerField control={control} styles={styles} />
-        <RhfTextInput control={control} name="title" label={t("feedback.feedback_title")} error={errors.title?.message} styles={styles} colors={colors} />
         <RhfTextInput control={control} name="body" label={t("feedback.feedback_body")} error={errors.body?.message} multiline styles={styles} colors={colors} />
         <AnonymousToggleField control={control} styles={styles} colors={colors} />
 

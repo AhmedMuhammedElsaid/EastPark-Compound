@@ -12,9 +12,14 @@ export type Announcement = {
   bodyAr: string;
   category: AnnouncementCategory;
   pdfUrl: string | null;
-  isPinned: boolean;
+  /** Not in AnnouncementResponseDto today; kept optional for the pinned badge. */
+  isPinned?: boolean;
+  publishedAt?: string;
   createdAt: string;
 };
+
+/** GET /announcements/:id — comments are embedded; there is no separate comments GET. */
+export type AnnouncementDetail = Announcement & { comments: Comment[] };
 
 export type Report = {
   id: string;
@@ -28,25 +33,42 @@ export type Report = {
 export type Comment = {
   id: string;
   body: string;
-  user: { id: string; name: string; avatarUrl: string | null };
+  userId: string;
+  user: { id: string; name: string } | null;
   createdAt: string;
 };
 
+/** Replies are written by compound management (admins); only authorId is exposed. */
+export type FeedbackReply = {
+  id: string;
+  body: string;
+  authorId: string;
+  createdAt: string;
+};
+
+/** FeedbackResponseDto — there is no title; the body is the whole submission. */
 export type Feedback = {
   id: string;
   category: FeedbackCategory;
-  title: string;
   body: string;
   status: FeedbackStatus;
   isAnonymous: boolean;
   attachments: string[];
-  replies: Array<{
-    id: string;
-    body: string;
-    author: { name: string } | null;
-    createdAt: string;
-  }>;
+  userId?: string | null;
+  /** Only in the detail response (list items omit it). */
+  replies?: FeedbackReply[];
   createdAt: string;
+  updatedAt?: string;
+};
+
+export type FeedbackDetail = Feedback & { replies: FeedbackReply[] };
+
+/** Mirrors FeedbackCreateDto exactly (forbidNonWhitelisted rejects extras). */
+export type FeedbackCreatePayload = {
+  category: FeedbackCategory;
+  body: string;
+  isAnonymous?: boolean;
+  attachments?: string[];
 };
 
 export const communityApi = {
@@ -55,10 +77,7 @@ export const communityApi = {
     client.get<{ data: { items: Announcement[]; nextCursor: string | null } }>("/announcements", { params }),
 
   getAnnouncement: (id: string) =>
-    client.get<{ data: Announcement }>(`/announcements/${id}`),
-
-  getComments: (announcementId: string, params?: { cursor?: string; limit?: number }) =>
-    client.get<{ data: { items: Comment[]; nextCursor: string | null } }>(`/announcements/${announcementId}/comments`, { params }),
+    client.get<{ data: AnnouncementDetail }>(`/announcements/${id}`),
 
   addComment: (announcementId: string, body: string) =>
     client.post<{ data: Comment }>(`/announcements/${announcementId}/comments`, { body }),
@@ -72,15 +91,15 @@ export const communityApi = {
     client.get<{ data: { items: Feedback[]; nextCursor: string | null } }>("/feedback", { params }),
 
   getFeedbackItem: (id: string) =>
-    client.get<{ data: Feedback }>(`/feedback/${id}`),
+    client.get<{ data: FeedbackDetail }>(`/feedback/${id}`),
 
-  submitFeedback: (data: {
-    category: FeedbackCategory;
-    title: string;
-    body: string;
-    isAnonymous?: boolean;
-    attachments?: string[];
-  }) => client.post<{ data: Feedback }>("/feedback", data),
+  submitFeedback: (data: FeedbackCreatePayload) =>
+    client.post<{ data: Feedback }>("/feedback", {
+      category: data.category,
+      body: data.body,
+      ...(data.isAnonymous !== undefined ? { isAnonymous: data.isAnonymous } : {}),
+      ...(data.attachments?.length ? { attachments: data.attachments } : {}),
+    }),
 
   // Admin
   createAnnouncement: (data: {
