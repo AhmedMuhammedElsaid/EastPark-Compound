@@ -48,8 +48,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: Env.EXPO_PUBLIC_BUNDLE_ID,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
-      NSCameraUsageDescription: "EastPark uses the camera to upload shop photos and feedback attachments.",
-      NSPhotoLibraryUsageDescription: "EastPark accesses your photo library to upload images.",
     },
   },
   experiments: {
@@ -62,8 +60,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     package: Env.EXPO_PUBLIC_PACKAGE,
     permissions: [
-      "android.permission.CAMERA",
-      "android.permission.READ_EXTERNAL_STORAGE",
       "android.permission.RECEIVE_BOOT_COMPLETED",
       "android.permission.VIBRATE",
     ],
