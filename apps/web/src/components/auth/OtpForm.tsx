@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { Button } from '@/components/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { clearPendingVerification } from '@/lib/auth/pending-verification';
 import { useTranslation } from '@/lib/i18n';
 import { verifyOtpSchema } from '@/lib/validation/auth';
 
@@ -26,7 +27,8 @@ export function OtpForm({ email }: { email: string }) {
     const result = await verifyOtp(email, otp);
     setPending(false);
     if (!result.ok) return setError(t(result.error === 'rate_limited' ? 'auth.errors.rate_limited' : 'auth.errors.invalid_otp'));
-    router.replace('/');
+    clearPendingVerification();
+    router.replace('/home');
   }
 
   async function resend() {

@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
 import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
+import { rememberPendingVerification } from '@/lib/auth/pending-verification';
 import { useTranslation } from '@/lib/i18n';
 import { registerFormSchema } from '@/lib/validation/auth';
 
@@ -50,7 +51,12 @@ export function RegisterForm() {
         setSubmitError(t(key));
         return;
       }
-      router.push(`/verify-otp?email=${encodeURIComponent(payload.email)}`);
+      // Prefer sessionStorage so the email stays out of the URL; fall back to the query string.
+      router.push(
+        rememberPendingVerification(payload.email)
+          ? '/verify-otp'
+          : `/verify-otp?email=${encodeURIComponent(payload.email)}`,
+      );
     } catch {
       setSubmitError(t('errors.network'));
     }
