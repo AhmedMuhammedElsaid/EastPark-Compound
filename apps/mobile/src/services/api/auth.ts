@@ -1,9 +1,8 @@
 import type { AuthUser } from "@/store/slices/auth-slice";
 
-import axios from "axios";
-import Env from "env";
+import { client, requestTokenRefresh } from "./client";
 
-import { client } from "./client";
+export type { AuthTokens } from "./client";
 
 export type RegisterPayload = {
   name: string;
@@ -16,11 +15,6 @@ export type RegisterPayload = {
 export type LoginPayload = {
   email: string;
   password: string;
-};
-
-export type AuthTokens = {
-  accessToken: string;
-  refreshToken: string;
 };
 
 export type AuthResponse = {
@@ -42,8 +36,10 @@ export const authApi = {
   login: (payload: LoginPayload) =>
     client.post<{ data: AuthResponse }>("/auth/login", payload),
 
+  // Bearer ACCESS token (attached by the request interceptor) + the refresh
+  // token to revoke in the body.
   logout: (refreshToken: string) =>
-    client.post<{ data: { success: boolean } }>("/auth/logout", { refreshToken }),
+    client.post<{ data: { message: string } }>("/auth/logout", { refreshToken }),
 
   forgotPassword: (email: string) =>
     client.post<{ data: { message: string } }>("/auth/forgot-password", { email }),
@@ -57,10 +53,7 @@ export const authApi = {
   updatePushToken: (pushToken: string) =>
     client.patch<{ data: { success: boolean } }>("/auth/push-token", { pushToken }),
 
-  // Raw axios refresh — bypasses the 401 interceptor (used by biometric login flow).
-  refresh: (refreshToken: string) =>
-    axios.post<{ data: AuthTokens }>(
-      `${Env.EXPO_PUBLIC_API_URL}/v1/auth/refresh`,
-      { refreshToken },
-    ),
+  // Bearer refresh token, bypassing the 401 interceptor (biometric login).
+  // Refresh tokens are single-use: callers must persist the rotated token.
+  refresh: (refreshToken: string) => requestTokenRefresh(refreshToken),
 };

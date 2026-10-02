@@ -1,127 +1,222 @@
 /**
  * EastPark Axios client
- * - Attaches Bearer token from SecureStore on every request
- * - Queues 401s while a single token refresh is in-flight
- * - On refresh failure: dispatches logout() and navigates to /login
+ * - Attaches the access token from SecureStore unless the caller already set
+ *   an Authorization header (refresh/logout send the refresh token instead).
+ * - Queues 401s while a single token refresh is in flight.
+ * - Never tries to refresh for public auth endpoints (login, refresh, OTP, ...)
+ *   or for requests that were sent without credentials (guests).
+ * - Only ends the session when the refresh endpoint itself answers 401/403.
+ *   Network errors, timeouts and 5xx keep the tokens so the user can retry.
+ * - Always propagates the ORIGINAL request error to the caller.
  */
 
-import type { InternalAxiosRequestConfig } from "axios";
+import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 import axios from "axios";
 import Env from "env";
-import { router } from "expo-router";
-import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
-import { queryClient } from "@/services/query/client";
+import { getSecureItem, setSecureItem } from "@/lib/secure-storage";
 
-import { logout, updateTokens } from "@/store/slices/auth-slice";
+import { updateTokens } from "@/store/slices/auth-slice";
+import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "./secure-keys";
 
-// Lazy import to avoid circular deps at module init time
+export {
+  SECURE_KEY_ACCESS,
+  SECURE_KEY_BIOMETRIC_EMAIL,
+  SECURE_KEY_BIOMETRIC_ENABLED,
+  SECURE_KEY_REFRESH,
+} from "./secure-keys";
+
+// Lazy injection to avoid circular deps at module init time
 let storeRef: typeof import("@/store").store | null = null;
 export function injectStore(store: typeof import("@/store").store) {
   storeRef = store;
 }
 
-export const SECURE_KEY_ACCESS = "eastpark_access_token";
-export const SECURE_KEY_REFRESH = "eastpark_refresh_token";
-export const SECURE_KEY_BIOMETRIC_ENABLED = "eastpark_biometric_enabled";
-export const SECURE_KEY_BIOMETRIC_EMAIL = "eastpark_biometric_email";
+// Called when the refresh token is definitively rejected (401/403).
+// _layout.tsx injects the full session teardown (socket, cache, redirect).
+type SessionExpiredHandler = () => void | Promise<void>;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
+  sessionExpiredHandler = handler;
+}
+
+/**
+ * Render's free tier cold-starts in 25-50 s. The timeout must outlast a cold
+ * start, otherwise the very first request after idle always fails.
+ */
+export const API_TIMEOUT_MS = 60_000;
+
+export const API_ROOT_URL = Env.EXPO_PUBLIC_API_URL;
 
 export const client = axios.create({
-  baseURL: `${Env.EXPO_PUBLIC_API_URL}/v1`,
-  timeout: 15_000,
+  baseURL: `${API_ROOT_URL}/v1`,
+  timeout: API_TIMEOUT_MS,
   headers: { "Content-Type": "application/json" },
 });
 
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
+/**
+ * POST /auth/refresh. The backend's JwtRefreshGuard reads the refresh token
+ * from the Authorization header (authoritative); the body copy is kept for
+ * the DTO. Uses raw axios so it never passes through the 401 interceptor.
+ */
+export function requestTokenRefresh(refreshToken: string) {
+  return axios.post<{ data: AuthTokens }>(
+    `${API_ROOT_URL}/v1/auth/refresh`,
+    { refreshToken },
+    {
+      timeout: API_TIMEOUT_MS,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${refreshToken}`,
+      },
+    },
+  );
+}
+
+/**
+ * Fire-and-forget wake-up ping for the Render free tier. `/health` is
+ * version-neutral, so it lives outside the `/v1` base URL.
+ */
+export function warmUpServer(): void {
+  axios
+    .get(`${API_ROOT_URL}/health`, { timeout: API_TIMEOUT_MS })
+    .catch(() => {
+      // Ignored: this only exists to start the server early.
+    });
+}
+
+/**
+ * Public auth endpoints where a 401 means "bad credentials/token", never
+ * "access token expired". `/auth/push-token` is authenticated and is NOT here.
+ */
+const REFRESH_EXEMPT_PATHS = [
+  "/auth/login",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/register",
+  "/auth/verify-otp",
+  "/auth/resend-otp",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/auth/accept-invitation",
+];
+
+export function isRefreshExemptUrl(url?: string): boolean {
+  if (!url)
+    return false;
+  const path = url.split("?")[0];
+  return REFRESH_EXEMPT_PATHS.some(p => path === p || path.endsWith(p));
+}
+
 // ─── Request interceptor — attach Bearer token ────────────────────────────────
 client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const token = await getSecureItem(SECURE_KEY_ACCESS);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (!config.headers.Authorization) {
+    const token = await getSecureItem(SECURE_KEY_ACCESS);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
 
-// ─── 401 refresh queue ────────────────────────────────────────────────────────
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (err: unknown) => void;
-}> = [];
+// ─── 401 refresh (single in-flight promise) ───────────────────────────────────
+// Refresh tokens are SINGLE-USE on the backend (rotated; reuse → 401). Every
+// concurrent 401 must therefore share ONE refresh call, and the rotated pair
+// is persisted to SecureStore before any waiting request is released.
+type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-function processQueue(error: unknown, token: string | null) {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
+let refreshPromise: Promise<string> | null = null;
+
+function isAuthRejection(err: unknown): boolean {
+  const status = (err as AxiosError | undefined)?.response?.status;
+  return status === 401 || status === 403;
+}
+
+async function runTokenRefresh(refreshToken: string): Promise<string> {
+  try {
+    const { data } = await requestTokenRefresh(refreshToken);
+    const { accessToken, refreshToken: newRefresh } = data.data;
+    await setSecureItem(SECURE_KEY_ACCESS, accessToken);
+    await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
+    storeRef?.dispatch(updateTokens({ accessToken, refreshToken: newRefresh }));
+    return accessToken;
+  }
+  catch (refreshError) {
+    // Only a definitive rejection of the refresh token ends the session.
+    // Network errors, timeouts (cold start) and 5xx keep the tokens.
+    if (isAuthRejection(refreshError)) {
+      try {
+        await sessionExpiredHandler?.();
+      }
+      catch {
+        // Teardown must never mask the original error.
+      }
     }
-    else if (token) {
-      resolve(token);
-    }
-  });
-  failedQueue = [];
+    throw refreshError;
+  }
+}
+
+/** Returns a fresh access token, sharing one refresh call across callers. */
+export function refreshAccessToken(refreshToken: string): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = runTokenRefresh(refreshToken).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 client.interceptors.response.use(
   response => response,
-  async (error) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableConfig | undefined;
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    if (
+      !originalRequest
+      || error.response?.status !== 401
+      || originalRequest._retry
+      || isRefreshExemptUrl(originalRequest.url)
+      // Guest request (no credentials sent): nothing to refresh.
+      || !originalRequest.headers?.Authorization
+    ) {
       return Promise.reject(error);
     }
 
-    if (isRefreshing) {
-      // Queue the request until the refresh resolves
-      return new Promise<string>((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      }).then((token) => {
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return client(originalRequest);
-      });
-    }
-
     originalRequest._retry = true;
-    isRefreshing = true;
 
-    try {
-      const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
-      if (!refreshToken)
-        throw new Error("No refresh token");
-
-      const { data } = await axios.post(
-        `${Env.EXPO_PUBLIC_API_URL}/v1/auth/refresh`,
-        { refreshToken },
-      );
-
-      const { accessToken, refreshToken: newRefresh } = data.data;
-
-      // Persist new tokens
-      await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-      await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
-
-      // Update Redux in-memory copy
-      storeRef?.dispatch(updateTokens({ accessToken, refreshToken: newRefresh }));
-
-      processQueue(null, accessToken);
-
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+    // Another request already rotated the tokens while this one was in
+    // flight: retry with the current access token instead of refreshing again
+    // (a second refresh would be wasted work; the old refresh token is spent).
+    const sentAuth = String(originalRequest.headers.Authorization);
+    const currentAccess = await getSecureItem(SECURE_KEY_ACCESS);
+    if (!refreshPromise && currentAccess && sentAuth !== `Bearer ${currentAccess}`) {
+      originalRequest.headers.Authorization = `Bearer ${currentAccess}`;
       return client(originalRequest);
     }
-    catch (refreshError) {
-      processQueue(refreshError, null);
 
-      // Refresh failed — force logout
-      await deleteSecureItem(SECURE_KEY_ACCESS);
-      await deleteSecureItem(SECURE_KEY_REFRESH);
-      storeRef?.dispatch(logout());
-      queryClient.clear();
-      router.replace("/(auth)/login");
+    let accessToken: string;
+    try {
+      if (refreshPromise) {
+        accessToken = await refreshPromise;
+      }
+      else {
+        const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+        if (!refreshToken)
+          return Promise.reject(error);
+        accessToken = await refreshAccessToken(refreshToken);
+      }
+    }
+    catch {
+      // Propagate the ORIGINAL request error, never the refresh error.
+      return Promise.reject(error);
+    }
 
-      return Promise.reject(refreshError);
-    }
-    finally {
-      isRefreshing = false;
-    }
+    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+    return client(originalRequest);
   },
 );
