@@ -5,6 +5,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    Patch,
     Post,
     Query,
 } from '@nestjs/common';
@@ -70,6 +71,18 @@ export class ElectionsController {
         @Body() dto: CandidateCreateDto
     ): Promise<CandidateResponseDto> {
         return this.electionsService.addCandidate(id, dto);
+    }
+
+    @Patch(':id/results-open')
+    @AllowedRoles([Role.ADMIN])
+    @HttpCode(HttpStatus.OK)
+    @ApiBearerAuth('accessToken')
+    @ApiOperation({ summary: 'Publish election results now [ADMIN]' })
+    openResults(
+        @Param('id') id: string,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ElectionResponseDto> {
+        return this.electionsService.openResults(id, actor);
     }
 
     @Post(':id/vote')

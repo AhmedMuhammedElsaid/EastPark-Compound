@@ -6,7 +6,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { ElectionVisibilityMode } from '@prisma/client';
+import { ElectionVisibilityMode, Prisma } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -80,7 +80,15 @@ export class ElectionsService {
         election: any,
         myVoteCandidateId: string | null
     ): ElectionResponseDto {
-        const showResults = election.resultsOpen || election.visibilityMode === ElectionVisibilityMode.LIVE_COUNT;
+        // Lazy open: do not depend solely on the cron (free hosts sleep).
+        const expiredSealed =
+            election.visibilityMode ===
+                ElectionVisibilityMode.SEALED_UNTIL_DEADLINE &&
+            new Date(election.expiresAt).getTime() <= Date.now();
+        const resultsOpen = election.resultsOpen || expiredSealed;
+        const showResults =
+            resultsOpen ||
+            election.visibilityMode === ElectionVisibilityMode.LIVE_COUNT;
         return {
             id: election.id,
             title: election.title,
@@ -88,7 +96,7 @@ export class ElectionsService {
             description: election.description,
             descriptionAr: election.descriptionAr ?? null,
             expiresAt: election.expiresAt,
-            resultsOpen: election.resultsOpen,
+            resultsOpen,
             visibilityMode: election.visibilityMode,
             createdAt: election.createdAt,
             candidates: election.candidates.map((c: any) => ({
@@ -102,6 +110,36 @@ export class ElectionsService {
             })),
             myVoteCandidateId,
         };
+    }
+
+    /** Admin publishes results (needed for ADMIN_CONTROLLED elections) */
+    async openResults(
+        id: string,
+        actor: IAuthUser
+    ): Promise<ElectionResponseDto> {
+        const existing = await this.db.election.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundException('election.error.notFound');
+
+        const election = await this.db.election.update({
+            where: { id },
+            data: { resultsOpen: true },
+            include: {
+                candidates: {
+                    include: { _count: { select: { votes: true } } },
+                },
+            },
+        });
+
+        await this.db.auditLog.create({
+            data: {
+                userId: actor.userId,
+                action: 'OPEN_ELECTION_RESULTS',
+                entity: 'Election',
+                entityId: id,
+            },
+        });
+
+        return this.buildElectionDto(election, null);
     }
 
     async findAll(
@@ -189,13 +227,23 @@ export class ElectionsService {
         if (existing)
             throw new ConflictException('election.error.alreadyVoted');
 
-        await this.db.electionVote.create({
-            data: {
-                userId: actor.userId,
-                electionId: id,
-                candidateId: dto.candidateId,
-            },
-        });
+        try {
+            await this.db.electionVote.create({
+                data: {
+                    userId: actor.userId,
+                    electionId: id,
+                    candidateId: dto.candidateId,
+                },
+            });
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+            ) {
+                throw new ConflictException('election.error.alreadyVoted');
+            }
+            throw error;
+        }
 
         return { message: 'election.success.voted' };
     }
