@@ -39,6 +39,8 @@ import { Animated, Pressable, View } from "react-native";
 import { Path, Svg } from "react-native-svg";
 
 import { Text } from "./text";
+import { OVERLAY } from "@/theme/tokens";
+
 
 type ModalProps = BottomSheetModalProps & {
   title?: string;
@@ -116,7 +118,7 @@ function CustomBackdrop({ style }: BottomSheetBackdropProps) {
   return (
     <AnimatedPressable
       onPress={() => close()}
-      style={[style, { backgroundColor: "rgba(0, 0, 0, 0.4)", opacity }]}
+      style={[style, { backgroundColor: OVERLAY.scrim, opacity }]}
     />
   );
 }

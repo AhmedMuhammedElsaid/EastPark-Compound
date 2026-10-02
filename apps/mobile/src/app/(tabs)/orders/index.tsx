@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { ordersApi } from "@/services/api/orders";
-import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
@@ -52,7 +52,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   READY: SEMANTIC.warning,
   ON_THE_WAY: BRAND.gold,
   DELIVERED: SEMANTIC.success,
-  CANCELLED: "#2e2a26", // fallback static — will be overridden by colors.elevated at render
+  CANCELLED: DARK.elevated, // fallback only; render uses colors.elevated for CANCELLED
 };
 
 export default function OrdersScreen() {

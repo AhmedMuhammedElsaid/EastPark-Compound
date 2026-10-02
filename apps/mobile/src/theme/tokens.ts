@@ -47,6 +47,12 @@ export const SEMANTIC = {
 	info: "#4A6B8A",
 } as const;
 
+export const OVERLAY = {
+	// Warm near-black (BRAND.ink) scrims — never pure #000
+	scrim: "rgba(13, 12, 11, 0.4)",
+	scrimStrong: "rgba(13, 12, 11, 0.7)",
+} as const;
+
 export const SPACING = {
 	xs: 4,
 	sm: 8,

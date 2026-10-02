@@ -5,7 +5,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearAndAdd, dismissConflict } from "@/store/slices/cart-slice";
-import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, OVERLAY, RADIUS, SPACING } from "@/theme/tokens";
 
 /**
  * Global modal that appears when the user tries to add a product from a
@@ -65,7 +65,7 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
       StyleSheet.create({
         overlay: {
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.7)",
+          backgroundColor: OVERLAY.scrimStrong,
           justifyContent: "center",
           alignItems: "center",
           paddingHorizontal: SPACING.xl,
