@@ -2,6 +2,7 @@ import * as React from "react";
 import { Animated, StyleSheet, View } from "react-native";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { RADIUS } from "@/theme/tokens";
 
 type Props = {
@@ -19,8 +20,11 @@ type Props = {
 export function Skeleton({ width = "100%", height = 16, borderRadius = RADIUS.sm, style }: Props) {
   const colors = useAppColors();
   const opacity = React.useRef(new Animated.Value(0.5)).current;
+  const reduceMotion = useReducedMotion();
 
   React.useEffect(() => {
+    if (reduceMotion)
+      return;
     Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
@@ -28,7 +32,7 @@ export function Skeleton({ width = "100%", height = 16, borderRadius = RADIUS.sm
       ]),
     ).start();
     return () => opacity.stopAnimation();
-  }, [opacity]);
+  }, [opacity, reduceMotion]);
 
   return (
     <Animated.View

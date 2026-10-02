@@ -7,6 +7,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -62,14 +63,22 @@ export default function ConfirmationScreen() {
   const scale = React.useRef(new Animated.Value(0)).current;
   const opacity = React.useRef(new Animated.Value(0)).current;
 
+  const reduceMotion = useReducedMotion();
+
   React.useEffect(() => {
+    if (reduceMotion) {
+      scale.setValue(1);
+      opacity.setValue(1);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
     Animated.spring(scale, { toValue: 1, damping: 12, stiffness: 120, useNativeDriver: true }).start();
     Animated.sequence([
       Animated.delay(200),
       Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
     ]).start();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [opacity, scale]);
+  }, [opacity, scale, reduceMotion]);
 
   const iconStyle = { transform: [{ scale }] };
   const contentStyle = { opacity };
