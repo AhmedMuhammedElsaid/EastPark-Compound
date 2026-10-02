@@ -124,7 +124,7 @@ export default function MerchantDashboard() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {pendingCount > 0 && (
-          <Pressable style={styles.alertBanner} onPress={() => router.push("/(merchant)/orders" as any)}>
+          <Pressable style={styles.alertBanner} onPress={() => router.push("/(merchant)/orders")}>
             <Bell size={20} color={SEMANTIC.warning} />
             <Text style={styles.alertText}>
               {t("merchant.pending_count_waiting", { count: pendingCount })}
@@ -137,19 +137,19 @@ export default function MerchantDashboard() {
           <QuickActionCard
             icon={<Package size={28} color={colors.textMuted} />}
             label={t("merchant.orders")}
-            onPress={() => router.push("/(merchant)/orders" as any)}
+            onPress={() => router.push("/(merchant)/orders")}
             styles={styles}
           />
           <QuickActionCard
             icon={<ForkKnife size={28} color={colors.textMuted} />}
             label={t("merchant.menu")}
-            onPress={() => router.push("/(merchant)/menu" as any)}
+            onPress={() => router.push("/(merchant)/menu")}
             styles={styles}
           />
           <QuickActionCard
             icon={<Storefront size={28} color={colors.textMuted} />}
             label={t("merchant.shop_profile")}
-            onPress={() => router.push("/(merchant)/shop-profile" as any)}
+            onPress={() => router.push("/(merchant)/shop-profile")}
             styles={styles}
           />
         </View>

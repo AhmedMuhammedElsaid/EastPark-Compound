@@ -4,6 +4,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -143,9 +144,23 @@ export class PollsService {
         });
         if (existing) throw new ConflictException('poll.error.alreadyVoted');
 
-        await this.db.vote.create({
-            data: { userId: actor.userId, pollId: id, optionId: dto.optionId },
-        });
+        try {
+            await this.db.vote.create({
+                data: {
+                    userId: actor.userId,
+                    pollId: id,
+                    optionId: dto.optionId,
+                },
+            });
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+            ) {
+                throw new ConflictException('poll.error.alreadyVoted');
+            }
+            throw error;
+        }
 
         return { message: 'poll.success.voted' };
     }

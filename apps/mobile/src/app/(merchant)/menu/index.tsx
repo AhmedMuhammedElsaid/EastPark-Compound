@@ -113,7 +113,7 @@ export default function MerchantMenuScreen() {
           <ArrowLeft size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("merchant.menu")}</Text>
-        <Pressable style={styles.addBtn} onPress={() => router.push("/(merchant)/menu/new" as any)}>
+        <Pressable style={styles.addBtn} onPress={() => router.push("/(merchant)/menu/new")}>
           <Plus size={20} color={colors.bg} />
         </Pressable>
       </View>
@@ -144,7 +144,7 @@ export default function MerchantMenuScreen() {
                   product={product}
                   isAr={isAr}
                   onToggle={v => toggleAvailability({ productId: product.id, isAvailable: v })}
-                  onEdit={() => router.push(`/(merchant)/menu/${product.id}` as any)}
+                  onEdit={() => router.push(`/(merchant)/menu/${product.id}`)}
                   onDelete={() => handleDelete(product)}
                   styles={styles}
                   colors={colors}

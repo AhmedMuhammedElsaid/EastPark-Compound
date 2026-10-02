@@ -85,7 +85,7 @@ export default function AdminDashboard() {
           <Pressable
             key={action.route}
             style={styles.actionRow}
-            onPress={() => router.push(action.route as any)}
+            onPress={() => router.push(action.route)}
           >
             <View style={styles.actionIcon}>{action.icon}</View>
             <Text style={styles.actionLabel}>{t(action.labelKey)}</Text>

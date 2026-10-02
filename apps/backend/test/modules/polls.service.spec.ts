@@ -199,3 +199,27 @@ describe('PollsService', () => {
         });
     });
 });
+
+describe('PollsService vote race', () => {
+    it('maps P2002 to ConflictException', async () => {
+        const { Prisma } = await import('@prisma/client');
+        const m = await Test.createTestingModule({
+            providers: [PollsService, { provide: DatabaseService, useValue: db }],
+        }).compile();
+        const svc = m.get(PollsService);
+        db.poll.findUnique.mockResolvedValue({
+            ...mockPoll(),
+            options: [{ id: 'opt-1' }],
+        });
+        db.vote.findUnique.mockResolvedValue(null);
+        db.vote.create.mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError('dup', {
+                code: 'P2002',
+                clientVersion: 'x',
+            })
+        );
+        await expect(
+            svc.vote('poll-1', { optionId: 'opt-1' } as any, actor)
+        ).rejects.toBeInstanceOf(ConflictException);
+    });
+});

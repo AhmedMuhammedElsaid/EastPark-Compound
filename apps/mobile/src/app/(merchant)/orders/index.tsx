@@ -212,7 +212,7 @@ function MerchantOrderCard({ order, styles, colors }: { order: MerchantOrder; st
   return (
     <Pressable
       style={styles.card}
-      onPress={() => router.push(`/(merchant)/orders/${order.id}` as any)}
+      onPress={() => router.push(`/(merchant)/orders/${order.id}`)}
     >
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
