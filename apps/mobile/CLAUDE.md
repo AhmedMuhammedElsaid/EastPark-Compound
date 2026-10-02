@@ -64,6 +64,25 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 - **FE-6 ✅ FIXED:** removed dead obytes stubs (`app/login.tsx`, `app/onboarding.tsx`, `app/[...messing].tsx`); added `app/+not-found.tsx` (token/i18n-compliant).
 - **FE-5:** whitespace-only working-tree drift (`.env.example`, `eslint.config.mjs`, `use-biometric.ts`) still uncommitted — harmless CRLF churn.
 
+### Backend-contract review pass — 2026-10-02
+
+- **Reset-password and accept-invitation complete on the WEB app.** Backend emails link to
+  `${WEB_APP_URL}/auth/reset-password?token=` and `/auth/accept-invitation?token=` (https). Mobile only
+  registers the `eastpark://` scheme and has no universal/app links (they need hosted
+  `apple-app-site-association` / `assetlinks.json`), so those links open
+  `eastpark-web-app` (`apps/web/src/app/auth/{reset-password,accept-invitation}` → BFF
+  `/api/auth/*`). The mobile screens remain for `eastpark://` deep links only.
+- Auth: refresh/logout send `Authorization: Bearer <refreshToken>` (+ body). The 401 interceptor
+  skips public `/auth/*` routes and guest requests, and only ends the session when `/auth/refresh`
+  answers 401/403 (`setSessionExpiredHandler` → `teardownSession`). All logins go through
+  `completeLogin()` (`src/services/auth/session.ts`): role routing + auth-wall replay via
+  `auth.pendingRedirect`.
+- Socket `/orders`: `order:join`/`order:leave` with the bare orderId; listen `order:status_update`;
+  15 s `refetchInterval` fallback on active orders.
+- Query cache persistence is limited to public keys (`PERSISTED_QUERY_ROOTS`) with a version buster.
+- Push taps route via `getNotificationHref()` (`src/services/notifications/routing.ts`); the backend
+  sends `{ orderId, status }` without `type`/`referenceId`, so the type is inferred from the id key.
+
 ## User Roles
 
 | Role | Registration Flow |
@@ -145,7 +164,7 @@ assets/animations/               # success.json (Lottie — used in checkout/con
 - Unicode arrows/chevrons (`←`, `→`, `›`, `‹`, `✕`)
 - Use: `ArrowLeft`, `ArrowRight`, `CaretRight`, `CaretLeft`, `X`, `Plus`, `Trash`, `Bell`, `Package`, etc.
 
-**Auth-wall.** Guest action → `requireAuth(() => { ... })` from `useAuthGuard()` hook → dispatches `showAuthWall` → `<AuthWallSheet />` shows → after login, action auto-replays.
+**Auth-wall.** Guest action → `requireAuth(() => { ... })` from `useAuthGuard()` hook → dispatches `showAuthWall` with the current route → `<AuthWallSheet />` shows → after login `completeLogin()` returns the user to that route (`auth.pendingRedirect`).
 
 **Cursor pagination.** All list screens use `CursorPage<T>` shape: `{ items: T[]; nextCursor: string | null }` (NOT `data: T[]`):
 ```typescript
@@ -195,7 +214,7 @@ See `profile/index.tsx` as the reference. Never call `useStyles()` in sub-compon
 
 **Swipeable cart rows:** `Swipeable` from `react-native-gesture-handler` wraps `CartItemRow`. Right action: `SEMANTIC.error` background + `Trash` Phosphor icon + `Haptics.ImpactFeedbackStyle.Medium`.
 
-**Notification deep linking:** `_layout.tsx` has `addNotificationResponseReceivedListener` routing on `{ type, referenceId }`. Backend must include these fields in all push payloads (B-3 open).
+**Notification deep linking:** `_layout.tsx` routes push taps through `getNotificationHref(type, data)`; it accepts `{ type, <entity>Id }`, `referenceId`, or an id key alone.
 
 **Merchant order status:** Merchants control `PLACED → CONFIRMED → PREPARING → READY` only. `ON_THE_WAY` and `DELIVERED` are set by delivery/logistics or webhook — not merchant-accessible.
 
