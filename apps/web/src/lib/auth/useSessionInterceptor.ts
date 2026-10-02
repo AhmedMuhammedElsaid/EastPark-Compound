@@ -5,6 +5,11 @@ import type { AuthUser } from '@/lib/api/contracts';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import { loginPath } from '@/lib/auth/return-path';
+
+/** Focus/visibility re-validation runs at most once per interval (each call hits the backend). */
+export const SESSION_REVALIDATE_INTERVAL_MS = 60_000;
+
 const PUBLIC_AUTH_ENDPOINTS = new Set([
   '/api/auth/accept-invitation',
   '/api/auth/forgot-password',
@@ -31,6 +36,7 @@ export function useSessionInterceptor({
   const router = useRouter();
   const userRef = React.useRef<AuthUser | null>(user);
   const redirectingRef = React.useRef(false);
+  const lastValidatedAtRef = React.useRef(0);
 
   React.useEffect(() => {
     userRef.current = user;
@@ -42,8 +48,7 @@ export function useSessionInterceptor({
     redirectingRef.current = true;
     userRef.current = null;
     clearSession();
-    const requestedPath = `${window.location.pathname}${window.location.search}`;
-    router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
+    router.replace(loginPath(`${window.location.pathname}${window.location.search}`));
   }, [clearSession, router]);
 
   React.useEffect(() => {
@@ -75,6 +80,9 @@ export function useSessionInterceptor({
     const validateVisibleSession = async () => {
       const hadSession = Boolean(userRef.current);
       if (document.visibilityState !== 'visible' || !hadSession) return;
+      const now = Date.now();
+      if (now - lastValidatedAtRef.current < SESSION_REVALIDATE_INTERVAL_MS) return;
+      lastValidatedAtRef.current = now;
       const sessionUser = await validateSession();
       if (!sessionUser && hadSession) redirectToLogin();
     };

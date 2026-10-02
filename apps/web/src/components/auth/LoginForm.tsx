@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/Button';
 import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { safeReturnPath } from '@/lib/auth/return-path';
 import { useTranslation } from '@/lib/i18n';
 import { loginSchema } from '@/lib/validation/auth';
 
@@ -19,6 +20,7 @@ const ERROR_KEYS = {
   network: 'errors.network',
   rate_limited: 'auth.errors.rate_limited',
   server: 'errors.server',
+  unverified: 'auth.errors.unverified',
   validation: 'auth.errors.login_failed',
 } as const;
 
@@ -47,7 +49,7 @@ export function LoginForm() {
     }
     const requestedPath = new URLSearchParams(window.location.search).get('next');
     const defaultPath = result.user.role === 'ADMIN' ? '/admin' : '/home';
-    router.replace(requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : defaultPath);
+    router.replace(safeReturnPath(requestedPath, defaultPath));
   });
 
   return (

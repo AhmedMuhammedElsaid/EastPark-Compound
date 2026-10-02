@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { loginPath } from '@/lib/auth/return-path';
 import { useTranslation } from '@/lib/i18n';
 
 export function OrderAuthGuard({ children }: { children: React.ReactNode }) {
@@ -13,7 +14,7 @@ export function OrderAuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (!isLoading && !user) router.replace(loginPath(pathname));
   }, [isLoading, pathname, router, user]);
 
   if (isLoading || !user) {

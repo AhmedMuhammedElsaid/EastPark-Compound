@@ -1,12 +1,14 @@
 "use client";
 
-import { Heart, LoaderCircle, Star, Trash2 } from "lucide-react";
+import { Heart, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 
+import { PendingMark } from "@/components/PendingMark";
 import type { Review, ReviewPage } from "@/lib/api/shop-interactions";
 import { parseReview, parseReviewPage, reviewInputSchema } from "@/lib/api/shop-interactions";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { loginPath } from "@/lib/auth/return-path";
 import { useTranslation } from "@/lib/i18n";
 
 export function ShopInteractions({
@@ -194,7 +196,7 @@ export function ShopInteractions({
             />
             <div className="mt-4 flex flex-wrap gap-3">
               <button type="submit" className="inline-flex min-h-12 items-center gap-2 rounded-md bg-primary px-5 font-bold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60">
-                {isBusy && <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />}
+                {isBusy && <PendingMark size={16} />}
                 {ownedReview ? t("directory.update_review") : t("directory.submit_review")}
               </button>
               {ownedReview && (
@@ -208,7 +210,7 @@ export function ShopInteractions({
         </form>
       ) : !isAuthLoading && !user ? (
         <p className="mt-8 border-y border-border py-6 text-muted-foreground">
-          <Link href={`/login?redirect=${encodeURIComponent(`/directory/${shopId}`)}`} className="font-bold text-primary underline-offset-4 hover:underline">
+          <Link href={loginPath(`/directory/${encodeURIComponent(shopId)}`)} className="font-bold text-primary underline-offset-4 hover:underline">
             {t("auth.login")}
           </Link>{" "}{t("directory.login_to_review")}
         </p>

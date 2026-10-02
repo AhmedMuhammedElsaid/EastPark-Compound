@@ -9,6 +9,7 @@ import { BrandMark } from '@/components/BrandMark';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { loginPath } from '@/lib/auth/return-path';
 import { useTranslation } from '@/lib/i18n';
 
 export function MerchantShell({ children }: { children: React.ReactNode }) {
@@ -19,7 +20,7 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isLoading) return;
-    if (!user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (!user) router.replace(loginPath(pathname));
     else if (user.role !== 'MERCHANT') router.replace('/home');
   }, [isLoading, pathname, router, user]);
 
