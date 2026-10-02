@@ -1,9 +1,10 @@
 import {
+    ConflictException,
     ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -15,6 +16,13 @@ import {
     ShopListResponseDto,
     ShopResponseDto,
 } from './dtos/response/shop.response.dto';
+
+/** Serialise a validated DTO instance into plain JSON for a Prisma Json column */
+function toJson(value: object | undefined): Prisma.InputJsonValue | undefined {
+    return value === undefined
+        ? undefined
+        : (JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue);
+}
 
 @Injectable()
 export class ShopsService {
@@ -32,6 +40,7 @@ export class ShopsService {
                 whatsapp: dto.whatsapp,
                 deliveryTime: dto.deliveryTime,
                 merchantId: dto.merchantId,
+                workingHours: toJson(dto.workingHours),
             },
             include: {
                 photos: { orderBy: { order: 'asc' } },
@@ -154,8 +163,7 @@ export class ShopsService {
                 whatsapp: dto.whatsapp,
                 deliveryTime: dto.deliveryTime,
                 isOpen: dto.isOpen,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                workingHours: dto.workingHours as any,
+                workingHours: toJson(dto.workingHours),
             },
             include: {
                 photos: { orderBy: { order: 'asc' } },
@@ -177,6 +185,17 @@ export class ShopsService {
     async remove(id: string): Promise<void> {
         const shop = await this.db.shop.findUnique({ where: { id } });
         if (!shop) throw new NotFoundException('shop.error.notFound');
+
+        // Orders and products reference the shop with restrictive FKs; block
+        // instead of surfacing a 500 from the database.
+        const [orderCount, productCount] = await Promise.all([
+            this.db.order.count({ where: { shopId: id } }),
+            this.db.product.count({ where: { shopId: id } }),
+        ]);
+        if (orderCount > 0 || productCount > 0) {
+            throw new ConflictException('shop.error.hasDependents');
+        }
+
         await this.db.shop.delete({ where: { id } });
     }
 

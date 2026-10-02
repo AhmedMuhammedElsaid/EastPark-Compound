@@ -109,7 +109,7 @@ export default function FeedbackListScreen() {
           <ArrowLeft size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("feedback.title")}</Text>
-        <Pressable style={styles.newBtn} onPress={() => router.push("/(tabs)/community/feedback/new" as any)} accessibilityRole="button" accessibilityLabel={t("feedback.new")}>
+        <Pressable style={styles.newBtn} onPress={() => router.push("/(tabs)/community/feedback/new")} accessibilityRole="button" accessibilityLabel={t("feedback.new")}>
           <Plus size={22} color={colors.bg} />
         </Pressable>
       </View>
@@ -156,7 +156,7 @@ function FeedbackRow({ feedback, styles, colors }: { feedback: Feedback; styles:
   return (
     <Pressable
       style={styles.row}
-      onPress={() => router.push(`/(tabs)/community/feedback/${feedback.id}` as any)}
+      onPress={() => router.push(`/(tabs)/community/feedback/${feedback.id}`)}
       accessibilityRole="button"
       accessibilityLabel={feedback.title}
     >

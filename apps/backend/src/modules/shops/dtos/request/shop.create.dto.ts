@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ShopCategory } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
     IsEnum,
     IsInt,
@@ -7,9 +8,11 @@ import {
     IsOptional,
     IsPhoneNumber,
     IsString,
-    IsUrl,
     Min,
+    ValidateNested,
 } from 'class-validator';
+
+import { WorkingHoursDto } from './working-hours.dto';
 
 export class ShopCreateDto {
     @ApiProperty({ example: 'The Corner Cafe' })
@@ -55,6 +58,15 @@ export class ShopCreateDto {
     @Min(1)
     @IsOptional()
     deliveryTime?: number;
+
+    @ApiPropertyOptional({
+        type: WorkingHoursDto,
+        description: 'Working hours per day (mon..sun), HH:mm 24h',
+    })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => WorkingHoursDto)
+    workingHours?: WorkingHoursDto;
 
     @ApiProperty({ description: 'Merchant user ID to assign the shop to' })
     @IsString()

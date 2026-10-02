@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ShopCategory } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
     IsBoolean,
     IsEnum,
@@ -8,7 +9,10 @@ import {
     IsPhoneNumber,
     IsString,
     Min,
+    ValidateNested,
 } from 'class-validator';
+
+import { WorkingHoursDto } from './working-hours.dto';
 
 export class ShopUpdateDto {
     @ApiPropertyOptional()
@@ -60,9 +64,12 @@ export class ShopUpdateDto {
     isOpen?: boolean;
 
     @ApiPropertyOptional({
-        description: 'Working hours JSON per day',
+        type: WorkingHoursDto,
+        description: 'Working hours per day (mon..sun), HH:mm 24h',
         example: { mon: { open: '09:00', close: '22:00', closed: false } },
     })
     @IsOptional()
-    workingHours?: Record<string, unknown>;
+    @ValidateNested()
+    @Type(() => WorkingHoursDto)
+    workingHours?: WorkingHoursDto;
 }
