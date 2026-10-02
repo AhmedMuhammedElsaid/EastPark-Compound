@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 import { resolve } from "node:path";
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL
-  ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
+// Public origin of the Supabase Storage bucket that serves uploaded images (avatars, feedback
+// attachments, shop photos). Build-time env; when unset the CSP falls back to any https: image host.
+const storageOrigin = process.env.NEXT_PUBLIC_STORAGE_ORIGIN
+  ? new URL(process.env.NEXT_PUBLIC_STORAGE_ORIGIN).origin
   : "";
 
 const nextConfig: NextConfig = {
@@ -32,11 +34,11 @@ const nextConfig: NextConfig = {
                     "form-action 'self'",
                     "frame-ancestors 'none'",
                     "frame-src 'none'",
-                    "img-src 'self' data: blob: https:",
+                    `img-src 'self' data: blob: ${storageOrigin || "https:"}`,
                     "object-src 'none'",
                     "script-src 'self' 'unsafe-inline'",
                     "style-src 'self' 'unsafe-inline'",
-                    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}`,
+                    "connect-src 'self'",
                     "upgrade-insecure-requests",
                   ].join("; "),
                 },

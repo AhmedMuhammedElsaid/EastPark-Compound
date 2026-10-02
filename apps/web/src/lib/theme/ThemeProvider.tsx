@@ -103,19 +103,3 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
-
-/**
- * Inline script string injected via <script dangerouslySetInnerHTML> in the
- * root layout, executed before React hydrates, to set the `.light` class
- * from localStorage and avoid a flash of the wrong theme.
- */
-export const THEME_INIT_SCRIPT = `
-(function () {
-  try {
-    var stored = window.localStorage.getItem('${STORAGE_KEY}');
-    if (stored === 'light') {
-      document.documentElement.classList.add('light');
-    }
-  } catch (e) {}
-})();
-`;

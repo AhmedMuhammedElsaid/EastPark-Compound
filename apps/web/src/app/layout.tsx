@@ -5,7 +5,7 @@ import { Analytics } from '@vercel/analytics/next';
 import { AuthProvider } from '@/lib/auth/AuthProvider';
 import { CartProvider } from '@/lib/cart/CartProvider';
 import { LanguageProvider } from '@/lib/i18n';
-import { ThemeProvider, THEME_INIT_SCRIPT } from '@/lib/theme';
+import { ThemeProvider } from '@/lib/theme';
 
 import './globals.css';
 
@@ -50,8 +50,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: 'EastPark',
   title: {
-    default: 'EastPark | Your Compound, Connected',
-    template: '%s | EastPark',
+    default: 'إيست بارك | مجمعك السكني، متصل',
+    template: '%s | إيست بارك',
   },
   description: SITE_DESCRIPTION,
   authors: [{ name: 'Ahmed Muhammed Elsaid', url: DEVELOPER_URL }],
@@ -126,8 +126,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
-        {/* Applies the persisted theme class before hydration to avoid a flash of the wrong theme. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Static same-origin script (public/theme-init.js): applies the persisted theme class before hydration, with no inline-script CSP allowance. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme-init.js" />
       </head>
       <body className="min-h-screen antialiased">
         <ThemeProvider>
