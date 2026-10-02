@@ -44,8 +44,11 @@ export class AnnouncementsController {
     @Get(':id')
     @PublicRoute()
     @ApiOperation({ summary: 'Get announcement with comments' })
-    findOne(@Param('id') id: string): Promise<AnnouncementDetailResponseDto> {
-        return this.announcementsService.findOne(id);
+    findOne(
+        @Param('id') id: string,
+        @AuthUser() actor?: IAuthUser
+    ): Promise<AnnouncementDetailResponseDto> {
+        return this.announcementsService.findOne(id, actor);
     }
 
     @Post()

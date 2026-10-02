@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -47,7 +48,10 @@ export class AnnouncementsService {
         return { items, nextCursor };
     }
 
-    async findOne(id: string): Promise<AnnouncementDetailResponseDto> {
+    async findOne(
+        id: string,
+        actor?: IAuthUser
+    ): Promise<AnnouncementDetailResponseDto> {
         const announcement = await this.db.announcement.findUnique({
             where: { id },
             include: {
@@ -65,7 +69,30 @@ export class AnnouncementsService {
         });
         if (!announcement)
             throw new NotFoundException('announcement.error.notFound');
-        return announcement as AnnouncementDetailResponseDto;
+
+        // Privacy: guests see first names only; internal user ids are exposed
+        // only to the comment owner and admins.
+        const comments = announcement.comments.map(comment => {
+            const canSeeIdentity =
+                !!actor &&
+                (actor.role === Role.ADMIN || actor.userId === comment.userId);
+            const fullName = comment.user?.name ?? '';
+            const name = actor
+                ? fullName
+                : (fullName.trim().split(/\s+/)[0] ?? '');
+            return {
+                id: comment.id,
+                body: comment.body,
+                createdAt: comment.createdAt,
+                ...(canSeeIdentity ? { userId: comment.userId } : {}),
+                user: {
+                    ...(canSeeIdentity ? { id: comment.user?.id } : {}),
+                    name,
+                },
+            };
+        });
+
+        return { ...announcement, comments } as AnnouncementDetailResponseDto;
     }
 
     async addComment(
