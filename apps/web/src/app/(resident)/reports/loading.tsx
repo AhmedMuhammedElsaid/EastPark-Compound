@@ -1,10 +1,11 @@
 import { Container } from '@/components/Container';
+import { LoadingLabel } from '@/components/LoadingLabel';
 
 export default function ReportsLoading() {
   return (
     <Container className="py-8 sm:py-12">
       <div role="status" aria-live="polite" aria-busy="true" className="mx-auto max-w-5xl">
-        <span className="sr-only">Loading reports</span>
+        <LoadingLabel />
         <div className="h-3 w-24 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
         <div className="mt-3 h-8 w-52 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
         <div className="mt-4 h-5 w-full max-w-lg animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />

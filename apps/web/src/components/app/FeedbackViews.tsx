@@ -37,6 +37,9 @@ import type { Feedback, FeedbackDetail, FeedbackPage, FeedbackStatus } from '@/l
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 
+// Vercel rejects request bodies over 4.5 MB; stay under it with room for multipart overhead.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 const formSchema = z.object({
   category: z.enum(feedbackCategories),
   body: z.string().trim().min(10).max(4000),
@@ -166,7 +169,7 @@ export function NewFeedbackView() {
 
   function selectFiles(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
-    const valid = selected.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 5 * 1024 * 1024);
+    const valid = selected.filter((file) => ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= MAX_UPLOAD_BYTES);
     if (valid.length !== selected.length || files.length + valid.length > 3) setSubmitError('validation');
     setFiles((current) => [...current, ...valid].slice(0, 3));
     event.target.value = '';
@@ -318,7 +321,8 @@ function FilterButton({ active, label, onClick }: { active: boolean; label: stri
 }
 
 function FeedbackSkeleton() {
-  return <div role="status" aria-busy="true" className="mt-8 space-y-4"><span className="sr-only">Loading</span>{[0, 1, 2].map((value) => <div key={value} className="h-24 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />)}</div>;
+  const { t } = useTranslation();
+  return <div role="status" aria-busy="true" className="mt-8 space-y-4"><span className="sr-only">{t('common.loading')}</span>{[0, 1, 2].map((value) => <div key={value} className="h-24 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />)}</div>;
 }
 
 function StateMessage({ body, title }: { body: string; title: string }) {

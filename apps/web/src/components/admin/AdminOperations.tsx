@@ -14,7 +14,6 @@ import { PendingMark } from "@/components/PendingMark";
 import { useTranslation } from "@/lib/i18n";
 
 type LeadStatus = "PENDING" | "INVITED" | "CONVERTED" | "REJECTED";
-type MaritalStatus = "MARRIED" | "SINGLE" | "DIVORCED";
 type FeedbackStatus = "SUBMITTED" | "ACKNOWLEDGED" | "IN_PROGRESS" | "RESOLVED";
 type ResidentLead = {
   id: string;
@@ -25,7 +24,7 @@ type ResidentLead = {
   floor: string;
   flatNumber: string;
   jobTitle?: string | null;
-  maritalStatus?: MaritalStatus | null;
+  maritalStatus?: "MARRIED" | "SINGLE" | "DIVORCED" | null;
   nationalId?: string | null;
   passportNumber?: string | null;
   status: LeadStatus;
@@ -53,23 +52,20 @@ const feedbackStatuses: FeedbackStatus[] = [
   "IN_PROGRESS",
   "RESOLVED",
 ];
-const maritalLabelsEn: Record<MaritalStatus, string> = {
-  MARRIED: "Married",
-  SINGLE: "Single",
-  DIVORCED: "Divorced",
-};
-const maritalLabelsAr: Record<MaritalStatus, string> = {
-  MARRIED: "متزوج",
-  SINGLE: "أعزب",
-  DIVORCED: "منفصل",
-};
+function labelMap(
+  t: (key: string) => string,
+  group: "lead_labels" | "feedback_labels",
+  keys: string[],
+): Record<string, string> {
+  return Object.fromEntries(keys.map((key) => [key, t(`admin_ops.${group}.${key}`)]));
+}
 
 function itemsFrom<T>(payload: PagePayload<T> | null): T[] {
   return payload?.data?.items ?? [];
 }
 
 export function ResidentRequestsPanel() {
-  const { lang } = useTranslation();
+  const { t } = useTranslation();
   const [status, setStatus] = React.useState<LeadStatus | "ALL">("PENDING");
   const [items, setItems] = React.useState<ResidentLead[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -77,7 +73,6 @@ export function ResidentRequestsPanel() {
   const [actionError, setActionError] = React.useState(false);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [reloadKey, setReloadKey] = React.useState(0);
-  const ar = lang === "ar";
 
   React.useEffect(() => {
     let active = true;
@@ -133,29 +128,24 @@ export function ResidentRequestsPanel() {
       <PanelHeading
         icon={UsersRound}
         id="resident-requests-title"
-        title={ar ? "طلبات السكان" : "Resident requests"}
-        body={
-          ar
-            ? "راجع طلبات الوحدات وأرسل دعوات التسجيل المعتمدة."
-            : "Review unit applications and invite approved residents."
-        }
+        title={t("admin_ops.resident_requests_title")}
+        body={t("admin_ops.resident_requests_body")}
       />
       <FilterBar
         value={status}
         values={["ALL", ...leadStatuses]}
         onChange={selectStatus}
-        labels={ar ? leadLabelsAr : leadLabelsEn}
+        labels={labelMap(t, "lead_labels", ["ALL", ...leadStatuses])}
       />
       <PanelState
         loading={loading}
         error={error}
         empty={!items.length}
         onRetry={retry}
-        ar={ar}
       />
       {actionError && (
         <p role="alert" className="mb-4 border-y border-error/30 bg-error/10 px-4 py-3 text-error">
-          {ar ? "تعذر إرسال الدعوة. حاول مرة أخرى." : "Could not send the invitation. Try again."}
+          {t("admin_ops.invite_error")}
         </p>
       )}
       {!loading && !error && items.length > 0 && (
@@ -171,7 +161,7 @@ export function ResidentRequestsPanel() {
                     {item.name}
                   </h3>
                   <StatusBadge
-                    label={(ar ? leadLabelsAr : leadLabelsEn)[item.status]}
+                    label={t(`admin_ops.lead_labels.${item.status}`)}
                     status={item.status}
                   />
                 </div>
@@ -182,24 +172,24 @@ export function ResidentRequestsPanel() {
                   {item.email} · {item.phone}
                 </p>
                 <p className="mt-1 text-[length:var(--text-label)] text-muted-foreground">
-                  {ar ? "عمارة" : "Building"} {item.building} ·{" "}
-                  {ar ? "دور" : "Floor"} {item.floor} · {ar ? "شقة" : "Flat"}{" "}
+                  {t("admin_ops.building")} {item.building} ·{" "}
+                  {t("admin_ops.floor")} {item.floor} · {t("admin_ops.flat")}{" "}
                   {item.flatNumber}
                 </p>
                 {(item.jobTitle || item.maritalStatus) && (
                   <p className="mt-1 text-[length:var(--text-label)] text-muted-foreground">
-                    {item.jobTitle && <span>{ar ? "الوظيفة" : "Job"}: {item.jobTitle}</span>}
+                    {item.jobTitle && <span>{t("admin_ops.job")}: {item.jobTitle}</span>}
                     {item.jobTitle && item.maritalStatus && " · "}
-                    {item.maritalStatus && (ar ? maritalLabelsAr : maritalLabelsEn)[item.maritalStatus]}
+                    {item.maritalStatus && t(`admin_ops.marital.${item.maritalStatus}`)}
                   </p>
                 )}
                 {(item.nationalId || item.passportNumber) && (
                   <p className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--text-label)] text-muted-foreground">
                     {item.nationalId && (
-                      <span>{ar ? "الرقم القومي" : "National ID"}: <bdi>{item.nationalId}</bdi></span>
+                      <span>{t("admin_ops.national_id")}: <bdi>{item.nationalId}</bdi></span>
                     )}
                     {item.passportNumber && (
-                      <span>{ar ? "رقم الجواز" : "Passport number"}: <bdi>{item.passportNumber}</bdi></span>
+                      <span>{t("admin_ops.passport")}: <bdi>{item.passportNumber}</bdi></span>
                     )}
                   </p>
                 )}
@@ -217,8 +207,8 @@ export function ResidentRequestsPanel() {
                     <Mail aria-hidden="true" className="size-4.5" />
                   )}
                   {item.status === "INVITED"
-                    ? ar ? "إعادة إرسال الدعوة" : "Resend invitation"
-                    : ar ? "إرسال الدعوة" : "Send invitation"}
+                    ? t("admin_ops.resend_invite")
+                    : t("admin_ops.send_invite")}
                 </button>
               )}
             </article>
@@ -230,7 +220,7 @@ export function ResidentRequestsPanel() {
 }
 
 export function ComplaintsPanel() {
-  const { lang } = useTranslation();
+  const { t } = useTranslation();
   const [status, setStatus] = React.useState<FeedbackStatus | "ALL">("ALL");
   const [items, setItems] = React.useState<Feedback[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -238,7 +228,6 @@ export function ComplaintsPanel() {
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [replies, setReplies] = React.useState<Record<string, string>>({});
   const [reloadKey, setReloadKey] = React.useState(0);
-  const ar = lang === "ar";
 
   React.useEffect(() => {
     let active = true;
@@ -319,25 +308,20 @@ export function ComplaintsPanel() {
       <PanelHeading
         icon={MessageSquareText}
         id="complaints-title"
-        title={ar ? "الشكاوى والمتابعة" : "Complaints and follow-up"}
-        body={
-          ar
-            ? "تابع شكاوى السكان وحدّث حالتها وأرسل رد الإدارة."
-            : "Triage resident complaints, update progress, and send an official reply."
-        }
+        title={t("admin_ops.complaints_title")}
+        body={t("admin_ops.complaints_body")}
       />
       <FilterBar
         value={status}
         values={["ALL", ...feedbackStatuses]}
         onChange={selectStatus}
-        labels={ar ? feedbackLabelsAr : feedbackLabelsEn}
+        labels={labelMap(t, "feedback_labels", ["ALL", ...feedbackStatuses])}
       />
       <PanelState
         loading={loading}
         error={error}
         empty={!items.length}
         onRetry={retry}
-        ar={ar}
       />
       {!loading && !error && items.length > 0 && (
         <div className="divide-y divide-border border-y border-border">
@@ -345,9 +329,7 @@ export function ComplaintsPanel() {
             <article key={item.id} className="py-6">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge
-                  label={
-                    (ar ? feedbackLabelsAr : feedbackLabelsEn)[item.status]
-                  }
+                  label={t(`admin_ops.feedback_labels.${item.status}`)}
                   status={item.status}
                 />
                 <span className="text-[length:var(--text-caption)] font-bold text-muted-foreground">
@@ -355,7 +337,7 @@ export function ComplaintsPanel() {
                 </span>
                 {item.isAnonymous && (
                   <span className="text-[length:var(--text-caption)] text-muted-foreground">
-                    {ar ? "مجهولة للسكان" : "Anonymous to residents"}
+                    {t("admin_ops.anonymous")}
                   </span>
                 )}
               </div>
@@ -364,7 +346,7 @@ export function ComplaintsPanel() {
               </p>
               <div className="mt-5 grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
                 <label className="grid gap-2 text-[length:var(--text-label)] font-semibold">
-                  {ar ? "الحالة" : "Status"}
+                  {t("admin_ops.status")}
                   <select
                     value={item.status}
                     disabled={pendingId === item.id}
@@ -378,13 +360,13 @@ export function ComplaintsPanel() {
                   >
                     {feedbackStatuses.map((value) => (
                       <option key={value} value={value}>
-                        {(ar ? feedbackLabelsAr : feedbackLabelsEn)[value]}
+                        {t(`admin_ops.feedback_labels.${value}`)}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="grid gap-2 text-[length:var(--text-label)] font-semibold">
-                  {ar ? "رد الإدارة" : "Admin reply"}
+                  {t("admin_ops.reply_label")}
                   <textarea
                     value={replies[item.id] ?? ""}
                     onChange={(event) =>
@@ -396,11 +378,7 @@ export function ComplaintsPanel() {
                     rows={2}
                     maxLength={5000}
                     className="min-h-12 resize-y rounded-md border border-input bg-background px-3 py-2 font-normal"
-                    placeholder={
-                      ar
-                        ? "اكتب تحديثاً واضحاً للسكان..."
-                        : "Write a clear update for the resident..."
-                    }
+                    placeholder={t("admin_ops.reply_placeholder")}
                   />
                 </label>
                 <button
@@ -414,7 +392,7 @@ export function ComplaintsPanel() {
                   ) : (
                     <Send aria-hidden="true" className="size-4.5" />
                   )}
-                  {ar ? "إرسال الرد" : "Send reply"}
+                  {t("admin_ops.send_reply")}
                 </button>
               </div>
             </article>
@@ -464,10 +442,12 @@ function FilterBar({
   onChange: (value: string) => void;
   labels: Record<string, string>;
 }) {
+  const { t } = useTranslation();
+  const filterLabel = t("admin_ops.filter");
   return (
     <div
       role="group"
-      aria-label="Filter"
+      aria-label={filterLabel}
       className="mb-6 flex gap-2 overflow-x-auto pb-2"
     >
       {values.map((item) => (
@@ -490,14 +470,13 @@ function PanelState({
   error,
   empty,
   onRetry,
-  ar,
 }: {
   loading: boolean;
   error: boolean;
   empty: boolean;
   onRetry: () => void;
-  ar: boolean;
 }) {
+  const { t } = useTranslation();
   if (loading)
     return (
       <div
@@ -514,14 +493,14 @@ function PanelState({
         role="alert"
         className="flex min-h-32 flex-col items-center justify-center gap-3 border-y border-border text-center"
       >
-        <p>{ar ? "تعذر تحميل البيانات." : "Could not load this data."}</p>
+        <p>{t("admin_ops.load_error")}</p>
         <button
           type="button"
           onClick={onRetry}
           className="inline-flex min-h-11 items-center gap-2 font-bold text-primary"
         >
           <RefreshCw aria-hidden="true" className="size-4" />
-          {ar ? "إعادة المحاولة" : "Retry"}
+          {t("admin_ops.retry")}
         </button>
       </div>
     );
@@ -529,7 +508,7 @@ function PanelState({
     return (
       <div className="flex min-h-32 items-center justify-center border-y border-border text-muted-foreground">
         <CheckCircle2 aria-hidden="true" className="me-2 size-5" />
-        {ar ? "لا توجد عناصر في هذا العرض." : "Nothing in this view."}
+        {t("admin_ops.empty")}
       </div>
     );
   return null;
@@ -545,32 +524,3 @@ function StatusBadge({ label, status }: { label: string; status: string }) {
     </span>
   );
 }
-
-const leadLabelsEn: Record<string, string> = {
-  ALL: "All",
-  PENDING: "Pending",
-  INVITED: "Invited",
-  CONVERTED: "Registered",
-  REJECTED: "Rejected",
-};
-const leadLabelsAr: Record<string, string> = {
-  ALL: "الكل",
-  PENDING: "معلقة",
-  INVITED: "تمت دعوتها",
-  CONVERTED: "مسجلة",
-  REJECTED: "مرفوضة",
-};
-const feedbackLabelsEn: Record<string, string> = {
-  ALL: "All",
-  SUBMITTED: "Submitted",
-  ACKNOWLEDGED: "Acknowledged",
-  IN_PROGRESS: "In progress",
-  RESOLVED: "Resolved",
-};
-const feedbackLabelsAr: Record<string, string> = {
-  ALL: "الكل",
-  SUBMITTED: "مقدمة",
-  ACKNOWLEDGED: "تم الاستلام",
-  IN_PROGRESS: "قيد التنفيذ",
-  RESOLVED: "تم الحل",
-};

@@ -1,4 +1,5 @@
 import { Container } from '@/components/Container';
+import { LoadingLabel } from '@/components/LoadingLabel';
 import { PendingMark } from '@/components/PendingMark';
 
 export default function ResidentLoading() {
@@ -10,7 +11,7 @@ export default function ResidentLoading() {
         aria-busy="true"
         className="mx-auto max-w-5xl"
       >
-        <span className="sr-only">Loading</span>
+        <LoadingLabel />
         <span className="mb-6 inline-flex text-primary">
           <PendingMark size={48} />
         </span>
