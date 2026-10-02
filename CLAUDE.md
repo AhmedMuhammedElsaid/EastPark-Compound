@@ -547,7 +547,7 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 ### Feedback
 
 - `FeedbackReply.authorId` FK → User (the admin who replied)
-- Anonymous: `userId` / `author` stripped from admin response when `isAnonymous = true`
+- Anonymous: `userId` / `author` stripped for non-admins when `isAnonymous = true`; **admins still see the author** (owner decision 2026-10-02 — supersedes the earlier "strip from admin" rule)
 
 ### Notifications
 
