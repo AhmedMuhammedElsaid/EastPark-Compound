@@ -151,6 +151,13 @@ model Invitation {
 
 // ─── Resident Leads ───────────────────────────────────────────────────────────
 
+// WARNING: the migration `20260930000000_resident_lead_unique_active_unit` adds a
+// PARTIAL unique index `resident_leads_active_unit_key` on
+// (building, floor, flatNumber) WHERE status <> 'REJECTED'. Prisma cannot model
+// partial indexes, so `prisma migrate dev` will propose a diff that DROPS it.
+// Never accept that diff — the index is the atomic duplicate-unit guard
+// (ResidentsService maps its P2002 to HTTP 409). Hand-edit the generated SQL
+// to remove the DROP INDEX statement instead.
 model ResidentLead {
   id             String             @id @default(cuid())
   name           String
@@ -229,7 +236,7 @@ model Product {
   nameAr        String
   description   String?
   descriptionAr String?
-  price         Float
+  price         Decimal  @db.Decimal(10, 2)
   imageUrl      String?
   isAvailable   Boolean  @default(true)
   isDeleted     Boolean  @default(false) // soft delete — preserves OrderItem FK
@@ -250,12 +257,12 @@ model Product {
 model Order {
   id            String        @id @default(cuid())
   status        OrderStatus   @default(PLACED)
-  totalAmount   Float // computed server-side — never trust client
+  totalAmount   Decimal       @db.Decimal(10, 2) // computed server-side — never trust client
   notes         String? // free-text delivery notes (no time slots)
   deliveryUnit  String // pre-filled from resident profile
   paymentMethod PaymentMethod @default(CASH)
   isPaid        Boolean       @default(false)
-  paymobOrderId String? // Paymob transaction reference
+  paymobOrderId String? // Paymob ORDER id registered at payment initiation (not the transaction id)
   cancelledAt   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -276,7 +283,7 @@ model Order {
 model OrderItem {
   id                    String @id @default(cuid())
   quantity              Int
-  unitPrice             Float
+  unitPrice             Decimal @db.Decimal(10, 2)
   productNameSnapshot   String // safe receipt — product name at time of order
   productNameArSnapshot String
 

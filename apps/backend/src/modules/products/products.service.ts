@@ -3,9 +3,10 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Product, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { ProductCreateDto } from './dtos/request/product.create.dto';
@@ -15,6 +16,11 @@ import {
     ProductListResponseDto,
     ProductResponseDto,
 } from './dtos/response/product.response.dto';
+
+/** Prisma row → API shape: Decimal price leaves the service as a number. */
+export function toProductResponse(product: Product): ProductResponseDto {
+    return { ...product, price: toMoneyNumber(product.price) };
+}
 
 @Injectable()
 export class ProductsService {
@@ -42,9 +48,10 @@ export class ProductsService {
     ): Promise<ProductResponseDto> {
         await this.assertShopOwnership(shopId, actor);
 
-        return this.db.product.create({
+        const product = await this.db.product.create({
             data: { ...dto, shopId, isDeleted: false },
         });
+        return toProductResponse(product);
     }
 
     async findAll(
@@ -90,7 +97,7 @@ export class ProductsService {
             nextCursor = last?.id;
         }
 
-        return { items, nextCursor };
+        return { items: items.map(toProductResponse), nextCursor };
     }
 
     async findOne(shopId: string, id: string): Promise<ProductResponseDto> {
@@ -98,7 +105,7 @@ export class ProductsService {
             where: { id, shopId, isDeleted: false },
         });
         if (!product) throw new NotFoundException('product.error.notFound');
-        return product;
+        return toProductResponse(product);
     }
 
     async update(
@@ -110,10 +117,11 @@ export class ProductsService {
         await this.assertShopOwnership(shopId, actor);
         await this.findOne(shopId, id);
 
-        return this.db.product.update({
+        const product = await this.db.product.update({
             where: { id },
             data: dto,
         });
+        return toProductResponse(product);
     }
 
     async remove(shopId: string, id: string, actor: IAuthUser): Promise<void> {
