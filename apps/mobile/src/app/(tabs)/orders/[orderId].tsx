@@ -1,4 +1,3 @@
-import type { Socket } from "socket.io-client";
 import type { Order, OrderStatus } from "@/services/api/orders";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
@@ -11,9 +10,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { ordersApi } from "@/services/api/orders";
-import { getOrdersSocket, joinOrderRoom, leaveOrderRoom } from "@/services/socket/client";
+import { getOrderItemTotal, ordersApi, TERMINAL_ORDER_STATUSES } from "@/services/api/orders";
+import { getOrdersSocket, joinOrderRoom, leaveOrderRoom, ORDER_STATUS_UPDATE_EVENT } from "@/services/socket/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+
+const ORDER_POLL_INTERVAL_MS = 15_000;
 
 const STATUS_STEPS: OrderStatus[] = ["PLACED", "CONFIRMED", "PREPARING", "READY", "ON_THE_WAY", "DELIVERED"];
 
@@ -120,40 +121,34 @@ export default function OrderDetailScreen() {
     queryKey: ["order", orderId],
     queryFn: () => ordersApi.getOrder(orderId),
     enabled: !!orderId,
+    // Fallback when the socket is down: poll while the order is still active.
+    refetchInterval: (query) => {
+      const status = query.state.data?.data.data.status;
+      return status && TERMINAL_ORDER_STATUSES.has(status) ? false : ORDER_POLL_INTERVAL_MS;
+    },
   });
 
   const order = data?.data.data;
 
-  // Socket.io real-time status
+  // Socket.io real-time status (contract: order:join / order:status_update)
   React.useEffect(() => {
     if (!orderId)
       return;
-    let mounted = true;
-    let socketRef: Socket | null = null;
+    const socket = getOrdersSocket();
 
     const handler = (update: { orderId: string; status: OrderStatus }) => {
-      if (!mounted)
-        return;
-      if (update.orderId === orderId) {
+      if (update?.orderId === orderId) {
         queryClient.invalidateQueries({ queryKey: ["order", orderId] });
         queryClient.invalidateQueries({ queryKey: ["orders"] });
       }
     };
 
-    getOrdersSocket().then((socket) => {
-      if (!mounted)
-        return;
-      socketRef = socket;
-      joinOrderRoom(orderId);
-      socket.on("order_status_updated", handler);
-    });
+    socket.on(ORDER_STATUS_UPDATE_EVENT, handler);
+    joinOrderRoom(orderId);
 
     return () => {
-      mounted = false;
       leaveOrderRoom(orderId);
-      if (socketRef) {
-        socketRef.off("order_status_updated", handler);
-      }
+      socket.off(ORDER_STATUS_UPDATE_EVENT, handler);
     };
   }, [orderId, queryClient]);
 
@@ -265,7 +260,7 @@ function OrderItems({ order, isAr, styles }: { order: Order; isAr: boolean; styl
             {isAr ? item.productNameArSnapshot : item.productNameSnapshot}
           </Text>
           <Text style={styles.itemPrice}>
-            {formatCurrency(item.totalPrice)}
+            {formatCurrency(getOrderItemTotal(item))}
           </Text>
         </View>
       ))}

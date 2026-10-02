@@ -2,8 +2,9 @@ import type { AxiosResponse } from "axios";
 import type { Order, OrderStatus } from "@/services/api/orders";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { Package } from "phosphor-react-native";
+import { Package, User } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -14,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { ordersApi } from "@/services/api/orders";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { setPendingRedirect } from "@/store/slices/auth-slice";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -41,6 +44,26 @@ function useStyles() {
     date: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
     empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
     emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text, textAlign: "center" as const },
+    guestCard: {
+      backgroundColor: colors.card,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.xl,
+      margin: SPACING.base,
+      alignItems: "center" as const,
+      gap: SPACING.sm,
+    },
+    guestPrompt: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text, textAlign: "center" as const },
+    guestSubtitle: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
+    signInBtn: {
+      height: 48,
+      paddingHorizontal: SPACING.xl,
+      borderRadius: RADIUS.md,
+      backgroundColor: BRAND.gold,
+      justifyContent: "center" as const,
+      alignItems: "center" as const,
+      marginTop: SPACING.sm,
+    },
+    signInBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.bg },
     emptyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
   }), [colors]);
 }
@@ -61,6 +84,7 @@ export default function OrdersScreen() {
   const colors = useAppColors();
   const styles = useStyles();
   const isAr = i18n.language === "ar";
+  const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isError, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
@@ -74,6 +98,8 @@ export default function OrdersScreen() {
       queryFn: ({ pageParam }) => ordersApi.getOrders({ cursor: pageParam, limit: 20 }),
       getNextPageParam: last => last.data.data.nextCursor ?? undefined,
       initialPageParam: undefined,
+      // Guests have no orders: never call the authenticated endpoint.
+      enabled: isAuthenticated,
     });
 
   const orders = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
@@ -84,37 +110,39 @@ export default function OrdersScreen() {
         <Text style={styles.headerTitle}>{t("orders.title")}</Text>
       </View>
 
-      {isError
-        ? <ErrorState onRetry={refetch} />
-        : isLoading
-          ? (
-              <View style={styles.loadingPad}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={`order-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-                ))}
-              </View>
-            )
-          : (
-              <FlashList
-                data={orders}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => <OrderCard order={item} isAr={isAr} colors={colors} styles={styles} />}
-                onEndReached={() => {
-                  if (hasNextPage && !isFetchingNextPage)
-                    fetchNextPage();
-                }}
-                onEndReachedThreshold={0.5}
-                contentContainerStyle={styles.listContent}
-                onRefresh={refetch}
-                refreshing={isRefetching}
-                ListEmptyComponent={<EmptyOrders styles={styles} />}
-                ListFooterComponent={
-                  isFetchingNextPage
-                    ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} />
-                    : null
-                }
-              />
-            )}
+      {!isAuthenticated
+        ? <GuestOrders styles={styles} colors={colors} />
+        : isError
+          ? <ErrorState onRetry={refetch} />
+          : isLoading
+            ? (
+                <View style={styles.loadingPad}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={`order-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                  ))}
+                </View>
+              )
+            : (
+                <FlashList
+                  data={orders}
+                  keyExtractor={item => item.id}
+                  renderItem={({ item }) => <OrderCard order={item} isAr={isAr} colors={colors} styles={styles} />}
+                  onEndReached={() => {
+                    if (hasNextPage && !isFetchingNextPage)
+                      fetchNextPage();
+                  }}
+                  onEndReachedThreshold={0.5}
+                  contentContainerStyle={styles.listContent}
+                  onRefresh={refetch}
+                  refreshing={isRefetching}
+                  ListEmptyComponent={<EmptyOrders styles={styles} />}
+                  ListFooterComponent={
+                    isFetchingNextPage
+                      ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} />
+                      : null
+                  }
+                />
+              )}
     </View>
   );
 }
@@ -162,6 +190,31 @@ function EmptyOrders({ styles }: { styles: any }) {
       <Package size={56} color={colors.textMuted} />
       <Text style={styles.emptyTitle}>{t("orders.empty")}</Text>
       <Text style={styles.emptyBody}>{t("orders.empty_subtitle")}</Text>
+    </View>
+  );
+}
+
+function GuestOrders({ styles, colors }: { styles: any; colors: any }) {
+  const { t } = useTranslation();
+  const dispatch = useAppDispatch();
+  return (
+    <View style={styles.guestCard}>
+      <User size={32} color={colors.textMuted} />
+      <Text style={styles.guestPrompt}>{t("orders.guest_prompt")}</Text>
+      <Text style={styles.guestSubtitle}>{t("orders.guest_subtitle")}</Text>
+      <Pressable
+        style={styles.signInBtn}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Come back to the orders tab after signing in.
+          dispatch(setPendingRedirect("/(tabs)/orders"));
+          router.push("/(auth)/login");
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("auth.login")}
+      >
+        <Text style={styles.signInBtnText}>{t("auth.login")}</Text>
+      </Pressable>
     </View>
   );
 }
