@@ -57,4 +57,30 @@ describe('InvitationsService', () => {
         );
         expect(result).not.toHaveProperty('token');
     });
+
+    it('stores and emails a normalized (trimmed, lower-cased) address', async () => {
+        db.invitation.findFirst.mockResolvedValue(null);
+        db.invitation.create.mockImplementation(({ data }) =>
+            Promise.resolve({ id: 'inv-2', usedAt: null, createdAt: new Date(), ...data })
+        );
+        email.sendInvitation.mockResolvedValue(undefined);
+
+        const result = await service.create(
+            { email: '  Merchant@Example.COM ', role: Role.MERCHANT },
+            actor
+        );
+
+        expect(db.invitation.findFirst).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({ email: 'merchant@example.com' }),
+            })
+        );
+        expect(db.invitation.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({ email: 'merchant@example.com' }),
+            })
+        );
+        expect(email.sendInvitation.mock.calls[0][0]).toBe('merchant@example.com');
+        expect(result.email).toBe('merchant@example.com');
+    });
 });

@@ -4,6 +4,7 @@ import * as crypto from 'node:crypto';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { EmailService } from 'src/common/email/email.service';
+import { normalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { InvitationCreateDto } from './dtos/request/invitation.create.dto';
@@ -22,10 +23,15 @@ export class InvitationsService {
     ) {}
 
     async create(dto: InvitationCreateDto, actor: IAuthUser): Promise<InvitationResponseDto> {
+        // Normalized here too: ResidentsService calls this programmatically,
+        // bypassing the DTO transform. accept-invitation and login look users
+        // up by the lower-cased email, so the stored invitation must match.
+        const email = normalizeEmail(dto.email);
+
         // Check for existing active (unused, non-expired) invitation
         const existing = await this.db.invitation.findFirst({
             where: {
-                email: dto.email,
+                email,
                 role: dto.role,
                 usedAt: null,
                 expiresAt: { gt: new Date() },
@@ -48,7 +54,7 @@ export class InvitationsService {
 
         const invitation = await this.db.invitation.create({
             data: {
-                email: dto.email,
+                email,
                 role: dto.role,
                 token,
                 expiresAt,
@@ -56,7 +62,7 @@ export class InvitationsService {
             },
         });
 
-        await this.sendInvitation(dto.email, token, dto.role);
+        await this.sendInvitation(email, token, dto.role);
 
         // Never return the token
         return {

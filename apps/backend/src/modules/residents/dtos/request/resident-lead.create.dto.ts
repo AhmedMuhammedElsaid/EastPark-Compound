@@ -11,6 +11,8 @@ import {
     Matches,
 } from 'class-validator';
 
+import { NormalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
+
 export class ResidentLeadCreateDto {
     @ApiProperty({ example: 'Ahmed Hassan' })
     @IsString()
@@ -19,6 +21,7 @@ export class ResidentLeadCreateDto {
     name: string;
 
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;

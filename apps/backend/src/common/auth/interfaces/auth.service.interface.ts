@@ -1,3 +1,4 @@
+import { IRefreshTokenPayload } from 'src/common/helper/interfaces/encryption.interface';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import {
@@ -20,10 +21,14 @@ export interface IAuthService {
     resendOtp(data: AuthResendOtpDto): Promise<{ message: string }>;
     login(data: AuthLoginDto): Promise<AuthResponseDto>;
     refresh(
-        payload: IAuthUser,
-        rawToken: string
+        payload: IRefreshTokenPayload,
+        rawToken: string,
+        bodyToken?: string
     ): Promise<AuthRefreshResponseDto>;
-    logout(rawRefreshToken: string): Promise<{ message: string }>;
+    logout(
+        actor: IAuthUser,
+        rawRefreshToken?: string
+    ): Promise<{ message: string }>;
     forgotPassword(data: AuthForgotPasswordDto): Promise<{ message: string }>;
     resetPassword(data: AuthResetPasswordDto): Promise<{ message: string }>;
     acceptInvitation(data: AcceptInvitationDto): Promise<AuthResponseDto>;

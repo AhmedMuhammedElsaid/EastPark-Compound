@@ -9,12 +9,14 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Role } from '@prisma/client';
+import { ResidentLead, ResidentLeadStatus, Role, User } from '@prisma/client';
 
 import { CacheService } from '../../cache/services/cache.service';
 import { DatabaseService } from '../../database/services/database.service';
 import { EmailService } from '../../email/email.service';
+import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interface';
 import { HelperEncryptionService } from '../../helper/services/helper.encryption.service';
+import { normalizeEmail } from '../../helper/transforms/normalize-email.transform';
 import { IAuthUser } from '../../request/interfaces/request.interface';
 import {
     AcceptInvitationDto,
@@ -31,12 +33,28 @@ import {
 } from '../dtos/response/auth.response.dto';
 
 const OTP_TTL = 600; // 10 minutes
+const OTP_MAX_ATTEMPTS = 5; // failed verifications before the OTP is burned
 const RESET_TTL = 1800; // 30 minutes
-const INVITE_TTL = 48 * 3600; // 48 hours
+
+/** Privilege order used so an invitation can upgrade but never downgrade. */
+const ROLE_RANK: Record<Role, number> = {
+    [Role.GUEST]: -1,
+    [Role.RESIDENT]: 0,
+    [Role.MERCHANT]: 1,
+    [Role.ADMIN]: 2,
+};
+
+/** Canonical `User.unitNumber` built from a resident lead's unit fields. */
+export function formatLeadUnit(
+    lead: Pick<ResidentLead, 'building' | 'floor' | 'flatNumber'>
+): string {
+    return `${lead.building}-${lead.floor}-${lead.flatNumber}`;
+}
 
 @Injectable()
 export class AuthService {
     private readonly appUrl: string;
+    private dummyHash?: Promise<string>;
 
     constructor(
         private readonly db: DatabaseService,
@@ -52,9 +70,10 @@ export class AuthService {
     // ── Register ─────────────────────────────────────────────────────────────
 
     async register(dto: AuthRegisterDto): Promise<{ message: string }> {
-        const existing = await this.db.user.findUnique({
-            where: { email: dto.email },
-        });
+        const email = normalizeEmail(dto.email);
+        const existing = await this.db.user.findUnique({ where: { email } });
+        // NOTE: 409 reveals that the email is registered. Kept deliberately:
+        // clients rely on it to route the user to login instead of OTP.
         if (existing) throw new ConflictException('Email already registered');
 
         const passwordHash = await this.encryption.createHash(dto.password);
@@ -62,7 +81,7 @@ export class AuthService {
         await this.db.user.create({
             data: {
                 name: dto.name.trim(),
-                email: dto.email.toLowerCase(),
+                email,
                 phone: dto.phone,
                 unitNumber: dto.unitNumber,
                 passwordHash,
@@ -71,56 +90,72 @@ export class AuthService {
             },
         });
 
-        await this.sendOtp(dto.email);
+        await this.sendOtp(email);
         return { message: 'OTP sent to your email' };
     }
 
     // ── Verify OTP ───────────────────────────────────────────────────────────
 
     async verifyOtp(dto: AuthVerifyOtpDto): Promise<AuthResponseDto> {
-        const stored = await this.cache.get<string>(this.otpKey(dto.email));
+        const email = normalizeEmail(dto.email);
+        const otpKey = this.otpKey(email);
+        const attemptsKey = this.otpAttemptsKey(email);
+
+        const stored = await this.cache.get<string>(otpKey);
         if (!stored) throw new BadRequestException('OTP expired or not found');
 
         const valid = await this.encryption.match(stored, dto.otp);
-        if (!valid) throw new BadRequestException('Invalid OTP');
+        if (!valid) {
+            const attempts = await this.cache.incr(attemptsKey);
+            if (attempts === 1) await this.cache.expire(attemptsKey, OTP_TTL);
+            if (attempts >= OTP_MAX_ATTEMPTS) {
+                // Burn the code: the user must request a new one.
+                await this.cache.del(otpKey, attemptsKey);
+                throw new BadRequestException(
+                    'Too many invalid attempts — request a new OTP'
+                );
+            }
+            throw new BadRequestException('Invalid OTP');
+        }
 
-        await this.cache.del(this.otpKey(dto.email));
+        await this.cache.del(otpKey, attemptsKey);
 
         const user = await this.db.user.update({
-            where: { email: dto.email },
+            where: { email },
             data: { isVerified: true },
         });
 
-        const tokens = await this.encryption.createJwtTokens({
-            userId: user.id,
-            role: user.role,
-        });
-        const { passwordHash: _h, pushToken: _p, ...safeUser } = user;
-        return { ...tokens, user: safeUser };
+        return this.buildAuthResponse(user);
     }
 
     // ── Resend OTP ────────────────────────────────────────────────────────────
 
     async resendOtp(dto: AuthResendOtpDto): Promise<{ message: string }> {
-        const user = await this.db.user.findUnique({
-            where: { email: dto.email },
-        });
+        const email = normalizeEmail(dto.email);
+        const user = await this.db.user.findUnique({ where: { email } });
         if (!user) throw new NotFoundException('User not found');
         if (user.isVerified)
             throw new BadRequestException('Account already verified');
 
-        await this.cache.del(this.otpKey(dto.email));
-        await this.sendOtp(dto.email);
+        await this.cache.del(this.otpKey(email), this.otpAttemptsKey(email));
+        await this.sendOtp(email);
         return { message: 'New OTP sent' };
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
 
     async login(dto: AuthLoginDto): Promise<AuthResponseDto> {
-        const user = await this.db.user.findUnique({
-            where: { email: dto.email.toLowerCase() },
-        });
-        if (!user) throw new NotFoundException('User not found');
+        const email = normalizeEmail(dto.email);
+        const user = await this.db.user.findUnique({ where: { email } });
+        if (!user) {
+            // Same status, message and (roughly) timing as a wrong password,
+            // so login cannot be used to enumerate registered emails.
+            await this.encryption.match(
+                await this.getDummyHash(),
+                dto.password
+            );
+            throw new UnauthorizedException('Invalid credentials');
+        }
 
         const match = await this.encryption.match(
             user.passwordHash,
@@ -128,54 +163,86 @@ export class AuthService {
         );
         if (!match) throw new UnauthorizedException('Invalid credentials');
 
+        // 403 stays distinct: clients route unverified users to the OTP screen.
         if (!user.isVerified)
             throw new ForbiddenException('Please verify your email first');
 
-        const tokens = await this.encryption.createJwtTokens({
-            userId: user.id,
-            role: user.role,
-        });
-        const { passwordHash: _h, pushToken: _p, ...safeUser } = user;
-        return { ...tokens, user: safeUser };
+        return this.buildAuthResponse(user);
     }
 
     // ── Refresh ───────────────────────────────────────────────────────────────
 
+    /**
+     * Rotates the refresh token carried in the `Authorization` header.
+     * `payload` is that header token, already verified by JwtRefreshGuard;
+     * `rawToken` is its raw string. `bodyToken` is the legacy body field and,
+     * when sent, must be the same token.
+     */
     async refresh(
-        payload: IAuthUser,
-        rawToken: string
+        payload: IRefreshTokenPayload,
+        rawToken: string,
+        bodyToken?: string
     ): Promise<AuthRefreshResponseDto> {
-        const blacklisted = await this.cache.exists(
-            this.blacklistKey(rawToken)
-        );
-        if (blacklisted) throw new UnauthorizedException('Token revoked');
+        if (!rawToken) throw new UnauthorizedException('Token revoked');
+        if (bodyToken !== undefined && bodyToken !== rawToken)
+            throw new UnauthorizedException('Refresh token mismatch');
 
-        const tokens = await this.encryption.createJwtTokens({
-            userId: payload.userId,
-            role: payload.role,
+        const currentVersion = await this.getSessionVersion(payload.userId);
+        if ((payload.ver ?? 0) < currentVersion)
+            throw new UnauthorizedException('Session expired');
+
+        // Single use: the first INCR wins, so a replayed, concurrently reused
+        // or logged-out token (value already set) is rejected atomically.
+        const revocationKey = this.revocationKey(payload, rawToken);
+        const uses = await this.cache.incr(revocationKey);
+        if (uses !== 1) throw new UnauthorizedException('Token revoked');
+        await this.cache.expire(revocationKey, this.remainingTtl(payload));
+
+        // Never mint from the token payload alone: the account may have been
+        // deleted, un-verified or had its role changed since it was issued.
+        const user = await this.db.user.findUnique({
+            where: { id: payload.userId },
         });
+        if (!user || !user.isVerified)
+            throw new UnauthorizedException('Session expired');
 
-        // Blacklist old token for remaining TTL (≈ refresh expiry)
-        const refreshTtl = this.parseExpiry(
-            this.config.get<string>('auth.refreshToken.tokenExp') ?? '7d'
-        );
-        await this.cache.set(this.blacklistKey(rawToken), '1', refreshTtl);
-
-        return tokens;
+        return this.encryption.createJwtTokens({
+            userId: user.id,
+            role: user.role,
+            ver: currentVersion,
+        });
     }
 
     // ── Logout ────────────────────────────────────────────────────────────────
 
-    async logout(rawRefreshToken: string): Promise<{ message: string }> {
-        const refreshTtl = this.parseExpiry(
-            this.config.get<string>('auth.refreshToken.tokenExp') ?? '7d'
-        );
+    /**
+     * The `Authorization` header on logout carries the ACCESS token (the route
+     * is access-guarded), so the refresh token to revoke comes from the body.
+     * It is only revoked when it verifies and belongs to the caller. Without
+     * it there is nothing server-side to revoke; the access token expires on
+     * its own (15 min).
+     */
+    async logout(
+        actor: IAuthUser,
+        rawRefreshToken?: string
+    ): Promise<{ message: string }> {
+        const message = { message: 'Logged out successfully' };
+        if (!rawRefreshToken) return message;
+
+        let payload: IRefreshTokenPayload;
+        try {
+            payload = await this.encryption.verifyRefreshToken(rawRefreshToken);
+        } catch {
+            return message; // expired or forged: nothing to revoke
+        }
+        if (payload.userId !== actor.userId) return message;
+
         await this.cache.set(
-            this.blacklistKey(rawRefreshToken),
+            this.revocationKey(payload, rawRefreshToken),
             '1',
-            refreshTtl
+            this.remainingTtl(payload)
         );
-        return { message: 'Logged out successfully' };
+        return message;
     }
 
     // ── Forgot Password ───────────────────────────────────────────────────────
@@ -184,7 +251,7 @@ export class AuthService {
         dto: AuthForgotPasswordDto
     ): Promise<{ message: string }> {
         const user = await this.db.user.findUnique({
-            where: { email: dto.email.toLowerCase() },
+            where: { email: normalizeEmail(dto.email) },
         });
         // Always respond with the same message to prevent email enumeration
         if (!user)
@@ -211,14 +278,29 @@ export class AuthService {
             throw new BadRequestException('Reset token expired or invalid');
 
         const passwordHash = await this.encryption.createHash(dto.password);
-        await this.db.user.update({ where: { email }, data: { passwordHash } });
+        const user = await this.db.user.update({
+            where: { email },
+            data: { passwordHash },
+        });
         await this.cache.del(this.resetKey(dto.token));
+
+        // Invalidate every existing session: refresh tokens minted before this
+        // point carry a lower version and are rejected by refresh().
+        await this.cache.incr(this.sessionVersionKey(user.id));
 
         return { message: 'Password reset successfully' };
     }
 
-    // ── Accept Invitation (Merchant / Admin) ──────────────────────────────────
+    // ── Accept Invitation ─────────────────────────────────────────────────────
 
+    /**
+     * New email → creates the account with the invited role.
+     * Existing account → the invitation never overwrites the password or name.
+     * The caller must prove account ownership with the CURRENT password; the
+     * role is then upgraded to the invited role, never downgraded.
+     * RESIDENT invitations also copy phone/unit from the matching resident
+     * lead and mark that lead CONVERTED.
+     */
     async acceptInvitation(dto: AcceptInvitationDto): Promise<AuthResponseDto> {
         const invitation = await this.db.invitation.findUnique({
             where: { token: dto.token },
@@ -229,37 +311,97 @@ export class AuthService {
         if (invitation.expiresAt < new Date())
             throw new BadRequestException('Invitation expired');
 
-        const passwordHash = await this.encryption.createHash(dto.password);
+        const email = normalizeEmail(invitation.email);
+        const existing = await this.db.user.findUnique({ where: { email } });
 
-        // Upsert user — they might not exist yet
-        const user = await this.db.user.upsert({
-            where: { email: invitation.email },
-            create: {
-                name: dto.name.trim(),
-                email: invitation.email,
-                passwordHash,
-                role: invitation.role,
-                isVerified: true,
-            },
-            update: {
-                name: dto.name.trim(),
-                passwordHash,
-                role: invitation.role,
-                isVerified: true,
-            },
+        if (existing) {
+            const owns = await this.encryption.match(
+                existing.passwordHash,
+                dto.password
+            );
+            if (!owns)
+                throw new ConflictException(
+                    'An account with this email already exists — enter its current password to accept the invitation'
+                );
+        }
+
+        const lead =
+            invitation.role === Role.RESIDENT
+                ? await this.db.residentLead.findFirst({
+                      where: {
+                          email,
+                          status: {
+                              in: [
+                                  ResidentLeadStatus.INVITED,
+                                  ResidentLeadStatus.PENDING,
+                              ],
+                          },
+                      },
+                      orderBy: { createdAt: 'desc' },
+                  })
+                : null;
+
+        const passwordHash = existing
+            ? undefined
+            : await this.encryption.createHash(dto.password);
+
+        const user = await this.db.$transaction(async tx => {
+            // Claim the invitation atomically so it cannot be used twice.
+            const claimed = await tx.invitation.updateMany({
+                where: { id: invitation.id, usedAt: null },
+                data: { usedAt: new Date() },
+            });
+            if (claimed.count === 0)
+                throw new BadRequestException('Invitation already used');
+
+            const saved = existing
+                ? await tx.user.update({
+                      where: { id: existing.id },
+                      data: {
+                          role:
+                              ROLE_RANK[invitation.role] >
+                              ROLE_RANK[existing.role]
+                                  ? invitation.role
+                                  : existing.role,
+                          isVerified: true,
+                          ...(lead && !existing.phone
+                              ? { phone: lead.phone }
+                              : {}),
+                          ...(lead && !existing.unitNumber
+                              ? { unitNumber: formatLeadUnit(lead) }
+                              : {}),
+                      },
+                  })
+                : await tx.user.create({
+                      data: {
+                          name: dto.name.trim(),
+                          email,
+                          passwordHash: passwordHash as string,
+                          role: invitation.role,
+                          isVerified: true,
+                          ...(lead
+                              ? {
+                                    phone: lead.phone,
+                                    unitNumber: formatLeadUnit(lead),
+                                }
+                              : {}),
+                      },
+                  });
+
+            if (lead) {
+                await tx.residentLead.update({
+                    where: { id: lead.id },
+                    data: {
+                        userId: saved.id,
+                        status: ResidentLeadStatus.CONVERTED,
+                    },
+                });
+            }
+
+            return saved;
         });
 
-        await this.db.invitation.update({
-            where: { id: invitation.id },
-            data: { usedAt: new Date() },
-        });
-
-        const tokens = await this.encryption.createJwtTokens({
-            userId: user.id,
-            role: user.role,
-        });
-        const { passwordHash: _h, pushToken: _p, ...safeUser } = user;
-        return { ...tokens, user: safeUser };
+        return this.buildAuthResponse(user);
     }
 
     // ── Push Token ────────────────────────────────────────────────────────────
@@ -273,6 +415,16 @@ export class AuthService {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    private async buildAuthResponse(user: User): Promise<AuthResponseDto> {
+        const tokens = await this.encryption.createJwtTokens({
+            userId: user.id,
+            role: user.role,
+            ver: await this.getSessionVersion(user.id),
+        });
+        const { passwordHash: _h, pushToken: _p, ...safeUser } = user;
+        return { ...tokens, user: safeUser };
+    }
+
     private async sendOtp(email: string): Promise<void> {
         const otp = String(randomInt(100000, 999999));
         const hash = await this.encryption.createHash(otp);
@@ -280,16 +432,58 @@ export class AuthService {
         await this.email.sendOtp(email, otp);
     }
 
+    private getDummyHash(): Promise<string> {
+        this.dummyHash ??= this.encryption.createHash(
+            randomBytes(16).toString('hex')
+        );
+        return this.dummyHash;
+    }
+
+    private async getSessionVersion(userId: string): Promise<number> {
+        const raw = await this.cache.get<number | string>(
+            this.sessionVersionKey(userId)
+        );
+        const version = Number(raw ?? 0);
+        return Number.isFinite(version) ? version : 0;
+    }
+
+    /** Seconds until the refresh token expires (falls back to full TTL). */
+    private remainingTtl(payload: IRefreshTokenPayload): number {
+        if (payload.exp) {
+            const remaining = payload.exp - Math.floor(Date.now() / 1000);
+            if (remaining > 0) return remaining;
+            return 1;
+        }
+        return this.parseExpiry(
+            this.config.get<string>('auth.refreshToken.tokenExp') ?? '7d'
+        );
+    }
+
     private otpKey(email: string): string {
         return `otp:${email}`;
+    }
+
+    private otpAttemptsKey(email: string): string {
+        return `otp-attempts:${email}`;
     }
 
     private resetKey(token: string): string {
         return `reset:${token}`;
     }
 
-    private blacklistKey(token: string): string {
-        return `blacklist:${token}`;
+    /** Persistent per-user session version; bumped to revoke all sessions. */
+    private sessionVersionKey(userId: string): string {
+        return `session-version:${userId}`;
+    }
+
+    /** Tokens minted before `jti` existed fall back to the raw token. */
+    private revocationKey(
+        payload: IRefreshTokenPayload,
+        rawToken: string
+    ): string {
+        return payload.jti
+            ? `blacklist:jti:${payload.jti}`
+            : `blacklist:${rawToken}`;
     }
 
     private parseExpiry(exp: string): number {

@@ -45,7 +45,14 @@ const db = {
     invitation: {
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
     },
+    residentLead: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+    },
+    // Interactive transaction: run the callback against the same mocks.
+    $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(db)),
 };
 
 const cache = {
@@ -53,6 +60,8 @@ const cache = {
     set: jest.fn(),
     del: jest.fn(),
     exists: jest.fn(),
+    incr: jest.fn(),
+    expire: jest.fn(),
 };
 
 const email = {
@@ -64,6 +73,7 @@ const encryption = {
     createHash: jest.fn().mockResolvedValue('$hash'),
     match: jest.fn(),
     createJwtTokens: jest.fn().mockResolvedValue(mockTokens),
+    verifyRefreshToken: jest.fn(),
 };
 
 const config = {
@@ -84,6 +94,12 @@ describe('AuthService', () => {
 
     beforeEach(async () => {
         jest.clearAllMocks();
+        // Defaults: no session-version bump recorded, first INCR wins.
+        cache.get.mockResolvedValue(null);
+        cache.incr.mockResolvedValue(1);
+        db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+            fn(db)
+        );
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -174,11 +190,29 @@ describe('AuthService', () => {
     // ── login ─────────────────────────────────────────────────────────────────
 
     describe('login', () => {
-        it('throws NotFoundException for unknown email', async () => {
+        it('throws 401 "Invalid credentials" for unknown email (no enumeration)', async () => {
             db.user.findUnique.mockResolvedValue(null);
-            await expect(
-                service.login({ email: 'unknown@eastpark.app', password: 'pw' })
-            ).rejects.toBeInstanceOf(NotFoundException);
+            encryption.match.mockResolvedValue(false);
+            const attempt = service.login({
+                email: 'unknown@eastpark.app',
+                password: 'pw',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(UnauthorizedException);
+            await expect(attempt).rejects.toThrow('Invalid credentials');
+            // Still runs a hash comparison so timing matches a wrong password.
+            expect(encryption.match).toHaveBeenCalledTimes(1);
+        });
+
+        it('looks the user up by the normalized email', async () => {
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(true);
+            await service.login({
+                email: '  Jane@EastPark.App ',
+                password: 'Secret123!',
+            });
+            expect(db.user.findUnique).toHaveBeenCalledWith({
+                where: { email: 'jane@eastpark.app' },
+            });
         });
 
         it('throws UnauthorizedException for wrong password', async () => {
@@ -219,48 +253,207 @@ describe('AuthService', () => {
     // ── refresh ───────────────────────────────────────────────────────────────
 
     describe('refresh', () => {
-        it('throws UnauthorizedException when token is blacklisted', async () => {
-            cache.exists.mockResolvedValue(true);
+        const payload = {
+            userId: 'user-1',
+            role: Role.RESIDENT,
+            jti: 'jti-1',
+            exp: Math.floor(Date.now() / 1000) + 3600,
+        };
+
+        it('rejects a body token that differs from the header token', async () => {
             await expect(
-                service.refresh(
-                    { userId: 'user-1', role: Role.RESIDENT },
-                    'old.refresh.token'
-                )
+                service.refresh(payload, 'header.token', 'other.token')
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+            expect(cache.incr).not.toHaveBeenCalled();
+        });
+
+        it('rotates the HEADER token, re-deriving the role from the DB', async () => {
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.MERCHANT })
+            );
+
+            const result = await service.refresh(
+                payload,
+                'header.token',
+                'header.token'
+            );
+
+            expect(cache.incr).toHaveBeenCalledWith('blacklist:jti:jti-1');
+            expect(cache.expire).toHaveBeenCalledWith(
+                'blacklist:jti:jti-1',
+                expect.any(Number)
+            );
+            expect(encryption.createJwtTokens).toHaveBeenCalledWith({
+                userId: 'user-1',
+                role: Role.MERCHANT,
+                ver: 0,
+            });
+            expect(result.accessToken).toBe(mockTokens.accessToken);
+        });
+
+        it('rejects a replayed refresh token after rotation', async () => {
+            db.user.findUnique.mockResolvedValue(mockUser());
+            const store = new Map<string, number>();
+            cache.incr.mockImplementation((key: string) => {
+                const next = (store.get(key) ?? 0) + 1;
+                store.set(key, next);
+                return Promise.resolve(next);
+            });
+
+            await service.refresh(payload, 'header.token');
+            await expect(
+                service.refresh(payload, 'header.token')
+            ).rejects.toThrow('Token revoked');
+            expect(encryption.createJwtTokens).toHaveBeenCalledTimes(1);
+        });
+
+        it('falls back to the raw token as key for legacy tokens without jti', async () => {
+            db.user.findUnique.mockResolvedValue(mockUser());
+            await service.refresh(
+                { userId: 'user-1', role: Role.RESIDENT },
+                'legacy.token'
+            );
+            expect(cache.incr).toHaveBeenCalledWith('blacklist:legacy.token');
+        });
+
+        it('rejects when the user no longer exists', async () => {
+            db.user.findUnique.mockResolvedValue(null);
+            await expect(
+                service.refresh(payload, 'header.token')
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+            expect(encryption.createJwtTokens).not.toHaveBeenCalled();
+        });
+
+        it('rejects when the user is not verified', async () => {
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ isVerified: false })
+            );
+            await expect(
+                service.refresh(payload, 'header.token')
             ).rejects.toBeInstanceOf(UnauthorizedException);
         });
 
-        it('returns new tokens and blacklists old token', async () => {
-            cache.exists.mockResolvedValue(false);
-            cache.set.mockResolvedValue(undefined);
-
-            const result = await service.refresh(
-                { userId: 'user-1', role: Role.RESIDENT },
-                'old.refresh.token'
+        it('rejects tokens issued before a password reset (session version bump)', async () => {
+            cache.get.mockImplementation((key: string) =>
+                Promise.resolve(key === 'session-version:user-1' ? '1' : null)
             );
+            await expect(
+                service.refresh({ ...payload, ver: 0 }, 'header.token')
+            ).rejects.toThrow('Session expired');
+            expect(cache.incr).not.toHaveBeenCalled();
+        });
 
-            expect(cache.set).toHaveBeenCalledWith(
-                expect.stringContaining('blacklist:'),
-                '1',
-                expect.any(Number)
+        it('accepts tokens carrying the current session version', async () => {
+            cache.get.mockImplementation((key: string) =>
+                Promise.resolve(key === 'session-version:user-1' ? '1' : null)
             );
-            expect(result.accessToken).toBe(mockTokens.accessToken);
+            db.user.findUnique.mockResolvedValue(mockUser());
+            await service.refresh({ ...payload, ver: 1 }, 'header.token');
+            expect(encryption.createJwtTokens).toHaveBeenCalledWith(
+                expect.objectContaining({ ver: 1 })
+            );
         });
     });
 
     // ── logout ────────────────────────────────────────────────────────────────
 
     describe('logout', () => {
-        it('blacklists the refresh token', async () => {
-            cache.set.mockResolvedValue(undefined);
+        const actor = { userId: 'user-1', role: Role.RESIDENT };
 
-            const result = await service.logout('some.refresh.token');
+        it('revokes the body refresh token when it belongs to the caller', async () => {
+            encryption.verifyRefreshToken.mockResolvedValue({
+                userId: 'user-1',
+                role: Role.RESIDENT,
+                jti: 'jti-9',
+                exp: Math.floor(Date.now() / 1000) + 60,
+            });
+
+            const result = await service.logout(actor, 'some.refresh.token');
 
             expect(cache.set).toHaveBeenCalledWith(
-                expect.stringContaining('blacklist:'),
+                'blacklist:jti:jti-9',
                 '1',
                 expect.any(Number)
             );
             expect(result.message).toBeDefined();
+        });
+
+        it('does not revoke a refresh token owned by another user', async () => {
+            encryption.verifyRefreshToken.mockResolvedValue({
+                userId: 'someone-else',
+                role: Role.RESIDENT,
+                jti: 'jti-x',
+            });
+            await service.logout(actor, 'foreign.token');
+            expect(cache.set).not.toHaveBeenCalled();
+        });
+
+        it('succeeds without revoking when the token is invalid or missing', async () => {
+            encryption.verifyRefreshToken.mockRejectedValue(new Error('bad'));
+            await service.logout(actor, 'garbage');
+            await service.logout(actor);
+            expect(cache.set).not.toHaveBeenCalled();
+        });
+    });
+
+    // ── verifyOtp attempt limit ───────────────────────────────────────────────
+
+    describe('verifyOtp attempt limit', () => {
+        it('normalizes the email for the OTP key and user update', async () => {
+            cache.get.mockResolvedValue('$storedHash');
+            encryption.match.mockResolvedValue(true);
+            db.user.update.mockResolvedValue(mockUser());
+            await service.verifyOtp({
+                email: ' Jane@EastPark.app',
+                otp: '123456',
+            });
+            expect(cache.get).toHaveBeenCalledWith('otp:jane@eastpark.app');
+            expect(db.user.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: { email: 'jane@eastpark.app' },
+                })
+            );
+        });
+
+        it('counts failures and burns the OTP on the 5th', async () => {
+            cache.get.mockResolvedValue('$storedHash');
+            encryption.match.mockResolvedValue(false);
+
+            cache.incr.mockResolvedValueOnce(1);
+            await expect(
+                service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
+            ).rejects.toThrow('Invalid OTP');
+            expect(cache.expire).toHaveBeenCalledWith(
+                'otp-attempts:jane@eastpark.app',
+                600
+            );
+            expect(cache.del).not.toHaveBeenCalled();
+
+            cache.incr.mockResolvedValueOnce(5);
+            await expect(
+                service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
+            ).rejects.toThrow(/too many/i);
+            expect(cache.del).toHaveBeenCalledWith(
+                'otp:jane@eastpark.app',
+                'otp-attempts:jane@eastpark.app'
+            );
+        });
+    });
+
+    // ── resetPassword ─────────────────────────────────────────────────────────
+
+    describe('resetPassword', () => {
+        it('updates the hash and bumps the session version', async () => {
+            cache.get.mockResolvedValue('jane@eastpark.app');
+            db.user.update.mockResolvedValue(mockUser());
+
+            await service.resetPassword({ token: 't', password: 'NewPass1!' });
+
+            expect(db.user.update).toHaveBeenCalledWith({
+                where: { email: 'jane@eastpark.app' },
+                data: { passwordHash: '$hash' },
+            });
+            expect(cache.incr).toHaveBeenCalledWith('session-version:user-1');
         });
     });
 
@@ -345,13 +538,14 @@ describe('AuthService', () => {
 
         it('creates merchant account and marks invitation as used', async () => {
             db.invitation.findUnique.mockResolvedValue(validInvitation);
-            db.user.upsert.mockResolvedValue(
+            db.user.findUnique.mockResolvedValue(null);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(
                 mockUser({
                     role: Role.MERCHANT,
                     email: 'merchant@eastpark.app',
                 })
             );
-            db.invitation.update.mockResolvedValue({});
 
             const result = await service.acceptInvitation({
                 token: 'signed-token',
@@ -359,12 +553,133 @@ describe('AuthService', () => {
                 password: 'Pass123!',
             });
 
-            expect(db.invitation.update).toHaveBeenCalledWith(
+            expect(db.invitation.updateMany).toHaveBeenCalledWith({
+                where: { id: 'inv-1', usedAt: null },
+                data: { usedAt: expect.any(Date) },
+            });
+            expect(db.user.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    email: 'merchant@eastpark.app',
+                    role: Role.MERCHANT,
+                    passwordHash: '$hash',
+                }),
+            });
+            expect(db.residentLead.findFirst).not.toHaveBeenCalled();
+            expect(result.accessToken).toBe(mockTokens.accessToken);
+        });
+
+        it('rejects a concurrent second use of the same invitation', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(null);
+            db.invitation.updateMany.mockResolvedValue({ count: 0 });
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('Invitation already used');
+            expect(db.user.create).not.toHaveBeenCalled();
+        });
+
+        it('links a RESIDENT invitation to its lead: copies phone/unit, marks CONVERTED', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                email: 'Resident@EastPark.app',
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(null);
+            db.residentLead.findFirst.mockResolvedValue({
+                id: 'lead-1',
+                phone: '01000400163',
+                building: 'A1',
+                floor: '3',
+                flatNumber: '12',
+            });
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(
+                mockUser({ id: 'user-9', email: 'resident@eastpark.app' })
+            );
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Resident',
+                password: 'Pass123!',
+            });
+
+            expect(db.residentLead.findFirst).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    data: expect.objectContaining({ usedAt: expect.any(Date) }),
+                    where: expect.objectContaining({
+                        email: 'resident@eastpark.app',
+                    }),
                 })
             );
-            expect(result.accessToken).toBe(mockTokens.accessToken);
+            expect(db.user.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    email: 'resident@eastpark.app',
+                    phone: '01000400163',
+                    unitNumber: 'A1-3-12',
+                }),
+            });
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-1' },
+                data: { userId: 'user-9', status: 'CONVERTED' },
+            });
+        });
+
+        it('rejects an invitation for an existing account without its current password', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(false);
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'Wrong123!',
+                })
+            ).rejects.toBeInstanceOf(ConflictException);
+            expect(db.user.update).not.toHaveBeenCalled();
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('upgrades an existing account role without touching its password or name', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(true);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(mockUser({ role: Role.MERCHANT }));
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Different Name',
+                password: 'Secret123!',
+            });
+
+            const { data } = db.user.update.mock.calls[0][0];
+            expect(data.role).toBe(Role.MERCHANT);
+            expect(data).not.toHaveProperty('passwordHash');
+            expect(data).not.toHaveProperty('name');
+            expect(db.user.upsert).not.toHaveBeenCalled();
+        });
+
+        it('never downgrades an existing ADMIN', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.ADMIN })
+            );
+            encryption.match.mockResolvedValue(true);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(mockUser({ role: Role.ADMIN }));
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Admin',
+                password: 'Secret123!',
+            });
+
+            expect(db.user.update.mock.calls[0][0].data.role).toBe(Role.ADMIN);
         });
     });
 });

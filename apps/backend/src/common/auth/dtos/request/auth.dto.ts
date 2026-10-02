@@ -1,12 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsEmail,
     IsNotEmpty,
     IsPhoneNumber,
     IsString,
     Length,
+    IsOptional,
     Matches,
 } from 'class-validator';
+
+import { NormalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
 
 const PASSWORD_REGEX =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[\x21-\x7E]{8,}$/;
@@ -23,6 +26,7 @@ export class AuthRegisterDto {
     name: string;
 
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -48,6 +52,7 @@ export class AuthRegisterDto {
 
 export class AuthVerifyOtpDto {
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -63,6 +68,7 @@ export class AuthVerifyOtpDto {
 
 export class AuthResendOtpDto {
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -72,6 +78,7 @@ export class AuthResendOtpDto {
 
 export class AuthLoginDto {
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -86,6 +93,7 @@ export class AuthLoginDto {
 
 export class AuthForgotPasswordDto {
     @ApiProperty({ example: 'ahmed@example.com' })
+    @NormalizeEmail()
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -138,9 +146,14 @@ export class AuthPushTokenDto {
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 
+// Refresh: the `Authorization: Bearer <refresh>` header is authoritative. The
+// body field is accepted for backwards compatibility; when present it must equal
+// the header token. Logout: the header carries the ACCESS token, so the refresh
+// token to revoke comes from this body field.
 export class AuthLogoutDto {
-    @ApiProperty({ example: 'eyJhbGciOi...' })
+    @ApiPropertyOptional({ example: 'eyJhbGciOi...' })
+    @IsOptional()
     @IsString()
     @IsNotEmpty()
-    refreshToken: string;
+    refreshToken?: string;
 }

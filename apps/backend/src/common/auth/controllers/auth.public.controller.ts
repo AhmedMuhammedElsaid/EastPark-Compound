@@ -5,11 +5,15 @@ import {
     HttpStatus,
     Patch,
     Post,
+    Req,
     UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { FastifyRequest } from 'fastify';
+import { ExtractJwt } from 'passport-jwt';
 
+import { IRefreshTokenPayload } from 'src/common/helper/interfaces/encryption.interface';
 import { PublicRoute } from 'src/common/request/decorators/request.public.decorator';
 import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { JwtAccessGuard } from 'src/common/request/guards/jwt.access.guard';
@@ -79,10 +83,20 @@ export class AuthPublicController {
         summary: 'Exchange a valid refresh token for a new token pair',
     })
     refresh(
-        @AuthUser() user: IAuthUser,
+        @AuthUser() payload: IRefreshTokenPayload,
+        @Req() req: FastifyRequest,
         @Body() dto: AuthLogoutDto
     ): Promise<AuthRefreshResponseDto> {
-        return this.authService.refresh(user, dto.refreshToken);
+        // The header token is the one JwtRefreshGuard verified, so it is the
+        // one rotated/revoked. The optional body token must match it.
+        const headerToken = ExtractJwt.fromAuthHeaderAsBearerToken()(
+            req as never
+        );
+        return this.authService.refresh(
+            payload,
+            headerToken ?? '',
+            dto.refreshToken
+        );
     }
 
     @Post('logout')
@@ -90,8 +104,11 @@ export class AuthPublicController {
     @ApiBearerAuth('accessToken')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Revoke refresh token (blacklist)' })
-    logout(@Body() dto: AuthLogoutDto): Promise<{ message: string }> {
-        return this.authService.logout(dto.refreshToken);
+    logout(
+        @AuthUser() user: IAuthUser,
+        @Body() dto: AuthLogoutDto
+    ): Promise<{ message: string }> {
+        return this.authService.logout(user, dto.refreshToken);
     }
 
     @Post('forgot-password')

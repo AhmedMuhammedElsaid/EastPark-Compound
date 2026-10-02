@@ -58,10 +58,15 @@ const db = {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
     },
     user: {
         findUnique: jest.fn(),
     },
+    invitation: {
+        updateMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
 };
 
 const invitationsService = {
@@ -306,6 +311,70 @@ describe('ResidentsService', () => {
         });
     });
 
+    // ── reject ────────────────────────────────────────────────────────────────
+
+    describe('reject', () => {
+        beforeEach(() => {
+            db.$transaction.mockImplementation(
+                (fn: (tx: unknown) => unknown) => fn(db)
+            );
+        });
+
+        it('throws NotFoundException for an unknown lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(null);
+            await expect(service.reject('missing')).rejects.toBeInstanceOf(
+                NotFoundException
+            );
+        });
+
+        it('refuses to reject a CONVERTED lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.CONVERTED })
+            );
+            await expect(service.reject('lead-1')).rejects.toBeInstanceOf(
+                ConflictException
+            );
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('is idempotent for an already REJECTED lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.REJECTED })
+            );
+            const result = await service.reject('lead-1');
+            expect(result.message).toBe('residentLead.success.rejected');
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects a PENDING lead without touching invitations', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            await service.reject('lead-1');
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-1' },
+                data: { status: ResidentLeadStatus.REJECTED },
+            });
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('expires the pending RESIDENT invitation of an INVITED lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.INVITED })
+            );
+            db.residentLead.count.mockResolvedValue(0);
+
+            await service.reject('lead-1');
+
+            expect(db.invitation.updateMany).toHaveBeenCalledWith({
+                where: expect.objectContaining({
+                    email: 'jane@example.com',
+                    role: Role.RESIDENT,
+                    usedAt: null,
+                }),
+                data: { expiresAt: expect.any(Date) },
+            });
+        });
+    });
+
     // ── findAll ───────────────────────────────────────────────────────────────
 
     describe('findAll', () => {
@@ -439,6 +508,16 @@ describe('ResidentLeadCreateDto validation', () => {
     });
 
     describe('email', () => {
+        it('normalizes to trimmed lower-case before validation', async () => {
+            const instance = plainToInstance(ResidentLeadCreateDto, {
+                ...base,
+                email: '  Jane@Example.COM ',
+            });
+            expect(instance.email).toBe('jane@example.com');
+            const errors = await validate(instance);
+            expect(errors.filter(e => e.property === 'email')).toHaveLength(0);
+        });
+
         it('rejects malformed input', async () => {
             const errors = await validateDto({ email: 'not-an-email' });
             expect(

@@ -1,5 +1,6 @@
 import {
     randomBytes,
+    randomUUID,
     scrypt,
     createCipheriv,
     createDecipheriv,
@@ -11,11 +12,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 
-import { IAuthUser } from 'src/common/request/interfaces/request.interface';
-
 import {
     IAuthTokenResponse,
     IEncryptDataPayload,
+    IJwtClaims,
+    IRefreshTokenPayload,
 } from '../interfaces/encryption.interface';
 import { IHelperEncryptionService } from '../interfaces/encryption.service.interface';
 
@@ -52,7 +53,7 @@ export class HelperEncryptionService implements IHelperEncryptionService {
     }
 
     public async createJwtTokens(
-        payload: IAuthUser
+        payload: IJwtClaims
     ): Promise<IAuthTokenResponse> {
         const [accessToken, refreshToken] = await Promise.all([
             this.createAccessToken(payload),
@@ -61,17 +62,26 @@ export class HelperEncryptionService implements IHelperEncryptionService {
         return { accessToken, refreshToken };
     }
 
-    public createAccessToken(payload: IAuthUser): Promise<string> {
+    public createAccessToken(payload: IJwtClaims): Promise<string> {
         return this.jwtService.signAsync(payload as object, {
             secret: this.accessTokenSecret,
             expiresIn: this.accessTokenExpireSec,
         });
     }
 
-    public createRefreshToken(payload: IAuthUser): Promise<string> {
+    public createRefreshToken(payload: IJwtClaims): Promise<string> {
+        // A unique jti makes every refresh token distinct, so revoking one
+        // (rotation/logout) never revokes another minted in the same second.
         return this.jwtService.signAsync(payload as object, {
             secret: this.refreshTokenSecret,
             expiresIn: this.refreshTokenExpireSec,
+            jwtid: randomUUID(),
+        });
+    }
+
+    public verifyRefreshToken(token: string): Promise<IRefreshTokenPayload> {
+        return this.jwtService.verifyAsync<IRefreshTokenPayload>(token, {
+            secret: this.refreshTokenSecret,
         });
     }
 
