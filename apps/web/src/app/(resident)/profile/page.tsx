@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ProfileManager } from '@/components/app/ProfileManager';
 
 export const metadata: Metadata = {
-  title: 'Profile',
+  title: 'الملف الشخصي',
   robots: { index: false, follow: false },
 };
 

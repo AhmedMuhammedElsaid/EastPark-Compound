@@ -5,7 +5,7 @@ import { ProductMenu } from '@/components/app/ProductMenu';
 import { getProducts } from '@/lib/api/products.server';
 import { getShopDetail, ShopRequestError } from '@/lib/api/shops.server';
 
-export const metadata: Metadata = { title: 'Menu' };
+export const metadata: Metadata = { title: 'القائمة' };
 
 type ProductMenuPageProps = {
   params: Promise<{ id: string }>;

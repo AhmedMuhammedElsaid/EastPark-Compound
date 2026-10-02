@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Verify Account',
+  title: 'تأكيد الحساب',
   robots: { index: false, follow: false },
 };
 

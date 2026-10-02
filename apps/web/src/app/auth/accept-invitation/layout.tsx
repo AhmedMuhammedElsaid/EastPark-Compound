@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Accept Invitation',
+  title: 'قبول الدعوة',
   referrer: 'no-referrer',
   robots: { index: false, follow: false },
 };

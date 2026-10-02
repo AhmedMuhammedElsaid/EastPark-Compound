@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ReportDetailView } from '@/components/app/ReportDetailView';
 import { getReport, ReportRequestError } from '@/lib/api/reports.server';
 
-export const metadata: Metadata = { title: 'Report' };
+export const metadata: Metadata = { title: 'تقرير' };
 
 type ReportDetailPageProps = {
   params: Promise<{ id: string }>;

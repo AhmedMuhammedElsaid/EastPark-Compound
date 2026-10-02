@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign In',
+  title: 'تسجيل الدخول',
   description: 'Sign in securely to your EastPark resident account.',
   robots: { index: false, follow: false },
 };

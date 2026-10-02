@@ -4,7 +4,7 @@ import { AnnouncementFeed } from '@/components/app/AnnouncementFeed';
 import { isAnnouncementCategory } from '@/lib/api/announcements';
 import { getAnnouncements } from '@/lib/api/announcements.server';
 
-export const metadata: Metadata = { title: 'Announcements' };
+export const metadata: Metadata = { title: 'الإعلانات' };
 
 type AnnouncementsPageProps = {
   searchParams: Promise<{ category?: string }>;

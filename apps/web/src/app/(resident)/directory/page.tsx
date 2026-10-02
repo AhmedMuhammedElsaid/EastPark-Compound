@@ -4,7 +4,7 @@ import { DirectoryShopList } from '@/components/app/DirectoryShopList';
 import { isShopCategory } from '@/lib/api/shops';
 import { getShops } from '@/lib/api/shops.server';
 
-export const metadata: Metadata = { title: 'Directory' };
+export const metadata: Metadata = { title: 'الدليل' };
 
 type DirectoryPageProps = {
   searchParams: Promise<{ category?: string; search?: string }>;

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { FeedbackDetailView } from '@/components/app/FeedbackViews';
 
-export const metadata: Metadata = { title: 'Feedback details' };
+export const metadata: Metadata = { title: 'تفاصيل الملاحظة' };
 
 type FeedbackDetailPageProps = {
   params: Promise<{ id: string }>;

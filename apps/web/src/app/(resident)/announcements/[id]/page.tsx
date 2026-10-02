@@ -7,7 +7,7 @@ import {
   getAnnouncementDetail,
 } from '@/lib/api/announcements.server';
 
-export const metadata: Metadata = { title: 'Announcement' };
+export const metadata: Metadata = { title: 'إعلان' };
 
 type AnnouncementDetailPageProps = {
   params: Promise<{ id: string }>;

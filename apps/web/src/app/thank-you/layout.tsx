@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Registration Received',
+  title: 'تم استلام التسجيل',
   robots: { index: false, follow: false },
 };
 

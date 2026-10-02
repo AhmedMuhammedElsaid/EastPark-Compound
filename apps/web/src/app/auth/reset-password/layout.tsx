@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Reset Password',
+  title: 'إعادة تعيين كلمة المرور',
   referrer: 'no-referrer',
   robots: { index: false, follow: false },
 };

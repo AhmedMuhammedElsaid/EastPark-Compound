@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ReportFeed } from '@/components/app/ReportFeed';
 import { getReports } from '@/lib/api/reports.server';
 
-export const metadata: Metadata = { title: 'Reports' };
+export const metadata: Metadata = { title: 'التقارير' };
 export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage() {

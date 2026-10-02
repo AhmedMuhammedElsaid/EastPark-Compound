@@ -6,7 +6,7 @@ import { getProducts } from "@/lib/api/products.server";
 import { getReviews } from "@/lib/api/shop-interactions.server";
 import { getShopDetail, ShopRequestError } from "@/lib/api/shops.server";
 
-export const metadata: Metadata = { title: "Shop" };
+export const metadata: Metadata = { title: 'المتجر' };
 
 type ShopDetailPageProps = {
   params: Promise<{ id: string }>;
