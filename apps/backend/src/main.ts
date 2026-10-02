@@ -17,7 +17,10 @@ import { AppModule } from './app/app.module';
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        new FastifyAdapter({ logger: false }),
+        // Render (and the Vercel BFF in front of it) proxy every request, so
+        // trust X-Forwarded-* — otherwise req.ip is the proxy and the
+        // throttler puts every user in one bucket.
+        new FastifyAdapter({ logger: false, trustProxy: true }),
         { bufferLogs: true }
     );
 
@@ -73,18 +76,9 @@ async function bootstrap(): Promise<void> {
         setupSwagger(app);
     }
 
-    // Graceful shutdown
+    // Graceful shutdown: Nest closes the app once on SIGTERM/SIGINT. No
+    // manual signal handlers — they made app.close() run twice.
     app.enableShutdownHooks();
-    process.on('SIGTERM', async () => {
-        logger.log('SIGTERM received — shutting down');
-        await app.close();
-        process.exit(0);
-    });
-    process.on('SIGINT', async () => {
-        logger.log('SIGINT received — shutting down');
-        await app.close();
-        process.exit(0);
-    });
 
     await app.listen(port, host);
     logger.log(`EastPark API running → http://${host}:${port}/v1`);
