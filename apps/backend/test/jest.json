@@ -7,18 +7,21 @@
     "collectCoverage": true,
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
-        "<rootDir>/src/common/auth/services/auth.service.ts",
-        "<rootDir>/src/modules/payments/payments.service.ts",
-        "<rootDir>/src/modules/governance/services/polls.service.ts",
-        "<rootDir>/src/modules/orders/orders.service.ts",
-        "<rootDir>/src/modules/notifications/notifications.service.ts"
+        "<rootDir>/src/**/*.ts",
+        "!<rootDir>/src/main.ts",
+        "!<rootDir>/src/**/*.module.ts",
+        "!<rootDir>/src/**/dtos/**",
+        "!<rootDir>/src/**/interfaces/**",
+        "!<rootDir>/src/**/*.interface.ts",
+        "!<rootDir>/src/**/enums/**",
+        "!<rootDir>/src/**/constants/**"
     ],
     "coverageThreshold": {
         "global": {
-            "branches": 70,
-            "functions": 70,
-            "lines": 70,
-            "statements": 70
+            "branches": 73,
+            "functions": 40,
+            "lines": 37,
+            "statements": 37
         }
     },
     "coverageReporters": ["text", "html", "lcov", "json-summary"],
