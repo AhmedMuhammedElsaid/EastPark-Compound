@@ -183,7 +183,7 @@ export function NewFeedbackView() {
       for (const file of files) {
         const formData = new FormData();
         formData.set('file', file);
-        const upload = await fetch('/api/uploads/image', { method: 'POST', body: formData, signal: AbortSignal.timeout(20_000) });
+        const upload = await fetch('/api/uploads/image?purpose=feedback', { method: 'POST', body: formData, signal: AbortSignal.timeout(20_000) });
         if (!upload.ok) throw new Error(upload.status === 401 ? 'unauthorized' : 'upload_failed');
         attachments.push(parseUploadResult(await upload.json()).url);
       }

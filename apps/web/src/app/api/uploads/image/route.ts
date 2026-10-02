@@ -6,6 +6,7 @@ import { authenticatedBackendFetch } from '@/lib/auth/proxy';
 export const maxDuration = 30;
 
 const MAX_BODY_BYTES = 4.5 * 1024 * 1024;
+const ALLOWED_PURPOSES = new Set(['avatar', 'feedback']);
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,8 +20,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'upload_failed' }, { status: 413 });
     }
 
+    const purpose = request.nextUrl.searchParams.get('purpose');
+    if (purpose !== null && !ALLOWED_PURPOSES.has(purpose)) {
+      return NextResponse.json({ error: 'validation' }, { status: 400 });
+    }
+
     const body = await request.arrayBuffer();
-    const response = await authenticatedBackendFetch('/uploads/image', {
+    const path = purpose ? `/uploads/image?purpose=${encodeURIComponent(purpose)}` : '/uploads/image';
+    const response = await authenticatedBackendFetch(path, {
       method: 'POST',
       headers: { 'Content-Type': contentType },
       body,
