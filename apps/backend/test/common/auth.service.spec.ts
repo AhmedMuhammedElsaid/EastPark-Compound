@@ -42,6 +42,7 @@ const db = {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         upsert: jest.fn(),
     },
     invitation: {
@@ -815,6 +816,31 @@ describe('AuthService', () => {
             });
 
             expect(db.user.update.mock.calls[0][0].data.role).toBe(Role.ADMIN);
+        });
+    });
+
+    describe('updatePushToken', () => {
+        it('detaches the token from any other account, then assigns it', async () => {
+            db.$transaction.mockImplementation((ops: unknown) =>
+                Promise.all(ops as Promise<unknown>[])
+            );
+            db.user.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(mockUser());
+
+            await service.updatePushToken('user-2', 'ExponentPushToken[abc]');
+
+            expect(db.user.updateMany).toHaveBeenCalledWith({
+                where: {
+                    pushToken: 'ExponentPushToken[abc]',
+                    id: { not: 'user-2' },
+                },
+                data: { pushToken: null },
+            });
+            expect(db.user.update).toHaveBeenCalledWith({
+                where: { id: 'user-2' },
+                data: { pushToken: 'ExponentPushToken[abc]' },
+            });
+            expect(db.$transaction).toHaveBeenCalledTimes(1);
         });
     });
 });

@@ -451,11 +451,22 @@ export class AuthService {
 
     // ── Push Token ────────────────────────────────────────────────────────────
 
+    /**
+     * A push token identifies a device, not a person. When another account
+     * signs in on the same phone, detach the token from the previous owner
+     * so their order/feedback pushes stop reaching the new user.
+     */
     async updatePushToken(userId: string, pushToken: string): Promise<void> {
-        await this.db.user.update({
-            where: { id: userId },
-            data: { pushToken },
-        });
+        await this.db.$transaction([
+            this.db.user.updateMany({
+                where: { pushToken, id: { not: userId } },
+                data: { pushToken: null },
+            }),
+            this.db.user.update({
+                where: { id: userId },
+                data: { pushToken },
+            }),
+        ]);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
