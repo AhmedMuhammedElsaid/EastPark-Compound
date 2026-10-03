@@ -71,6 +71,20 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 - **FE-6 ✅ FIXED:** removed dead obytes stubs (`app/login.tsx`, `app/onboarding.tsx`, `app/[...messing].tsx`); added `app/+not-found.tsx` (token/i18n-compliant).
 - **FE-5:** whitespace-only working-tree drift (`.env.example`, `eslint.config.mjs`, `use-biometric.ts`) still uncommitted — harmless CRLF churn.
 
+### Mobile backlog batch — 2026-10-03
+
+- **Cart is session-scoped:** `cart-slice` handles `auth/logout` (reset to initial state) and `auth/login`
+  (`ownerId`; a different account signing in empties it, a guest cart is kept). All forced sign-outs go
+  through `teardownSession` -> `logout`, so they are covered.
+- **Form validation messages are translation keys** (`validation.*` in ar/en), rendered with
+  `t(errors.x.message as any)`; admin announcement/poll/election forms now show them under the field,
+  merchant product/shop forms use the same keys. Invalid working hours show a toast.
+- **Order detail polling** (`getOrderPollInterval` in `services/api/orders.ts`): off while the orders socket
+  is connected and for DELIVERED/CANCELLED; 15 s fallback only when the socket is down; one refetch on reconnect.
+- Comment send icon mirrors in RTL and has `community.send_comment` label; PDF links use
+  `openDocument()` (`lib/utils.ts`) with a `community.pdf_open_failed` toast; merchant shop profile sends
+  `null` for cleared description/phone/whatsapp (`toNullable`; backend `@IsOptional` accepts null).
+
 ### Mobile review pass — 2026-10-03 (after web/backend went live; new EAS build pending)
 
 - **Offline query cache never stores Axios metadata.** Query functions return whole `AxiosResponse`
