@@ -32,9 +32,18 @@ describe('proxy home-only lockdown', () => {
     expect(response.headers.get('x-middleware-next')).toBe('1');
   });
 
-  it.each(['/directory', '/notifications'])('still redirects a RESIDENT away from %s', (path) => {
+  it.each(['/directory', '/directory/shop-1', '/directory/shop-1/menu', '/api/shops', '/api/shops/shop-1/reviews', '/api/shops/shop-1/save'])('lets a RESIDENT reach %s', (path) => {
+    const response = proxy(request(path, 'RESIDENT'));
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it.each(['/cart', '/checkout', '/orders', '/notifications'])('still redirects a RESIDENT away from %s', (path) => {
     const response = proxy(request(path, 'RESIDENT'));
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://web.test/home');
+  });
+
+  it.each(['/api/orders', '/api/orders/1/cancel', '/api/notifications'])('still returns 403 to a RESIDENT for %s', (path) => {
+    expect(proxy(request(path, 'RESIDENT')).status).toBe(403);
   });
 });

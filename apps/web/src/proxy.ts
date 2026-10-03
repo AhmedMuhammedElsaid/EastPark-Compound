@@ -35,7 +35,6 @@ export const config = {
     '/announcements/:path*',
     '/cart/:path*',
     '/checkout/:path*',
-    '/directory/:path*',
     '/feedback/:path*',
     '/governance/:path*',
     '/merchant/:path*',

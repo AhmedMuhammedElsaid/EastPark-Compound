@@ -2,8 +2,9 @@
  * Temporary access lockdown.
  *
  * While RESIDENT_HOME_ONLY is true, signed-in RESIDENT accounts (and any other
- * non-staff role) are confined to /home and /profile (owner decision 2026-10-03:
- * residents manage their own profile): navigation to any other section shows a
+ * non-staff role) are confined to /home, /profile and the shops directory (/directory/**) (owner
+ * decisions 2026-10-03: residents manage their own profile and may browse shops; ordering stays
+ * locked): navigation to any other section shows a
  * "Coming soon" popup instead of navigating, and direct requests to other app
  * routes are redirected to /home by `src/proxy.ts`. ADMIN and MERCHANT accounts are never restricted
  * (owner decision, REV-45): merchants must reach /merchant/* and /api/merchant/*
@@ -33,7 +34,6 @@ const BLOCKED_PAGE_PREFIXES = [
   '/announcements',
   '/cart',
   '/checkout',
-  '/directory',
   '/feedback',
   '/governance',
   '/merchant',
@@ -44,7 +44,8 @@ const BLOCKED_PAGE_PREFIXES = [
 
 /**
  * BFF routes that only serve the gated sections. Auth (session, logout), uploads and `/api/profile`
- * stay open because the profile page needs them.
+ * stay open because the profile page needs them; `/api/shops/**` (list, detail, products, reviews, save)
+ * stays open for the directory. Ordering (`/api/orders`, `/cart`, `/checkout`, `/orders`) stays locked.
  */
 const BLOCKED_API_PREFIXES = [
   '/api/admin',
@@ -55,7 +56,6 @@ const BLOCKED_API_PREFIXES = [
   '/api/notifications',
   '/api/orders',
   '/api/reports',
-  '/api/shops',
 ];
 
 function matches(pathname: string, prefixes: string[]): boolean {
@@ -63,7 +63,7 @@ function matches(pathname: string, prefixes: string[]): boolean {
 }
 
 /** In-app pages a restricted user may open; navigation to anything else shows Coming soon. */
-const OPEN_PAGE_PREFIXES = [HOME_PATH, '/profile'];
+const OPEN_PAGE_PREFIXES = [HOME_PATH, '/profile', '/directory'];
 
 /** True when a restricted user may navigate to `href` (query string and hash are ignored). */
 export function isOpenToRestricted(href: string): boolean {
