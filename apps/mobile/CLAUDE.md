@@ -5,6 +5,16 @@
 
 ## Status
 
+### Self-registration removed, card payments off — 2026-10-03
+
+- The `(auth)/register` and `(auth)/verify-otp` screens, `authApi.register/verifyOtp/resendOtp`, their
+  refresh-exempt paths and the Create Account buttons (login footer, auth-wall sheet) are gone. Login now
+  says new residents register their unit on the EastPark website and get an email invitation; a 403
+  (unverified) login shows `auth.errors.account_not_activated`.
+- `CARD_PAYMENTS_ENABLED = false` in `src/lib/features.ts` hides the Card option on
+  `checkout/payment.tsx` (Cash on delivery only). Backend rejects PAYMOB with 409
+  `order.error.paymentsDisabled` while payments are disabled.
+
 ### Cross-platform parity handoff — 2026-09-30
 
 The deployed `eastpark-web-app` is beginning feature parity with this completed mobile app. Treat this
@@ -134,7 +144,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 | Role | Registration Flow |
 |---|---|
 | Guest | No auth. Read-only: directory, announcements, governance. |
-| Resident | Email + unit number + password → Email OTP → verified |
+| Resident | Unit-registration lead (web `/register-unit`) → admin approval → invitation email → `accept-invitation` |
 | Merchant | Admin email invitation → one-time token → `accept-invitation` deep link → name + password |
 | Admin | Admin email invitation → one-time token → `accept-invitation` deep link → name + password |
 
@@ -172,7 +182,7 @@ src/
 │   │   ├── orders/              # Order history + [orderId] detail (Socket.io live status)
 │   │   ├── community/           # Announcements + reports + governance + feedback
 │   │   └── profile/             # Profile or guest CTA
-│   ├── (auth)/                  # login, register, verify-otp, forgot-password, reset-password, accept-invitation
+│   ├── (auth)/                  # login, forgot-password, reset-password, accept-invitation
 │   ├── (admin)/                 # Admin dashboard + invitations management
 │   ├── (merchant)/              # Merchant dashboard + menu CRUD + orders + shop-profile
 │   ├── checkout/                # cart, address, payment, confirmation (Lottie)

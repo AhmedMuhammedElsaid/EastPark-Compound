@@ -41,6 +41,18 @@ On a fresh machine, install dependencies and run `pnpm check`. A green compile/b
 the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
 upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
 
+## Self-Registration Removed, Card Payments Off — 2026-10-03
+
+- **No public self-registration.** Residents join only through `/register-unit` (lead) → admin
+  approval → invitation email → `/accept-invitation`. `/register`, `/verify-otp`, the
+  `/api/auth/register|verify-otp|resend-otp` BFF routes, `RegisterForm`, `OtpForm` and
+  `pending-verification.ts` were deleted. `next.config.ts` `redirects()` sends `/register` →
+  `/register-unit` and `/verify-otp` → `/login` (308). The login page links "Register your unit";
+  a 403 (unverified) login shows "account not activated, contact the administration".
+- **Card payments off.** `cardPaymentsEnabled = false` in `src/config/features.ts` hides the Card
+  option in `CheckoutView`, so only Cash on delivery shows. The backend also rejects PAYMOB orders
+  with 409 `order.error.paymentsDisabled` while `PAYMENTS_ENABLED` is off.
+
 ## Landing Teaser and BFF Hardening — 2026-10-03
 
 - **Public landing `/` is the logged-out teaser.** It shares `src/components/teaser/*` with `/home`:

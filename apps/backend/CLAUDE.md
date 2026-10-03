@@ -60,7 +60,7 @@ All reference files live in `Documentation/` — read these before exploring the
   available for rollback. Web production points to Render.
 - Health, Prisma, announcements, Vercel-origin CORS, and Upstash REST operations passed production
   checks during cutover. `PAYMENTS_ENABLED=false` intentionally disables Paymob for first release.
-- OTP, reset-password, invitation, and support emails use Arabic/RTL defaults, an embedded official
+- Reset-password, invitation, and support emails use Arabic/RTL defaults, an embedded official
   EastPark logo, and a responsive dark/gold shell. `EMAIL_FROM`, `EMAIL_REPLY_TO`, and
   `EMAIL_SUPPORT_TO` are configured for `eastpark.eg@gmail.com`; public company contact remains
   `info@benayat-eg.com`.
@@ -139,7 +139,7 @@ coverage is measured across `src/**` (~40%, thresholds 37/40/73). Also: single-u
 session version, per-IP throttling (client IP = BFF secret match → `X-EastPark-Client-IP` → left-most
 XFF; otherwise `CF-Connecting-IP` → `True-Client-IP` → `req.ip`; `trustProxy: 1` kept, but on Render
 `req.ip` is the Cloudflare edge so it is only a last resort; CF headers are forgeable where Cloudflare
-is not in front, e.g. the Fly rollback), OTP and
+is not in front, e.g. the Fly rollback), OTP (since removed with self-registration) and
 per-email login caps, order state machine, upload magic-byte sniffing + purpose folders, socket JWT auth,
 email lower-casing migration `20261003000000_lowercase_emails` (run
 `prisma/scripts/check-email-case.sql` on prod first). Current state, go-live runbook and backlog: root
@@ -223,7 +223,7 @@ Defined in `prisma/seed-data.ts` (overridable via `SEED_ADMIN_EMAIL` / `SEED_ADM
 | Role     | Registration Flow                                                        |
 | -------- | ------------------------------------------------------------------------ |
 | Guest    | No auth. Read-only API access to public endpoints.                       |
-| Resident | POST /auth/register → POST /auth/verify-otp → verified                   |
+| Resident | POST /residents/leads → admin invite → POST /auth/accept-invitation      |
 | Merchant | Admin sends email invite → one-time token → POST /auth/accept-invitation |
 | Admin    | Admin sends email invite → one-time token → POST /auth/accept-invitation |
 
@@ -297,7 +297,7 @@ src/
 │   ├── request/             # @AuthUser(), @AllowedRoles(), IAuthUser interface
 │   └── response/            # ApiGenericResponseDto
 └── modules/
-    ├── auth/                # register, OTP, login, refresh, logout, forgot/reset, accept-invitation, push-token
+    ├── auth/                # login, refresh, logout, forgot/reset, accept-invitation, push-token
     ├── shops/               # shops CRUD + photos + reviews + saved-shops
     ├── orders/              # orders REST + Socket.io /orders gateway
     ├── payments/            # Paymob 3-step initiation + HMAC-SHA512 webhook
@@ -348,7 +348,13 @@ anything unmapped surfaces as a 500.
 
 **Response format.** DocResponse interceptor wraps all responses: `{ success: true, message: 'i18n.key', data: ... }`.
 
-**OTP / reset tokens.** Stored in Redis with TTL. OTP: 10min (`OTP_TTL = 600`). Reset token: 30min.
+**Reset tokens.** Stored in Redis with a 30 min TTL and consumed with `CacheService.getdel` (Redis GETDEL),
+so a token works once even under concurrent requests. Public self-registration and its OTP endpoints
+(`/auth/register`, `/auth/verify-otp`, `/auth/resend-otp`) were removed on 2026-10-03.
+
+**Card payments off.** `OrdersService.create` rejects `paymentMethod: PAYMOB` with 409
+`order.error.paymentsDisabled` unless `paymob.enabled` (`PAYMENTS_ENABLED=true`) and `paymob.hmacSecret`
+are both set — the same rule as `PaymentsService.ensureEnabled`.
 
 **Paymob flow:**
 

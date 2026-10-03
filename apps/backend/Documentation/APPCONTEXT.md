@@ -213,9 +213,8 @@ All routes are prefixed `/v1`. Auth endpoints rate-limited to 5 req/min.
 
 ### Auth (`/v1/auth`)
 
-- `POST /register` → name + email + phone + unitNumber + password → Email OTP → verified
-- `POST /verify-otp` → verify OTP code
-- `POST /resend-otp` → resend OTP, old code invalidated
+- No public self-registration (removed 2026-10-03): residents submit `POST /residents/leads`, an admin
+  invites them, and `POST /accept-invitation` creates the account.
 - `POST /login` → email + password (no passwordless/OTP login)
 - `POST /refresh` → access token refresh via refresh token
 - `POST /logout` → blacklist refresh token in Redis

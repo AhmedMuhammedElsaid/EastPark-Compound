@@ -100,9 +100,14 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > **Owner decisions (2026-10-02/03):** admins DO see anonymous feedback authors (BE-2 won't fix); merchants
 > are not locked down; Paymob/card payments postponed; commit history left as is (`c7f1f4c` carries 4 mobile
 > MOB-34 files; `202ff50`/`752bd14` don't build alone); WEB-8 keeps `'unsafe-inline'`; WEB-21 skipped.
-> **Open owner question:** remove public self-registration (`/register` linked from login + mobile register
-> screen + `POST /auth/register`) so residents only join via `/register-unit` → admin approval → invitation?
-> Recommended: yes.
+> **Resolved owner question (2026-10-03):** public self-registration is REMOVED. Residents join only via
+> `/register-unit` (lead) → admin approval → invitation email → accept-invitation. Backend dropped
+> `POST /auth/register`, `/auth/verify-otp`, `/auth/resend-otp` (+ OTP email); web `/register` 308s to
+> `/register-unit` and `/verify-otp` to `/login`; mobile register/verify-otp screens are gone. Card payments
+> are off for the first release: backend rejects `paymentMethod: PAYMOB` with 409
+> `order.error.paymentsDisabled` unless `PAYMENTS_ENABLED=true` + Paymob HMAC secret; web
+> `cardPaymentsEnabled` (`apps/web/src/config/features.ts`) and mobile `CARD_PAYMENTS_ENABLED`
+> (`apps/mobile/src/lib/features.ts`) hide the Card option. Reset tokens are consumed atomically (GETDEL).
 >
 > **GO-LIVE RUNBOOK (next session, needs Supabase + Vercel + Render access):**
 > 1. Back up the Supabase database.
@@ -420,7 +425,7 @@ _Deploy steps (CLIs not in WSL — run by user; modern Node available via nvm):_
 
 ```
 Guest      → no auth, read-only
-Resident   → email + unit number + Email OTP (password set during registration)
+Resident   → /register-unit lead → admin approval → invitation email → accept-invitation (name + password)
 Merchant   → admin email invitation → accept-invitation deep link
 Admin      → admin email invitation → accept-invitation deep link
 ```
@@ -525,8 +530,6 @@ app/
 ├── notifications/index.tsx           ← [auth guard] In-app notification feed
 ├── (auth)/
 │   ├── login.tsx
-│   ├── register.tsx
-│   ├── verify-otp.tsx                ← includes resend-OTP button
 │   ├── forgot-password.tsx
 │   ├── reset-password.tsx            ← receives token via deep link
 │   └── accept-invitation.tsx         ← merchant/admin invite → name + password setup
@@ -625,10 +628,13 @@ Full reference: `apps/mobile/Documentation/DESIGN.md`. Core rules:
 
 ### Auth
 
-- Register: name + email + phone + unitNumber + **password** → Email OTP → verified
+- **No public self-registration** (owner decision 2026-10-03): residents submit a unit-registration lead
+  (`POST /residents/leads`, web `/register-unit`) → admin approves and invites → `accept-invitation` sets
+  name + password (phone/unit copied from the lead). `/auth/register`, `/auth/verify-otp` and
+  `/auth/resend-otp` were removed; login keeps a harmless 403 for unverified accounts.
 - Login: **email + password only** — no passwordless / no OTP login
-- Forgot password: reset token in Redis (TTL 30min) → reset link email → `reset-password` screen
-- Resend OTP: button on verify-otp screen → new code, old invalidated
+- Forgot password: reset token in Redis (TTL 30min) → reset link email → `reset-password` screen; the
+  token is consumed atomically with Redis GETDEL (single use even under concurrent requests)
 - Merchant/Admin: admin sends email invite → one-time signed token → `accept-invitation` screen → name + password
 - JWT: two secrets — `JWT_SECRET` (access 15min) + `JWT_REFRESH_SECRET` (refresh 7d)
 - Logout: blacklist refresh token in Redis

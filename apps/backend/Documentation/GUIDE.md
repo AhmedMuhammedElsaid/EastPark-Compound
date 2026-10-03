@@ -130,19 +130,16 @@ Feedback
 ### Registration (new resident)
 
 ```
-1. POST /v1/auth/register
-   → Server creates user (isVerified: false)
-   → Server generates 6-digit OTP
-   → OTP stored in Redis with 5min TTL
-   → Email sent (check Mailpit)
-
-2. POST /v1/auth/verify-otp  { email, code }
-   → Server checks OTP in Redis
-   → Sets user.isVerified = true
+1. POST /v1/residents/leads            (public unit-registration request)
+2. Admin invites the lead              (POST /v1/admin/residents/leads/:id/invite)
+3. POST /v1/auth/accept-invitation     { token, name, password }
+   → Creates the verified account, copies phone/unit from the lead
    → Returns accessToken + refreshToken
 
-3. Frontend stores tokens in expo-secure-store (never localStorage)
+4. Frontend stores tokens in expo-secure-store (never localStorage)
 ```
+
+Public self-registration (`/auth/register`, `/auth/verify-otp`, `/auth/resend-otp`) was removed on 2026-10-03.
 
 ### Login (existing user)
 

@@ -250,7 +250,7 @@ Swagger UI is available at `/docs` when the server is running.
 **Live:** `http://localhost:3000/docs`
 
 To authenticate in Swagger:
-1. Call `POST /v1/auth/register` → verify OTP → `POST /v1/auth/verify-otp`
+1. Call `POST /v1/auth/login` with a seeded or invited account
 2. Copy `accessToken` from the response
 3. Click **Authorize** (top right) and paste the token
 
@@ -258,9 +258,6 @@ To authenticate in Swagger:
 
 ```
 AUTH
-  POST  /v1/auth/register             Register resident
-  POST  /v1/auth/verify-otp           Verify email OTP → returns JWT pair
-  POST  /v1/auth/resend-otp           Resend OTP
   POST  /v1/auth/login                Email + password login
   POST  /v1/auth/refresh              Refresh access token
   POST  /v1/auth/logout               Blacklist refresh token
