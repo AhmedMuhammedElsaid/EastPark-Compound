@@ -27,18 +27,22 @@ export function toProductResponse(product: Product): ProductResponseDto {
 export class ProductsService {
     constructor(private readonly db: DatabaseService) {}
 
+    /**
+     * The shop must exist for every role (an ADMIN creating a product in an
+     * unknown shop would otherwise hit the FK and surface a 500); a MERCHANT
+     * must also own it.
+     */
     private async assertShopOwnership(
         shopId: string,
         actor: IAuthUser
     ): Promise<void> {
-        if (actor.role === Role.MERCHANT) {
-            const shop = await this.db.shop.findUnique({
-                where: { id: shopId },
-            });
-            if (!shop) throw new NotFoundException('shop.error.notFound');
-            if (shop.merchantId !== actor.userId) {
-                throw new ForbiddenException('product.error.forbidden');
-            }
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { merchantId: true },
+        });
+        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
+            throw new ForbiddenException('product.error.forbidden');
         }
     }
 

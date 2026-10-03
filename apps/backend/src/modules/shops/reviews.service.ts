@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import {
+    isPrismaError,
+    PRISMA_FOREIGN_KEY_VIOLATION,
+} from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 
@@ -44,12 +48,21 @@ export class ReviewsService {
     }
 
     async upsert(shopId: string, userId: string, dto: ReviewCreateDto): Promise<ReviewResponseDto> {
-        const review = await this.db.review.upsert({
-            where: { userId_shopId: { userId, shopId } },
-            create: { rating: dto.rating, comment: dto.comment, userId, shopId },
-            update: { rating: dto.rating, comment: dto.comment },
-            include: { user: { select: { id: true, name: true } } },
-        });
+        let review;
+        try {
+            review = await this.db.review.upsert({
+                where: { userId_shopId: { userId, shopId } },
+                create: { rating: dto.rating, comment: dto.comment, userId, shopId },
+                update: { rating: dto.rating, comment: dto.comment },
+                include: { user: { select: { id: true, name: true } } },
+            });
+        } catch (error) {
+            // Unknown shopId: the FK rejects the insert — 404, not 500.
+            if (isPrismaError(error, PRISMA_FOREIGN_KEY_VIOLATION)) {
+                throw new NotFoundException('shop.error.notFound');
+            }
+            throw error;
+        }
 
         return {
             id: review.id,
