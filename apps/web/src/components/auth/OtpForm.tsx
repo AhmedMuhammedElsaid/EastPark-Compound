@@ -26,7 +26,17 @@ export function OtpForm({ email }: { email: string }) {
     setError(null);
     const result = await verifyOtp(email, otp);
     setPending(false);
-    if (!result.ok) return setError(t(result.error === 'rate_limited' ? 'auth.errors.rate_limited' : 'auth.errors.invalid_otp'));
+    if (!result.ok) {
+      const key =
+        result.error === 'rate_limited'
+          ? 'auth.errors.rate_limited'
+          : result.error === 'network'
+            ? 'errors.network'
+            : result.error === 'server'
+              ? 'errors.server'
+              : 'auth.errors.invalid_otp';
+      return setError(t(key));
+    }
     clearPendingVerification();
     router.replace('/home');
   }

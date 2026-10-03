@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }, { clientIp: clientIpFrom(request.headers) });
     if (response.ok) return NextResponse.json({ data: { success: true } });
     if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-    return NextResponse.json({ error: 'server' }, { status: 400 });
+    return NextResponse.json({ error: 'server' }, { status: response.status >= 500 ? 502 : 400 });
   } catch {
     return NextResponse.json({ error: 'network' }, { status: 503 });
   }

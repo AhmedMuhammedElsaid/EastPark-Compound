@@ -18,10 +18,10 @@ export async function POST(request: Request) {
       body: JSON.stringify(parsed.data),
     }, { clientIp: clientIpFrom(request.headers) });
 
-    if (!response.ok) {
-      const error = response.status === 429 ? 'rate_limited' : 'invalid_credentials';
-      return NextResponse.json({ error }, { status: response.status === 429 ? 429 : 400 });
-    }
+    if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+    // A cold-starting or failing backend is not a wrong code.
+    if (response.status >= 500) return NextResponse.json({ error: 'server' }, { status: 502 });
+    if (!response.ok) return NextResponse.json({ error: 'invalid_credentials' }, { status: 400 });
 
     const auth = await readAuthResponse(response);
     if (!auth) {
