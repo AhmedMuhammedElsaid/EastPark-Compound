@@ -8,7 +8,7 @@ import * as React from 'react';
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { formatCurrency } from '@/components/app/ProductMenu';
-import { residentOrderingEnabled } from '@/config/features';
+import { cardPaymentsEnabled, residentOrderingEnabled } from '@/config/features';
 import { initiatePaymob, OrderRequestError, placeOrder, type PaymentMethod } from '@/lib/api/orders';
 import type { AuthUser } from '@/lib/api/contracts';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -116,9 +116,9 @@ function CheckoutForm({ user }: { user: AuthUser }) {
             </div>
             <fieldset>
               <legend className="mb-3 font-bold">{t('checkout.payment')}</legend>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className={cardPaymentsEnabled ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3'}>
                 <PaymentOption selected={paymentMethod === 'CASH'} onSelect={() => setPaymentMethod('CASH')} label={t('checkout.cash')} icon={<Banknote aria-hidden="true" className="size-5" />} />
-                <PaymentOption selected={paymentMethod === 'PAYMOB'} onSelect={() => setPaymentMethod('PAYMOB')} label={t('checkout.card')} icon={<CreditCard aria-hidden="true" className="size-5" />} />
+                {cardPaymentsEnabled && <PaymentOption selected={paymentMethod === 'PAYMOB'} onSelect={() => setPaymentMethod('PAYMOB')} label={t('checkout.card')} icon={<CreditCard aria-hidden="true" className="size-5" />} />}
               </div>
             </fieldset>
           </fieldset>
