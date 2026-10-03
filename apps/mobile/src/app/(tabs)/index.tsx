@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ChatCircle, CheckSquare, FileText, Megaphone, Package, Storefront } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -236,7 +237,7 @@ function ShopsGrid({ shops, isAr }: { shops: any[]; isAr: boolean }) {
             onPress={() => router.push(`/(tabs)/directory/${shop.id}`)}
           >
             {cover
-              ? <Image source={{ uri: cover.url }} style={styles.shopImg} resizeMode="cover" accessibilityRole="image" accessibilityLabel={name} />
+              ? <Image source={{ uri: cover.url }} style={styles.shopImg} contentFit="cover" accessibilityLabel={name} />
               : <View style={[styles.shopImg, { backgroundColor: colors.elevated }]} />}
             <Text style={styles.shopName} numberOfLines={1}>{name}</Text>
           </Pressable>

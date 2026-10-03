@@ -1,11 +1,12 @@
 import type { CartItem } from "@/store/slices/cart-slice";
 import { FlashList } from "@shopify/flash-list";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ArrowLeft, Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -249,7 +250,7 @@ function CartItemRow({
     <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
       <View style={styles.itemRow}>
         {item.imageUrl
-          ? <Image source={{ uri: item.imageUrl }} style={styles.itemImg} resizeMode="cover" />
+          ? <Image source={{ uri: item.imageUrl }} recyclingKey={item.productId} style={styles.itemImg} contentFit="cover" />
           : <View style={styles.itemImgPlaceholder} />}
 
         <View style={styles.itemInfo}>

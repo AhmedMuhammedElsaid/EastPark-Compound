@@ -1,10 +1,11 @@
 import type { Shop } from "@/services/api/shops";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Star } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -37,8 +38,9 @@ export function ShopCard({ shop }: Props) {
           ? (
               <Image
                 source={{ uri: coverPhoto.url }}
+                recyclingKey={shop.id}
                 style={styles.image}
-                resizeMode="cover"
+                contentFit="cover"
               />
             )
           : <View style={styles.imagePlaceholder} />}

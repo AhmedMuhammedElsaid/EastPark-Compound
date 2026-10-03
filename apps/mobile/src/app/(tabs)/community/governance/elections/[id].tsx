@@ -1,11 +1,12 @@
 import type { Candidate } from "@/services/api/governance";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { Alert, I18nManager, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DetailErrorScreen } from "@/components/ui/error-state";
@@ -288,7 +289,7 @@ function CandidateCard({
     <View style={[styles.candidateCard, isSelected && styles.candidateSelected]}>
       <View style={styles.candidateTop}>
         {photoUrl
-          ? <Image source={{ uri: photoUrl }} style={styles.avatar} />
+          ? <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" />
           : (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text>

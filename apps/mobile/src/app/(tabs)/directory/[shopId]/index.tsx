@@ -3,12 +3,13 @@ import type { CursorPage, Product, Review, Shop } from "@/services/api/shops";
 import type { CartItem } from "@/store/slices/cart-slice";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChatCircle, Heart, HeartStraight, Phone, Plus, Star } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DetailErrorScreen, ErrorState } from "@/components/ui/error-state";
@@ -257,7 +258,7 @@ function ShopHero({ shop, saved, canSave, onBack, onSave, topInset }: ShopHeroPr
   return (
     <View style={styles.hero}>
       {coverPhoto
-        ? <Image source={{ uri: coverPhoto.url }} style={styles.heroImage} resizeMode="cover" />
+        ? <Image source={{ uri: coverPhoto.url }} style={styles.heroImage} contentFit="cover" />
         : <View style={[styles.heroImage, styles.heroPlaceholder]} />}
       <View style={[styles.heroNav, { top: topInset + SPACING.sm }]}>
         <Pressable style={styles.navBtn} onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
@@ -470,7 +471,7 @@ function ProductRow({
       <View style={styles.productRight}>
         {product.imageUrl
           ? (
-              <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="cover" />
+              <Image source={{ uri: product.imageUrl }} recyclingKey={product.id} style={styles.productImage} contentFit="cover" />
             )
           : null}
         <Pressable style={styles.addBtn} onPress={handleAddToCart} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("directory.add_to_cart")}>
