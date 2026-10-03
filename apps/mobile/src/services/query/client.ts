@@ -43,6 +43,19 @@ export const queryClient = new QueryClient({
 });
 
 /**
+ * After a merchant creates/edits/toggles/deletes a product: the menu list,
+ * every cached single-product editor (`["merchant-product", id]`, otherwise
+ * it reopens with pre-edit values for up to `staleTime`) and the public menu.
+ */
+export function invalidateProductQueries(): Promise<void> {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["merchant-products"] }),
+    queryClient.invalidateQueries({ queryKey: ["merchant-product"] }),
+    queryClient.invalidateQueries({ queryKey: ["shop-products"] }),
+  ]).then(() => undefined);
+}
+
+/**
  * Only public, non-personal data may be written to AsyncStorage (it is not
  * encrypted). Orders, notifications, feedback, merchant and admin data stay
  * in memory only.

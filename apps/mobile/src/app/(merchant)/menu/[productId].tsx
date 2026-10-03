@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
+import { invalidateProductQueries } from "@/services/query/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z.object({
@@ -141,7 +142,7 @@ export default function ProductFormScreen() {
         : merchantApi.updateProduct(productId, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["merchant-products"] });
+      invalidateProductQueries();
       router.back();
     },
     onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),

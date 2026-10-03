@@ -1,5 +1,5 @@
 import type { Product } from "@/services/api/merchant";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ArrowLeft, ForkKnife, Pencil, Plus, Trash } from "phosphor-react-native";
 import * as React from "react";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
+import { invalidateProductQueries } from "@/services/query/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -71,7 +72,6 @@ function useStyles() {
 export default function MerchantMenuScreen() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const isAr = i18n.language === "ar";
   const styles = useStyles();
   const colors = useAppColors();
@@ -86,13 +86,13 @@ export default function MerchantMenuScreen() {
   const { mutate: toggleAvailability } = useMutation({
     mutationFn: ({ productId, isAvailable }: { productId: string; isAvailable: boolean }) =>
       merchantApi.updateProduct(productId, { isAvailable }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchant-products"] }),
+    onSuccess: () => invalidateProductQueries(),
     onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),
   });
 
   const { mutate: deleteProduct } = useMutation({
     mutationFn: (productId: string) => merchantApi.deleteProduct(productId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchant-products"] }),
+    onSuccess: () => invalidateProductQueries(),
     onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),
   });
 
