@@ -2,7 +2,6 @@
 
 import {
   CheckCircle2,
-  Mail,
   MessageSquareText,
   RefreshCw,
   Send,
@@ -13,23 +12,7 @@ import * as React from "react";
 import { PendingMark } from "@/components/PendingMark";
 import { useTranslation } from "@/lib/i18n";
 
-type LeadStatus = "PENDING" | "INVITED" | "CONVERTED" | "REJECTED";
 type FeedbackStatus = "SUBMITTED" | "ACKNOWLEDGED" | "IN_PROGRESS" | "RESOLVED";
-type ResidentLead = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  building: string;
-  floor: string;
-  flatNumber: string;
-  jobTitle?: string | null;
-  maritalStatus?: "MARRIED" | "SINGLE" | "DIVORCED" | null;
-  nationalId?: string | null;
-  passportNumber?: string | null;
-  status: LeadStatus;
-  createdAt: string;
-};
 type Feedback = {
   id: string;
   category: string;
@@ -40,12 +23,6 @@ type Feedback = {
 };
 type PagePayload<T> = { data?: { items?: T[] } };
 
-const leadStatuses: LeadStatus[] = [
-  "PENDING",
-  "INVITED",
-  "CONVERTED",
-  "REJECTED",
-];
 const feedbackStatuses: FeedbackStatus[] = [
   "SUBMITTED",
   "ACKNOWLEDGED",
@@ -54,7 +31,7 @@ const feedbackStatuses: FeedbackStatus[] = [
 ];
 function labelMap(
   t: (key: string) => string,
-  group: "lead_labels" | "feedback_labels",
+  group: "feedback_labels",
   keys: string[],
 ): Record<string, string> {
   return Object.fromEntries(keys.map((key) => [key, t(`admin_ops.${group}.${key}`)]));
@@ -62,161 +39,6 @@ function labelMap(
 
 function itemsFrom<T>(payload: PagePayload<T> | null): T[] {
   return payload?.data?.items ?? [];
-}
-
-export function ResidentRequestsPanel() {
-  const { t } = useTranslation();
-  const [status, setStatus] = React.useState<LeadStatus | "ALL">("PENDING");
-  const [items, setItems] = React.useState<ResidentLead[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(false);
-  const [actionError, setActionError] = React.useState(false);
-  const [pendingId, setPendingId] = React.useState<string | null>(null);
-  const [reloadKey, setReloadKey] = React.useState(0);
-
-  React.useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const query = status === "ALL" ? "" : `?status=${status}`;
-        const response = await fetch(`/api/admin/residents/leads${query}`, { cache: "no-store" });
-        if (!response.ok) throw new Error("request");
-        if (active) setItems(itemsFrom<ResidentLead>((await response.json()) as PagePayload<ResidentLead>));
-      } catch {
-        if (active) setError(true);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
-  }, [status, reloadKey]);
-
-  function selectStatus(value: string) {
-    setLoading(true); setError(false); setStatus(value as LeadStatus | "ALL");
-  }
-
-  function retry() {
-    setLoading(true); setError(false); setReloadKey((value) => value + 1);
-  }
-
-  async function invite(id: string) {
-    setActionError(false);
-    setPendingId(id);
-    try {
-      const response = await fetch(
-        `/api/admin/residents/leads/${encodeURIComponent(id)}/invite`,
-        { method: "POST" },
-      );
-      if (!response.ok) throw new Error("request");
-      setItems((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, status: "INVITED" } : item,
-        ),
-      );
-    } catch {
-      setActionError(true);
-    } finally {
-      setPendingId(null);
-    }
-  }
-
-  return (
-    <section
-      aria-labelledby="resident-requests-title"
-      className="border-t border-border pt-8"
-    >
-      <PanelHeading
-        icon={UsersRound}
-        id="resident-requests-title"
-        title={t("admin_ops.resident_requests_title")}
-        body={t("admin_ops.resident_requests_body")}
-      />
-      <FilterBar
-        value={status}
-        values={["ALL", ...leadStatuses]}
-        onChange={selectStatus}
-        labels={labelMap(t, "lead_labels", ["ALL", ...leadStatuses])}
-      />
-      <PanelState
-        loading={loading}
-        error={error}
-        empty={!items.length}
-        onRetry={retry}
-      />
-      {actionError && (
-        <p role="alert" className="mb-4 border-y border-error/30 bg-error/10 px-4 py-3 text-error">
-          {t("admin_ops.invite_error")}
-        </p>
-      )}
-      {!loading && !error && items.length > 0 && (
-        <div className="divide-y divide-border border-y border-border">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="grid gap-4 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[length:var(--text-body-lg)] font-bold">
-                    {item.name}
-                  </h3>
-                  <StatusBadge
-                    label={t(`admin_ops.lead_labels.${item.status}`)}
-                    status={item.status}
-                  />
-                </div>
-                <p
-                  className="mt-2 break-all text-[length:var(--text-label)] text-muted-foreground"
-                  dir="ltr"
-                >
-                  {item.email} · {item.phone}
-                </p>
-                <p className="mt-1 text-[length:var(--text-label)] text-muted-foreground">
-                  {t("admin_ops.building")} {item.building} ·{" "}
-                  {t("admin_ops.floor")} {item.floor} · {t("admin_ops.flat")}{" "}
-                  {item.flatNumber}
-                </p>
-                {(item.jobTitle || item.maritalStatus) && (
-                  <p className="mt-1 text-[length:var(--text-label)] text-muted-foreground">
-                    {item.jobTitle && <span>{t("admin_ops.job")}: {item.jobTitle}</span>}
-                    {item.jobTitle && item.maritalStatus && " · "}
-                    {item.maritalStatus && t(`admin_ops.marital.${item.maritalStatus}`)}
-                  </p>
-                )}
-                {(item.nationalId || item.passportNumber) && (
-                  <p className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--text-label)] text-muted-foreground">
-                    {item.nationalId && (
-                      <span>{t("admin_ops.national_id")}: <bdi>{item.nationalId}</bdi></span>
-                    )}
-                    {item.passportNumber && (
-                      <span>{t("admin_ops.passport")}: <bdi>{item.passportNumber}</bdi></span>
-                    )}
-                  </p>
-                )}
-              </div>
-              {(item.status === "PENDING" || item.status === "INVITED") && (
-                <button
-                  type="button"
-                  onClick={() => void invite(item.id)}
-                  disabled={pendingId === item.id}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-primary px-5 text-[length:var(--text-button)] font-bold text-primary-foreground disabled:opacity-60"
-                >
-                  {pendingId === item.id ? (
-                    <PendingMark />
-                  ) : (
-                    <Mail aria-hidden="true" className="size-4.5" />
-                  )}
-                  {item.status === "INVITED"
-                    ? t("admin_ops.resend_invite")
-                    : t("admin_ops.send_invite")}
-                </button>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  );
 }
 
 export function ComplaintsPanel() {

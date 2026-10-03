@@ -720,6 +720,64 @@ button:disabled {
   }
 }
 
+/* ─── Admin resident requests ───────────────────────────────────────── */
+/* In-flight row action: a soft gold sheen sweeps the disabled button instead of a spinner. */
+.lead-pending {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-primary) 22%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  animation: lead-sheen 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes lead-sheen {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+.lead-dialog[open] {
+  animation: lead-dialog-in 200ms var(--ease-out-soft);
+}
+
+.lead-drawer[open] {
+  animation: lead-drawer-in 240ms var(--ease-out-soft);
+}
+
+[dir='rtl'] .lead-drawer[open] {
+  animation-name: lead-drawer-in-rtl;
+}
+
+.lead-toast {
+  animation: lead-dialog-in 200ms var(--ease-out-soft);
+}
+
+@keyframes lead-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lead-drawer-in {
+  from { opacity: 0.4; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lead-drawer-in-rtl {
+  from { opacity: 0.4; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lead-pending,
+  .lead-dialog[open],
+  .lead-drawer[open],
+  .lead-toast {
+    animation: none;
+  }
+}
+
 /* ─── Utilities ─────────────────────────────────────────────────────── */
 @layer utilities {
   .text-balance {

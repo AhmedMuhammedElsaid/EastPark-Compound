@@ -7,7 +7,8 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/Button';
-import { ComplaintsPanel, ResidentRequestsPanel } from '@/components/admin/AdminOperations';
+import { ComplaintsPanel } from '@/components/admin/AdminOperations';
+import { ResidentRequestsPanel } from '@/components/admin/residents/ResidentRequestsPanel';
 import { CONTROL_CLASS, controlBorder, Field } from '@/components/form/Field';
 import { useTranslation } from '@/lib/i18n';
 import { announcementCategories, visibilityModes } from '@/lib/validation/admin';
