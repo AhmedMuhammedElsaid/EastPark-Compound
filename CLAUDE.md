@@ -89,6 +89,10 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 >   `Decimal(10,2)`; Paymob HMAC/amount/order checks (payments still disabled); upload magic-byte sniffing,
 >   purpose folders, admin-only PDFs, 502 `storage_unavailable` (no bucket auto-create); socket JWT + room
 >   auth; election results endpoint; commenter privacy; coverage measured across `src`.
+> - Backend security batch (later on 2026-10-03): merchant account delete → 409 `user.error.merchantOwnsShop`
+>   while a shop is owned (no more order-history wipe; FKs already RESTRICT, no migration); access tokens +
+>   `/orders` socket enforce the session version (stale tokens 401 right after password reset / account delete;
+>   Redis outage → 503 fail-closed); forgot-password capped at 3/email/15 min with an identical response.
 > - Mobile: order payload, Bearer refresh + single-flight, 60 s timeout + warm-up, contract alignment
 >   (merchant, feedback, polls, comments, notifications), socket events + reconnect, privacy-safe offline
 >   cache, merchant full status chain, error toasts, cleanup, 9 unused deps removed, OTA settings dropped.

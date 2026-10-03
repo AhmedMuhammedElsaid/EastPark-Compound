@@ -120,6 +120,18 @@ shop's reviews and bookmarks (REV-19); feedback body ≤ 4000, admin reply ≤ 5
 password reset clears the per-email login lockout; unused offset-pagination/query-builder helpers
 removed. No route, response shape or migration changed.
 
+**2026-10-03 security fix batch (local commits `5abf38e`, `5c1b667`, `8864fd8`, not pushed):** deleting a
+merchant account (`DELETE /v1/user` and `DELETE /v1/admin/user/:id`) now returns 409 `user.error.merchantOwnsShop`
+while the account still owns a shop — the old application-level wipe of the shop's orders (residents' order
+history) is gone; the DB FKs were already `ON DELETE RESTRICT`, so no migration. Access tokens now carry and
+enforce the per-user session version: `SessionVersionService` (`src/common/auth/services/session-version.service.ts`,
+Redis key `session-version:{userId}` is the source of truth, 5 s in-process memo, `<` comparison, tokens
+without `ver` count as 0) is checked in `JwtAccessStrategy.validate` and in the `/orders` socket handshake;
+password reset bumps it, account deletion bumps it and lets the key expire after 8 d; Redis errors fail closed
+with 503 `auth.error.sessionStoreUnavailable` (login/refresh already hard-depend on Redis). `POST /auth/forgot-password`
+is capped at 3 requests per email per 15 min (`forgot-attempts:{email}`, INCR-first) with the identical
+response whether the email exists, does not, or is over the cap; a successful reset clears the counter.
+
 **2026-09-30 — Postgres moved from Neon to Supabase.** One vendor for DB + Storage, and Neon's free
 tier could not host this app: the Fly health check queries the DB every 15s, so the compute never
 scale-to-zeros, and always-on burns ~183 of the 100 free CU-hours/month — suspended around day 16,
