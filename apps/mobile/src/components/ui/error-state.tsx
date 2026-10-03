@@ -54,7 +54,8 @@ export function DetailErrorScreen({ onRetry, message }: ErrorStateProps) {
     <View style={[styles.screen, { paddingTop: insets.top + SPACING.sm, paddingBottom: insets.bottom }]}>
       <Pressable
         style={styles.backButton}
-        onPress={() => router.back()}
+        // Screens reached via router.replace (merchant dashboard) have no history.
+        onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={t("common.back")}
