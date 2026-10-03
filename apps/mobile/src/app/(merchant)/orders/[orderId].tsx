@@ -112,7 +112,11 @@ export default function MerchantOrderDetailScreen() {
     queryKey: ["merchant-order", orderId],
     queryFn: () => merchantApi.getOrder(orderId),
     enabled: !!orderId,
-    refetchInterval: 10000,
+    // Poll only while the order can still change.
+    refetchInterval: (query) => {
+      const status = query.state.data?.data.data.status;
+      return status && isTerminalOrderStatus(status) ? false : 10_000;
+    },
   });
 
   const order = data?.data.data;
