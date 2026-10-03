@@ -20,6 +20,30 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Account deletion, storage URLs, JWT secrets, comment cap — 2026-10-03
+
+- **Account deletion anonymises in place** (`UserService.deleteUser`, both `DELETE /v1/user` and
+  `DELETE /v1/admin/user/:id`). The user row becomes a per-account tombstone: name `Deleted user`, email
+  `deleted-<id>@deleted.invalid`, phone/unit/avatar/push token null, a fresh argon2 hash of a random
+  secret, `isVerified=false`, role `GUEST`; sessions revoked as before. Kept and attached to the
+  tombstone: orders + items, review ratings (comment text cleared), poll/election votes (tallies never
+  change), feedback (forced `isAnonymous`), an admin's feedback replies, audit logs, used invitations.
+  Deleted: notifications, notification prefs, saved shops, announcement comments, unused invitations.
+  Resident leads are detached (`userId=null`). Deleting a tombstone again → 404. Merchant-owns-shop
+  409 unchanged. A shared placeholder user is impossible (`Vote`/`ElectionVote` PK and
+  `Review @@unique` include `userId`), and nullable FKs cannot cover the vote PKs — so no migration.
+- **Storage URL policy** (`src/common/file/storage-url.ts`): feedback `attachments[]` and a *changed*
+  `avatarUrl` must be `<SUPABASE_URL>/storage/v1/object/public/<SUPABASE_BUCKET>/…` (same origin,
+  parsed + normalised), else 400 `file.error.urlNotStored`. Unchanged/null avatar always accepted;
+  stored values are never re-validated. Product `imageUrl`, candidate `photoUrl`, shop photo `url` and
+  PDF URLs are NOT restricted yet — web/mobile forms let merchants/admins paste URLs.
+- **JWT secrets** (`auth.config.ts`): equal access/refresh secrets or either < 32 chars → throws at boot
+  outside production; in production only logs `INSECURE JWT CONFIGURATION` (prod values unverifiable,
+  and the container migrates before boot, so a crash would strand a migrated DB behind old code).
+- `GET /v1/announcements/:id` embeds only the latest 100 comments (still oldest-first, same shape).
+- Migration `20261003120000_notifications_user_created_index`: `CREATE INDEX IF NOT EXISTS
+  "notifications_userId_createdAt_idx"` — additive only.
+
 ### Admin lead counts — 2026-10-03
 
 - `GET /v1/admin/residents/leads/stats` [ADMIN] returns

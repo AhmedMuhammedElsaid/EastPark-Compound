@@ -141,7 +141,8 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > account invitation UX, socket token expiry mid-session, public review ids, `isAvailable` boolean
 > transform, client-side DTO limits); atomic INCR+EXPIRE for OTP/login counters; login lockout trade-off
 > (10 fails lock an email 15 min); WEB-12 global fetch patch; WEB-17 OG titles English; push only sent for
-> ORDER_UPDATE; no `isPinned` on announcements.
+> ORDER_UPDATE; no `isPinned` on announcements; product/candidate/shop-photo URLs still accept any URL (clients
+> paste them; restrict once they upload); `ResidentLead` keeps national id/passport after account deletion.
 
 > ---
 > **HISTORY BELOW.** Every section from here down is superseded by the 2026-10-03 section above. Their
