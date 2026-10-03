@@ -7,6 +7,7 @@
     "check:shared": "pnpm --filter @eastpark/shared typecheck && pnpm --filter @eastpark/shared test",
     "check:web": "pnpm --dir apps/web check",
     "check:mobile": "pnpm --dir apps/mobile type-check && pnpm --dir apps/mobile exec jest --runInBand",
+    "smoke": "node scripts/smoke/run.mjs",
     "check:backend": "pnpm --dir apps/backend typecheck && pnpm --dir apps/backend lint:check && pnpm --dir apps/backend exec jest --config test/jest.json --coverage=false --runInBand --passWithNoTests --forceExit"
   },
   "devDependencies": {
