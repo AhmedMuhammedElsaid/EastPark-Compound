@@ -685,14 +685,18 @@ button:disabled {
   .home-hero-glow,
   .home-hero-mark .hero-logo-art,
   .home-timeline-pulse,
-  .home-timeline-step::after,
   .sealed-sweep {
     animation: none;
   }
 
-  .home-timeline-step[data-status='preparing']:not(:last-child)::after,
+  /* !important: the timeline's scoped breakpoint rules are more specific than these selectors. */
+  .home-timeline-step::after {
+    animation: none !important;
+  }
+
+  .home-timeline-step[data-status='preparing']::after,
   .sealed-sweep {
-    background: none;
+    background: none !important;
   }
 
   .home-ticker-track {
