@@ -15,7 +15,6 @@ type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<LoginResult>;
-  verifyOtp: (email: string, otp: string) => Promise<LoginResult>;
   establishSession: (user: AuthUser) => void;
   /** Signs out and leaves the app for `/login` (or `redirectTo`) with a full-page replace. */
   logout: (options?: { redirectTo?: string }) => Promise<void>;
@@ -118,11 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [authenticate],
   );
 
-  const verifyOtp = React.useCallback(
-    (email: string, otp: string) => authenticate('/api/auth/verify-otp', { email, otp }),
-    [authenticate],
-  );
-
   const logout = React.useCallback(async (options?: { redirectTo?: string }) => {
     // Drop the signed-in UI at once (no Profile/Logout/Admin items) while the request runs.
     // `isLoading` keeps auth guards from firing their own client redirects meanwhile; `signOut`
@@ -147,8 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo(
-    () => ({ user, isLoading, login, verifyOtp, establishSession, logout, refreshUser }),
-    [user, isLoading, login, verifyOtp, establishSession, logout, refreshUser],
+    () => ({ user, isLoading, login, establishSession, logout, refreshUser }),
+    [user, isLoading, login, establishSession, logout, refreshUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

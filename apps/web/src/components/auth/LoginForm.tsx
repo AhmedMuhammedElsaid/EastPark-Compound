@@ -122,8 +122,8 @@ export function LoginForm() {
 
       <p className="text-center text-[length:var(--text-body)] text-muted-foreground">
         {t('auth.no_account')}{' '}
-        <Link className="font-semibold text-primary hover:underline" href="/register">
-          {t('auth.register')}
+        <Link className="font-semibold text-primary hover:underline" href="/register-unit">
+          {t('auth.register_unit_link')}
         </Link>
       </p>
 

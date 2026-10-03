@@ -16,11 +16,8 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
   '/api/auth/forgot-password',
   '/api/auth/login',
   '/api/auth/logout',
-  '/api/auth/register',
-  '/api/auth/resend-otp',
   '/api/auth/reset-password',
   '/api/auth/session',
-  '/api/auth/verify-otp',
 ]);
 
 type SessionInterceptorOptions = {

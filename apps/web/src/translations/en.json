@@ -239,10 +239,7 @@
     "continue_as_guest": "Continue as guest",
     "email": "Email address",
     "errors": {
-      "email_taken": "This email is already registered",
       "invalid_email": "Enter a valid email address",
-      "invalid_otp": "Invalid or expired code",
-      "invalid_phone": "Enter a valid phone number",
       "invalid_unit": "Invalid unit number",
       "login_failed": "Incorrect email or password",
       "rate_limited": "Too many attempts. Please wait a minute and try again.",
@@ -250,8 +247,7 @@
       "password_weak": "Complete the missing password requirements below",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
-      "unit_required": "Unit number is required",
-      "unverified": "Verify your email first. Enter the code we sent you, or register again to get a new one.",
+      "unverified": "This account is not activated yet. Contact the compound administration for help.",
       "invitation_account_exists": "This email already has an account. Enter that account's current password to accept the invitation."
     },
     "password_requirements": {
@@ -278,16 +274,10 @@
     "logout": "Sign Out",
     "name": "Full name",
     "no_account": "Don't have an account?",
-    "otp": "Verification code",
-    "otp_resent": "A new code has been sent",
-    "otp_sent": "A 6-digit code was sent to your email",
+    "register_unit_link": "Register your unit",
     "password": "Password",
     "password_reset_success": "Password updated successfully. Please sign in.",
     "phone": "Phone number",
-    "register": "Create Account",
-    "register_subtitle": "Join the EastPark community",
-    "resend_in": "Resend in {{seconds}}s",
-    "resend_otp": "Resend code",
     "reset_link_body": "We sent a password reset link to {{email}}. It expires in 30 minutes.",
     "reset_link_expired": "This reset link has expired. Please request a new one.",
     "reset_link_sent": "Check your email",
@@ -297,7 +287,6 @@
     "send_reset_link": "Send reset link",
     "show_password": "Show password",
     "unit_number": "Unit number",
-    "verify_otp": "Enter verification code",
     "welcome_back": "Welcome back to EastPark"
   },
   "cart": {

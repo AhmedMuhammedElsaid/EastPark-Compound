@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: resolve(process.cwd(), "../.."),
   },
+  async redirects() {
+    // Public self-registration was removed: residents join through the unit-registration request,
+    // admin approval and an emailed invitation. Old links land on the supported entry points.
+    return [
+      { source: "/register", destination: "/register-unit", permanent: true },
+      { source: "/verify-otp", destination: "/login", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
