@@ -19,5 +19,7 @@ export default async function AnnouncementsPage({ searchParams }: AnnouncementsP
     return null;
   });
 
-  return <AnnouncementFeed category={category} initialPage={initialPage} />;
+  // Keyed by category: the feed copies `initialPage` into state, so a client-side filter change must
+  // remount it or the old category's items and cursor would stay on screen.
+  return <AnnouncementFeed key={category ?? 'ALL'} category={category} initialPage={initialPage} />;
 }
