@@ -243,7 +243,7 @@
     "SUGGESTION": "Suggestion",
     "add_photo": "Add photo",
     "anonymous": "Submit anonymously",
-    "anonymous_subtitle": "Your name will not be shown to the admin",
+    "anonymous_subtitle": "Other residents will not see your identity. Compound administrators can identify you while processing the request.",
     "category": "Category",
     "empty": "No feedback submitted yet",
     "empty_subtitle": "Tap the button below to share your thoughts",
