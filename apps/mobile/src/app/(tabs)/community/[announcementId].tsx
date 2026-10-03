@@ -5,7 +5,7 @@ import { ArrowLeft, FilePdf, PaperPlaneTilt } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { I18nManager, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DetailErrorScreen } from "@/components/ui/error-state";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { COMMENT_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { openDocument } from "@/lib/utils";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
@@ -147,7 +148,7 @@ export default function AnnouncementDetailScreen() {
         <Text style={styles.body}>{body}</Text>
 
         {ann.pdfUrl && (
-          <Pressable style={styles.pdfRow} onPress={() => Linking.openURL(ann.pdfUrl!)}>
+          <Pressable style={styles.pdfRow} onPress={() => openDocument(ann.pdfUrl!, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))}>
             <FilePdf size={24} color={BRAND.gold} />
             <Text style={styles.pdfLabel}>{t("community.view_pdf")}</Text>
           </Pressable>
@@ -227,8 +228,10 @@ function AddCommentBar({ announcementId, bottomInset, styles }: { announcementId
         style={[styles.sendBtn, (!text.trim() || isPending) && styles.sendBtnDisabled]}
         onPress={handleSubmit}
         disabled={!text.trim() || isPending}
+        accessibilityRole="button"
+        accessibilityLabel={t("community.send_comment")}
       >
-        <PaperPlaneTilt size={20} color={colors.bg} />
+        <PaperPlaneTilt mirrored={I18nManager.isRTL} size={20} color={colors.bg} />
       </Pressable>
     </View>
   );

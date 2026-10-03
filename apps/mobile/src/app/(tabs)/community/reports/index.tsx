@@ -7,11 +7,13 @@ import { ArrowLeft, ClipboardText, FilePdf } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { openDocument } from "@/lib/utils";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
@@ -148,7 +150,7 @@ function ReportRow({ report, isAr, styles }: { report: Report; isAr: boolean; st
   });
 
   return (
-    <Pressable style={styles.row} onPress={() => Linking.openURL(report.pdfUrl)} accessibilityRole="button" accessibilityLabel={title}>
+    <Pressable style={styles.row} onPress={() => openDocument(report.pdfUrl, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))} accessibilityRole="button" accessibilityLabel={title}>
       <View style={styles.rowIcon}>
         <FilePdf size={24} color={BRAND.gold} />
       </View>

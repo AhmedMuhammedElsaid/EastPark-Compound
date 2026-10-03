@@ -52,10 +52,12 @@ const MAX_PRODUCT_PAGES = 20;
 export type ShopUpdatePayload = {
   name?: string;
   nameAr?: string;
-  description?: string;
-  descriptionAr?: string;
-  phone?: string;
-  whatsapp?: string;
+  // null clears an optional field (the backend DTO accepts null via
+  // @IsOptional); undefined leaves it unchanged.
+  description?: string | null;
+  descriptionAr?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
   workingHours?: Record<string, WorkingHoursDay>;
 };
 

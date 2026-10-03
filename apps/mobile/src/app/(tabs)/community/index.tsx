@@ -7,12 +7,14 @@ import { ChatCircle, CheckSquare, FilePdf, MegaphoneSimple } from "phosphor-reac
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { openDocument } from "@/lib/utils";
 
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -272,7 +274,7 @@ function AnnouncementCard({ announcement, styles, colors }: { announcement: Anno
       <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
       <Text style={styles.cardBody} numberOfLines={3}>{body}</Text>
       {announcement.pdfUrl && (
-        <Pressable onPress={() => Linking.openURL(announcement.pdfUrl!)}>
+        <Pressable onPress={() => openDocument(announcement.pdfUrl!, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))}>
           <Text style={styles.pdfLink}>{t("community.view_pdf")}</Text>
         </Pressable>
       )}

@@ -24,6 +24,7 @@ import { z } from "zod";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { toNullable } from "@/lib/utils";
 import { merchantApi } from "@/services/api/merchant";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -222,10 +223,10 @@ export default function MerchantShopProfileScreen() {
     const payload: ShopUpdatePayload = {
       name: values.name,
       nameAr: values.nameAr,
-      description: values.description || undefined,
-      descriptionAr: values.descriptionAr || undefined,
-      phone: values.phone || undefined,
-      whatsapp: values.whatsapp || undefined,
+      description: toNullable(values.description),
+      descriptionAr: toNullable(values.descriptionAr),
+      phone: toNullable(values.phone),
+      whatsapp: toNullable(values.whatsapp),
       workingHours: values.workingHours as Record<string, WorkingHoursDay> | undefined,
     };
     saveProfile(payload);

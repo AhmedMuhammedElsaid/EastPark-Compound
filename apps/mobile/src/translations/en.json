@@ -194,6 +194,8 @@
     "pinned": "Pinned",
     "reports": "Reports",
     "title": "Community",
+    "pdf_open_failed": "Couldn't open the document. Please try again later.",
+    "send_comment": "Send comment",
     "view_pdf": "View document"
   },
   "directory": {
