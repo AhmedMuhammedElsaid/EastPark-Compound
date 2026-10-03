@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Building2, FileText, MessageSquareText, Store, UserRound } from 'lucide-react';
+import { Bell, Building2, ChevronRight, FileText, MessageSquareText, Store, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { Reveal } from '@/components/Reveal';
@@ -37,22 +37,33 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
         <h2 id="also-title" className="text-[length:var(--text-h2)] font-bold text-foreground">
           {t('home.teaser.more_title')}
         </h2>
-        <ul className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] lg:gap-4">
+        {/* Phones: compact rows (icon, text, pill/chevron). From 480px: cards with the pill pinned top-end. */}
+        <ul className="mt-4 grid grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 min-[480px]:gap-3 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] lg:gap-4">
           {tiles.map(({ href, icon: Icon, label, promise, live }) => (
             <li key={href} className="min-w-0">
               <GatedLink
                 href={href}
-                className="group flex h-full min-h-28 flex-col gap-2 rounded-md border border-border bg-card p-4 text-foreground transition-colors hover:border-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+                className="group relative flex h-full w-full items-center gap-3 rounded-md border border-border bg-card p-3 text-foreground transition-colors hover:border-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none min-[480px]:min-h-28 min-[480px]:flex-col min-[480px]:items-stretch min-[480px]:gap-2 min-[480px]:p-4"
               >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary group-hover:bg-card">
-                    <Icon aria-hidden="true" className="size-5" />
-                  </span>
-                  {promise && !live && <SoonPill label={t('home.teaser.soon')} />}
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary group-hover:bg-card">
+                  <Icon aria-hidden="true" className="size-5" />
                 </span>
-                <span className="text-[length:var(--text-label)] font-bold leading-5">{label}</span>
-                {promise && (
-                  <span className="text-[length:var(--text-caption)] leading-5 text-muted-foreground">{promise}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5 min-[480px]:gap-2">
+                  <span className="text-[length:var(--text-label)] font-bold leading-5">{label}</span>
+                  {promise && (
+                    <span className="text-[length:var(--text-caption)] leading-5 text-muted-foreground">{promise}</span>
+                  )}
+                </span>
+                {promise && !live ? (
+                  <SoonPill
+                    label={t('home.teaser.soon')}
+                    className="shrink-0 min-[480px]:absolute min-[480px]:end-4 min-[480px]:top-6"
+                  />
+                ) : (
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-5 shrink-0 text-muted-foreground rtl:rotate-180 min-[480px]:hidden"
+                  />
                 )}
               </GatedLink>
             </li>
