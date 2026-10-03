@@ -15,11 +15,12 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
+// Messages are translation keys, rendered with t().
 const schema = z.object({
-  title: z.string().min(3),
-  titleAr: z.string().min(3),
-  body: z.string().min(10),
-  bodyAr: z.string().min(10),
+  title: z.string().trim().min(3, "validation.min_3"),
+  titleAr: z.string().trim().min(3, "validation.min_3"),
+  body: z.string().trim().min(10, "validation.min_10"),
+  bodyAr: z.string().trim().min(10, "validation.min_10"),
   category: z.enum(["GENERAL", "PROMOTION", "EVENT", "MAINTENANCE", "NEWS"]),
 });
 type FormValues = z.infer<typeof schema>;
@@ -37,6 +38,7 @@ function useStyles() {
     label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.textMuted, marginTop: SPACING.md, marginBottom: SPACING.xs },
     input: { backgroundColor: colors.card, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontFamily: FONT.sans, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border },
     inputError: { borderColor: SEMANTIC.error },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error, marginTop: SPACING.xs },
     textarea: { minHeight: 100, textAlignVertical: "top" as const },
     chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.sm },
     chip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, borderRadius: RADIUS.full, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.border },
@@ -91,6 +93,7 @@ export default function NewAnnouncementScreen() {
             <TextInput style={[styles.input, errors.title && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_en")} />
           )}
         />
+        {errors.title?.message ? <Text style={styles.errorText}>{t(errors.title.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.title_ar")}</Text>
         <Controller
@@ -100,6 +103,7 @@ export default function NewAnnouncementScreen() {
             <TextInput style={[styles.input, errors.titleAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_ar")} textAlign="right" />
           )}
         />
+        {errors.titleAr?.message ? <Text style={styles.errorText}>{t(errors.titleAr.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.body_en")}</Text>
         <Controller
@@ -109,6 +113,7 @@ export default function NewAnnouncementScreen() {
             <TextInput style={[styles.input, styles.textarea, errors.body && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.body_en")} multiline />
           )}
         />
+        {errors.body?.message ? <Text style={styles.errorText}>{t(errors.body.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.body_ar")}</Text>
         <Controller
@@ -118,6 +123,7 @@ export default function NewAnnouncementScreen() {
             <TextInput style={[styles.input, styles.textarea, errors.bodyAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.body_ar")} multiline textAlign="right" />
           )}
         />
+        {errors.bodyAr?.message ? <Text style={styles.errorText}>{t(errors.bodyAr.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.category")}</Text>
         <Controller

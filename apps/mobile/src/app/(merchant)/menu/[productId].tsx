@@ -17,13 +17,14 @@ import { merchantApi } from "@/services/api/merchant";
 import { invalidateProductQueries } from "@/services/query/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
+// Messages are translation keys, rendered with t().
 const schema = z.object({
-  name: z.string().min(1).max(100),
-  nameAr: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  descriptionAr: z.string().max(500).optional(),
-  price: z.coerce.number().positive(),
-  imageUrl: z.string().url().optional().or(z.literal("")),
+  name: z.string().trim().min(1, "validation.required").max(100, "validation.max_100"),
+  nameAr: z.string().trim().min(1, "validation.required").max(100, "validation.max_100"),
+  description: z.string().max(500, "validation.max_500").optional(),
+  descriptionAr: z.string().max(500, "validation.max_500").optional(),
+  price: z.coerce.number({ error: "validation.invalid_price" }).positive("validation.invalid_price"),
+  imageUrl: z.string().url("validation.invalid_url").optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -213,6 +214,7 @@ function PField({
   styles: any;
   colors: any;
 }) {
+  const { t } = useTranslation();
   const { field } = useController({ control, name });
   const [isFocused, setIsFocused] = React.useState(false);
 
@@ -238,7 +240,7 @@ function PField({
           !!error && styles.inputError,
         ]}
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{t(error as any)}</Text> : null}
     </View>
   );
 }

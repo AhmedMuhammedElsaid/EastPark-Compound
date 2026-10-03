@@ -15,12 +15,13 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
-const optionSchema = z.object({ label: z.string().min(1), labelAr: z.string().min(1) });
+// Messages are translation keys, rendered with t().
+const optionSchema = z.object({ label: z.string().trim().min(1, "validation.required"), labelAr: z.string().trim().min(1, "validation.required") });
 const schema = z.object({
-  question: z.string().min(5),
-  questionAr: z.string().min(5),
-  options: z.array(optionSchema).min(2),
-  expiresAt: z.string().min(1),
+  question: z.string().trim().min(5, "validation.min_5"),
+  questionAr: z.string().trim().min(5, "validation.min_5"),
+  options: z.array(optionSchema).min(2, "validation.min_options"),
+  expiresAt: z.string().trim().min(1, "validation.required"),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -35,6 +36,7 @@ function useStyles() {
     label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.textMuted, marginTop: SPACING.md, marginBottom: SPACING.xs },
     input: { backgroundColor: colors.card, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontFamily: FONT.sans, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border },
     inputError: { borderColor: SEMANTIC.error },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error, marginTop: SPACING.xs },
     optionRow: { gap: SPACING.xs, marginBottom: SPACING.sm },
     optionInput: { flex: 1 },
     addOptionBtn: { alignItems: "center" as const, paddingVertical: SPACING.sm },
@@ -92,6 +94,7 @@ export default function NewPollScreen() {
             <TextInput style={[styles.input, errors.question && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.question_en")} />
           )}
         />
+        {errors.question?.message ? <Text style={styles.errorText}>{t(errors.question.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.question_ar")}</Text>
         <Controller
@@ -101,6 +104,7 @@ export default function NewPollScreen() {
             <TextInput style={[styles.input, errors.questionAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.question_ar")} textAlign="right" />
           )}
         />
+        {errors.questionAr?.message ? <Text style={styles.errorText}>{t(errors.questionAr.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.expires_at")}</Text>
         <Controller
@@ -110,6 +114,7 @@ export default function NewPollScreen() {
             <TextInput style={[styles.input, errors.expiresAt && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder="YYYY-MM-DD" />
           )}
         />
+        {errors.expiresAt?.message ? <Text style={styles.errorText}>{t(errors.expiresAt.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.options")}</Text>
         {Array.from({ length: optionCount }).map((_, i) => (
@@ -128,6 +133,7 @@ export default function NewPollScreen() {
                 <TextInput style={[styles.input, styles.optionInput]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={`${t("admin.option")} ${i + 1} (AR)`} textAlign="right" />
               )}
             />
+            {(errors.options?.[i]?.label || errors.options?.[i]?.labelAr) ? <Text style={styles.errorText}>{t("validation.required")}</Text> : null}
           </View>
         ))}
         {optionCount < 6 && (

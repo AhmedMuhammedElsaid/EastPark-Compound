@@ -15,12 +15,13 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
+// Messages are translation keys, rendered with t().
 const schema = z.object({
-  title: z.string().min(3),
-  titleAr: z.string().min(3),
+  title: z.string().trim().min(3, "validation.min_3"),
+  titleAr: z.string().trim().min(3, "validation.min_3"),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  expiresAt: z.string().min(1),
+  expiresAt: z.string().trim().min(1, "validation.required"),
   visibilityMode: z.enum(["SEALED_UNTIL_DEADLINE", "LIVE_COUNT", "ADMIN_CONTROLLED"]),
 });
 type FormValues = z.infer<typeof schema>;
@@ -38,6 +39,7 @@ function useStyles() {
     label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.textMuted, marginTop: SPACING.md, marginBottom: SPACING.xs },
     input: { backgroundColor: colors.card, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontFamily: FONT.sans, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border },
     inputError: { borderColor: SEMANTIC.error },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error, marginTop: SPACING.xs },
     textarea: { minHeight: 80, textAlignVertical: "top" as const },
     chips: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.sm },
     chip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, borderRadius: RADIUS.full, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.border },
@@ -91,6 +93,7 @@ export default function NewElectionScreen() {
             <TextInput style={[styles.input, errors.title && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_en")} />
           )}
         />
+        {errors.title?.message ? <Text style={styles.errorText}>{t(errors.title.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.title_ar")}</Text>
         <Controller
@@ -100,6 +103,7 @@ export default function NewElectionScreen() {
             <TextInput style={[styles.input, errors.titleAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_ar")} textAlign="right" />
           )}
         />
+        {errors.titleAr?.message ? <Text style={styles.errorText}>{t(errors.titleAr.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.description_en")}</Text>
         <Controller
@@ -127,6 +131,7 @@ export default function NewElectionScreen() {
             <TextInput style={[styles.input, errors.expiresAt && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder="YYYY-MM-DD" />
           )}
         />
+        {errors.expiresAt?.message ? <Text style={styles.errorText}>{t(errors.expiresAt.message as any)}</Text> : null}
 
         <Text style={styles.label}>{t("admin.visibility_mode")}</Text>
         <Controller

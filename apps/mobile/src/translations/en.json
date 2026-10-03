@@ -397,5 +397,19 @@
     "system": "System",
     "theme": "Theme",
     "title": "Profile"
+  },
+  "validation": {
+    "invalid_date": "Enter the date as YYYY-MM-DD",
+    "invalid_price": "Enter a price greater than zero",
+    "invalid_time": "Use the HH:MM format, for example 09:00",
+    "invalid_url": "Enter a valid link starting with https://",
+    "max_100": "Keep it under 100 characters",
+    "max_500": "Keep it under 500 characters",
+    "min_10": "Enter at least 10 characters",
+    "min_2": "Enter at least 2 characters",
+    "min_3": "Enter at least 3 characters",
+    "min_5": "Enter at least 5 characters",
+    "min_options": "Add at least 2 options",
+    "required": "This field is required"
   }
 }

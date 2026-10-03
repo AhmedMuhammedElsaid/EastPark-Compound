@@ -38,13 +38,13 @@ const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const workingHoursDaySchema = z.object({
   closed: z.boolean(),
-  open: z.string().regex(timeRegex, { message: "HH:MM" }).optional().or(z.literal("")),
-  close: z.string().regex(timeRegex, { message: "HH:MM" }).optional().or(z.literal("")),
+  open: z.string().regex(timeRegex, "validation.invalid_time").optional().or(z.literal("")),
+  close: z.string().regex(timeRegex, "validation.invalid_time").optional().or(z.literal("")),
 });
 
 const shopProfileSchema = z.object({
-  name: z.string().min(2, { message: "min_2" }),
-  nameAr: z.string().min(2, { message: "min_2" }),
+  name: z.string().min(2, "validation.min_2"),
+  nameAr: z.string().min(2, "validation.min_2"),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
   phone: z.string().optional(),
@@ -231,6 +231,12 @@ export default function MerchantShopProfileScreen() {
     saveProfile(payload);
   };
 
+  // Invalid working hours have no inline slot, so surface them as a toast.
+  const onInvalid = (formErrors: typeof errors) => {
+    if (formErrors.workingHours)
+      showMessage({ message: t("validation.invalid_time"), type: "danger", backgroundColor: SEMANTIC.error });
+  };
+
   if (isError && !shop)
     return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !shop) {
@@ -247,7 +253,7 @@ export default function MerchantShopProfileScreen() {
         <Text style={styles.navTitle}>{t("merchant.shop_profile")}</Text>
         <Pressable
           style={[styles.saveBtn, (!isDirty || isPending) && styles.saveBtnDisabled]}
-          onPress={handleSubmit(onSubmit)}
+          onPress={handleSubmit(onSubmit, onInvalid)}
           disabled={!isDirty || isPending}
           hitSlop={8}
         >
@@ -369,6 +375,7 @@ function FormField({
   rtl?: boolean;
   keyboardType?: "default" | "phone-pad";
 }) {
+  const { t } = useTranslation();
   return (
     <View>
       <Text style={styles.label}>{label}</Text>
@@ -393,7 +400,7 @@ function FormField({
           />
         )}
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{t(error as any)}</Text> : null}
     </View>
   );
 }
