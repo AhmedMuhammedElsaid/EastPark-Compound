@@ -156,8 +156,7 @@ export function ProfileManager() {
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error('Account deletion failed');
-      await logout();
-      router.replace('/');
+      await logout({ redirectTo: '/' });
     } catch {
       setDeleteError(true);
       setIsDeleting(false);
@@ -286,7 +285,7 @@ export function ProfileManager() {
 
             <section aria-labelledby="session-title" className="border-t border-border pt-7">
               <h2 id="session-title" className="text-[length:var(--text-h2)] font-bold text-foreground">{t('profile.security')}</h2>
-              <button type="button" onClick={() => void logout().then(() => router.replace('/'))} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-bold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">
+              <button type="button" onClick={() => void logout()} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-bold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">
                 <LogOut aria-hidden="true" className="size-4.5" />{t('auth.logout')}
               </button>
             </section>

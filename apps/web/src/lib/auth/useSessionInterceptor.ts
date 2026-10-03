@@ -2,7 +2,6 @@
 
 import type { AuthUser } from '@/lib/api/contracts';
 
-import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import type { SessionCheck } from '@/lib/auth/session-check';
@@ -36,7 +35,6 @@ export function useSessionInterceptor({
   clearSession,
   checkSession,
 }: SessionInterceptorOptions): void {
-  const router = useRouter();
   const userRef = React.useRef<AuthUser | null>(user);
   const redirectingRef = React.useRef(false);
   const lastValidatedAtRef = React.useRef(0);
@@ -51,8 +49,10 @@ export function useSessionInterceptor({
     redirectingRef.current = true;
     userRef.current = null;
     clearSession();
-    router.replace(loginPath(`${window.location.pathname}${window.location.search}`));
-  }, [clearSession, router]);
+    // Full-document replace, like a manual sign-out: drops the client router cache and in-memory
+    // state, and Back cannot return to the signed-in page.
+    window.location.replace(loginPath(`${window.location.pathname}${window.location.search}`));
+  }, [clearSession]);
 
   // A BFF 401 is not proof of a sign-out: a concurrent request may have won the single-use refresh
   // rotation and already stored a newer cookie pair. Re-check the session once before logging out,

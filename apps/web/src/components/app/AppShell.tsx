@@ -3,7 +3,7 @@
 import { Bell, Building2, Home, Landmark, LogIn, LogOut, Megaphone, MessageSquareText, ShieldCheck, ShoppingBag, Store, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 import { BrandMark } from '@/components/BrandMark';
 import { Container } from '@/components/Container';
@@ -34,7 +34,6 @@ export function AppShell({ children }: AppShellProps) {
 
 function AppShellContent({ children }: AppShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { isLoading, logout, user } = useAuth();
   const { state: cart, isHydrated: isCartHydrated } = useCart();
   const { t } = useTranslation();
@@ -109,12 +108,7 @@ function AppShellContent({ children }: AppShellProps) {
               (user ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    void logout().then(() => {
-                      router.replace('/login');
-                      router.refresh();
-                    });
-                  }}
+                  onClick={() => void logout()}
                   aria-label={t('auth.logout')}
                   className="hidden min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-3 text-[length:var(--text-label)] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 sm:inline-flex"
                 >

@@ -4,6 +4,7 @@ import type { AuthUser, LoginPayload } from '@/lib/api/contracts';
 
 import * as React from 'react';
 
+import { signOut } from '@/lib/auth/logout';
 import { readSessionCheck, shareInFlight, type SessionCheck } from '@/lib/auth/session-check';
 import { useSessionInterceptor } from '@/lib/auth/useSessionInterceptor';
 
@@ -16,7 +17,8 @@ type AuthContextValue = {
   login: (payload: LoginPayload) => Promise<LoginResult>;
   verifyOtp: (email: string, otp: string) => Promise<LoginResult>;
   establishSession: (user: AuthUser) => void;
-  logout: () => Promise<void>;
+  /** Signs out and leaves the app for `/login` (or `redirectTo`) with a full-page replace. */
+  logout: (options?: { redirectTo?: string }) => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
 };
 
@@ -121,16 +123,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [authenticate],
   );
 
-  const logout = React.useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        signal: AbortSignal.timeout(10_000),
-      });
-    } finally {
-      setUser(null);
-    }
+  const logout = React.useCallback(async (options?: { redirectTo?: string }) => {
+    // Drop the signed-in UI at once (no Profile/Logout/Admin items) while the request runs.
+    // `isLoading` keeps auth guards from firing their own client redirects meanwhile; `signOut`
+    // then replaces the whole document.
+    setIsLoading(true);
+    setUser(null);
+    await signOut(options?.redirectTo);
   }, []);
+
+  // A page restored from the back/forward cache keeps its old in-memory user. Re-check the session
+  // so Back after signing out shows the signed-out state instead of the old account.
+  React.useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void refreshUser();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, [refreshUser]);
 
   const establishSession = React.useCallback((sessionUser: AuthUser) => {
     setUser(sessionUser);
