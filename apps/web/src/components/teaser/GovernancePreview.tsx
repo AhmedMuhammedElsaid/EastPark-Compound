@@ -3,22 +3,31 @@
 import { Landmark, Lock } from 'lucide-react';
 
 import { Reveal } from '@/components/Reveal';
-import { GatedLink } from '@/lib/access/ComingSoon';
 import { useTranslation } from '@/lib/i18n';
 
-import { SealedHint, SoonPill } from './SoonPill';
+import { SealedSurface } from './SealedSurface';
+import { SealedHint, SoonPill, TeaserPoints } from './SoonPill';
 
 // Static illustrative bars; widths are decorative and never represent real votes.
 const BARS = ['w-4/5', 'w-3/5', 'w-2/5'];
 
-export function GovernancePreview() {
+type PreviewProps = {
+  /** Destination for signed-in viewers; `null` renders a non-interactive card (public landing). */
+  href?: string | null;
+  /** Replaces the default body copy. */
+  body?: string;
+  /** Optional checklist under the body. */
+  points?: string[];
+};
+
+export function GovernancePreview({ href = '/governance', body, points }: PreviewProps) {
   const { t } = useTranslation();
 
   return (
     <Reveal className="h-full">
-      <GatedLink
-        href="/governance"
-        className="sealed-card relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+      <SealedSurface
+        href={href}
+        className="relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
       >
         <span className="flex items-center justify-between gap-3">
           <span className="flex size-11 items-center justify-center rounded-full bg-muted text-primary">
@@ -28,8 +37,9 @@ export function GovernancePreview() {
         </span>
         <h3 className="mt-4 text-[length:var(--text-h2)] font-bold text-foreground">{t('home.teaser.gov_title')}</h3>
         <p className="mt-2 text-[length:var(--text-body)] leading-6 text-muted-foreground">
-          {t('home.teaser.gov_body')}
+          {body ?? t('home.teaser.gov_body')}
         </p>
+        {points && <TeaserPoints points={points} className="mt-4" />}
         <ul aria-hidden="true" className="sealed-blur mt-5 space-y-3">
           {BARS.map((width, index) => (
             <li key={width} className="flex items-center gap-3">
@@ -47,7 +57,7 @@ export function GovernancePreview() {
           {t('home.teaser.gov_sealed')}
         </span>
         <SealedHint hint={t('home.teaser.hint_gov')} />
-      </GatedLink>
+      </SealedSurface>
     </Reveal>
   );
 }

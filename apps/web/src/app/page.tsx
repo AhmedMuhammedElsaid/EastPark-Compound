@@ -1,21 +1,16 @@
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { SkipLink } from '@/components/SkipLink';
-import { ClosingCta } from '@/components/landing/ClosingCta';
-import { HowItWorks } from '@/components/landing/HowItWorks';
-import { Hero } from '@/components/landing/Hero';
-import { Pillars } from '@/components/landing/Pillars';
+import { LandingTeaser } from '@/components/landing/LandingTeaser';
 
+// Static: no cookies, headers or live data, so the landing page prerenders at build time.
 export default function HomePage() {
   return (
     <>
       <SkipLink />
       <Header />
       <main id="main">
-        <Hero />
-        <HowItWorks />
-        <Pillars />
-        <ClosingCta />
+        <LandingTeaser />
       </main>
       <Footer />
     </>

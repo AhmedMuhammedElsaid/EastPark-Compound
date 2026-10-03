@@ -8,12 +8,11 @@ import { Container } from '@/components/Container';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 
+import { SealedVault } from '@/components/teaser/SealedVault';
+import { TeaserHero } from '@/components/teaser/TeaserHero';
+import { TeaserTicker } from '@/components/teaser/TeaserTicker';
+
 import { AlsoOnTheWay } from './home/AlsoOnTheWay';
-import { GovernancePreview } from './home/GovernancePreview';
-import { HomeHero } from './home/HomeHero';
-import { MarketplacePreview } from './home/MarketplacePreview';
-import { OrderTrackingPreview } from './home/OrderTrackingPreview';
-import { TeaserTicker } from './home/TeaserTicker';
 
 function subscribeToClock(onStoreChange: () => void) {
   const interval = window.setInterval(onStoreChange, 60_000);
@@ -43,7 +42,11 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
   return (
     <Container className="py-8 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-8 sm:space-y-10">
-        <HomeHero greeting={greeting} />
+        <TeaserHero
+          titleId="resident-home-title"
+          eyebrow={greeting ?? t('nav.brand')}
+          lede={t('home.teaser.hero_lede')}
+        />
 
         <TeaserTicker />
 
@@ -115,26 +118,7 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
           {latestSlot}
         </div>
 
-        <section aria-labelledby="vault-title" className="space-y-6">
-          <div>
-            <p className="text-[length:var(--text-overline)] font-bold uppercase tracking-[1px] text-primary">
-              {t('home.teaser.sealed')}
-            </p>
-            <h2 id="vault-title" className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight text-foreground">
-              {t('home.teaser.vault_title')}
-            </h2>
-            <p className="mt-2 max-w-[60ch] text-[length:var(--text-body)] leading-6 text-muted-foreground">
-              {t('home.teaser.vault_sub')}
-            </p>
-          </div>
-
-          <MarketplacePreview />
-
-          <div className="grid items-stretch gap-6 lg:grid-cols-2">
-            <GovernancePreview />
-            <OrderTrackingPreview />
-          </div>
-        </section>
+        <SealedVault />
 
         <AlsoOnTheWay role={user?.role} />
       </div>

@@ -1,69 +1,45 @@
 'use client';
 
-import { ButtonLink } from '@/components/Button';
-import { Container } from '@/components/Container';
 import { Reveal } from '@/components/Reveal';
+import { TeaserTimeline, type TimelineItem } from '@/components/teaser/TeaserTimeline';
 import { useTranslation } from '@/lib/i18n';
 
-function Step({ numeral, title, body }: { numeral: string; title: string; body: string }) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      {/* Numerals are functional UI, so Cairo — never the display serif. The
-          solid background keeps the connecting rule from crossing the digit. */}
-      <div className="flex size-14 items-center justify-center rounded-full border border-border bg-background text-[length:var(--text-h1)] font-bold text-primary">
-        {numeral}
-      </div>
-      <h3 className="mt-4 text-[length:var(--text-body-lg)] font-semibold text-foreground">
-        {title}
-      </h3>
-      <p className="mt-2 max-w-[34ch] text-[length:var(--text-body)] leading-[1.6] text-muted-foreground">
-        {body}
-      </p>
-    </div>
-  );
-}
+const STEPS = [1, 2, 3, 4] as const;
 
+/**
+ * The join flow, told with the same timeline as the rollout phases: register the unit → the compound
+ * office approves it → an invitation email arrives → the resident signs in. `#how-it-works` is kept
+ * as the anchor (shared links and the old hero button point at it).
+ */
 export function HowItWorks() {
   const { t } = useTranslation();
-
-  const steps = [
-    { title: t('landing.how_step_1_title'), body: t('landing.how_step_1_body') },
-    { title: t('landing.how_step_2_title'), body: t('landing.how_step_2_body') },
-    { title: t('landing.how_step_3_title'), body: t('landing.how_step_3_body') },
-  ];
+  const steps: TimelineItem[] = STEPS.map((step) => ({
+    key: `step-${step}`,
+    status: 'step',
+    label: t(`landing.how_step_${step}_title`),
+    caption: t(`landing.how_step_${step}_body`),
+  }));
 
   return (
-    <section id="how-it-works" className="py-16 sm:py-20" aria-labelledby="how-title">
-      <Container>
-        <Reveal>
-          <h2
-            id="how-title"
-            className="text-center text-[length:var(--text-h1)] font-bold text-foreground"
-          >
-            <ButtonLink href="/register-unit">{t('landing.how_title')}</ButtonLink>
-          </h2>
-        </Reveal>
-
-        <div className="relative mt-12">
-          {/* Connecting hairline, desktop only. Inset so it starts and ends at
-              the outer circles rather than running off the edge. In RTL the
-              steps reverse via flex order; a centered rule needs no mirroring. */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-[16%] top-7 hidden h-px bg-border md:block"
-          />
-
-          <ol className="relative grid gap-10 md:grid-cols-3 md:gap-6">
-            {steps.map((step, index) => (
-              <li key={step.title}>
-                <Reveal delayMs={index * 80}>
-                  <Step numeral={String(index + 1)} title={step.title} body={step.body} />
-                </Reveal>
-              </li>
-            ))}
-          </ol>
+    <Reveal>
+      <section
+        id="how-it-works"
+        aria-labelledby="how-title"
+        className="home-hero scroll-mt-24 rounded-lg border border-border px-5 py-8 sm:px-10 sm:py-10"
+      >
+        <p className="home-hero-eyebrow text-[length:var(--text-overline)] font-semibold uppercase tracking-[1px]">
+          {t('landing.how_eyebrow')}
+        </p>
+        <h2 id="how-title" className="home-hero-title mt-2 text-[length:var(--text-h1)] font-bold leading-tight">
+          {t('landing.how_title')}
+        </h2>
+        <p className="home-hero-lede mt-2 max-w-[60ch] text-[length:var(--text-body)] leading-6">
+          {t('landing.how_sub')}
+        </p>
+        <div className="mt-4">
+          <TeaserTimeline items={steps} label={t('landing.how_steps_label')} wideFrom="lg" />
         </div>
-      </Container>
-    </section>
+      </section>
+    </Reveal>
   );
 }

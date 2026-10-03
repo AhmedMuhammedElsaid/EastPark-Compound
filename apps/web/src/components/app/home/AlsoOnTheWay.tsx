@@ -7,7 +7,7 @@ import { Reveal } from '@/components/Reveal';
 import { GatedLink } from '@/lib/access/ComingSoon';
 import { useTranslation } from '@/lib/i18n';
 
-import { SoonPill } from './SoonPill';
+import { SoonPill } from '@/components/teaser/SoonPill';
 
 // `live` tiles lead to a section the viewer can already open, so they carry no "Soon" pill.
 type Tile = { href: string; icon: LucideIcon; label: string; promise?: string; live?: boolean };

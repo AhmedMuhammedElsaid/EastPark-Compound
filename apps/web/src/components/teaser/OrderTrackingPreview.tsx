@@ -4,16 +4,17 @@ import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Reveal } from '@/components/Reveal';
-import { GatedLink } from '@/lib/access/ComingSoon';
 import { useTranslation } from '@/lib/i18n';
 
+import { SealedSurface } from './SealedSurface';
 import { SealedHint, SoonPill } from './SoonPill';
 
 const STEPS = ['PLACED', 'CONFIRMED', 'PREPARING', 'ON_THE_WAY', 'DELIVERED'] as const;
 const STATIC_STEP = 2; // step 3 lit under reduced motion
 const STEP_MS = 2000;
 
-export function OrderTrackingPreview() {
+/** `href={null}` renders a non-interactive card (public landing). */
+export function OrderTrackingPreview({ href = '/orders' }: { href?: string | null }) {
   const { t } = useTranslation();
   const [active, setActive] = useState(STATIC_STEP);
 
@@ -25,9 +26,9 @@ export function OrderTrackingPreview() {
 
   return (
     <Reveal className="h-full" delayMs={80}>
-      <GatedLink
-        href="/orders"
-        className="sealed-card relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+      <SealedSurface
+        href={href}
+        className="relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
       >
         <span className="flex items-start justify-between gap-3">
           <h3 className="text-[length:var(--text-h2)] font-bold text-foreground">{t('home.teaser.track_title')}</h3>
@@ -73,7 +74,7 @@ export function OrderTrackingPreview() {
         </p>
         <p className="mt-5 text-[length:var(--text-body)] text-muted-foreground">{t('home.teaser.track_caption')}</p>
         <SealedHint hint={t('home.teaser.hint_track')} />
-      </GatedLink>
+      </SealedSurface>
     </Reveal>
   );
 }

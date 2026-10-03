@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 
 /** Small gold-outlined "Soon" marker used on every teaser surface. */
 export function SoonPill({ label, className = '' }: { label: string; className?: string }) {
@@ -25,5 +25,19 @@ export function SealedHint({ hint }: { hint: string }) {
         {hint}
       </span>
     </>
+  );
+}
+
+/** Checklist of what a sealed feature will do (the landing page carries its SEO copy here). */
+export function TeaserPoints({ points, className = '' }: { points: string[]; className?: string }) {
+  return (
+    <ul className={`space-y-2 ${className}`}>
+      {points.map((point) => (
+        <li key={point} className="flex items-start gap-2.5 text-[length:var(--text-body)] leading-6 text-foreground">
+          <Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-primary" />
+          <span>{point}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

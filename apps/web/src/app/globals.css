@@ -520,8 +520,8 @@ button:disabled {
 }
 
 @media (min-width: 640px) {
-  .home-timeline-step:not(:last-child)::before,
-  .home-timeline-step:not(:last-child)::after {
+  .home-timeline:not(.home-timeline--lg) .home-timeline-step:not(:last-child)::before,
+  .home-timeline:not(.home-timeline--lg) .home-timeline-step:not(:last-child)::after {
     top: 15px;
     bottom: auto;
     inset-inline-start: 40px;
@@ -529,24 +529,61 @@ button:disabled {
     height: 2px;
   }
 
-  .home-timeline-step[data-status='live']::after {
+  .home-timeline:not(.home-timeline--lg) .home-timeline-step[data-status='live']::after {
     transform-origin: left;
     animation-name: home-fill-x;
   }
 
-  [dir='rtl'] .home-timeline-step[data-status='live']::after {
+  [dir='rtl'] .home-timeline:not(.home-timeline--lg) .home-timeline-step[data-status='live']::after {
     transform-origin: right;
   }
 
-  .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+  .home-timeline:not(.home-timeline--lg) .home-timeline-step[data-status='preparing']:not(:last-child)::after {
     background-image: linear-gradient(90deg, transparent, var(--hero-node), transparent);
     background-size: 45% 100%;
     animation-name: home-charge-x;
   }
 
-  [dir='rtl'] .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+  [dir='rtl'] .home-timeline:not(.home-timeline--lg) .home-timeline-step[data-status='preparing']:not(:last-child)::after {
     animation-name: home-charge-x-rtl;
   }
+}
+
+/* Captioned join steps (landing) stay vertical until there is room for four columns. */
+@media (min-width: 1024px) {
+  .home-timeline--lg .home-timeline-step:not(:last-child)::before,
+  .home-timeline--lg .home-timeline-step:not(:last-child)::after {
+    top: 15px;
+    bottom: auto;
+    inset-inline-start: 40px;
+    width: calc(100% - 48px + 1rem);
+    height: 2px;
+  }
+
+  .home-timeline--lg .home-timeline-step[data-status='live']::after {
+    transform-origin: left;
+    animation-name: home-fill-x;
+  }
+
+  [dir='rtl'] .home-timeline--lg .home-timeline-step[data-status='live']::after {
+    transform-origin: right;
+  }
+
+  .home-timeline--lg .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+    background-image: linear-gradient(90deg, transparent, var(--hero-node), transparent);
+    background-size: 45% 100%;
+    animation-name: home-charge-x;
+  }
+
+  [dir='rtl'] .home-timeline--lg .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+    animation-name: home-charge-x-rtl;
+  }
+}
+
+/* Numbered join steps: an outlined node carrying the step number. */
+.home-timeline-step[data-status='step'] .home-timeline-node {
+  border-color: var(--hero-node);
+  color: var(--hero-accent);
 }
 
 @keyframes home-pulse {
@@ -636,7 +673,8 @@ button:disabled {
   }
 
   .sealed-card:hover .sealed-hint,
-  .sealed-card:focus-within .sealed-hint {
+  .sealed-card:focus-within .sealed-hint,
+  .sealed-card--static .sealed-hint {
     opacity: 1;
     transform: none;
   }
