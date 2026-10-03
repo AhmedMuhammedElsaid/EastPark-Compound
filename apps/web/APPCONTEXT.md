@@ -41,6 +41,39 @@ On a fresh machine, install dependencies and run `pnpm check`. A green compile/b
 the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
 upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
 
+## Admin Resident Requests Revamp — 2026-10-03
+
+- `/admin` → Resident requests (`src/components/admin/residents/*`) replaces the old list in
+  `AdminOperations.tsx`. **Status cards** (All / Pending / Invited / Joined / Rejected) show live
+  counts and are the filter (`aria-pressed`). Leads render in a **TanStack Table**
+  (`@tanstack/react-table`) on tablet/desktop, with a sticky header inside its own scroll area.
+  Phones get stacked cards built from the same row model. Search (name/email/phone digits/unit,
+  Arabic-Indic digits folded) and sort are **client-side over loaded rows only**; the backend
+  query DTO has no search param. "Load more" follows the cursor.
+- Actions and confirmations: PENDING → Invite / Reject; INVITED → Resend / Reject; REJECTED →
+  Re-invite; CONVERTED → details only. Every action asks for confirmation first. The row and counts
+  update optimistically and roll back on error, and the result shows in a bilingual toast. An
+  invite whose email already has an account comes back as `residentLead.success.alreadyRegistered`
+  and the row becomes CONVERTED. Counts are refetched after every action.
+- The details drawer is a native `<dialog>` that opens from inline-end. National ID and passport
+  are masked (last 4 shown) with a per-field reveal, and they re-mask every time the drawer opens.
+- **409 copy (REV-22):** the BFF still reduces every 409 to `{ error: 'conflict' }`. The UI maps it
+  by action: invite → `residentLead.error.unitReserved` copy, reject → already-registered copy.
+  404, 429, 401, 403 and transport failures have their own messages
+  (`leadErrorKey` in `src/lib/api/resident-leads.ts`).
+- BFF routes (ADMIN re-checked via `forwardAdminRequest`):
+  - `GET /api/admin/residents/leads/stats` → backend `GET /v1/admin/residents/leads/stats`
+  - `PATCH /api/admin/residents/leads/:id/reject` → backend `PATCH /v1/admin/residents/leads/:id/reject`
+  - If the stats call fails (e.g. Vercel deployed before Render), the cards show "—" and filtering
+    still works.
+- **Adding a web dependency (two lockfiles):** `apps/web` has its own `pnpm-workspace.yaml` and
+  `pnpm-lock.yaml` (Vercel installs it standalone), and the root workspace lockfile also lists it.
+  Run `pnpm --dir apps/web add <pkg>`, then `pnpm install --lockfile-only` at the root. Check that
+  both lockfile diffs contain only the new package, and commit `apps/web/package.json` with both
+  lockfiles.
+- Known trade-offs: a 409 reloads the list (closing an open drawer and dropping extra loaded
+  pages). Counts can be briefly off while actions overlap, until the refetch.
+
 ## Post-Launch Web Pass — 2026-10-03 (later)
 
 - **Profile is open to residents.** `src/config/access-policy.ts` keeps residents confined, but

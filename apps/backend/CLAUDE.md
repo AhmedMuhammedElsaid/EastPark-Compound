@@ -20,6 +20,16 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Admin lead counts — 2026-10-03
+
+- `GET /v1/admin/residents/leads/stats` [ADMIN] returns
+  `{ PENDING, INVITED, CONVERTED, REJECTED, total }` from one `residentLead.groupBy` on `status`,
+  zero-filled. It sits next to `GET leads` in `residents.admin.controller.ts`, with unit tests in
+  `test/modules/residents.service.spec.ts`. No schema change. The web admin status cards use it.
+- 409 semantics the web relies on: invite returns 409 only for `residentLead.error.unitReserved`;
+  reject returns 409 only for `residentLead.error.alreadyConverted`. If you add another 409 to
+  either action, update `leadErrorKey` in `apps/web/src/lib/api/resident-leads.ts`.
+
 ### Render production + Arabic email support — 2026-10-01
 
 - Active API: `https://eastpark-backend.onrender.com` on Render free Docker in Frankfurt. Fly stays
