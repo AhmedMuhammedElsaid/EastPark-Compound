@@ -179,6 +179,7 @@ MinIO credentials: set via `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` env vars (s
 | `AUTH_REFRESH_TOKEN_SECRET` | **Must generate** (different from above)                            | Yes       |
 | `AUTH_ACCESS_TOKEN_EXP`     | `15m`                                                               | No        |
 | `AUTH_REFRESH_TOKEN_EXP`    | `7d`                                                                | No        |
+| `BFF_INTERNAL_SECRET`       | (blank — BFF client IPs not trusted); prod: shared with web BFF     | Prod only |
 | `SMTP_HOST`                 | `localhost`                                                         | Yes       |
 | `SMTP_PORT`                 | `1025`                                                              | Yes       |
 | `SMTP_USER`                 | (blank for dev)                                                     | Prod only |
@@ -256,7 +257,7 @@ All routes are prefixed `/v1`. Auth endpoints rate-limited to 5 req/min.
 - Official PDF reports (separate from announcements)
 - Comments on announcements
 - Feedback + reply threads (`FeedbackReply.authorId` FK → admin User)
-- Anonymous feedback: `userId` / `author` stripped from admin response when `isAnonymous = true`
+- Anonymous feedback: `isAnonymous` hides the author from other residents and public views only. Owner decision: admins DO see the author (`userId` / author is included in admin responses) — see root `CLAUDE.md` "Feedback" section
 
 ### Governance (`/v1/governance`)
 

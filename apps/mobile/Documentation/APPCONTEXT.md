@@ -126,12 +126,12 @@ app/
 | Lists | @shopify/flash-list | 2.0.2 — NEVER FlatList |
 | Bottom Sheet | @gorhom/bottom-sheet | 5.2.8 |
 | Forms | React Hook Form + Zod | 7.56.0 / 4.3.5 |
-| Auth tokens | expo-secure-store | 15.0.8 — NEVER AsyncStorage or MMKV |
+| Auth tokens | expo-secure-store | 15.0.8 — NEVER AsyncStorage |
 | Animation | react-native-reanimated | 4.1.6 |
 | Icons | Phosphor Icons (phosphor-react-native) | — NEVER emoji |
 | i18n | i18next + expo-localization | 25.8.0 / 17.0.8 |
 | Real-time | socket.io-client | 4.8.1 |
-| PDF viewer | react-native-pdf | 6.7.6 |
+| PDF viewing | `Linking.openURL` (device viewer; no PDF library) | — |
 | Lottie | lottie-react-native | 7.2.2 |
 | API client | Axios | src/services/api/client.ts (with 401 silent refresh interceptor) |
 | Push | expo-notifications + expo-server-sdk | — |
@@ -214,7 +214,7 @@ ReduxProvider (store)
 
 Side effects at module level (before first render):
 - `injectStore(store)` — wires Redux into Axios client for 401 silent refresh/logout dispatch
-- `loadSelectedTheme()` — restores theme from MMKV before render (prevents flash)
+- `loadSelectedTheme()` — restores theme from AsyncStorage before render (prevents flash)
 - `SplashScreen.preventAutoHideAsync()` + fade transition
 
 ---

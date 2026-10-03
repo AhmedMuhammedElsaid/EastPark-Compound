@@ -41,21 +41,18 @@
 | Styling | Tailwind / Uniwind + NativeWind | ^1.2.4 |
 | Lists | @shopify/flash-list | 2.0.2 |
 | Bottom Sheet | @gorhom/bottom-sheet | ^5.2.8 |
-| Carousel | react-native-reanimated-carousel | ^4.0.3 |
 | Animations | react-native-reanimated + Moti | ~4.1.6 / ^0.30.0 |
 | Lottie | lottie-react-native | ^7.2.2 |
 | Icons | phosphor-react-native | ^3.0.4 |
-| Gradients | expo-linear-gradient | ^55.0.9 |
 | Auth Tokens | expo-secure-store | ~15.0.8 |
-| Local Storage | react-native-mmkv | ~4.1.1 |
+| Local Storage | @react-native-async-storage/async-storage | — |
 | HTTP Client | axios | ^1.13.2 |
 | Real-time | socket.io-client | ^4.8.1 |
 | Push | expo-notifications | ~0.29.14 |
 | i18n | i18next + react-i18next | ^25.8.0 / ^16.5.3 |
 | OTP Input | react-native-otp-textinput | ^1.1.5 |
-| PDF Viewer | react-native-pdf | ^6.7.6 |
-| Skeleton | react-native-shimmer-placeholder | ^2.0.9 |
-| Image Viewer | react-native-image-viewing | ^0.2.2 |
+| PDF Viewer | none — `Linking.openURL` opens the device viewer | — |
+| Skeleton | built-in `Skeleton` component (RN `Animated` pulse) | — |
 | Flash Messages | react-native-flash-message | ^0.4.2 |
 | Testing | Jest + React Native Testing Library | ^29.7.0 / ^13.3.3 |
 
@@ -212,7 +209,7 @@ RADIUS = { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 };
 
 - Spring physics via `react-native-reanimated` — no linear easing
 - Lottie animations on key moments: order placed, vote submitted, payment success, registration complete
-- Skeleton shimmer (never spinners) for all loading states via `react-native-shimmer-placeholder`
+- Skeleton shimmer (never spinners) for all loading states via the built-in `Skeleton` component
 - Haptic feedback on every interactive tap
 - Respects `prefers-reduced-motion`
 
@@ -280,7 +277,7 @@ RADIUS = { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 };
 
 ## State Management
 
-Three Redux Toolkit slices, all persisted via redux-persist + MMKV:
+Three Redux Toolkit slices, all persisted via redux-persist + AsyncStorage:
 
 ### `authSlice`
 
@@ -590,12 +587,12 @@ apps/mobile/
 │   ├── lib/
 │   │   ├── hooks/                  use-auth-guard, use-selected-theme, use-selected-language
 │   │   ├── i18n.ts                 i18next + expo-localization setup
-│   │   └── storage.ts              MMKV wrapper (typed get/set/remove)
+│   │   └── storage.ts              AsyncStorage wrapper (typed get/set/remove)
 │   ├── services/
 │   │   └── api/                    client.ts (Axios + interceptors) + per-domain service files
 │   ├── store/
 │   │   ├── slices/                 authSlice.ts, cartSlice.ts, preferencesSlice.ts
-│   │   └── index.ts                Redux store + persist config (MMKV storage adapter)
+│   │   └── index.ts                Redux store + persist config (AsyncStorage adapter)
 │   ├── theme/
 │   │   └── tokens.ts               BRAND, DARK, SEMANTIC, SPACING, RADIUS, FONT constants
 │   └── translations/

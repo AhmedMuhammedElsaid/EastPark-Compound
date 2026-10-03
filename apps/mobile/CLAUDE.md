@@ -79,7 +79,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
   `apple-app-site-association` / `assetlinks.json`), so those links open
   `eastpark-web-app` (`apps/web/src/app/auth/{reset-password,accept-invitation}` → BFF
   `/api/auth/*`). The mobile screens remain for `eastpark://` deep links only.
-- Auth: refresh/logout send `Authorization: Bearer <refreshToken>` (+ body). The 401 interceptor
+- Auth: refresh sends `Authorization: Bearer <refreshToken>` (+ body); logout sends the ACCESS token as Bearer plus `{ refreshToken }` in the body. The 401 interceptor
   skips public `/auth/*` routes and guest requests, and only ends the session when `/auth/refresh`
   answers 401/403 (`setSessionExpiredHandler` → `teardownSession`). All logins go through
   `completeLogin()` (`src/services/auth/session.ts`): role routing + auth-wall replay via
@@ -109,7 +109,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 | State | Redux Toolkit + redux-persist (NOT Zustand) |
 | Server state | TanStack React Query v5 |
 | Forms | React Hook Form + Zod (NOT TanStack Form) |
-| Auth tokens | expo-secure-store (NOT MMKV, NOT AsyncStorage) |
+| Auth tokens | expo-secure-store (NOT AsyncStorage) |
 | Lists | @shopify/flash-list — NEVER FlatList, NEVER View+.map() for lists |
 | Styling | NativeWind v4 + Gluestack UI v2 |
 | Icons | Phosphor Icons — NEVER emoji, NEVER unicode arrows/chevrons |
@@ -337,7 +337,7 @@ All issues discovered across 3 audit passes on 2026-04-01:
 - `merchantApi.updateOrderStatus` URL: `/orders/:id/status` → `/merchant/orders/:id/status`
 - Push token endpoint: `/users/me/push-token` → `/auth/push-token`
 - Push token missing `projectId` in `getExpoPushTokenAsync()`
-- `accessToken`/`refreshToken` persisted to MMKV — blacklisted from persist
+- `accessToken`/`refreshToken` persisted via redux-persist — blacklisted from persist (tokens live only in expo-secure-store)
 - `payment.tsx` placed order but never called `initiatePaymobPayment` — full 3-step flow added
 - `accept-invitation.tsx` sent ADMIN to `/(tabs)` — fixed to `/(admin)`
 - `(admin)/_layout.tsx` sent unauthenticated to `/(tabs)` — fixed to `/(auth)/login`

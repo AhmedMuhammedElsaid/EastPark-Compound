@@ -583,7 +583,7 @@ Tap any stat card → jumps directly to that module section.
 **Pattern source:** YouTube (parallax, smooth transitions) + Talabat (menu chips, product cards)
 
 #### Shop Header
-- Full-width photo gallery (swipe left/right — `react-native-image-viewing`)
+- Full-width photo gallery (swipe left/right — built-in paged scroller; no lightbox library)
 - Parallax: hero photo scrolls at 0.6x speed while content scrolls at 1x
 - Shop name, category, rating, hours, location, phone
 - "Open Now" / "Closed" status badge (computed from `workingHours` JSON + `isOpen` override)
@@ -1130,7 +1130,7 @@ Gray animated gradient (left-to-right sweep) on placeholder shapes matching real
 ### Implementation
 
 ```
-react-native-shimmer-placeholder + expo-linear-gradient
+built-in `Skeleton` component (src/components/ui/skeleton.tsx) — RN `Animated` opacity pulse
 ```
 
 Animate with `useSharedValue` + `withRepeat(withTiming(...), -1)` for 60fps shimmer.
@@ -1268,7 +1268,7 @@ async function switchLanguage(lang: 'ar' | 'en') {
 
 - FlashList: `inverted` prop not needed for RTL; relies on flex direction
 - @gorhom/bottom-sheet: handles RTL natively
-- react-native-reanimated-carousel: set `dir` prop from `I18nManager.isRTL`
+- Horizontal pagers: mirror order from `I18nManager.isRTL` (no carousel library is installed)
 
 ---
 
@@ -1466,13 +1466,13 @@ NativeWind v4 dark utilities (`dark:bg-ink`, `dark:text-gold-200`) activate auto
 |---|---|---|
 | Button, Input, Badge, Card, Toast | `@gluestack-ui/themed` (v2) | NativeWind-compatible primitives |
 | Bottom Sheet (auth-wall, filters, comments) | `@gorhom/bottom-sheet` | Works with Reanimated 4 |
-| Carousel (hero) | `react-native-reanimated-carousel` | Smooth, Reanimated-native |
+| Carousel (hero) | Built-in `ScrollView`/FlashList paging | `react-native-reanimated-carousel` was removed |
 | FlashList (all long lists) | `@shopify/flash-list` | ALL lists — never FlatList |
 | Lottie animations | `lottie-react-native` | Order confirmed, vote, registration, payment |
 | Progress bars (polls) | Custom via Reanimated 4 `useSharedValue` | Animate width with spring |
-| Shimmer skeleton | `react-native-shimmer-placeholder` + `expo-linear-gradient` | |
-| PDF viewer | `react-native-pdf` or WebView fallback | Community Hub reports |
-| Image gallery (shop) | `react-native-image-viewing` | Lightbox-style full-screen |
+| Shimmer skeleton | Built-in `Skeleton` component (Animated pulse) | No gradient library |
+| PDF viewer | `Linking.openURL` (device viewer) | Community Hub reports; no PDF library |
+| Image gallery (shop) | Built-in paged scroller | No lightbox library |
 | OTP input | `react-native-otp-textinput` | 6-box auto-advance |
 | Step wizard (feedback) | Custom component using Reanimated scroll | Feedback submission |
 | Icons | Phosphor Icons | Open-source, RTL-friendly, line-style consistent |
@@ -1493,7 +1493,7 @@ NativeWind v4 dark utilities (`dark:bg-ink`, `dark:text-gold-200`) activate auto
     data={slides}
     autoPlay
     autoPlayInterval={4000}
-    // react-native-reanimated-carousel
+    // built-in paged scroller
   />
   <QuickStatsWidget stats={quickStats} />
   <StickyHeader scrollY={scrollY}>
@@ -1577,50 +1577,22 @@ const PollBar = ({ percentage, animated }: { percentage: number; animated: boole
 
 ### Pattern 4: Skeleton Loading
 
-Library: **`react-native-shimmer-placeholder`** + **`expo-linear-gradient`**
-(NOT `react-native-skeleton-placeholder` — different library, different API)
+Use the built-in **`Skeleton`** component (`src/components/ui/skeleton.tsx`): a React Native
+`Animated` opacity pulse using warm theme colors (`useAppColors`), disabled under reduced motion.
+No shimmer or gradient library is installed (`react-native-shimmer-placeholder` and
+`expo-linear-gradient` were removed).
 
 ```typescript
-import ShimmerPlaceHolder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Warm shimmer colors — never cold grey
-const SHIMMER_COLORS_DARK  = ['#221f1c', '#2e2a26', '#221f1c'] as const;
-const SHIMMER_COLORS_LIGHT = ['#e4ceae', '#f2e8d8', '#e4ceae'] as const;
-
-const ShopCardSkeleton = ({ isDark }: { isDark: boolean }) => (
+const ShopCardSkeleton = () => (
   <View style={styles.card}>
-    {/* Cover image placeholder */}
-    <ShimmerPlaceHolder
-      LinearGradient={LinearGradient}
-      shimmerColors={isDark ? SHIMMER_COLORS_DARK : SHIMMER_COLORS_LIGHT}
-      style={{ width: '100%', height: 140, borderRadius: 12 }}
-    />
-    {/* Shop name */}
-    <ShimmerPlaceHolder
-      LinearGradient={LinearGradient}
-      shimmerColors={isDark ? SHIMMER_COLORS_DARK : SHIMMER_COLORS_LIGHT}
-      style={{ marginTop: 12, width: '70%', height: 16, borderRadius: 4 }}
-    />
-    {/* Category + rating */}
-    <ShimmerPlaceHolder
-      LinearGradient={LinearGradient}
-      shimmerColors={isDark ? SHIMMER_COLORS_DARK : SHIMMER_COLORS_LIGHT}
-      style={{ marginTop: 8, width: '50%', height: 13, borderRadius: 4 }}
-    />
-    {/* Open/closed badge */}
-    <ShimmerPlaceHolder
-      LinearGradient={LinearGradient}
-      shimmerColors={isDark ? SHIMMER_COLORS_DARK : SHIMMER_COLORS_LIGHT}
-      style={{ marginTop: 8, width: '40%', height: 13, borderRadius: 4 }}
-    />
+    <Skeleton width="100%" height={140} borderRadius={12} />
+    <Skeleton width="70%" height={16} style={{ marginTop: 12 }} />
+    <Skeleton width="50%" height={13} style={{ marginTop: 8 }} />
+    <Skeleton width="40%" height={13} style={{ marginTop: 8 }} />
   </View>
 );
-
-// Never show blank white/black screen
-// Skeleton card count = expected real card count (prevents layout jump)
-// Shimmer: warm gold gradient wave — NEVER cold grey
-// Fade real content in when loaded (opacity 0→1 transition)
 ```
 
 ### Pattern 5: Bottom Sheets
