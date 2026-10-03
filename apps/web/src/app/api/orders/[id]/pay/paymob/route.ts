@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { relayBackendResponse } from '@/lib/api/bff-errors';
+import { bffErrorResponse, relayBackendResponse } from '@/lib/api/bff-errors';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 
 export const maxDuration = 30;
@@ -20,7 +20,6 @@ export async function POST(_request: Request, { params }: PaymobRouteContext) {
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     return relayBackendResponse(response);
   } catch (error) {
-    console.error('Paymob initiation proxy failed', error);
-    return NextResponse.json({ error: 'network' }, { status: 502 });
+    return bffErrorResponse(error, 'Paymob initiation proxy failed', { error: 'network', status: 502 });
   }
 }

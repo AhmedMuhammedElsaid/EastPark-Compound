@@ -8,8 +8,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: RouteContext) {
   const { id } = await params;
-  const body = (await request.json().catch(() => null)) as { body?: string } | null;
-  const reply = body?.body?.trim();
+  const body = (await request.json().catch(() => null)) as { body?: unknown } | null;
+  // A non-string body (number, object, null) is a validation error, never a 500.
+  const reply = typeof body?.body === 'string' ? body.body.trim() : '';
   if (!id || id.length > 100 || !reply || reply.length > 5_000) {
     return NextResponse.json({ error: 'validation' }, { status: 400 });
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getElection, GovernanceRequestError } from '@/lib/api/governance.server';
+import { bffErrorResponse } from '@/lib/api/bff-errors';
+import { getElection } from '@/lib/api/governance.server';
 
 export const maxDuration = 30;
 
@@ -11,10 +12,6 @@ export async function GET(_request: Request, { params }: ElectionRouteContext) {
   try {
     return NextResponse.json({ data: await getElection(id, { session: { mutateCookies: true } }) });
   } catch (error) {
-    if (error instanceof GovernanceRequestError && error.status === 404) {
-      return NextResponse.json({ error: 'Election not found.' }, { status: 404 });
-    }
-    console.error('Election detail proxy failed', error);
-    return NextResponse.json({ error: 'Election is temporarily unavailable.' }, { status: 502 });
+    return bffErrorResponse(error, 'Election detail proxy failed');
   }
 }

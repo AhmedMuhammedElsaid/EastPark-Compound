@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isAnnouncementCategory } from '@/lib/api/announcements';
+import { bffErrorResponse } from '@/lib/api/bff-errors';
 import { getAnnouncements } from '@/lib/api/announcements.server';
 import { clientIpFrom } from '@/lib/auth/server';
 
@@ -15,7 +16,6 @@ export async function GET(request: NextRequest) {
     const page = await getAnnouncements({ category, cursor }, { clientIp: clientIpFrom(request.headers) });
     return NextResponse.json({ data: page });
   } catch (error) {
-    console.error('Announcements proxy failed', error);
-    return NextResponse.json({ error: 'Announcements are temporarily unavailable.' }, { status: 502 });
+    return bffErrorResponse(error, 'Announcements proxy failed');
   }
 }

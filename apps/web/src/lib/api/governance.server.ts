@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { NextResponse } from 'next/server';
+
+import { bffErrorResponse, PRIVATE_NO_STORE, rateLimitedResponse } from '@/lib/api/bff-errors';
 import type { Election, ElectionPage, Poll, PollPage } from '@/lib/api/governance';
 import {
   parseElection,
@@ -8,6 +11,7 @@ import {
   parsePollPage,
 } from '@/lib/api/governance';
 import {
+  BackendRateLimitedError,
   backendFetch,
   bearer,
   getProfile,
@@ -87,6 +91,18 @@ export class GovernanceVoteError extends Error {
   constructor(public readonly status: number) {
     super(`Governance vote failed with ${status}`);
   }
+}
+
+/**
+ * Vote route catch block: a throttled vote or session check is `rate_limited` (429); any other backend
+ * rejection keeps its status as `vote_rejected` (the form maps 400/401/403/409); everything else is 502.
+ */
+export function voteErrorResponse(error: unknown, label: string): NextResponse<{ error: string }> {
+  if (error instanceof GovernanceVoteError) {
+    if (error.status === 429) return rateLimitedResponse(new BackendRateLimitedError())!;
+    return NextResponse.json({ error: 'vote_rejected' }, { status: error.status, headers: PRIVATE_NO_STORE });
+  }
+  return bffErrorResponse(error, label, { error: 'server', status: 502 });
 }
 
 const ROUTE_SESSION: SessionOptions = { mutateCookies: true };

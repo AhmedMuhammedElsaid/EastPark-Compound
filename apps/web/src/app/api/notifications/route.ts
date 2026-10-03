@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { ROUTE_SESSION } from '@/lib/api/authenticated.server';
+import { bffErrorResponse } from '@/lib/api/bff-errors';
 import { getNotifications } from '@/lib/api/notifications.server';
-import { AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
 
 export const maxDuration = 30;
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     limit: request.nextUrl.searchParams.get('limit') ?? undefined,
   });
   if (!result.success) {
-    return NextResponse.json({ error: 'Invalid notification query.' }, { status: 400 });
+    return NextResponse.json({ error: 'validation' }, { status: 400 });
   }
 
   try {
@@ -30,15 +31,6 @@ export async function GET(request: NextRequest) {
     }, ROUTE_SESSION);
     return NextResponse.json({ data: page });
   } catch (error) {
-    return notificationError(error, 'Notifications are temporarily unavailable.');
+    return bffErrorResponse(error, 'Notifications proxy failed');
   }
-}
-
-function notificationError(error: unknown, fallback: string): NextResponse {
-  if (error instanceof AuthenticatedRequestError && error.status === 401) {
-    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  }
-
-  console.error('Notifications proxy failed', error);
-  return NextResponse.json({ error: fallback }, { status: 502 });
 }

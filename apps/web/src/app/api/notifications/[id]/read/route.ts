@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { authenticatedBackendFetch, AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+import { authenticatedBackendFetch, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+import { bffErrorResponse, upstreamError } from '@/lib/api/bff-errors';
 
 export const maxDuration = 30;
 
@@ -12,7 +13,7 @@ const idSchema = z.string().min(1).max(200);
 export async function PATCH(_request: Request, { params }: NotificationRouteContext) {
   const id = idSchema.safeParse((await params).id);
   if (!id.success) {
-    return NextResponse.json({ error: 'Invalid notification.' }, { status: 400 });
+    return NextResponse.json({ error: 'validation' }, { status: 400 });
   }
 
   try {
@@ -21,16 +22,9 @@ export async function PATCH(_request: Request, { params }: NotificationRouteCont
       { method: 'PATCH' },
       ROUTE_SESSION,
     );
-    if (!response.ok) throw new AuthenticatedRequestError('Mark notification read failed', response.status);
+    if (!response.ok) return upstreamError(response.status);
     return NextResponse.json({ data: null });
   } catch (error) {
-    if (error instanceof AuthenticatedRequestError && error.status === 401) {
-      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-    }
-    if (error instanceof AuthenticatedRequestError && error.status === 404) {
-      return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
-    }
-    console.error('Mark notification read proxy failed', error);
-    return NextResponse.json({ error: 'Notification could not be updated.' }, { status: 502 });
+    return bffErrorResponse(error, 'Mark notification read proxy failed');
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { relayBackendResponse } from '@/lib/api/bff-errors';
+import { bffErrorResponse, relayBackendResponse } from '@/lib/api/bff-errors';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 
 export const maxDuration = 30;
@@ -20,7 +20,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     return relayBackendResponse(response);
   } catch (error) {
-    console.error('Order detail proxy failed', error);
-    return NextResponse.json({ error: 'network' }, { status: 503 });
+    return bffErrorResponse(error, 'Order detail proxy failed', { error: 'network', status: 503 });
   }
 }

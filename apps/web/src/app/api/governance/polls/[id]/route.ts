@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getPoll, GovernanceRequestError } from '@/lib/api/governance.server';
+import { bffErrorResponse } from '@/lib/api/bff-errors';
+import { getPoll } from '@/lib/api/governance.server';
 
 export const maxDuration = 30;
 
@@ -11,10 +12,6 @@ export async function GET(_request: Request, { params }: PollRouteContext) {
   try {
     return NextResponse.json({ data: await getPoll(id, { session: { mutateCookies: true } }) });
   } catch (error) {
-    if (error instanceof GovernanceRequestError && error.status === 404) {
-      return NextResponse.json({ error: 'Poll not found.' }, { status: 404 });
-    }
-    console.error('Poll detail proxy failed', error);
-    return NextResponse.json({ error: 'Poll is temporarily unavailable.' }, { status: 502 });
+    return bffErrorResponse(error, 'Poll detail proxy failed');
   }
 }

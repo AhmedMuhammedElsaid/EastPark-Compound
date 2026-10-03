@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { authenticatedBackendFetch, type SessionOptions } from "@/lib/api/authenticated.server";
+import { UpstreamStatusError } from "@/lib/api/bff-errors";
 import type { ReviewInput, ReviewPage } from "@/lib/api/shop-interactions";
 import { parseReview, parseReviewPage } from "@/lib/api/shop-interactions";
 import { backendFetch, type BackendContext } from "@/lib/auth/server";
@@ -26,7 +27,7 @@ export async function getReviews(
     {},
     context,
   );
-  if (!response.ok) throw new Error(`Reviews request failed with ${response.status}`);
+  if (!response.ok) throw new UpstreamStatusError(response.status, "Reviews request");
   return parseReviewPage(await response.json());
 }
 
@@ -40,7 +41,7 @@ export async function upsertReview(shopId: string, input: ReviewInput, session: 
     },
     session,
   );
-  if (!response.ok) throw new Error(`Review request failed with ${response.status}`);
+  if (!response.ok) throw new UpstreamStatusError(response.status, "Review request");
   return parseReview(await response.json());
 }
 
@@ -51,7 +52,7 @@ export async function deleteReview(shopId: string, session: SessionOptions): Pro
     session,
   );
   if (!response.ok && response.status !== 404) {
-    throw new Error(`Review delete failed with ${response.status}`);
+    throw new UpstreamStatusError(response.status, "Review delete");
   }
 }
 
@@ -61,7 +62,7 @@ export async function setShopSaved(shopId: string, saved: boolean, session: Sess
     { method: saved ? "POST" : "DELETE" },
     session,
   );
-  if (!response.ok) throw new Error(`Saved shop request failed with ${response.status}`);
+  if (!response.ok) throw new UpstreamStatusError(response.status, "Saved shop request");
 }
 
 export async function getShopSaved(shopId: string, session: SessionOptions): Promise<boolean> {
@@ -74,7 +75,7 @@ export async function getShopSaved(shopId: string, session: SessionOptions): Pro
       {},
       session,
     );
-    if (!response.ok) throw new Error(`Saved shops request failed with ${response.status}`);
+    if (!response.ok) throw new UpstreamStatusError(response.status, "Saved shops request");
     const page = savedPageSchema.parse(await response.json()).data;
     if (page.items.some((item) => item.shopId === shopId)) return true;
     cursor = page.nextCursor;

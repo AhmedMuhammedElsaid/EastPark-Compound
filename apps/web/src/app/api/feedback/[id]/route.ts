@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { bffErrorResponse, upstreamError } from '@/lib/api/bff-errors';
 import { parseFeedbackDetail } from '@/lib/api/feedback';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 
@@ -16,13 +17,9 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
     const response = await authenticatedBackendFetch(`/feedback/${encodeURIComponent(id)}`, {}, { mutateCookies: true });
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-    if (!response.ok) {
-      const status = [401, 403, 404, 429].includes(response.status) ? response.status : 502;
-      return NextResponse.json({ error: status === 401 ? 'unauthorized' : 'request_failed' }, { status });
-    }
+    if (!response.ok) return upstreamError(response.status);
     return NextResponse.json({ data: parseFeedbackDetail(await response.json()) });
   } catch (error) {
-    console.error('Feedback detail proxy failed', error);
-    return NextResponse.json({ error: 'unavailable' }, { status: 502 });
+    return bffErrorResponse(error, 'Feedback detail proxy failed', { error: 'unavailable', status: 502 });
   }
 }

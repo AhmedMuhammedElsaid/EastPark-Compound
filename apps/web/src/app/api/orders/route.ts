@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { relayBackendResponse } from '@/lib/api/bff-errors';
+import { bffErrorResponse, relayBackendResponse } from '@/lib/api/bff-errors';
 import { createOrderSchema, isOrderStatus } from '@/lib/api/orders';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 import { residentOrderingEnabled } from '@/config/features';
@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     return relayBackendResponse(response);
   } catch (error) {
-    console.error('Orders proxy failed', error);
-    return NextResponse.json({ error: 'network' }, { status: 503 });
+    return bffErrorResponse(error, 'Orders proxy failed', { error: 'network', status: 503 });
   }
 }
 
@@ -56,7 +55,6 @@ export async function POST(request: Request) {
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     return relayBackendResponse(response);
   } catch (error) {
-    console.error('Order creation proxy failed', error);
-    return NextResponse.json({ error: 'network' }, { status: 502 });
+    return bffErrorResponse(error, 'Order creation proxy failed', { error: 'network', status: 502 });
   }
 }

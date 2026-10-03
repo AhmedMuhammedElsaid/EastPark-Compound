@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { upstreamError } from '@/lib/api/bff-errors';
+import { bffErrorResponse, upstreamError } from '@/lib/api/bff-errors';
 import { parseProductPage } from '@/lib/api/products';
 import { backendFetch, clientIpFrom } from '@/lib/auth/server';
 
@@ -25,7 +25,6 @@ export async function GET(request: Request, { params }: ProductRouteContext) {
     if (!response.ok) return upstreamError(response.status);
     return NextResponse.json({ data: parseProductPage(await response.json()) });
   } catch (error) {
-    console.error('Products proxy failed', error);
-    return NextResponse.json({ error: 'Products are temporarily unavailable.' }, { status: 502 });
+    return bffErrorResponse(error, 'Products proxy failed');
   }
 }

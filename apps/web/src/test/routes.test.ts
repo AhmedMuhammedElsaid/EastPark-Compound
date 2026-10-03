@@ -200,3 +200,81 @@ describe('GET /api/profile', () => {
     expect(state.delete).not.toHaveBeenCalled();
   });
 });
+
+describe('BFF error mapping backlog', () => {
+  const throttled = () => {
+    state.cookies.set('eastpark_refresh', 'refresh-throttled');
+    backend = () => json(429, { message: 'ThrottlerException: Too Many Requests' });
+  };
+  const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+
+  it.each([
+    ['orders list', async () => (await import('@/app/api/orders/route')).GET(new (await import('next/server')).NextRequest('https://web.test/api/orders'))],
+    ['order detail', async () => (await import('@/app/api/orders/[id]/route')).GET(new Request('https://web.test/x'), ctx('o1'))],
+    ['feedback list', async () => (await import('@/app/api/feedback/route')).GET(new (await import('next/server')).NextRequest('https://web.test/api/feedback'))],
+    ['notifications', async () => (await import('@/app/api/notifications/route')).GET(new (await import('next/server')).NextRequest('https://web.test/api/notifications'))],
+    ['notification read', async () => (await import('@/app/api/notifications/[id]/read/route')).PATCH(new Request('https://web.test/x'), ctx('n1'))],
+    ['saved shop', async () => (await import('@/app/api/shops/[id]/save/route')).POST(new (await import('next/server')).NextRequest('https://web.test/x'), ctx('s1'))],
+  ])('%s: a throttled token refresh is 429 rate_limited', async (_name, call) => {
+    throttled();
+    const response = await call();
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'rate_limited' });
+    expect(state.delete).not.toHaveBeenCalled();
+  });
+
+  it('notifications: a backend 429 is rate_limited, not 502', async () => {
+    state.cookies.set('eastpark_access', 'access-1');
+    backend = () => json(429, { message: 'Too Many Requests' });
+    const { GET } = await import('@/app/api/notifications/route');
+    const { NextRequest } = await import('next/server');
+    const response = await GET(new NextRequest('https://web.test/api/notifications'));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'rate_limited' });
+  });
+
+  it('public reads return codes, not prose', async () => {
+    backend = () => json(404, { message: 'Report r1 not found' });
+    const { GET } = await import('@/app/api/reports/[id]/route');
+    const response = await GET(new Request('https://web.test/x'), ctx('r1'));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'not_found' });
+
+    backend = () => json(500, { message: 'boom' });
+    const list = await (await import('@/app/api/announcements/route')).GET(
+      new (await import('next/server')).NextRequest('https://web.test/api/announcements'),
+    );
+    expect(list.status).toBe(502);
+    expect(await list.json()).toEqual({ error: 'upstream' });
+  });
+
+  it('feedback: malformed JSON is 400, not 502', async () => {
+    state.cookies.set('eastpark_access', 'access-1');
+    const { POST } = await import('@/app/api/feedback/route');
+    const { NextRequest } = await import('next/server');
+    const response = await POST(new NextRequest('https://web.test/api/feedback', { method: 'POST', body: '{not json' }));
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['poll', '@/app/api/governance/polls/[id]/vote/route'],
+    ['election', '@/app/api/governance/elections/[id]/vote/route'],
+  ])('%s vote: malformed JSON is 400, not 502', async (_kind, path) => {
+    state.cookies.set('eastpark_access', 'access-1');
+    const { POST } = (await import(path)) as { POST: (r: Request, c: ReturnType<typeof ctx>) => Promise<Response> };
+    const response = await POST(new Request('https://web.test/x', { method: 'POST', body: '{not json' }), ctx('p1'));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'validation' });
+  });
+
+  it('admin feedback reply: a non-string body is 400, not 500', async () => {
+    const { POST } = await import('@/app/api/admin/feedback/[id]/replies/route');
+    const response = await POST(
+      new Request('https://web.test/x', { method: 'POST', body: JSON.stringify({ body: 42 }) }),
+      ctx('f1'),
+    );
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

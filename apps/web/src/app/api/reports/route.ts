@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { bffErrorResponse } from '@/lib/api/bff-errors';
 import { getReports } from '@/lib/api/reports.server';
 import { clientIpFrom } from '@/lib/auth/server';
 
@@ -12,7 +13,6 @@ export async function GET(request: NextRequest) {
     const page = await getReports(cursor, { clientIp: clientIpFrom(request.headers) });
     return NextResponse.json({ data: page });
   } catch (error) {
-    console.error('Reports proxy failed', error);
-    return NextResponse.json({ error: 'Reports are temporarily unavailable.' }, { status: 502 });
+    return bffErrorResponse(error, 'Reports proxy failed');
   }
 }

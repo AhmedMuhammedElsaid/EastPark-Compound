@@ -31,8 +31,7 @@ export async function getShops(query: ShopQuery = {}, context: BackendContext = 
   if (query.search) params.set("search", query.search);
 
   const response = await fetchWithTransportRetry(`/shops?${params.toString()}`, context);
-  if (!response.ok)
-    throw new Error(`Shops request failed with ${response.status}`);
+  if (!response.ok) throw new ShopRequestError(response.status);
 
   return parseShopPage(await response.json());
 }

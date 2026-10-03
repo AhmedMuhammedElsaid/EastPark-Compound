@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AuthenticatedRequestError, ROUTE_SESSION } from "@/lib/api/authenticated.server";
+import { ROUTE_SESSION } from "@/lib/api/authenticated.server";
+import { bffErrorResponse } from "@/lib/api/bff-errors";
 import { getShopSaved, setShopSaved } from "@/lib/api/shop-interactions.server";
 
 export const maxDuration = 30;
@@ -35,9 +36,5 @@ async function updateSaved(params: Promise<{ id: string }>, saved: boolean) {
 }
 
 function savedError(error: unknown): NextResponse {
-  if (error instanceof AuthenticatedRequestError) {
-    return NextResponse.json({ error: "Authentication required." }, { status: error.status });
-  }
-  console.error("Saved shop proxy failed", error);
-  return NextResponse.json({ error: "Saved shop could not be updated." }, { status: 502 });
+  return bffErrorResponse(error, "Saved shop proxy failed");
 }

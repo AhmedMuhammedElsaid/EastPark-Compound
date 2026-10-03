@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
 
 import { pollVoteSchema } from '@/lib/api/governance';
-import { GovernanceVoteError, votePoll } from '@/lib/api/governance.server';
+import { votePoll, voteErrorResponse } from '@/lib/api/governance.server';
 
 export const maxDuration = 30;
 
 type PollVoteRouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: PollVoteRouteContext) {
+  const { id } = await params;
+  // Malformed JSON and invalid bodies are client errors (400), not an outage.
+  const body = pollVoteSchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) return NextResponse.json({ error: 'validation' }, { status: 400 });
+
   try {
-    const { id } = await params;
-    const { optionId } = pollVoteSchema.parse(await request.json());
-    return NextResponse.json({ data: await votePoll(id, optionId) });
+    return NextResponse.json({ data: await votePoll(id, body.data.optionId) });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ error: 'validation' }, { status: 400 });
-    }
-    if (error instanceof GovernanceVoteError) {
-      return NextResponse.json({ error: 'vote_rejected' }, { status: error.status });
-    }
-    console.error('Poll vote proxy failed', error);
-    return NextResponse.json({ error: 'server' }, { status: 502 });
+    return voteErrorResponse(error, 'Poll vote proxy failed');
   }
 }

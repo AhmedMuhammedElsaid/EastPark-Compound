@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { authenticatedBackendFetch, AuthenticatedRequestError, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+import { authenticatedBackendFetch, ROUTE_SESSION } from '@/lib/api/authenticated.server';
+import { bffErrorResponse, upstreamError } from '@/lib/api/bff-errors';
 import { isNotificationType, parseNotificationPreference } from '@/lib/api/notifications';
 
 export const maxDuration = 30;
@@ -13,12 +14,12 @@ const preferenceBodySchema = z.object({ enabled: z.boolean() }).strict();
 export async function PUT(request: Request, { params }: PreferenceRouteContext) {
   const type = (await params).type;
   if (!isNotificationType(type)) {
-    return NextResponse.json({ error: 'Invalid notification type.' }, { status: 400 });
+    return NextResponse.json({ error: 'validation' }, { status: 400 });
   }
 
   const body = preferenceBodySchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
-    return NextResponse.json({ error: 'Invalid preference.' }, { status: 400 });
+    return NextResponse.json({ error: 'validation' }, { status: 400 });
   }
 
   try {
@@ -31,13 +32,9 @@ export async function PUT(request: Request, { params }: PreferenceRouteContext) 
       },
       ROUTE_SESSION,
     );
-    if (!response.ok) throw new AuthenticatedRequestError('Preference update failed', response.status);
+    if (!response.ok) return upstreamError(response.status);
     return NextResponse.json({ data: parseNotificationPreference(await response.json()) });
   } catch (error) {
-    if (error instanceof AuthenticatedRequestError && error.status === 401) {
-      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-    }
-    console.error('Notification preference update proxy failed', error);
-    return NextResponse.json({ error: 'Preference could not be updated.' }, { status: 502 });
+    return bffErrorResponse(error, 'Notification preference update proxy failed');
   }
 }

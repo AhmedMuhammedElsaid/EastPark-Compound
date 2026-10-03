@@ -37,7 +37,7 @@ export async function getAnnouncements(
 
   const path = `/announcements?${params.toString()}`;
   const response = await fetchWithTransportRetry(path, context);
-  if (!response.ok) throw new Error(`Announcements request failed with ${response.status}`);
+  if (!response.ok) throw new AnnouncementRequestError(response.status);
 
   return parseAnnouncementPage(await response.json());
 }

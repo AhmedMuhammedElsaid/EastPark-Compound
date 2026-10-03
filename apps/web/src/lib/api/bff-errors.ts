@@ -2,7 +2,7 @@ import 'server-only';
 
 import { NextResponse } from 'next/server';
 
-import { BackendRateLimitedError } from '@/lib/auth/server';
+import { BackendRateLimitedError, BackendUnavailableError } from '@/lib/auth/server';
 
 /**
  * The BFF error vocabulary. Backend error bodies (messages, stacks, validation internals) are never
@@ -71,4 +71,47 @@ export async function relayBackendResponse(response: Response): Promise<NextResp
 export function rateLimitedResponse(error: unknown): NextResponse<{ error: BffErrorCode }> | null {
   if (!(error instanceof BackendRateLimitedError)) return null;
   return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { ...PRIVATE_NO_STORE, 'Retry-After': '60' } });
+}
+
+/** A backend call that failed with an HTTP status; route catch blocks map it with `bffErrorResponse`. */
+export class UpstreamStatusError extends Error {
+  constructor(
+    readonly status: number,
+    label = 'Backend request',
+  ) {
+    super(`${label} failed with ${status}`);
+    this.name = 'UpstreamStatusError';
+  }
+}
+
+/** The backend status carried by a request error (`UpstreamStatusError` and the per-module request errors). */
+function upstreamStatusOf(error: unknown): number | undefined {
+  // Transport failures and 5xx from the refresh call are outages, not a mappable backend answer.
+  if (!(error instanceof Error) || error instanceof BackendUnavailableError) return undefined;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' && Number.isInteger(status) ? status : undefined;
+}
+
+/**
+ * The shared catch-block mapping for BFF routes:
+ * - a throttled session refresh or backend 429 → `rate_limited` (429), never an outage or logout;
+ * - an error carrying a backend status → the shared code vocabulary (`upstreamError`);
+ * - anything else (transport failure, contract drift) → `fallback` (default `upstream`/502).
+ * Only codes reach the browser; details are logged server-side.
+ */
+export function bffErrorResponse(
+  error: unknown,
+  label: string,
+  fallback: { error: string; status: number } = { error: 'upstream', status: 502 },
+): NextResponse<{ error: string }> {
+  const throttled = rateLimitedResponse(error);
+  if (throttled) return throttled;
+  const status = upstreamStatusOf(error);
+  if (status === 429) return rateLimitedResponse(new BackendRateLimitedError())!;
+  if (status !== undefined) {
+    if (status >= 500) console.error(label, error);
+    return upstreamError(status);
+  }
+  console.error(label, error);
+  return NextResponse.json({ error: fallback.error }, { status: fallback.status, headers: PRIVATE_NO_STORE });
 }
