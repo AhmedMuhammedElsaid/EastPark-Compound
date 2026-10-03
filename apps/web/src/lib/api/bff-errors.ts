@@ -8,6 +8,12 @@ import { BackendRateLimitedError } from '@/lib/auth/server';
  * The BFF error vocabulary. Backend error bodies (messages, stacks, validation internals) are never
  * forwarded to the browser; only these codes and a safe status are.
  */
+/**
+ * BFF responses are per-user (or at least never shareable): browsers, proxies and CDNs must not store
+ * them. Without an explicit header Vercel sends `public, max-age=0, must-revalidate`.
+ */
+export const PRIVATE_NO_STORE = { 'Cache-Control': 'private, no-store' } as const;
+
 export type BffErrorCode =
   | 'conflict'
   | 'forbidden'
@@ -41,7 +47,7 @@ export function upstreamErrorCode(status: number): { error: BffErrorCode; status
 
 export function upstreamError(status: number): NextResponse<{ error: BffErrorCode }> {
   const mapped = upstreamErrorCode(status);
-  return NextResponse.json({ error: mapped.error }, { status: mapped.status });
+  return NextResponse.json({ error: mapped.error }, { status: mapped.status, headers: PRIVATE_NO_STORE });
 }
 
 /**
@@ -50,11 +56,12 @@ export function upstreamError(status: number): NextResponse<{ error: BffErrorCod
  */
 export async function relayBackendResponse(response: Response): Promise<NextResponse> {
   if (!response.ok) return upstreamError(response.status);
-  if (response.status === 204) return new NextResponse(null, { status: 204 });
+  if (response.status === 204) return new NextResponse(null, { status: 204, headers: PRIVATE_NO_STORE });
   const payload: unknown = await response.json().catch(() => undefined);
   // An empty/non-JSON success keeps its 2xx status (clients may only check `response.ok`).
-  if (payload === undefined) return NextResponse.json({ data: null }, { status: response.status });
-  return NextResponse.json(payload, { status: response.status });
+  const init = { status: response.status, headers: PRIVATE_NO_STORE };
+  if (payload === undefined) return NextResponse.json({ data: null }, init);
+  return NextResponse.json(payload, init);
 }
 
 /**
@@ -63,5 +70,5 @@ export async function relayBackendResponse(response: Response): Promise<NextResp
  */
 export function rateLimitedResponse(error: unknown): NextResponse<{ error: BffErrorCode }> | null {
   if (!(error instanceof BackendRateLimitedError)) return null;
-  return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '60' } });
+  return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { ...PRIVATE_NO_STORE, 'Retry-After': '60' } });
 }

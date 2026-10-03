@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
             : []),
         ],
       },
+      {
+        // Backstop for every BFF route: responses are per-user and must never be stored. Handlers
+        // that matter (session, shared relay/error helpers) also set this explicitly.
+        source: "/api/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
+      },
     ];
   },
 };

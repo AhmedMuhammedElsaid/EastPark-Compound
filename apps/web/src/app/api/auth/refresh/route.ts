@@ -13,7 +13,7 @@ import {
 
 export const maxDuration = 30;
 
-const NO_STORE = { 'Cache-Control': 'no-store' };
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
 
 /** Throttled by the backend: not an outage and not a logout. Cookies are kept for a retry. */
 function rateLimited() {
