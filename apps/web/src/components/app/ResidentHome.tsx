@@ -118,7 +118,7 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
           {latestSlot}
         </div>
 
-        <SealedVault />
+        <SealedVault marketOpen />
 
         <AlsoOnTheWay role={user?.role} />
       </div>

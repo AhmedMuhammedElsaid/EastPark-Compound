@@ -17,33 +17,39 @@ export function SealedVault({
   interactive = true,
   market,
   governance,
+  marketOpen = false,
 }: {
   interactive?: boolean;
+  /** The marketplace card is an open "Browse shops" link (shops are browsable) instead of sealed. */
+  marketOpen?: boolean;
   market?: FeatureCopy;
   governance?: FeatureCopy;
 }) {
   const { t } = useTranslation();
 
   return (
-    <section aria-labelledby="vault-title" className="space-y-6">
-      <div>
-        <p className="text-[length:var(--text-overline)] font-bold uppercase tracking-[1px] text-primary">
-          {t('home.teaser.sealed')}
-        </p>
-        <h2 id="vault-title" className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight text-foreground">
-          {t('home.teaser.vault_title')}
-        </h2>
-        <p className="mt-2 max-w-[60ch] text-[length:var(--text-body)] leading-6 text-muted-foreground">
-          {t('home.teaser.vault_sub')}
-        </p>
-      </div>
+    <div className="space-y-8 sm:space-y-10">
+      {marketOpen && <MarketplacePreview open {...market} />}
+      <section aria-labelledby="vault-title" className="space-y-6">
+        <div>
+          <p className="text-[length:var(--text-overline)] font-bold uppercase tracking-[1px] text-primary">
+            {t('home.teaser.sealed')}
+          </p>
+          <h2 id="vault-title" className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight text-foreground">
+            {t('home.teaser.vault_title')}
+          </h2>
+          <p className="mt-2 max-w-[60ch] text-[length:var(--text-body)] leading-6 text-muted-foreground">
+            {t('home.teaser.vault_sub')}
+          </p>
+        </div>
 
-      <MarketplacePreview href={interactive ? undefined : null} {...market} />
+        {!marketOpen && <MarketplacePreview href={interactive ? undefined : null} {...market} />}
 
-      <div className="grid items-stretch gap-6 lg:grid-cols-2">
-        <GovernancePreview href={interactive ? undefined : null} {...governance} />
-        <OrderTrackingPreview href={interactive ? undefined : null} />
-      </div>
-    </section>
+        <div className="grid items-stretch gap-6 lg:grid-cols-2">
+          <GovernancePreview href={interactive ? undefined : null} {...governance} />
+          <OrderTrackingPreview href={interactive ? undefined : null} />
+        </div>
+      </section>
+    </div>
   );
 }

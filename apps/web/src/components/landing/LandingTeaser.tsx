@@ -42,12 +42,13 @@ export function LandingTeaser() {
 
         <SealedVault
           interactive={false}
+          marketOpen
           market={{
-            body: t('landing.pillar_market_body'),
+            body: t('landing.pillar_market_open_body'),
             points: [
-              t('landing.pillar_market_point_1'),
-              t('landing.pillar_market_point_2'),
-              t('landing.pillar_market_point_3'),
+              t('landing.pillar_market_open_point_1'),
+              t('landing.pillar_market_open_point_2'),
+              t('landing.pillar_market_open_point_3'),
             ],
           }}
           governance={{
