@@ -139,7 +139,11 @@
     "title": "Checkout",
     "unit": "Unit {{number}}",
     "unit_missing": "Add your unit number to your profile before placing an order.",
-    "order_failed": "We couldn't place your order. Please try again."
+    "order_failed": "We couldn't place your order. Please try again.",
+    "payment_init_failed": "Your order was placed, but we couldn't start the card payment. Open the order to try paying again.",
+    "order_uncertain_title": "Check your orders",
+    "order_uncertain_body": "We lost connection while placing your order, so it may have gone through. Please check your orders before trying again.",
+    "order_uncertain_view": "View my orders"
   },
   "common": {
     "admin": "Admin",
@@ -347,7 +351,8 @@
     "unknown_shop": "Unknown shop",
     "unpaid": "Unpaid",
     "guest_prompt": "Sign in to see your orders",
-    "guest_subtitle": "Track deliveries and reorder from shops in the compound."
+    "guest_subtitle": "Track deliveries and reorder from shops in the compound.",
+    "pay_now": "Pay now"
   },
   "profile": {
     "account": "Account",

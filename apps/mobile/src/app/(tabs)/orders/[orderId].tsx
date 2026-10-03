@@ -4,8 +4,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
@@ -103,6 +104,14 @@ function useStyles() {
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
+    payBtn: {
+      height: 48,
+      borderRadius: RADIUS.md,
+      backgroundColor: BRAND.gold,
+      justifyContent: "center" as const,
+      alignItems: "center" as const,
+    },
+    payBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: colors.bg },
     cancelBtnDisabled: { opacity: 0.5 },
     cancelBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: SEMANTIC.error },
   }), [colors]);
@@ -160,6 +169,16 @@ export default function OrderDetailScreen() {
     },
   });
 
+  const { mutate: payNow, isPending: paying } = useMutation({
+    mutationFn: async () => {
+      const res = await ordersApi.initiatePaymobPayment(orderId);
+      await Linking.openURL(res.data.data.iframeUrl);
+    },
+    onError: () => {
+      showMessage({ message: t("checkout.payment_init_failed"), type: "danger" });
+    },
+  });
+
   function handleCancel() {
     Alert.alert(
       t("orders.cancel_order"),
@@ -186,6 +205,17 @@ export default function OrderDetailScreen() {
         )}
         <OrderItems order={order} isAr={isAr} styles={styles} />
         <OrderSummary order={order} styles={styles} />
+        {order.paymentMethod === "PAYMOB" && !order.isPaid && order.status !== "CANCELLED" && (
+          <Pressable
+            style={[styles.payBtn, paying && styles.cancelBtnDisabled]}
+            onPress={() => payNow()}
+            disabled={paying}
+            accessibilityRole="button"
+            accessibilityLabel={t("orders.pay_now")}
+          >
+            <Text style={styles.payBtnText}>{t("orders.pay_now")}</Text>
+          </Pressable>
+        )}
         {order.status === "PLACED" && (
           <Pressable
             style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}

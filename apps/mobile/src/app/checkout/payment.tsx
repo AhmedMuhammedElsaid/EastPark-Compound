@@ -1,15 +1,16 @@
 import type { PaymentMethod } from "@/services/api/orders";
 import type { CartItem } from "@/store/slices/cart-slice";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, CreditCard, Money } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { isNoResponseError } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { buildPlaceOrderPayload, ordersApi } from "@/services/api/orders";
@@ -107,6 +108,13 @@ export default function PaymentScreen() {
 
   const total = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
 
+  const queryClient = useQueryClient();
+  // Blocks re-taps while the create is in flight AND while we verify, after a
+  // timeout, that the server did not already commit the order.
+  const [verifying, setVerifying] = React.useState(false);
+  // Synchronous guard: state updates are async, so a fast double-tap could fire twice.
+  const inFlight = React.useRef(false);
+
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
       ordersApi.placeOrder(buildPlaceOrderPayload({
@@ -117,23 +125,53 @@ export default function PaymentScreen() {
       })),
     onSuccess: async (res) => {
       const orderId = res.data.data.id;
+      // The order exists server-side from here on: the cart must never be
+      // left intact, otherwise a retap would create a duplicate order.
+      dispatch(clearCart());
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       if (paymentMethod === "PAYMOB") {
         try {
           const payRes = await ordersApi.initiatePaymobPayment(orderId);
           await Linking.openURL(payRes.data.data.iframeUrl);
         }
         catch {
-          showMessage({ message: t("common.error"), type: "danger" });
-          return; // stop here — don't clear cart or navigate on Paymob failure
+          showMessage({ message: t("checkout.payment_init_failed"), type: "danger" });
+          // Order detail offers "pay now" for unpaid card orders.
+          router.replace(`/(tabs)/orders/${orderId}`);
+          return;
         }
       }
-      dispatch(clearCart());
       router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
     },
-    onError: () => {
-      showMessage({ message: t("checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+    onError: async (error) => {
+      if (!isNoResponseError(error)) {
+        inFlight.current = false;
+        showMessage({ message: t("checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+        return;
+      }
+      // Timeout / connection loss: the server may have committed the order.
+      // Refresh the orders list before allowing another attempt.
+      setVerifying(true);
+      try {
+        await queryClient.refetchQueries({ queryKey: ["orders"] });
+      }
+      catch {
+        // Offline — still tell the user to verify before retrying.
+      }
+      setVerifying(false);
+      inFlight.current = false;
+      Alert.alert(
+        t("checkout.order_uncertain_title"),
+        t("checkout.order_uncertain_body"),
+        [
+          { text: t("checkout.order_uncertain_view"), onPress: () => router.replace("/(tabs)/orders") },
+          { text: t("common.cancel"), style: "cancel" },
+        ],
+      );
     },
   });
+
+  const busy = isPending || verifying;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -172,17 +210,20 @@ export default function PaymentScreen() {
           : null}
 
         <Pressable
-          style={[styles.placeBtn, (isPending || !canPlaceOrder) && styles.placeBtnDisabled]}
+          style={[styles.placeBtn, (busy || !canPlaceOrder) && styles.placeBtnDisabled]}
           onPress={() => {
+            if (busy || inFlight.current)
+              return;
+            inFlight.current = true;
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             mutate();
           }}
-          disabled={isPending || !canPlaceOrder}
+          disabled={busy || !canPlaceOrder}
           accessibilityRole="button"
           accessibilityLabel={t("checkout.place_order")}
         >
           <Text style={styles.placeBtnText}>
-            {isPending ? t("common.loading") : t("checkout.place_order")}
+            {busy ? t("common.loading") : t("checkout.place_order")}
           </Text>
         </Pressable>
       </View>
