@@ -66,3 +66,29 @@ describe('appConfig', () => {
         });
     });
 });
+
+describe('appConfig BFF_INTERNAL_SECRET', () => {
+    const original = process.env.BFF_INTERNAL_SECRET;
+
+    afterEach(() => {
+        if (original === undefined) delete process.env.BFF_INTERNAL_SECRET;
+        else process.env.BFF_INTERNAL_SECRET = original;
+    });
+
+    it('is undefined when unset or blank (client IPs never trusted)', () => {
+        delete process.env.BFF_INTERNAL_SECRET;
+        expect(appConfig().bffInternalSecret).toBeUndefined();
+        process.env.BFF_INTERNAL_SECRET = '   ';
+        expect(appConfig().bffInternalSecret).toBeUndefined();
+    });
+
+    it('rejects a secret shorter than 32 characters', () => {
+        process.env.BFF_INTERNAL_SECRET = 'short';
+        expect(() => appConfig()).toThrow(/at least 32/);
+    });
+
+    it('exposes a trimmed secret', () => {
+        process.env.BFF_INTERNAL_SECRET = ` ${'c'.repeat(40)} `;
+        expect(appConfig().bffInternalSecret).toBe('c'.repeat(40));
+    });
+});

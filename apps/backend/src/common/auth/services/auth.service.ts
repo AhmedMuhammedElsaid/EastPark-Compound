@@ -4,6 +4,8 @@ import {
     BadRequestException,
     ConflictException,
     ForbiddenException,
+    HttpException,
+    HttpStatus,
     Injectable,
     NotFoundException,
     UnauthorizedException,
@@ -35,6 +37,8 @@ import {
 const OTP_TTL = 600; // 10 minutes
 const OTP_MAX_ATTEMPTS = 5; // failed verifications before the OTP is burned
 const RESET_TTL = 1800; // 30 minutes
+const LOGIN_MAX_FAILURES = 10; // failed logins per email per window
+const LOGIN_FAILURE_WINDOW = 900; // 15 minutes
 
 /** Privilege order used so an invitation can upgrade but never downgrade. */
 const ROLE_RANK: Record<Role, number> = {
@@ -158,6 +162,21 @@ export class AuthService {
 
     async login(dto: AuthLoginDto): Promise<AuthResponseDto> {
         const email = normalizeEmail(dto.email);
+
+        // Per-email cap that holds across client IPs. Counted before the
+        // password check (atomic INCR, like the OTP budget) and for unknown
+        // emails too, so the 429 does not reveal which emails exist.
+        const attemptsKey = this.loginAttemptsKey(email);
+        const attempts = await this.cache.incr(attemptsKey);
+        if (attempts === 1)
+            await this.cache.expire(attemptsKey, LOGIN_FAILURE_WINDOW);
+        if (attempts > LOGIN_MAX_FAILURES) {
+            throw new HttpException(
+                'Too many login attempts — try again later',
+                HttpStatus.TOO_MANY_REQUESTS
+            );
+        }
+
         const user = await this.db.user.findUnique({ where: { email } });
         if (!user) {
             // Same status, message and (roughly) timing as a wrong password,
@@ -174,6 +193,9 @@ export class AuthService {
             dto.password
         );
         if (!match) throw new UnauthorizedException('Invalid credentials');
+
+        // Correct password: only failures count toward the cap.
+        await this.cache.del(attemptsKey);
 
         // 403 stays distinct: clients route unverified users to the OTP screen.
         if (!user.isVerified)
@@ -479,6 +501,10 @@ export class AuthService {
 
     private otpAttemptsKey(email: string): string {
         return `otp-attempts:${email}`;
+    }
+
+    private loginAttemptsKey(email: string): string {
+        return `login-attempts:${email}`;
     }
 
     private resetKey(token: string): string {

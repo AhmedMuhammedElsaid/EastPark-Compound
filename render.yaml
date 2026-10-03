@@ -33,6 +33,8 @@ services:
         sync: false
       - key: AUTH_REFRESH_TOKEN_SECRET
         sync: false
+      - key: BFF_INTERNAL_SECRET
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_DATABASE_URL

@@ -17,10 +17,11 @@ import { AppModule } from './app/app.module';
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        // Render (and the Vercel BFF in front of it) proxy every request, so
-        // trust X-Forwarded-* — otherwise req.ip is the proxy and the
-        // throttler puts every user in one bucket.
-        new FastifyAdapter({ logger: false, trustProxy: true }),
+        // Trust exactly one proxy hop (Render's edge), so req.ip is the TCP
+        // peer Render saw and a direct caller cannot forge it with
+        // X-Forwarded-For. The Vercel BFF's browser IP is only honoured with
+        // the BFF_INTERNAL_SECRET header (see ClientIpThrottlerGuard).
+        new FastifyAdapter({ logger: false, trustProxy: 1 }),
         { bufferLogs: true }
     );
 

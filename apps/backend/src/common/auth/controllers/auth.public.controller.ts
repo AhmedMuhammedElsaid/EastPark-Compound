@@ -37,8 +37,17 @@ import {
 } from '../dtos/response/auth.response.dto';
 import { AuthService } from '../services/auth.service';
 
+/** Credential-guessing routes: 5 req/min per client IP per route. */
+export const AUTH_STRICT_THROTTLE = { default: { limit: 5, ttl: 60000 } };
+/**
+ * Session-maintenance routes (refresh/logout/push-token) carry a valid token
+ * already. Residents behind one compound NAT share an IP, so these get a
+ * roomier per-route bucket — a 429 on refresh would force a logout.
+ */
+export const AUTH_SESSION_THROTTLE = { default: { limit: 60, ttl: 60000 } };
+
 @ApiTags('auth')
-@Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 req/min — stricter than global 100/min
+@Throttle(AUTH_STRICT_THROTTLE)
 @Controller({ version: '1', path: '/auth' })
 export class AuthPublicController {
     constructor(private readonly authService: AuthService) {}
@@ -75,6 +84,7 @@ export class AuthPublicController {
     }
 
     @Post('refresh')
+    @Throttle(AUTH_SESSION_THROTTLE)
     @PublicRoute()
     @UseGuards(JwtRefreshGuard)
     @ApiBearerAuth('refreshToken')
@@ -100,6 +110,7 @@ export class AuthPublicController {
     }
 
     @Post('logout')
+    @Throttle(AUTH_SESSION_THROTTLE)
     @UseGuards(JwtAccessGuard)
     @ApiBearerAuth('accessToken')
     @HttpCode(HttpStatus.OK)
@@ -143,6 +154,7 @@ export class AuthPublicController {
     }
 
     @Patch('push-token')
+    @Throttle(AUTH_SESSION_THROTTLE)
     @UseGuards(JwtAccessGuard)
     @ApiBearerAuth('accessToken')
     @HttpCode(HttpStatus.OK)

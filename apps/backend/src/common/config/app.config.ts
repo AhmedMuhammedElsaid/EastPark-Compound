@@ -24,8 +24,17 @@ export default registerAs('app', (): Record<string, unknown> => {
         );
     }
 
+    // Shared secret the Vercel BFF sends in `X-EastPark-Internal`. Only a
+    // request carrying it may tell us the real client IP via X-Forwarded-For.
+    // Unset → client-supplied IP headers are never trusted.
+    const bffInternalSecret = process.env.BFF_INTERNAL_SECRET?.trim() || '';
+    if (bffInternalSecret && bffInternalSecret.length < 32) {
+        throw new Error('BFF_INTERNAL_SECRET must be at least 32 characters');
+    }
+
     return {
         env,
+        bffInternalSecret: bffInternalSecret || undefined,
         name: process.env.APP_NAME ?? 'EastPark API',
         url: process.env.APP_URL ?? 'http://localhost:3000',
         webUrl:

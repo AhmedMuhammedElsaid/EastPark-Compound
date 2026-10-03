@@ -2,6 +2,8 @@ import {
     BadRequestException,
     ConflictException,
     ForbiddenException,
+    HttpException,
+    HttpStatus,
     NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
@@ -247,6 +249,91 @@ describe('AuthService', () => {
 
             expect(result.accessToken).toBe(mockTokens.accessToken);
             expect(result.refreshToken).toBe(mockTokens.refreshToken);
+        });
+
+        describe('per-email failure cap', () => {
+            it('counts attempts per normalized email with a 15-minute window', async () => {
+                db.user.findUnique.mockResolvedValue(mockUser());
+                encryption.match.mockResolvedValue(false);
+                cache.incr.mockResolvedValueOnce(1);
+                await expect(
+                    service.login({
+                        email: ' Jane@EastPark.app',
+                        password: 'wrong',
+                    })
+                ).rejects.toBeInstanceOf(UnauthorizedException);
+                expect(cache.incr).toHaveBeenCalledWith(
+                    'login-attempts:jane@eastpark.app'
+                );
+                expect(cache.expire).toHaveBeenCalledWith(
+                    'login-attempts:jane@eastpark.app',
+                    900
+                );
+            });
+
+            it('returns 429 on the 11th attempt without checking the password', async () => {
+                db.user.findUnique.mockResolvedValue(mockUser());
+                encryption.match.mockResolvedValue(true);
+                cache.incr.mockResolvedValueOnce(11);
+                const attempt = service.login({
+                    email: 'jane@eastpark.app',
+                    password: 'Secret123!',
+                });
+                await expect(attempt).rejects.toBeInstanceOf(HttpException);
+                await expect(attempt).rejects.toMatchObject({
+                    status: HttpStatus.TOO_MANY_REQUESTS,
+                });
+                expect(db.user.findUnique).not.toHaveBeenCalled();
+                expect(encryption.match).not.toHaveBeenCalled();
+            });
+
+            it('caps unknown emails the same way (no enumeration via 429)', async () => {
+                db.user.findUnique.mockResolvedValue(null);
+                cache.incr.mockResolvedValueOnce(11);
+                await expect(
+                    service.login({
+                        email: 'ghost@eastpark.app',
+                        password: 'x',
+                    })
+                ).rejects.toMatchObject({
+                    status: HttpStatus.TOO_MANY_REQUESTS,
+                });
+            });
+
+            it('holds across many IPs: 10 failures then 429', async () => {
+                db.user.findUnique.mockResolvedValue(mockUser());
+                encryption.match.mockResolvedValue(false);
+                let counter = 0;
+                cache.incr.mockImplementation(() => Promise.resolve(++counter));
+                const results = await Promise.allSettled(
+                    Array.from({ length: 15 }, () =>
+                        service.login({
+                            email: 'jane@eastpark.app',
+                            password: 'guess',
+                        })
+                    )
+                );
+                const statuses = results.map(r =>
+                    r.status === 'rejected'
+                        ? (r.reason as HttpException).getStatus()
+                        : 200
+                );
+                expect(statuses.filter(s => s === 401)).toHaveLength(10);
+                expect(statuses.filter(s => s === 429)).toHaveLength(5);
+                expect(encryption.match).toHaveBeenCalledTimes(10);
+            });
+
+            it('clears the counter after a correct password', async () => {
+                db.user.findUnique.mockResolvedValue(mockUser());
+                encryption.match.mockResolvedValue(true);
+                await service.login({
+                    email: 'jane@eastpark.app',
+                    password: 'Secret123!',
+                });
+                expect(cache.del).toHaveBeenCalledWith(
+                    'login-attempts:jane@eastpark.app'
+                );
+            });
         });
     });
 

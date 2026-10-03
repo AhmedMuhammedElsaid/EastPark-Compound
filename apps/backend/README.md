@@ -174,6 +174,7 @@ Full reference is in `.env.example`. Every variable is documented with inline co
 | `AUTH_REFRESH_TOKEN_SECRET` | Yes | JWT refresh token secret — must differ from access |
 | `AUTH_ACCESS_TOKEN_EXP` | No | Default `15m` |
 | `AUTH_REFRESH_TOKEN_EXP` | No | Default `7d` |
+| `BFF_INTERNAL_SECRET` | Prod | Shared with the Vercel BFF (min 32 chars, `openssl rand -hex 32`). Requests carrying it in `X-EastPark-Internal` are throttled by their `X-Forwarded-For` client IP; unset = client IP headers never trusted |
 | `SMTP_HOST` | Yes | `localhost` (dev via Mailpit) · `smtp-relay.brevo.com` (prod) |
 | `SMTP_PORT` | Yes | `1025` (Mailpit) · `587` (Brevo) |
 | `SMTP_USER` | Prod | Brevo SMTP login |
