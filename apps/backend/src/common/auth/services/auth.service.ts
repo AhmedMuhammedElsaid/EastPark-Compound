@@ -327,7 +327,12 @@ export class AuthService {
             where: { email },
             data: { passwordHash },
         });
-        await this.cache.del(this.resetKey(dto.token));
+        // Burn the token and lift any per-email login lockout: someone who
+        // reset because they were locked out must be able to sign in now.
+        await this.cache.del(
+            this.resetKey(dto.token),
+            this.loginAttemptsKey(email)
+        );
 
         // Invalidate every existing session: refresh tokens minted before this
         // point carry a lower version and are rejected by refresh().

@@ -591,6 +591,18 @@ describe('AuthService', () => {
             });
             expect(cache.incr).toHaveBeenCalledWith('session-version:user-1');
         });
+
+        it('burns the token and clears the login lockout for that email', async () => {
+            cache.get.mockResolvedValue('jane@eastpark.app');
+            db.user.update.mockResolvedValue(mockUser());
+
+            await service.resetPassword({ token: 't', password: 'NewPass1!' });
+
+            expect(cache.del).toHaveBeenCalledWith(
+                'reset:t',
+                'login-attempts:jane@eastpark.app'
+            );
+        });
     });
 
     // ── forgotPassword ────────────────────────────────────────────────────────
