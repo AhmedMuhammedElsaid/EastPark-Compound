@@ -1,6 +1,6 @@
 import { PASSWORD_REGEX } from "@/lib/auth/password";
 import { mapElection, mapPoll, votePercent } from "@/services/api/governance";
-import { buildPlaceOrderPayload, getOrderItemTotal } from "@/services/api/orders";
+import { buildPlaceOrderPayload, getOrderItemTotal, getOrderPollInterval, ORDER_POLL_INTERVAL_MS } from "@/services/api/orders";
 import { getNotificationHref } from "@/services/notifications/routing";
 import { isPersistableQueryKey, redactPersonalFields, serializePersistedClient, shouldRetryQuery } from "@/services/query/client";
 
@@ -211,5 +211,21 @@ describe("password policy mirrors the backend", () => {
   });
   it.each(["password", "Password1", "PASSWORD1!", "Pass 0rd!", "Pa0!", "كلمةA1!x"])("rejects %s", (pw) => {
     expect(PASSWORD_REGEX.test(pw)).toBe(false);
+  });
+});
+
+describe("order polling fallback", () => {
+  it("does not poll while the socket is connected", () => {
+    expect(getOrderPollInterval("PLACED", true)).toBe(false);
+  });
+
+  it("polls an active order when the socket is down", () => {
+    expect(getOrderPollInterval("PREPARING", false)).toBe(ORDER_POLL_INTERVAL_MS);
+    expect(getOrderPollInterval(undefined, false)).toBe(ORDER_POLL_INTERVAL_MS);
+  });
+
+  it("never polls a terminal order", () => {
+    expect(getOrderPollInterval("DELIVERED", false)).toBe(false);
+    expect(getOrderPollInterval("CANCELLED", false)).toBe(false);
   });
 });

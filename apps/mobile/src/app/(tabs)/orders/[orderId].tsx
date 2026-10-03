@@ -13,11 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CANCEL_ORDER_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { getOrderItemTotal, ordersApi, TERMINAL_ORDER_STATUSES } from "@/services/api/orders";
+import { getOrderItemTotal, getOrderPollInterval, ordersApi } from "@/services/api/orders";
 import { getOrdersSocket, joinOrderRoom, leaveOrderRoom, ORDER_STATUS_UPDATE_EVENT } from "@/services/socket/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
-
-const ORDER_POLL_INTERVAL_MS = 15_000;
 
 const STATUS_STEPS: OrderStatus[] = ["PLACED", "CONFIRMED", "PREPARING", "READY", "ON_THE_WAY", "DELIVERED"];
 
@@ -128,15 +126,14 @@ export default function OrderDetailScreen() {
   const styles = useStyles();
   const isAr = i18n.language === "ar";
 
+  const [socketConnected, setSocketConnected] = React.useState(() => getOrdersSocket().connected);
+
   const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => ordersApi.getOrder(orderId),
     enabled: !!orderId,
-    // Fallback when the socket is down: poll while the order is still active.
-    refetchInterval: (query) => {
-      const status = query.state.data?.data.data.status;
-      return status && TERMINAL_ORDER_STATUSES.has(status) ? false : ORDER_POLL_INTERVAL_MS;
-    },
+    // Fallback only: poll while the socket is down and the order is still active.
+    refetchInterval: query => getOrderPollInterval(query.state.data?.data.data.status, socketConnected),
   });
 
   const order = data?.data.data;
@@ -154,12 +151,24 @@ export default function OrderDetailScreen() {
       }
     };
 
+    const onConnect = () => {
+      setSocketConnected(true);
+      // Updates sent while disconnected were missed: catch up once.
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    };
+    const onDisconnect = () => setSocketConnected(false);
+
     socket.on(ORDER_STATUS_UPDATE_EVENT, handler);
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    setSocketConnected(socket.connected);
     joinOrderRoom(orderId);
 
     return () => {
       leaveOrderRoom(orderId);
       socket.off(ORDER_STATUS_UPDATE_EVENT, handler);
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
     };
   }, [orderId, queryClient]);
 

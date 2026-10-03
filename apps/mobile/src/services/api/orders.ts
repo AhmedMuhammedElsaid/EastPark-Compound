@@ -77,6 +77,18 @@ export function getOrderItemTotal(item: { unitPrice?: number | null; quantity: n
 /** Statuses after which no further live updates are expected. */
 export const TERMINAL_ORDER_STATUSES: ReadonlySet<OrderStatus> = new Set(["DELIVERED", "CANCELLED"]);
 
+export const ORDER_POLL_INTERVAL_MS = 15_000;
+
+/**
+ * Polling is only a fallback for a dropped socket: while the socket is
+ * connected live updates arrive by push, and a terminal order never changes.
+ */
+export function getOrderPollInterval(status: OrderStatus | undefined, socketConnected: boolean): number | false {
+  if (socketConnected)
+    return false;
+  return status && TERMINAL_ORDER_STATUSES.has(status) ? false : ORDER_POLL_INTERVAL_MS;
+}
+
 export const ordersApi = {
   placeOrder: (payload: PlaceOrderPayload) =>
     client.post<{ data: Order }>("/orders", payload),
