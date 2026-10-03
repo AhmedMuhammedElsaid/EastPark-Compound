@@ -8,6 +8,7 @@ import * as React from 'react';
 import type { Product, ProductPage } from '@/lib/api/products';
 import type { Shop } from '@/lib/api/shops';
 import { residentOrderingEnabled } from '@/config/features';
+import { GatedLink } from '@/lib/access/ComingSoon';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { cartTotal } from '@/lib/cart/cart';
 import { useCart } from '@/lib/cart/CartProvider';
@@ -79,13 +80,13 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
           </h2>
         </div>
         {isHydrated && state.items.length > 0 && (
-          <Link
+          <GatedLink
             href="/cart"
             className="inline-flex min-h-11 items-center gap-2 rounded-md border border-primary px-4 text-[length:var(--text-label)] font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
           >
             <ShoppingBag aria-hidden="true" className="size-4.5" />
             {state.items.reduce((count, item) => count + item.quantity, 0)} · {formatCurrency(cartTotal(state), lang)}
-          </Link>
+          </GatedLink>
         )}
       </div>
 
