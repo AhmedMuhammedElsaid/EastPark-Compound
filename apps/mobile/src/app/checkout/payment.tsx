@@ -11,6 +11,7 @@ import { Alert, I18nManager, Linking, Pressable, StyleSheet, Text, View } from "
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isNoResponseError } from "@/lib/api-error";
+import { CARD_PAYMENTS_ENABLED } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { buildPlaceOrderPayload, ordersApi } from "@/services/api/orders";
@@ -192,13 +193,17 @@ export default function PaymentScreen() {
           onPress={() => setPaymentMethod("CASH")}
           styles={styles}
         />
-        <PaymentOption
-          label={t("checkout.card")}
-          icon={<CreditCard size={24} color={colors.textMuted} />}
-          selected={paymentMethod === "PAYMOB"}
-          onPress={() => setPaymentMethod("PAYMOB")}
-          styles={styles}
-        />
+        {CARD_PAYMENTS_ENABLED
+          ? (
+              <PaymentOption
+                label={t("checkout.card")}
+                icon={<CreditCard size={24} color={colors.textMuted} />}
+                selected={paymentMethod === "PAYMOB"}
+                onPress={() => setPaymentMethod("PAYMOB")}
+                styles={styles}
+              />
+            )
+          : null}
 
         <View style={styles.summary}>
           <Text style={styles.summaryLabel}>{t("cart.total")}</Text>
