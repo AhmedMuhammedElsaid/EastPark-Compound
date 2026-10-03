@@ -424,7 +424,7 @@ async function groupRoles() {
     skip('roles: merchant GET /merchant', hasCreds('merchant') ? 'merchant web login failed' : 'SEED_MERCHANT_PASSWORD not set');
   }
 
-  // Resident (confined to /home and /profile).
+  // Resident (confined to /home, /profile and the browse-only /directory; ordering stays locked).
   if (!hasCreds('resident')) {
     skip('roles: resident checks', 'SMOKE_RESIDENT_EMAIL / SMOKE_RESIDENT_PASSWORD not set');
   } else {
@@ -433,13 +433,18 @@ async function groupRoles() {
       fail('roles: resident web login', r ? brief(r.r) : 'login failed earlier');
     } else {
       const dir = await http(`${WEB}/directory`, { headers: webHeaders(r.jar) });
-      check(dir.status === 307 && locPath(dir) === '/home', 'roles: resident /directory -> /home', `${brief(dir)} location=${locPath(dir) || '-'}`);
+      const dm = pageMarkers(dir.text);
+      check(dir.status === 200 && !dm, 'roles: resident GET /directory -> 200', `${brief(dir)}${dir.status !== 200 ? ` location=${locPath(dir) || '-'}` : ''}${dm ? ` ${dm}` : ''}`);
+      const cart = await http(`${WEB}/cart`, { headers: webHeaders(r.jar) });
+      check(cart.status === 307 && locPath(cart) === '/home', 'roles: resident /cart -> /home', `${brief(cart)} location=${locPath(cart) || '-'}`);
       const prof = await http(`${WEB}/profile`, { headers: webHeaders(r.jar) });
       check(prof.status === 200 && !pageMarkers(prof.text), 'roles: resident GET /profile', brief(prof));
       const api = await http(`${WEB}/api/profile`, { headers: webHeaders(r.jar) });
       check(api.status === 200, 'roles: resident GET /api/profile', brief(api));
-      const blocked = await http(`${WEB}/api/shops`, { headers: webHeaders(r.jar) });
-      check(blocked.status === 403, 'roles: resident GET /api/shops -> 403', brief(blocked));
+      const shops = await http(`${WEB}/api/shops?limit=1`, { headers: webHeaders(r.jar) });
+      check(shops.status === 200, 'roles: resident GET /api/shops -> 200', brief(shops));
+      const orders = await http(`${WEB}/api/orders`, { headers: webHeaders(r.jar) });
+      check(orders.status === 403, 'roles: resident GET /api/orders -> 403', brief(orders));
     }
   }
 
