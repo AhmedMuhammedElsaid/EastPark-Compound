@@ -2,6 +2,8 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 
 import { createSlice } from "@reduxjs/toolkit";
 
+import { login, logout } from "./auth-slice";
+
 export type CartItem = {
   productId: string;
   name: string;
@@ -20,6 +22,8 @@ type CartState = {
   pendingShopId: string | null;
   pendingShopName: string | null;
   showConflictSheet: boolean;
+  // Account the cart belongs to; a different account signing in empties it.
+  ownerId: string | null;
 };
 
 const initialState: CartState = {
@@ -30,6 +34,7 @@ const initialState: CartState = {
   pendingShopId: null,
   pendingShopName: null,
   showConflictSheet: false,
+  ownerId: null,
 };
 
 export const cartSlice = createSlice({
@@ -127,6 +132,16 @@ export const cartSlice = createSlice({
       state.pendingShopName = null;
       state.showConflictSheet = false;
     },
+  },
+  extraReducers: (builder) => {
+    // The cart must never outlive the session that built it.
+    builder.addCase(logout, () => initialState);
+    builder.addCase(login, (state, action) => {
+      const userId = action.payload.user.id;
+      if (state.ownerId && state.ownerId !== userId)
+        return { ...initialState, ownerId: userId };
+      state.ownerId = userId;
+    });
   },
 });
 

@@ -1,4 +1,5 @@
 import type { CartItem } from "../cart-slice";
+import { login, logout } from "../auth-slice";
 import reducer, { addItem, clearAndAdd, clearCart, dismissConflict, removeItem, updateQuantity } from "../cart-slice";
 
 function item(productId: string, quantity = 1): CartItem {
@@ -51,5 +52,35 @@ describe("cart slice", () => {
   it("clears the cart", () => {
     const s = reducer(empty, addItem({ item: item("a"), shopId: "s1", shopName: "Shop 1" }));
     expect(reducer(s, clearCart()).items).toHaveLength(0);
+  });
+
+  describe("session boundaries", () => {
+    const user = (id: string) => ({ id, name: "U", email: "u@x.com", role: "RESIDENT" as const, isVerified: true, avatarUrl: null });
+    const signIn = (id: string) => login({ user: user(id), accessToken: "a", refreshToken: "r" });
+    const filled = () => reducer(empty, addItem({ item: item("a"), shopId: "s1", shopName: "Shop 1" }));
+
+    it("empties the cart on logout", () => {
+      const s = reducer(reducer(filled(), signIn("u1")), logout());
+      expect(s.items).toHaveLength(0);
+      expect(s.shopId).toBeNull();
+      expect(s.ownerId).toBeNull();
+    });
+
+    it("keeps a guest cart when someone signs in", () => {
+      const s = reducer(filled(), signIn("u1"));
+      expect(s.items).toHaveLength(1);
+      expect(s.ownerId).toBe("u1");
+    });
+
+    it("keeps the cart when the same account signs in again", () => {
+      const s = reducer(reducer(filled(), signIn("u1")), signIn("u1"));
+      expect(s.items).toHaveLength(1);
+    });
+
+    it("empties the cart when a different account signs in", () => {
+      const s = reducer(reducer(filled(), signIn("u1")), signIn("u2"));
+      expect(s.items).toHaveLength(0);
+      expect(s.ownerId).toBe("u2");
+    });
   });
 });
