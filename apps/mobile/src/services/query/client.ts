@@ -51,10 +51,8 @@ export const PERSISTED_QUERY_ROOTS: ReadonlySet<string> = new Set([
   "shops",
   "shop",
   "shop-products",
-  "shop-reviews",
   "home-shops",
   "announcements",
-  "announcement",
   "home-announcements",
   "reports",
   "polls",
@@ -72,16 +70,40 @@ export function shouldPersistQuery(query: Query): boolean {
   return defaultShouldDehydrateQuery(query) && isPersistableQueryKey(query.queryKey);
 }
 
+/**
+ * Personalised fields the backend adds for the signed-in user (poll/election
+ * responses). They must never reach unencrypted AsyncStorage; they are reset
+ * to null (the "not voted" shape the UI already handles).
+ */
+const PERSONAL_NULL_KEYS: ReadonlySet<string> = new Set(["myVoteOptionId", "myVoteCandidateId"]);
+
+export function redactPersonalFields(value: unknown): unknown {
+  if (Array.isArray(value))
+    return value.map(redactPersonalFields);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>))
+      out[k] = PERSONAL_NULL_KEYS.has(k) ? null : redactPersonalFields(v);
+    return out;
+  }
+  return value;
+}
+
+export function serializePersistedClient(client: unknown): string {
+  return JSON.stringify(redactPersonalFields(client));
+}
+
 // AsyncStorage persister — directory + announcements work offline from cache
 export const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
+  serialize: serializePersistedClient,
   throttleTime: 1000,
   key: "eastpark-query-cache",
 });
 
 // Changing the buster discards any previously persisted cache — including
 // private data written by builds that persisted the whole cache.
-export const QUERY_CACHE_BUSTER = `v${Env.EXPO_PUBLIC_VERSION}-public-1`;
+export const QUERY_CACHE_BUSTER = `v${Env.EXPO_PUBLIC_VERSION}-public-2`;
 
 export const queryPersistOptions = {
   persister: asyncStoragePersister,

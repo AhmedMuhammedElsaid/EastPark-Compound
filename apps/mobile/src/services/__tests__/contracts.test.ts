@@ -2,7 +2,7 @@ import { PASSWORD_REGEX } from "@/lib/auth/password";
 import { mapElection, mapPoll, votePercent } from "@/services/api/governance";
 import { buildPlaceOrderPayload, getOrderItemTotal } from "@/services/api/orders";
 import { getNotificationHref } from "@/services/notifications/routing";
-import { isPersistableQueryKey, shouldRetryQuery } from "@/services/query/client";
+import { isPersistableQueryKey, redactPersonalFields, serializePersistedClient, shouldRetryQuery } from "@/services/query/client";
 
 jest.mock("env", () => ({
   __esModule: true,
@@ -154,11 +154,29 @@ describe("query client policy", () => {
 
   it("persists only public queries", () => {
     expect(isPersistableQueryKey(["shops", "CAFE_AND_FOOD", ""])).toBe(true);
-    expect(isPersistableQueryKey(["announcement", "a1"])).toBe(true);
+    expect(isPersistableQueryKey(["announcement", "a1"])).toBe(false);
+    expect(isPersistableQueryKey(["shop-reviews", "s1"])).toBe(false);
+    expect(isPersistableQueryKey(["poll", "p1"])).toBe(true);
     expect(isPersistableQueryKey(["orders"])).toBe(false);
     expect(isPersistableQueryKey(["notifications"])).toBe(false);
     expect(isPersistableQueryKey(["my-feedback"])).toBe(false);
     expect(isPersistableQueryKey(["merchant-orders", "PLACED"])).toBe(false);
+  });
+});
+
+describe("persisted cache redaction", () => {
+  it("nulls personal vote fields at any depth and keeps public data", () => {
+    const client = {
+      clientState: { queries: [{ state: { data: { pages: [{ items: [{ id: "p1", question: "Q", myVoteOptionId: "o1" }] }] } } },
+        { state: { data: { id: "e1", myVoteCandidateId: "c1", candidates: [{ id: "c1", voteCount: 3 }] } } }] },
+    };
+    const json = serializePersistedClient(client);
+    expect(json).not.toContain("o1");
+    const out = JSON.parse(json);
+    expect(out.clientState.queries[0].state.data.pages[0].items[0]).toEqual({ id: "p1", question: "Q", myVoteOptionId: null });
+    expect(out.clientState.queries[1].state.data.myVoteCandidateId).toBeNull();
+    expect(out.clientState.queries[1].state.data.candidates[0]).toEqual({ id: "c1", voteCount: 3 });
+    expect(redactPersonalFields("x")).toBe("x");
   });
 });
 
