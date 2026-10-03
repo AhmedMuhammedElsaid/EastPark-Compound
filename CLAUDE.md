@@ -29,7 +29,71 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
-> ### 2026-10-02 — RESIDENT LAUNCH HANDOFF + IMAGE UPLOAD BLOCKER (NEWEST)
+> ### 2026-10-03 — FULL-STACK REVIEW + FIX BATCH, READY TO GO LIVE (NEWEST — READ FIRST)
+>
+> **State:** `main` is ~75 commits ahead of `origin/main` (`027ba88..HEAD`), **NOTHING PUSHED**. Working tree
+> clean. Final Fable re-check verdict: **safe to push code-wise**; no Critical/High findings. Gates green:
+> web `check` (lint + tsc + 88 vitest + build 62/62), backend typecheck/lint/249 tests, mobile type-check +
+> 81 jest tests.
+>
+> **What shipped in this batch (local commits):**
+> - Web: resident home-only lockdown (`apps/web/src/config/access-policy.ts` — `RESIDENT_HOME_ONLY`; only
+>   RESIDENT is confined; ADMIN and MERCHANT unrestricted) with bilingual "Coming soon" popup; home teaser
+>   sections (hero + phase strip, real latest announcement streamed via Suspense, marketplace/governance/
+>   tracking previews, "also on the way" tiles); open-redirect fix (`src/lib/auth/return-path.ts`); single
+>   backend client `src/lib/auth/server.ts` (read-only RSC sessions, `/api/auth/refresh` bounce, single-flight
+>   refresh for single-use tokens, 429 → `rate_limited`); IP forwarding + `X-EastPark-Internal` secret header;
+>   i18n/design/CSP fixes; Vitest suite; 4 MB upload limit; feedback uploads use `?purpose=feedback`.
+> - Backend: refresh tokens single-use (jti) + session-version on password reset; email normalisation;
+>   invitation hardening (existing account needs current password); lead reject endpoint; OTP attempt
+>   counter (INCR-first); per-email login cap (10/15 min); throttling keyed on BFF-forwarded IP only with
+>   `BFF_INTERNAL_SECRET` (`trustProxy: 1`); optional auth on public routes; order state machine; money
+>   `Decimal(10,2)`; Paymob HMAC/amount/order checks (payments still disabled); upload magic-byte sniffing,
+>   purpose folders, admin-only PDFs, 502 `storage_unavailable` (no bucket auto-create); socket JWT + room
+>   auth; election results endpoint; commenter privacy; coverage measured across `src`.
+> - Mobile: order payload, Bearer refresh + single-flight, 60 s timeout + warm-up, contract alignment
+>   (merchant, feedback, polls, comments, notifications), socket events + reconnect, privacy-safe offline
+>   cache, merchant full status chain, error toasts, cleanup, 9 unused deps removed, OTA settings dropped.
+>
+> **Owner decisions (2026-10-02/03):** admins DO see anonymous feedback authors (BE-2 won't fix); merchants
+> are not locked down; Paymob/card payments postponed; commit history left as is (`c7f1f4c` carries 4 mobile
+> MOB-34 files; `202ff50`/`752bd14` don't build alone); WEB-8 keeps `'unsafe-inline'`; WEB-21 skipped.
+> **Open owner question:** remove public self-registration (`/register` linked from login + mobile register
+> screen + `POST /auth/register`) so residents only join via `/register-unit` → admin approval → invitation?
+> Recommended: yes.
+>
+> **GO-LIVE RUNBOOK (next session, needs Supabase + Vercel + Render access):**
+> 1. Back up the Supabase database.
+> 2. Run read-only `apps/backend/prisma/scripts/check-email-case.sql` on prod: `users.collision_groups` MUST
+>    be 0. Otherwise merge duplicate accounts first — a collision aborts migration
+>    `20261003000000_lowercase_emails`, Render's `migrate deploy` then fails every deploy until
+>    `prisma migrate resolve --rolled-back 20261003000000_lowercase_emails`.
+> 3. Supabase Storage: create the **public** bucket named by `SUPABASE_BUCKET` (default `eastpark-uploads`);
+>    read its public storage origin.
+> 4. Generate one secret ≥32 chars (`openssl rand -hex 32`); never print it. Set `BFF_INTERNAL_SECRET`
+>    (server-only) on Vercel and on Render with the identical value. Backend refuses to boot if 1–31 chars.
+> 5. Vercel: set `NEXT_PUBLIC_STORAGE_ORIGIN` (blocks any `picsum.photos` seed shop photos — check prod
+>    shop photo URLs first). Render: delete `EXPO_ACCESS_TOKEN`, `AUTH_RESET_TOKEN_TTL_SEC`.
+> 6. Push `main` (Render + Vercel auto-deploy; migrations `20261002000000_money_decimal` and
+>    `20261003000000_lowercase_emails` run on boot). Confirm `/health` 200 and `prisma migrate status`.
+> 7. Smoke: login 401 unknown / 403 unverified; refresh reuse → 401; announcement with comments loads
+>    (guest + signed in); resident confined to `/home`, merchant reaches `/merchant`; a REAL image upload
+>    (profile + feedback) succeeds and its URL loads — uploads are still unverified until this passes.
+> 8. Verify Render XFF semantics: 6 web logins/min from IP A → 6th is 429 while IP B is unaffected. If both
+>    get 429, Render replaces XFF or adds hops — switch BFF to a dedicated client-IP header read only with
+>    the secret. Confirm `x-eastpark-internal` shows `[Redacted]` in Render logs.
+> 9. Mobile: old store builds lose their session once (new refresh contract); new EAS build required.
+>
+> **Backlog (Medium/Low, not blocking):** REV-15 cancelled-order Paymob callback (when payments resume);
+> REV-17 clear push token on logout; REV-18 refresh-then-logout on mobile; REV-19 shop delete vs
+> reviews/bookmarks; REV-20 money upper bounds; REV-22 map new 409s to copy on web; REV-24..43 (see final
+> review: bounce-route edge cases, upload error codes, 20 MB pre-check, resend-otp enumeration, existing-
+> account invitation UX, socket token expiry mid-session, public review ids, `isAvailable` boolean
+> transform, client-side DTO limits); atomic INCR+EXPIRE for OTP/login counters; login lockout trade-off
+> (10 fails lock an email 15 min); WEB-12 global fetch patch; WEB-17 OG titles English; push only sent for
+> ORDER_UPDATE; no `isPinned` on announcements.
+
+> ### 2026-10-02 — RESIDENT LAUNCH HANDOFF + IMAGE UPLOAD BLOCKER
 >
 > Root `main` is committed and pushed; clone or pull `origin/main` for the current checkpoint. Production remains
 > `https://eastpark-web-app.vercel.app` with API `https://eastpark-backend.onrender.com`; Fly is
@@ -64,7 +128,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > dependencies, run `pnpm --dir apps/web check`, then investigate the upload blocker before further
 > parity work. Revalidate backend typecheck/tests if the diagnosis requires backend changes.
 
-> ### 2026-10-01 — EMAIL, RENDER AVAILABILITY, AND PUBLIC HEADER (NEWEST)
+> ### 2026-10-01 — EMAIL, RENDER AVAILABILITY, AND PUBLIC HEADER
 >
 > The implementation checkpoint is committed and pushed through `5497ea2`. The active production API is now
 > `https://eastpark-backend.onrender.com`; Fly remains rollback infrastructure. The web app remains
