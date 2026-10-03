@@ -79,9 +79,15 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > 7. Smoke: login 401 unknown / 403 unverified; refresh reuse → 401; announcement with comments loads
 >    (guest + signed in); resident confined to `/home`, merchant reaches `/merchant`; a REAL image upload
 >    (profile + feedback) succeeds and its URL loads — uploads are still unverified until this passes.
-> 8. Verify Render XFF semantics: 6 web logins/min from IP A → 6th is 429 while IP B is unaffected. If both
->    get 429, Render replaces XFF or adds hops — switch BFF to a dedicated client-IP header read only with
->    the secret. Confirm `x-eastpark-internal` shows `[Redacted]` in Render logs.
+>    **The secret is load-bearing:** since 2026-10-03 (`0af50b8`/`e324dd1`) the backend keys direct traffic
+>    on Cloudflare's `CF-Connecting-IP` and BFF traffic on `X-EastPark-Client-IP` only when the secret
+>    matches. A missing/mismatched secret keys ALL web users on Vercel's egress IP → mass 429 on login.
+> 8. Verify client-IP throttling on Render (never print the secret): (a) 6 direct `POST /v1/auth/login`
+>    with no extra headers → 6th is 429; (b) 6 direct with rotating fake `CF-Connecting-IP`/`X-Forwarded-For`
+>    → 6th is 429 (Cloudflare overwrites CF-Connecting-IP); (c) 6 web logins/min from IP A → 6th is 429
+>    while IP B is unaffected. If (c) never 429s, the secret differs between Vercel and Render. If IP B is
+>    also 429, the secret is unset/mismatched and web users share Vercel egress buckets. Confirm
+>    `x-eastpark-internal` / `x-eastpark-client-ip` do not appear in Render logs.
 > 9. Mobile: old store builds lose their session once (new refresh contract); new EAS build required.
 >
 > **Backlog (Medium/Low, not blocking):** REV-15 cancelled-order Paymob callback (when payments resume);

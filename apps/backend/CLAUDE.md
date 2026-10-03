@@ -102,7 +102,10 @@ This does not block `POST /v1/residents/leads`.
 verifies HMAC (from `?hmac=`), Paymob order id, amount and currency; money is `Decimal(10,2)` with
 `.toNumber()` at the API boundary (migration `20261002000000_money_decimal`, not yet applied to prod);
 coverage is measured across `src/**` (~40%, thresholds 37/40/73). Also: single-use refresh tokens +
-session version, per-IP throttling trusted only with `BFF_INTERNAL_SECRET` (`trustProxy: 1`), OTP and
+session version, per-IP throttling (client IP = BFF secret match → `X-EastPark-Client-IP` → left-most
+XFF; otherwise `CF-Connecting-IP` → `True-Client-IP` → `req.ip`; `trustProxy: 1` kept, but on Render
+`req.ip` is the Cloudflare edge so it is only a last resort; CF headers are forgeable where Cloudflare
+is not in front, e.g. the Fly rollback), OTP and
 per-email login caps, order state machine, upload magic-byte sniffing + purpose folders, socket JWT auth,
 email lower-casing migration `20261003000000_lowercase_emails` (run
 `prisma/scripts/check-email-case.sql` on prod first). Current state, go-live runbook and backlog: root

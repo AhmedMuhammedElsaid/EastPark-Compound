@@ -48,9 +48,12 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
   REV-45), so merchants reach `/merchant/*` and `/api/merchant/*` through `src/proxy.ts` and their
   links are not turned into Coming soon buttons. Server-side role checks are unchanged.
 - **Backend client (`src/lib/auth/server.ts`)** is the only server code that calls the API origin.
-  It forwards the visitor IP as `X-Forwarded-For` and, when the server-only env var
-  `BFF_INTERNAL_SECRET` is set, `X-EastPark-Internal` so the backend trusts that IP only from the BFF.
-  Configure the same value on Vercel and the backend; never prefix it with `NEXT_PUBLIC_`.
+  It forwards the visitor IP (Vercel `x-real-ip`, else first `x-forwarded-for`) as
+  `X-EastPark-Client-IP` (plus `X-Forwarded-For` for older backends) and, when the server-only env
+  var `BFF_INTERNAL_SECRET` is set, `X-EastPark-Internal` so the backend trusts that IP only from the
+  BFF. Caller-supplied client-IP headers are stripped. Configure the identical value on Vercel and
+  the backend; never prefix it with `NEXT_PUBLIC_`. A missing/mismatched secret makes the backend
+  key every web user on Vercel's egress IP (via `CF-Connecting-IP`), i.e. shared 5/min login buckets.
 - Public RSC loaders (`/home`, `/announcements`, `/announcements/[id]`, `/directory`, `/reports`)
   forward the request IP; all of them render per request. `/home` previously prerendered at build and
   froze the latest-announcement card. Static pages would send no IP and share one rate-limit bucket.
@@ -192,8 +195,8 @@ NEXT_PUBLIC_API_URL=https://eastpark-backend.fly.dev
 ```
 
 Server-only (never `NEXT_PUBLIC_`): `BFF_INTERNAL_SECRET` — shared secret sent as
-`X-EastPark-Internal` so the backend trusts the forwarded client IP. Optional; when unset the
-header is omitted.
+`X-EastPark-Internal` so the backend trusts the forwarded `X-EastPark-Client-IP`. Required in
+production (must match the backend exactly); when unset the header is omitted.
 
 Rules:
 
