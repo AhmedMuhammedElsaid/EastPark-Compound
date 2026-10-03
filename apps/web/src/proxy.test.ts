@@ -26,4 +26,15 @@ describe('proxy home-only lockdown', () => {
     const api = proxy(request('/api/merchant/orders', 'RESIDENT'));
     expect(api.status).toBe(403);
   });
+
+  it.each(['/profile', '/api/profile', '/api/uploads/image'])('lets a RESIDENT reach %s', (path) => {
+    const response = proxy(request(path, 'RESIDENT'));
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it.each(['/directory', '/notifications'])('still redirects a RESIDENT away from %s', (path) => {
+    const response = proxy(request(path, 'RESIDENT'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://web.test/home');
+  });
 });

@@ -41,7 +41,6 @@ export const config = {
     '/merchant/:path*',
     '/notifications/:path*',
     '/orders/:path*',
-    '/profile/:path*',
     '/reports/:path*',
     '/api/:path*',
   ],

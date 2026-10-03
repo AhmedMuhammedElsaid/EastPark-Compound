@@ -2,9 +2,10 @@
  * Temporary access lockdown.
  *
  * While RESIDENT_HOME_ONLY is true, signed-in RESIDENT accounts (and any other
- * non-staff role) are confined to /home: navigation shows a "Coming soon" popup
- * instead of navigating, and direct requests to other app routes are redirected
- * to /home by `src/proxy.ts`. ADMIN and MERCHANT accounts are never restricted
+ * non-staff role) are confined to /home and /profile (owner decision 2026-10-03:
+ * residents manage their own profile): navigation to any other section shows a
+ * "Coming soon" popup instead of navigating, and direct requests to other app
+ * routes are redirected to /home by `src/proxy.ts`. ADMIN and MERCHANT accounts are never restricted
  * (owner decision, REV-45): merchants must reach /merchant/* and /api/merchant/*
  * to run their shops. Guests are not restricted either. Set the flag to false to
  * restore full access everywhere.
@@ -38,11 +39,13 @@ const BLOCKED_PAGE_PREFIXES = [
   '/merchant',
   '/notifications',
   '/orders',
-  '/profile',
   '/reports',
 ];
 
-/** BFF routes that only serve the gated sections (auth, uploads and session stay open). */
+/**
+ * BFF routes that only serve the gated sections. Auth (session, logout), uploads and `/api/profile`
+ * stay open because the profile page needs them.
+ */
 const BLOCKED_API_PREFIXES = [
   '/api/admin',
   '/api/announcements',
@@ -51,13 +54,21 @@ const BLOCKED_API_PREFIXES = [
   '/api/merchant',
   '/api/notifications',
   '/api/orders',
-  '/api/profile',
   '/api/reports',
   '/api/shops',
 ];
 
 function matches(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+/** In-app pages a restricted user may open; navigation to anything else shows Coming soon. */
+const OPEN_PAGE_PREFIXES = [HOME_PATH, '/profile'];
+
+/** True when a restricted user may navigate to `href` (query string and hash are ignored). */
+export function isOpenToRestricted(href: string): boolean {
+  const pathname = href.split(/[?#]/, 1)[0] ?? '';
+  return matches(pathname, OPEN_PAGE_PREFIXES);
 }
 
 export function isBlockedPagePath(pathname: string): boolean {

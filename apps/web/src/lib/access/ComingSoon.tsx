@@ -5,7 +5,7 @@ import Link from 'next/link';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 
-import { isRestrictedRole } from '@/config/access-policy';
+import { isOpenToRestricted, isRestrictedRole } from '@/config/access-policy';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 
@@ -166,12 +166,12 @@ function ComingSoonDialog({
 type GatedLinkProps = Omit<React.ComponentProps<typeof Link>, 'href'> & { href: string };
 
 /**
- * Drop-in for next/link. For restricted users every destination except /home
- * becomes a real button that opens the Coming soon popup instead of navigating.
+ * Drop-in for next/link. For restricted users every destination except /home and
+ * /profile becomes a real button that opens the Coming soon popup instead of navigating.
  */
 export function GatedLink({ href, children, onClick, prefetch, ...rest }: GatedLinkProps) {
   const { restricted, open } = useComingSoon();
-  if (restricted && href !== '/home') {
+  if (restricted && !isOpenToRestricted(href)) {
     // A button is not a page link, so aria-current is deliberately dropped; only button-safe props pass through.
     const { className, id, title, lang, dir, style, tabIndex } = rest;
     const ariaLabel = rest['aria-label'];

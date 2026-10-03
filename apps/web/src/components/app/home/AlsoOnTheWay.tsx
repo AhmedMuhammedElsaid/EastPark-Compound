@@ -24,7 +24,7 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
         : null,
     { href: '/notifications', icon: Bell, label: t('notifications.title'), promise: t('home.teaser.promise_notifications') },
     { href: '/reports', icon: FileText, label: t('home.reports'), promise: t('home.teaser.promise_reports') },
-    { href: '/profile', icon: UserRound, label: t('profile.title'), promise: t('home.teaser.promise_profile') },
+    { href: '/profile', icon: UserRound, label: t('profile.title'), promise: t('home.teaser.promise_profile'), live: true },
     role === 'MERCHANT'
       ? { href: '/merchant', icon: Store, label: t('merchant.dashboard'), promise: t('home.teaser.promise_merchant'), live: true }
       : null,

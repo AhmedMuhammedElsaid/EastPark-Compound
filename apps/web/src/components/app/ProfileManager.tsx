@@ -74,7 +74,7 @@ export function ProfileManager() {
       if (avatarFile) {
         const formData = new FormData();
         formData.set('file', avatarFile, avatarFile.name);
-        const upload = await fetch('/api/uploads/image', {
+        const upload = await fetch('/api/uploads/image?purpose=avatar', {
           method: 'POST',
           body: formData,
           signal: AbortSignal.timeout(20_000),

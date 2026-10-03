@@ -1,6 +1,6 @@
 'use client';
 
-import { LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useSyncExternalStore, type ReactNode } from 'react';
 
@@ -64,10 +64,17 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="w-fit rounded-full border border-border bg-card px-3 py-2 text-[length:var(--text-caption)] font-bold text-muted-foreground">
-                {user.role}
+                {t(`profile.roles.${user.role.toLowerCase()}`)}
               </span>
+              <Link
+                href="/profile"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-primary px-4 text-[length:var(--text-label)] font-bold text-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+              >
+                <UserRound aria-hidden="true" className="size-4.5" />
+                {t('profile.edit')}
+              </Link>
               <button
                 type="button"
                 onClick={() => void logout()}
