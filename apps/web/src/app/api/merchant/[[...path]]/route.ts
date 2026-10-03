@@ -28,6 +28,14 @@ const orderQuerySchema = z.object({
 
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
+/** Query string from parsed params: drops absent values and stringifies numbers (e.g. `limit`). */
+function toQuery(values: Record<string, unknown>): string {
+  const entries = Object.entries(values)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => [key, String(value)]);
+  return `?${new URLSearchParams(entries).toString()}`;
+}
+
 function routeFor(method: string, path: string[]): { backendPath: string; body?: z.ZodType } | null {
   if (path.length === 0 && method === 'GET') return { backendPath: '/merchant/shop' };
   if (path.length === 0 && method === 'PATCH') return { backendPath: '/merchant/shop', body: shopUpdateSchema };
@@ -58,16 +66,17 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     if (request.method === 'GET' && parsedParams.data.path[0] === 'products') {
       const result = productQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
       if (!result.success) return NextResponse.json({ error: 'validation' }, { status: 400 });
-      query = `?${new URLSearchParams(Object.entries(result.data).filter((entry): entry is [string, string] => typeof entry[1] === 'string')).toString()}`;
+      query = toQuery(result.data);
     } else if (request.method === 'GET' && parsedParams.data.path[0] === 'orders' && parsedParams.data.path.length === 1) {
       const result = orderQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
       if (!result.success) return NextResponse.json({ error: 'validation' }, { status: 400 });
-      query = `?${new URLSearchParams(Object.entries(result.data).map(([key, value]) => [key, String(value)])).toString()}`;
+      query = toQuery(result.data);
     }
 
     let body: string | undefined;
     if (route.body) {
-      const result = route.body.safeParse(await request.json());
+      // Malformed JSON is a validation error, not a network failure.
+      const result = route.body.safeParse(await request.json().catch(() => null));
       if (!result.success) return NextResponse.json({ error: 'validation' }, { status: 400 });
       body = JSON.stringify(result.data);
     }
