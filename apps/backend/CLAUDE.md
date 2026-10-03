@@ -116,7 +116,7 @@ first row of every following page (shared `toCursorPage`; id tie-breakers); `?is
 `?isAvailable=false` now filter correctly; unknown shop ids on review/save/admin product create → 404;
 concurrent duplicate register → 409; re-inviting a rejected lead whose unit is re-reserved → 409;
 `PATCH /auth/push-token` detaches the token from any other account; `DELETE /shops/:id` removes the
-shop's reviews and bookmarks (REV-19); feedback body/reply ≤ 4000 and review comment ≤ 1000 chars;
+shop's reviews and bookmarks (REV-19); feedback body ≤ 4000, admin reply ≤ 5000 and review comment ≤ 1000 chars;
 password reset clears the per-email login lockout; unused offset-pagination/query-builder helpers
 removed. No route, response shape or migration changed.
 

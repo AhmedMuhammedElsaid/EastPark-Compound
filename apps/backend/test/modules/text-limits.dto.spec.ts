@@ -25,9 +25,9 @@ describe('free-text length caps (match the web/mobile form limits)', () => {
         ).toBe(1);
     });
 
-    it('feedback reply body: 4001 chars rejected', async () => {
-        expect(await errors(FeedbackReplyDto, { body: 'ok' })).toBe(0);
-        expect(await errors(FeedbackReplyDto, { body: 'a'.repeat(4001) })).toBe(1);
+    it('feedback reply body: 5000 chars ok (web admin limit), 5001 rejected', async () => {
+        expect(await errors(FeedbackReplyDto, { body: 'a'.repeat(5000) })).toBe(0);
+        expect(await errors(FeedbackReplyDto, { body: 'a'.repeat(5001) })).toBe(1);
     });
 
     it('review comment: 1000 chars ok, 1001 rejected', async () => {
