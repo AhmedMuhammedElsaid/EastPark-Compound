@@ -1,10 +1,13 @@
 /**
  * Temporary access lockdown.
  *
- * While RESIDENT_HOME_ONLY is true, every authenticated role except ADMIN is
- * confined to /home: navigation shows a "Coming soon" popup instead of
- * navigating, and direct requests to other app routes are redirected to /home
- * by `src/proxy.ts`. Set it to false to restore full access everywhere.
+ * While RESIDENT_HOME_ONLY is true, signed-in RESIDENT accounts (and any other
+ * non-staff role) are confined to /home: navigation shows a "Coming soon" popup
+ * instead of navigating, and direct requests to other app routes are redirected
+ * to /home by `src/proxy.ts`. ADMIN and MERCHANT accounts are never restricted
+ * (owner decision, REV-45): merchants must reach /merchant/* and /api/merchant/*
+ * to run their shops. Guests are not restricted either. Set the flag to false to
+ * restore full access everywhere.
  *
  * This file is dependency-free so the proxy, server code and client UI share it.
  */
@@ -15,9 +18,12 @@ export const HOME_PATH = '/home';
 export const ACCESS_COOKIE_NAME = 'eastpark_access';
 export const REFRESH_COOKIE_NAME = 'eastpark_refresh';
 
-/** True when the signed-in role must stay on the home page. Guests are not restricted. */
+/** Roles that keep full access during the lockdown. */
+const UNRESTRICTED_ROLES = new Set(['ADMIN', 'MERCHANT']);
+
+/** True when the signed-in role must stay on the home page. Guests, admins and merchants are not restricted. */
 export function isRestrictedRole(role: string | null | undefined): boolean {
-  return RESIDENT_HOME_ONLY && Boolean(role) && role !== 'ADMIN';
+  return RESIDENT_HOME_ONLY && Boolean(role) && !UNRESTRICTED_ROLES.has(role as string);
 }
 
 /** App route prefixes a restricted user may not open directly. */

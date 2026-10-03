@@ -9,7 +9,8 @@ import { useTranslation } from '@/lib/i18n';
 
 import { SoonPill } from './SoonPill';
 
-type Tile = { href: string; icon: LucideIcon; label: string; promise?: string };
+// `live` tiles lead to a section the viewer can already open, so they carry no "Soon" pill.
+type Tile = { href: string; icon: LucideIcon; label: string; promise?: string; live?: boolean };
 
 export function AlsoOnTheWay({ role }: { role: string | undefined }) {
   const { t } = useTranslation();
@@ -25,7 +26,7 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
     { href: '/reports', icon: FileText, label: t('home.reports'), promise: t('home.teaser.promise_reports') },
     { href: '/profile', icon: UserRound, label: t('profile.title'), promise: t('home.teaser.promise_profile') },
     role === 'MERCHANT'
-      ? { href: '/merchant', icon: Store, label: t('merchant.dashboard'), promise: t('home.teaser.promise_merchant') }
+      ? { href: '/merchant', icon: Store, label: t('merchant.dashboard'), promise: t('home.teaser.promise_merchant'), live: true }
       : null,
   ];
   const tiles = candidates.filter((tile): tile is Tile => tile !== null);
@@ -37,7 +38,7 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
           {t('home.teaser.more_title')}
         </h2>
         <ul className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-5 lg:gap-4">
-          {tiles.map(({ href, icon: Icon, label, promise }) => (
+          {tiles.map(({ href, icon: Icon, label, promise, live }) => (
             <li key={href} className="min-w-0">
               <GatedLink
                 href={href}
@@ -47,7 +48,7 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary group-hover:bg-card">
                     <Icon aria-hidden="true" className="size-5" />
                   </span>
-                  {promise && <SoonPill label={t('home.teaser.soon')} />}
+                  {promise && !live && <SoonPill label={t('home.teaser.soon')} />}
                 </span>
                 <span className="text-[length:var(--text-label)] font-bold leading-5">{label}</span>
                 {promise && (
