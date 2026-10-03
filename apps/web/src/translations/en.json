@@ -137,7 +137,7 @@
     "all_loaded": "All requests loaded",
     "empty_title": "No requests here yet",
     "empty_body": "New unit applications will appear in this list.",
-    "empty_filter": "No {{status}} requests right now.",
+    "empty_filter": "Nothing under “{{status}}” right now.",
     "no_matches_title": "No matches",
     "no_matches_body": "Nothing in the loaded requests matches “{{query}}”.",
     "load_error_title": "Requests could not be loaded",

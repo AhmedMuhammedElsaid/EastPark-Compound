@@ -77,17 +77,17 @@ export function LeadRowActions({
   const available = leadActions(pending ? pending.from : lead.status);
   const busy = Boolean(pending);
   const InviteIcon = available.invite === 'reinvite' ? RotateCcw : available.invite === 'resend' ? Send : Mail;
-  const size = variant === 'table' ? 'min-h-11 px-3.5' : 'min-h-12 px-4';
+  const size = variant === 'table' ? 'min-h-11 px-3' : 'min-h-12 px-4';
 
   return (
-    <div className={`flex items-center gap-2 ${variant === 'card' ? 'w-full' : ''} ${variant === 'table' ? 'justify-end' : ''}`}>
+    <div className={`flex items-center gap-2 ${variant === 'card' ? 'w-full flex-wrap' : ''} ${variant === 'table' ? 'justify-end' : ''}`}>
       {available.invite && (
         <button
           type="button"
           disabled={busy}
           onClick={() => onAction(lead, 'invite')}
           aria-busy={pending?.action === 'invite' || undefined}
-          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[length:var(--text-button)] font-semibold transition-colors disabled:cursor-not-allowed ${size} ${FOCUS} ${variant === 'card' ? 'flex-1' : ''} ${variant === 'drawer' ? 'bg-primary text-primary-foreground hover:bg-gold-600 disabled:opacity-70' : 'border border-primary/55 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-80'} ${pending?.action === 'invite' ? 'lead-pending' : ''}`}
+          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[length:var(--text-button)] font-semibold transition-colors disabled:cursor-not-allowed ${size} ${FOCUS} ${variant === 'card' ? 'min-w-32 flex-1' : ''} ${variant === 'drawer' ? 'bg-primary text-primary-foreground hover:bg-gold-600 disabled:opacity-70' : 'border border-primary/55 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-80'} ${pending?.action === 'invite' ? 'lead-pending' : ''}`}
         >
           <InviteIcon aria-hidden="true" className="size-4 shrink-0 rtl:-scale-x-100" />
           {pending?.action === 'invite' ? t('admin_leads.pending.invite') : t(`admin_leads.actions.${available.invite}`)}
@@ -104,7 +104,11 @@ export function LeadRowActions({
           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border text-[length:var(--text-button)] font-semibold text-foreground transition-colors hover:border-error/70 hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS} ${variant === 'table' ? 'size-11' : size} ${pending?.action === 'reject' ? 'lead-pending' : ''}`}
         >
           <UserX aria-hidden="true" className="size-4 shrink-0" />
-          {variant !== 'table' && (pending?.action === 'reject' ? t('admin_leads.pending.reject') : t('admin_leads.actions.reject'))}
+          {variant !== 'table' && (
+            <span className={variant === 'card' ? 'max-[379px]:sr-only' : ''}>
+              {pending?.action === 'reject' ? t('admin_leads.pending.reject') : t('admin_leads.actions.reject')}
+            </span>
+          )}
         </button>
       )}
       {onDetails && (
@@ -113,7 +117,7 @@ export function LeadRowActions({
           onClick={() => onDetails(lead)}
           aria-label={t('admin_leads.actions.details_for', { name: lead.name })}
           title={t('admin_leads.actions.details')}
-          className={`inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${FOCUS} ${variant === 'card' ? 'size-12' : ''}`}
+          className={`inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${FOCUS} ${variant === 'card' ? 'size-12' : 'size-11'}`}
         >
           <PanelRightOpen aria-hidden="true" className="size-5 rtl:-scale-x-100" />
         </button>
@@ -174,9 +178,8 @@ export function LeadsTable({
   const modelRows = table.getRowModel().rows;
 
   const headers: { id: string; label: string; className: string }[] = [
-    { id: 'resident', label: t('admin_leads.columns.resident'), className: 'w-full min-w-56' },
+    { id: 'resident', label: t('admin_leads.columns.resident'), className: 'w-full min-w-40' },
     { id: 'unit', label: t('admin_leads.columns.unit'), className: '' },
-    { id: 'createdAt', label: t('admin_leads.columns.submitted'), className: '' },
     { id: 'status', label: t('admin_leads.columns.status'), className: '' },
   ];
 
@@ -234,8 +237,10 @@ export function LeadsTable({
                     </span>
                   </td>
                   <td className="border-b border-border px-2 py-3 align-middle group-last:border-b-0"><UnitCell lead={lead} /></td>
-                  <td className="border-b border-border px-2 py-3 align-middle text-muted-foreground group-last:border-b-0"><SubmittedAt iso={lead.createdAt} /></td>
-                  <td className="border-b border-border px-2 py-3 align-middle group-last:border-b-0"><LeadStatusBadge status={lead.status} /></td>
+                  <td className="border-b border-border px-2 py-3 align-middle group-last:border-b-0">
+                    <LeadStatusBadge status={lead.status} />
+                    <span className="mt-1 block text-[length:var(--text-caption)] text-muted-foreground"><SubmittedAt iso={lead.createdAt} /></span>
+                  </td>
                   <td className="border-b border-border py-3 ps-2 pe-4 align-middle group-last:border-b-0">
                     <LeadRowActions lead={lead} pending={pending[lead.id]} onAction={onAction} onDetails={onDetails} variant="table" />
                   </td>
@@ -306,7 +311,6 @@ export function LeadsSkeleton() {
               <div className="h-3 w-3/5 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
             </div>
             <div className="h-4 w-16 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
-            <div className="h-4 w-20 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
             <div className="h-7 w-20 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
             <div className="h-11 w-28 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
           </div>
