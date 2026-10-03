@@ -8,6 +8,7 @@ import { Alert, I18nManager, Linking, Pressable, ScrollView, StyleSheet, Text, V
 
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CANCEL_ORDER_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
@@ -127,7 +128,7 @@ export default function OrderDetailScreen() {
   const styles = useStyles();
   const isAr = i18n.language === "ar";
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => ordersApi.getOrder(orderId),
     enabled: !!orderId,
@@ -196,6 +197,8 @@ export default function OrderDetailScreen() {
     );
   }
 
+  if (isError && !order)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !order)
     return <OrderDetailSkeleton insets={insets} />;
 

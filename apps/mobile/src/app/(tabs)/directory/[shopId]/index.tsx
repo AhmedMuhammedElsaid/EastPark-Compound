@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18nManager, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -153,7 +154,7 @@ export default function ShopDetailScreen() {
   const [saved, setSaved] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"menu" | "reviews">("menu");
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["shop", shopId],
     queryFn: () => shopsApi.getShop(shopId),
     enabled: !!shopId,
@@ -174,6 +175,8 @@ export default function ShopDetailScreen() {
     });
   }
 
+  if (isError && !shop)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !shop)
     return <ShopDetailSkeleton />;
 

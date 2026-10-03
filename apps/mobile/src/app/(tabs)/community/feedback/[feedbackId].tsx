@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
@@ -89,7 +90,7 @@ export default function FeedbackDetailScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["feedback", feedbackId],
     queryFn: () => communityApi.getFeedbackItem(feedbackId),
     enabled: !!feedbackId,
@@ -97,6 +98,8 @@ export default function FeedbackDetailScreen() {
 
   const fb = data?.data.data;
 
+  if (isError && !fb)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !fb)
     return <FeedbackDetailSkeleton insets={insets} />;
 

@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { COMMENT_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -110,7 +111,7 @@ export default function AnnouncementDetailScreen() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["announcement", announcementId],
     queryFn: () => communityApi.getAnnouncement(announcementId),
     enabled: !!announcementId,
@@ -121,6 +122,8 @@ export default function AnnouncementDetailScreen() {
   const title = ann ? (isAr ? ann.titleAr : ann.title) : "";
   const body = ann ? (isAr ? ann.bodyAr : ann.body) : "";
 
+  if (isError && !ann)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !ann)
     return <AnnouncementSkeleton insets={insets} />;
 

@@ -8,6 +8,7 @@ import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Text, View } fro
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickErrorKey, VOTE_ERROR_KEYS } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -97,7 +98,7 @@ export default function PollDetailScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["poll", pollId],
     queryFn: () => governanceApi.getPoll(pollId),
     enabled: !!pollId,
@@ -133,6 +134,8 @@ export default function PollDetailScreen() {
     });
   }
 
+  if (isError && !poll)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !poll)
     return <PollSkeleton insets={insets} />;
 

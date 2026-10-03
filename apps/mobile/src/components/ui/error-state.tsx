@@ -1,7 +1,9 @@
-import { WarningCircle } from "phosphor-react-native";
+import { router } from "expo-router";
+import { ArrowLeft, WarningCircle } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, View } from "react-native";
+import { I18nManager, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -37,10 +39,50 @@ export function ErrorState({ onRetry, message }: ErrorStateProps) {
   );
 }
 
+/**
+ * Full-screen error for detail screens whose query failed before any data
+ * arrived (404, offline after retries). Keeps a back button because the
+ * screen's own header is not rendered without data.
+ */
+export function DetailErrorScreen({ onRetry, message }: ErrorStateProps) {
+  const { t } = useTranslation();
+  const colors = useAppColors();
+  const styles = useStyles(colors);
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.screen, { paddingTop: insets.top + SPACING.sm, paddingBottom: insets.bottom }]}>
+      <Pressable
+        style={styles.backButton}
+        onPress={() => router.back()}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.back")}
+      >
+        <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
+      </Pressable>
+      <ErrorState onRetry={onRetry} message={message} />
+    </View>
+  );
+}
+
 function useStyles(colors: ReturnType<typeof useAppColors>) {
   return React.useMemo(
     () =>
       StyleSheet.create({
+        screen: {
+          flex: 1,
+          backgroundColor: colors.bg,
+        },
+        backButton: {
+          width: 44,
+          height: 44,
+          marginHorizontal: SPACING.base,
+          borderRadius: RADIUS.full,
+          backgroundColor: colors.elevated,
+          justifyContent: "center",
+          alignItems: "center",
+        },
         container: {
           flex: 1,
           alignItems: "center",

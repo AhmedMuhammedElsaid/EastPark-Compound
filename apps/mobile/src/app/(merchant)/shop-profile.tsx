@@ -21,6 +21,7 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
@@ -156,7 +157,7 @@ export default function MerchantShopProfileScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data: shopData, isLoading } = useQuery({
+  const { data: shopData, isError, isLoading, refetch } = useQuery({
     queryKey: ["merchant-shop"],
     queryFn: () => merchantApi.getMyShop(),
   });
@@ -235,6 +236,8 @@ export default function MerchantShopProfileScreen() {
     saveProfile(payload);
   };
 
+  if (isError && !shop)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !shop) {
     return <ShopProfileSkeleton insets={insets} styles={styles} colors={colors} />;
   }

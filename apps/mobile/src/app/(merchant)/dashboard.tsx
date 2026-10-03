@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
@@ -73,7 +74,7 @@ export default function MerchantDashboard() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data: shopData, isLoading } = useQuery({
+  const { data: shopData, isError, isLoading, refetch } = useQuery({
     queryKey: ["merchant-shop"],
     queryFn: () => merchantApi.getMyShop(),
   });
@@ -94,6 +95,8 @@ export default function MerchantDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchant-shop"] }),
   });
 
+  if (isError && !shop)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !shop)
     return <DashboardSkeleton insets={insets} />;
 

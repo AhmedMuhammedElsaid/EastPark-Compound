@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, I18nManager, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickErrorKey, VOTE_ERROR_KEYS } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -107,7 +108,7 @@ export default function ElectionScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["election", id],
     queryFn: () => governanceApi.getElection(id),
     enabled: !!id,
@@ -142,6 +143,8 @@ export default function ElectionScreen() {
     });
   }
 
+  if (isError && !election)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !election)
     return <ElectionSkeleton insets={insets} />;
 

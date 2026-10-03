@@ -8,6 +8,7 @@ import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "reac
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DetailErrorScreen } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorStatus } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
@@ -107,7 +108,7 @@ export default function MerchantOrderDetailScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, isLoading } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["merchant-order", orderId],
     queryFn: () => merchantApi.getOrder(orderId),
     enabled: !!orderId,
@@ -150,6 +151,8 @@ export default function MerchantOrderDetailScreen() {
     onError: handleStatusError,
   });
 
+  if (isError && !order)
+    return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !order)
     return <OrderDetailSkeleton insets={insets} />;
 
