@@ -44,8 +44,13 @@ export function ComingSoonProvider({ children }: { children: React.ReactNode }) 
   const [closing, setClosing] = React.useState(false);
   const [feature, setFeature] = React.useState<ComingSoonFeature | undefined>(undefined);
   const triggerRef = React.useRef<HTMLElement | null>(null);
+  const closeTimerRef = React.useRef<number | undefined>(undefined);
+
+  React.useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
 
   const open = React.useCallback((trigger?: HTMLElement | null, opts?: { feature?: ComingSoonFeature }) => {
+    // A quick re-tap during the exit animation must not be closed by the pending exit timer.
+    window.clearTimeout(closeTimerRef.current);
     triggerRef.current = trigger ?? (document.activeElement as HTMLElement | null);
     setFeature(opts?.feature);
     setClosing(false);
@@ -54,7 +59,8 @@ export function ComingSoonProvider({ children }: { children: React.ReactNode }) 
 
   const close = React.useCallback(() => {
     setClosing(true);
-    window.setTimeout(() => {
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
       setVisible(false);
       setClosing(false);
       triggerRef.current?.focus();
