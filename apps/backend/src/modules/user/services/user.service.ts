@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    ConflictException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
@@ -29,9 +33,26 @@ export class UserService {
         return this.db.user.update({ where: { id: userId }, data });
     }
 
+    /**
+     * Deletes a user and their personal data (self-delete and admin delete).
+     *
+     * A merchant that still owns a shop is refused with 409: the shop's orders are
+     * other residents' order history and financial records, so they must never be
+     * wiped as a side effect of closing an account. The database FKs (orders -> shops,
+     * shops -> users) are ON DELETE RESTRICT for the same reason. The shop has to be
+     * removed or reassigned first through the shops module, which itself refuses
+     * while orders or products still reference it.
+     */
     async deleteUser(userId: string): Promise<ApiGenericResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
+
+        const ownedShops = await this.db.shop.count({
+            where: { merchantId: userId },
+        });
+        if (ownedShops > 0) {
+            throw new ConflictException('user.error.merchantOwnsShop');
+        }
 
         // Cascade delete in an interactive transaction to allow sequential logic
         await this.db.$transaction(async tx => {
@@ -51,29 +72,10 @@ export class UserService {
             await tx.orderItem.deleteMany({ where: { order: { residentId: userId } } });
             await tx.order.deleteMany({ where: { residentId: userId } });
 
-            // 3. Merchant's shops and all shop-related data
-            const ownedShops = await tx.shop.findMany({
-                where: { merchantId: userId },
-                select: { id: true },
-            });
-            if (ownedShops.length > 0) {
-                const shopIds = ownedShops.map(s => s.id);
-                // Delete orders in merchant's shops (items first, then orders)
-                await tx.orderItem.deleteMany({ where: { order: { shopId: { in: shopIds } } } });
-                await tx.order.deleteMany({ where: { shopId: { in: shopIds } } });
-                // Delete reviews and saved-shops pointing to these shops
-                await tx.review.deleteMany({ where: { shopId: { in: shopIds } } });
-                await tx.savedShop.deleteMany({ where: { shopId: { in: shopIds } } });
-                // Delete products and photos (shopPhoto has onDelete: Cascade but being explicit)
-                await tx.product.deleteMany({ where: { shopId: { in: shopIds } } });
-                await tx.shopPhoto.deleteMany({ where: { shopId: { in: shopIds } } });
-                await tx.shop.deleteMany({ where: { merchantId: userId } });
-            }
-
-            // 4. Invitations sent by this user
+            // 3. Invitations sent by this user
             await tx.invitation.deleteMany({ where: { invitedById: userId } });
 
-            // 5. Finally delete the user
+            // 4. Finally delete the user
             await tx.user.delete({ where: { id: userId } });
         });
 
