@@ -128,17 +128,7 @@ export default function NotificationsScreen() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
-  // Flip the item locally instead of refetching every loaded page.
-  const { mutate: markRead } = useMutation({
-    mutationFn: (id: string) => notificationsApi.markRead(id),
-    onMutate: (id: string) => {
-      queryClient.setQueryData<InfiniteData<AxiosResponse<{ data: NotificationPage }>>>(
-        ["notifications"],
-        old => old && markNotificationRead(old, id),
-      );
-    },
-    onError: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
+  const markRead = useMarkNotificationRead();
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -277,6 +267,22 @@ function NotificationsSkeleton({ styles }: { styles: any }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Flips one item locally instead of refetching every loaded page. */
+function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  const { mutate } = useMutation({
+    mutationFn: (id: string) => notificationsApi.markRead(id),
+    onMutate: (id: string) => {
+      queryClient.setQueryData<InfiniteData<AxiosResponse<{ data: NotificationPage }>>>(
+        ["notifications"],
+        old => old && markNotificationRead(old, id),
+      );
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+  return mutate;
+}
 
 /** Marks one notification read in every loaded page; each page carries the server-wide unread count. */
 function markNotificationRead(
