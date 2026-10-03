@@ -78,8 +78,11 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
 - **Notifications:** mark-as-read rolls back only the affected item (functional update); filter tabs
   switch only after their page loads (pending tab shows `aria-busy` + mark), and stale list responses
   are dropped.
-- Owner note: marketplace copy (`landing.pillar_market_*`, `home.teaser.track_caption`) still
-  mentions card payment while card payments are postponed.
+- Card payments are off for the first release: `landing.pillar_market_*` and
+  `home.teaser.track_caption` promise cash on delivery only. Reinstate card wording only when
+  `cardPaymentsEnabled` is turned on. Landing CTAs point to `/register-unit` and `/login`, never `/register`.
+- Retired (no longer rendered, kept in the JSON): `landing.hero_lede`, `landing.hero_cta_secondary`,
+  `landing.pillars_title`, `landing.contact_title`.
 
 ## Admin Resident Requests Revamp — 2026-10-03
 
