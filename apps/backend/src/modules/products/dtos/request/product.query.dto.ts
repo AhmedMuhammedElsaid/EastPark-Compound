@@ -9,6 +9,8 @@ import {
     Min,
 } from 'class-validator';
 
+import { ToBoolean } from 'src/common/helper/transforms/to-boolean.transform';
+
 export class ProductQueryDto {
     @ApiPropertyOptional()
     @IsString()
@@ -29,7 +31,7 @@ export class ProductQueryDto {
     search?: string;
 
     @ApiPropertyOptional({ description: 'Filter by availability' })
-    @Type(() => Boolean)
+    @ToBoolean()
     @IsBoolean()
     @IsOptional()
     isAvailable?: boolean;

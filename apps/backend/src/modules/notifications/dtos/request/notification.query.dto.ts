@@ -9,6 +9,8 @@ import {
     Min,
 } from 'class-validator';
 
+import { ToBoolean } from 'src/common/helper/transforms/to-boolean.transform';
+
 export class NotificationQueryDto {
     @ApiPropertyOptional()
     @IsString()
@@ -24,7 +26,7 @@ export class NotificationQueryDto {
     limit?: number = 20;
 
     @ApiPropertyOptional({ description: 'Filter by read status' })
-    @Type(() => Boolean)
+    @ToBoolean()
     @IsBoolean()
     @IsOptional()
     isRead?: boolean;
