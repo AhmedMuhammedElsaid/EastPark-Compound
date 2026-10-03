@@ -65,6 +65,7 @@ export default function NewAnnouncementScreen() {
     mutationFn: (data: FormValues) => communityApi.createAnnouncement(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["home-announcements"] });
       showMessage({ message: t("admin.announcement_created"), type: "success", backgroundColor: SEMANTIC.success });
       router.back();
     },
