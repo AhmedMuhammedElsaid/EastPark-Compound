@@ -14,9 +14,7 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { getSecureItem } from "@/lib/secure-storage";
-import { authApi } from "@/services/api/auth";
-import { SECURE_KEY_REFRESH } from "@/services/api/client";
+import { revokeRefreshToken } from "@/services/api/auth";
 import { usersApi } from "@/services/api/users";
 import { teardownSession } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
@@ -209,11 +207,8 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
             await teardownSession({ keepRefreshToken: true });
             return;
           }
-          const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
-          if (refreshToken) {
-            try { await authApi.logout(refreshToken); }
-            catch {}
-          }
+          // Revokes server-side even when the access token has expired.
+          await revokeRefreshToken();
           await teardownSession();
         },
       },
