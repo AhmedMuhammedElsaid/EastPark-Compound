@@ -433,10 +433,43 @@ describe('AuthService', () => {
             await expect(
                 service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
             ).rejects.toThrow(/too many/i);
-            expect(cache.del).toHaveBeenCalledWith(
-                'otp:jane@eastpark.app',
-                'otp-attempts:jane@eastpark.app'
+            expect(cache.del).toHaveBeenCalledWith('otp:jane@eastpark.app');
+        });
+
+        it('rejects without comparing once the attempt budget is spent', async () => {
+            cache.get.mockResolvedValue('$storedHash');
+            encryption.match.mockResolvedValue(true);
+            cache.incr.mockResolvedValueOnce(6);
+
+            await expect(
+                service.verifyOtp({ email: 'jane@eastpark.app', otp: '123456' })
+            ).rejects.toThrow(/too many/i);
+            expect(encryption.match).not.toHaveBeenCalled();
+            expect(db.user.update).not.toHaveBeenCalled();
+            expect(cache.del).toHaveBeenCalledWith('otp:jane@eastpark.app');
+        });
+
+        it('compares at most 5 of many concurrent guesses', async () => {
+            cache.get.mockResolvedValue('$storedHash');
+            // Atomic counter, as Redis INCR provides.
+            let counter = 0;
+            cache.incr.mockImplementation(() => Promise.resolve(++counter));
+            encryption.match.mockImplementation(
+                () =>
+                    new Promise(resolve => setTimeout(() => resolve(false), 5))
             );
+
+            const results = await Promise.allSettled(
+                Array.from({ length: 20 }, (_, i) =>
+                    service.verifyOtp({
+                        email: 'jane@eastpark.app',
+                        otp: String(100000 + i),
+                    })
+                )
+            );
+
+            expect(results.every(r => r.status === 'rejected')).toBe(true);
+            expect(encryption.match).toHaveBeenCalledTimes(5);
         });
     });
 

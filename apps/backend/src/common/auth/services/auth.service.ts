@@ -104,13 +104,25 @@ export class AuthService {
         const stored = await this.cache.get<string>(otpKey);
         if (!stored) throw new BadRequestException('OTP expired or not found');
 
+        // Count the attempt BEFORE comparing: INCR is atomic, so parallel
+        // guesses each get a distinct number and at most OTP_MAX_ATTEMPTS of
+        // them ever reach the comparison.
+        const attempts = await this.cache.incr(attemptsKey);
+        if (attempts === 1) await this.cache.expire(attemptsKey, OTP_TTL);
+        if (attempts > OTP_MAX_ATTEMPTS) {
+            // Burn only the code. The counter is left to expire so requests
+            // already in flight cannot restart it at 1; sendOtp resets it.
+            await this.cache.del(otpKey);
+            throw new BadRequestException(
+                'Too many invalid attempts — request a new OTP'
+            );
+        }
+
         const valid = await this.encryption.match(stored, dto.otp);
         if (!valid) {
-            const attempts = await this.cache.incr(attemptsKey);
-            if (attempts === 1) await this.cache.expire(attemptsKey, OTP_TTL);
             if (attempts >= OTP_MAX_ATTEMPTS) {
-                // Burn the code: the user must request a new one.
-                await this.cache.del(otpKey, attemptsKey);
+                // Last allowed guess failed: burn the code.
+                await this.cache.del(otpKey);
                 throw new BadRequestException(
                     'Too many invalid attempts — request a new OTP'
                 );
@@ -428,6 +440,8 @@ export class AuthService {
     private async sendOtp(email: string): Promise<void> {
         const otp = String(randomInt(100000, 999999));
         const hash = await this.encryption.createHash(otp);
+        // A fresh code gets a fresh attempt budget.
+        await this.cache.del(this.otpAttemptsKey(email));
         await this.cache.set(this.otpKey(email), hash, OTP_TTL);
         await this.email.sendOtp(email, otp);
     }
