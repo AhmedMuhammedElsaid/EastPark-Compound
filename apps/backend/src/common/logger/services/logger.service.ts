@@ -73,6 +73,7 @@ export const createLoggerConfig = (configService: ConfigService): Params => {
                     'req.headers.authorization',
                     'req.headers.cookie',
                     'req.headers["x-eastpark-internal"]',
+                    'req.headers["x-eastpark-client-ip"]',
                     'req.body.password',
                     'req.body.confirmPassword',
                     'req.body.currentPassword',

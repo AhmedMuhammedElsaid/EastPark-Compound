@@ -25,8 +25,10 @@ export default registerAs('app', (): Record<string, unknown> => {
     }
 
     // Shared secret the Vercel BFF sends in `X-EastPark-Internal`. Only a
-    // request carrying it may tell us the real client IP via X-Forwarded-For.
-    // Unset → client-supplied IP headers are never trusted.
+    // request carrying it may tell us the browser IP via X-EastPark-Client-IP
+    // (or, as a fallback, the left-most X-Forwarded-For). Unset or mismatched →
+    // BFF traffic is keyed on Vercel's egress IP via CF-Connecting-IP, so web
+    // users share buckets: set the identical value on Vercel and Render.
     const bffInternalSecret = process.env.BFF_INTERNAL_SECRET?.trim() || '';
     if (bffInternalSecret && bffInternalSecret.length < 32) {
         throw new Error('BFF_INTERNAL_SECRET must be at least 32 characters');

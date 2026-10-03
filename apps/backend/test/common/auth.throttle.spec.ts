@@ -145,6 +145,44 @@ describe('Auth route throttling (HTTP)', () => {
         expect((await viaBff('203.0.113.2')).statusCode).toBe(200);
     });
 
+    it('keys direct traffic on CF-Connecting-IP behind a rotating edge', async () => {
+        // Render behind Cloudflare: XFF ends in a different edge IP each time.
+        const statuses: number[] = [];
+        for (let i = 0; i < 6; i++) {
+            const res = await post('/v1/auth/login', {
+                remoteAddress: '10.0.0.1',
+                headers: {
+                    'cf-connecting-ip': '203.0.113.30',
+                    'x-forwarded-for': `203.0.113.30, 172.70.1.${i}`,
+                },
+            });
+            statuses.push(res.statusCode);
+        }
+        expect(statuses[5]).toBe(429);
+        // Another visitor is unaffected.
+        const other = await post('/v1/auth/login', {
+            remoteAddress: '10.0.0.1',
+            headers: { 'cf-connecting-ip': '203.0.113.31' },
+        });
+        expect(other.statusCode).toBe(200);
+    });
+
+    it('keys BFF requests on X-EastPark-Client-IP, not the CF egress IP', async () => {
+        const viaBff = (clientIp: string) =>
+            post('/v1/auth/login', {
+                remoteAddress: '10.0.0.1',
+                headers: {
+                    'x-eastpark-internal': SECRET,
+                    'x-eastpark-client-ip': clientIp,
+                    'cf-connecting-ip': '76.76.21.1',
+                },
+            });
+        for (let i = 0; i < 5; i++)
+            expect((await viaBff('203.0.113.40')).statusCode).toBe(200);
+        expect((await viaBff('203.0.113.40')).statusCode).toBe(429);
+        expect((await viaBff('203.0.113.41')).statusCode).toBe(200);
+    });
+
     it('gives refresh a roomier per-route bucket than login', async () => {
         const statuses: number[] = [];
         for (let i = 0; i < 20; i++)

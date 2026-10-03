@@ -17,10 +17,14 @@ import { AppModule } from './app/app.module';
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        // Trust exactly one proxy hop (Render's edge), so req.ip is the TCP
-        // peer Render saw and a direct caller cannot forge it with
-        // X-Forwarded-For. The Vercel BFF's browser IP is only honoured with
-        // the BFF_INTERNAL_SECRET header (see ClientIpThrottlerGuard).
+        // Trust exactly one proxy hop (Render's proxy) so req.protocol/hostname
+        // honour X-Forwarded-Proto/Host and req.ip is the right-most XFF hop.
+        // Behind Cloudflare + Render that hop is the Cloudflare edge (varies
+        // per request, shared by unrelated users), so req.ip is NOT a client
+        // identity: rate limiting resolves the client from CF-Connecting-IP or
+        // the secret-gated BFF header instead (see ClientIpThrottlerGuard).
+        // `true` would make req.ip the spoofable left-most XFF entry; `false`
+        // would collapse it to Render's internal 10.x peer.
         new FastifyAdapter({ logger: false, trustProxy: 1 }),
         { bufferLogs: true }
     );
