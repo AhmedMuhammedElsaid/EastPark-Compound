@@ -4,7 +4,8 @@ const reviewSchema = z.object({
   id: z.string(),
   rating: z.number().int().min(1).max(5),
   comment: z.string().nullable().optional().transform((value) => value ?? null),
-  user: z.object({ id: z.string(), name: z.string() }),
+  // `id` is optional so a backend privacy pass that hides reviewer ids cannot break parsing.
+  user: z.object({ id: z.string().nullish(), name: z.string() }),
   createdAt: z.string(),
 });
 

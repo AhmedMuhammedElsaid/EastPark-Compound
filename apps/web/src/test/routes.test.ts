@@ -95,3 +95,28 @@ describe('POST /api/auth/login', () => {
     expect(new Headers(init?.headers).get('x-forwarded-for')).toBe('203.0.113.50');
   });
 });
+
+describe('GET /api/announcements/[id]', () => {
+  it('serves announcements whose comments omit author ids (guest view)', async () => {
+    backend = () =>
+      json(200, {
+        data: {
+          id: 'a1',
+          title: 'Notice',
+          titleAr: 'تنبيه',
+          body: 'Body',
+          bodyAr: 'نص',
+          category: 'GENERAL',
+          pdfUrl: null,
+          publishedAt: '2026-10-01T00:00:00.000Z',
+          createdAt: '2026-10-01T00:00:00.000Z',
+          comments: [{ id: 'c1', body: 'Hello', createdAt: '2026-10-02T00:00:00.000Z', user: { name: 'Ahmed' } }],
+        },
+      });
+    const { GET } = await import('@/app/api/announcements/[id]/route');
+    const response = await GET(new Request('https://web.test/api/announcements/a1'), { params: Promise.resolve({ id: 'a1' }) });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { comments: Array<{ user: { name: string } }> } };
+    expect(body.data.comments[0]!.user.name).toBe('Ahmed');
+  });
+});

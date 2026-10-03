@@ -22,12 +22,14 @@ const announcementSchema = z.object({
   createdAt: z.string(),
 });
 
+// The backend exposes comment author ids only to the comment owner and admins; guests and other
+// residents receive `user.name` alone. The UI renders only the name.
 const commentSchema = z.object({
   id: z.string(),
   body: z.string(),
-  userId: z.string(),
+  userId: z.string().nullish(),
   user: z.object({
-    id: z.string(),
+    id: z.string().nullish(),
     name: z.string(),
   }),
   createdAt: z.string(),
