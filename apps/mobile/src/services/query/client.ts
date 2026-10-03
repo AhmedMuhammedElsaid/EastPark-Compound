@@ -127,6 +127,20 @@ export function redactPersonalFields(value: unknown): unknown {
   return redact(value, new WeakSet());
 }
 
+/**
+ * Governance queries are persisted with the user's vote redacted to null, so
+ * a restored copy always reads "not voted". Mark them stale right after the
+ * restore so a signed-in voter never sees an enabled vote button for a poll
+ * or election they already voted in (offline, the cached copy still shows).
+ */
+const REDACTED_QUERY_ROOTS = ["polls", "poll", "elections", "election"] as const;
+
+export function invalidateRedactedQueries(): Promise<void> {
+  return Promise.all(
+    REDACTED_QUERY_ROOTS.map(root => queryClient.invalidateQueries({ queryKey: [root] })),
+  ).then(() => undefined);
+}
+
 export function serializePersistedClient(client: unknown): string {
   return JSON.stringify(redactPersonalFields(client));
 }

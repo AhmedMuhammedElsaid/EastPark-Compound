@@ -25,7 +25,7 @@ import { ensureLayoutDirection } from "@/lib/i18n/layout-direction";
 import { injectStore, setSessionExpiredHandler, warmUpServer } from "@/services/api/client";
 import { teardownSession } from "@/services/auth/session";
 import { getNotificationHref } from "@/services/notifications/routing";
-import { queryClient, queryPersistOptions } from "@/services/query/client";
+import { invalidateRedactedQueries, queryClient, queryPersistOptions } from "@/services/query/client";
 import { persistor, store, useAppSelector } from "@/store";
 // Global CSS must be imported before other app modules
 import "../global.css";
@@ -65,6 +65,7 @@ export default function RootLayout() {
         <PersistQueryClientProvider
           client={queryClient}
           persistOptions={queryPersistOptions}
+          onSuccess={invalidateRedactedQueries}
         >
           <Providers>
             <Stack>
