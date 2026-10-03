@@ -180,7 +180,7 @@ function AppShellContent({ children }: AppShellProps) {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-sm px-1 text-[length:var(--text-body)] font-semibold transition-transform active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100 ${
+              className={`flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-sm px-1 text-[length:var(--text-caption)] font-semibold min-[400px]:text-[length:var(--text-label)] transition-transform active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-gold-500 motion-reduce:transition-none motion-reduce:active:scale-100 ${
                 active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >

@@ -53,7 +53,7 @@ export function HomeHero({ greeting }: { greeting: string | null }) {
 
         <ol
           aria-label={t('home.teaser.phases_label')}
-          className="mt-7 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mt-7 grid gap-3 sm:grid-cols-3"
         >
           {PHASES.map(({ key, status }, index) => {
             const Icon = status === 'live' ? Check : status === 'preparing' ? CircleDot : Circle;
@@ -61,7 +61,7 @@ export function HomeHero({ greeting }: { greeting: string | null }) {
             return (
               <li
                 key={key}
-                className={`flex min-w-[15rem] flex-1 items-start gap-3 rounded-md border p-3 ${
+                className={`flex min-w-0 items-start gap-3 rounded-md border p-3 ${
                   active ? 'border-gold-500 bg-gold-500/10' : 'border-current/20 bg-current/5'
                 } home-hero-lede`}
               >

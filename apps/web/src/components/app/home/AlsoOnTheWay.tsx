@@ -37,7 +37,7 @@ export function AlsoOnTheWay({ role }: { role: string | undefined }) {
         <h2 id="also-title" className="text-[length:var(--text-h2)] font-bold text-foreground">
           {t('home.teaser.more_title')}
         </h2>
-        <ul className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-5 lg:gap-4">
+        <ul className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] lg:gap-4">
           {tiles.map(({ href, icon: Icon, label, promise, live }) => (
             <li key={href} className="min-w-0">
               <GatedLink

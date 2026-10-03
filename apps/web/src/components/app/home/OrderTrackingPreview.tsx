@@ -53,7 +53,7 @@ export function OrderTrackingPreview() {
                   <Check className="size-3.5" />
                 </span>
                 <span
-                  className={`mt-2 px-0.5 text-[length:var(--text-caption)] leading-4 ${
+                  className={`mt-2 hidden px-0.5 text-[length:var(--text-caption)] leading-4 sm:block ${
                     current ? 'font-bold text-foreground' : 'text-muted-foreground'
                   }`}
                 >
@@ -63,6 +63,9 @@ export function OrderTrackingPreview() {
             );
           })}
         </ol>
+        <p aria-hidden="true" className="mt-3 text-center text-[length:var(--text-label)] font-bold text-foreground sm:hidden">
+          {t(`orders.${STEPS[active]}`)}
+        </p>
         <p className="mt-5 text-[length:var(--text-body)] text-muted-foreground">{t('home.teaser.track_caption')}</p>
       </GatedLink>
     </Reveal>
