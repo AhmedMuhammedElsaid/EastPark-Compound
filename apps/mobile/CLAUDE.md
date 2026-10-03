@@ -71,6 +71,31 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 - **FE-6 ✅ FIXED:** removed dead obytes stubs (`app/login.tsx`, `app/onboarding.tsx`, `app/[...messing].tsx`); added `app/+not-found.tsx` (token/i18n-compliant).
 - **FE-5:** whitespace-only working-tree drift (`.env.example`, `eslint.config.mjs`, `use-biometric.ts`) still uncommitted — harmless CRLF churn.
 
+### Mobile review pass — 2026-10-03 (after web/backend went live; new EAS build pending)
+
+- **Offline query cache never stores Axios metadata.** Query functions return whole `AxiosResponse`
+  objects; `serializePersistedClient` now keeps only `{ data, status }` per response (the request
+  `config` carried `Authorization: Bearer <accessToken>` and the native XHR) and drops cycles. The
+  cache buster moved to `-public-3`, so caches written by older builds are discarded.
+- Restored `polls`/`poll`/`elections`/`election` queries (vote fields redacted to null) are
+  invalidated right after restore (`invalidateRedactedQueries`, `PersistQueryClientProvider onSuccess`).
+- **Logout revokes server-side even after the 15-min access token expired:** `revokeRefreshToken()`
+  (`src/services/api/auth.ts`) calls `/auth/logout`; on 401 it rotates once (raw refresh, no
+  session-expiry side effects) and revokes the NEW refresh token. Biometric logout still keeps the
+  refresh token locally and skips revocation by design.
+- Cold start: persisted `isAuthenticated` with no SecureStore tokens now dispatches `logout()`.
+- **Error states:** detail screens render `DetailErrorScreen` (back button + retry) when the query
+  failed before any data; list screens render `ErrorState` instead of the empty state. Pattern:
+  `if (isError && !data) return <DetailErrorScreen onRetry={() => refetch()} />` before the
+  skeleton guard.
+- **RTL:** directional icons (`ArrowLeft` back buttons, `CaretRight` row chevrons) pass
+  `mirrored={I18nManager.isRTL}` — Phosphor does not mirror on its own.
+- Remote images use `expo-image` (`contentFit`, `recyclingKey` in FlashList rows), not RN `Image`.
+- Shop detail reads the resident's saved shop ids (`["saved-shop-ids"]`, `GET /users/me/saved-shops`)
+  for the heart; the heart is hidden for merchants/admins (saving is RESIDENT-only).
+- Merchant product mutations call `invalidateProductQueries()` (list, single-product editor,
+  public `shop-products`). Shop profile saves through `PATCH /merchant/shop`.
+
 ### Backend-contract review pass — 2026-10-02
 
 - **Reset-password and accept-invitation complete on the WEB app.** Backend emails link to
@@ -111,7 +136,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 | Forms | React Hook Form + Zod (NOT TanStack Form) |
 | Auth tokens | expo-secure-store (NOT AsyncStorage) |
 | Lists | @shopify/flash-list — NEVER FlatList, NEVER View+.map() for lists |
-| Styling | NativeWind v4 + Gluestack UI v2 |
+| Styling | uniwind + `StyleSheet.create` (theme preference in AsyncStorage) |
 | Icons | Phosphor Icons — NEVER emoji, NEVER unicode arrows/chevrons |
 | i18n | expo-localization + i18n-js — AR RTL primary, EN LTR secondary |
 | Animation | react-native-reanimated + lottie-react-native |
@@ -223,7 +248,7 @@ See `profile/index.tsx` as the reference. Never call `useStyles()` in sub-compon
 
 **Notification deep linking:** `_layout.tsx` routes push taps through `getNotificationHref(type, data)`; it accepts `{ type, <entity>Id }`, `referenceId`, or an id key alone.
 
-**Merchant order status:** Merchants control `PLACED → CONFIRMED → PREPARING → READY` only. `ON_THE_WAY` and `DELIVERED` are set by delivery/logistics or webhook — not merchant-accessible.
+**Merchant order status:** one step forward at a time through the full chain `PLACED → CONFIRMED → PREPARING → READY → ON_THE_WAY → DELIVERED`, plus `CANCELLED` from any non-terminal unpaid state (`src/services/orders/status-transitions.ts` mirrors the backend state machine).
 
 **Paymob flow (3 steps):**
 1. `ordersApi.placeOrder(...)` → returns `orderId`
@@ -313,8 +338,8 @@ pnpm build:production:ios   # EAS production iOS
 - All commits use `--no-verify` — WSL cannot run node/pnpm, pre-commit hook always fails
 - `EAS_PROJECT_ID` is already populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc`) — `eas init` is done
 - `apps/mobile/` is its own git repo — commits must be made from inside this directory
-- `deleteAccount` (`DELETE /user`): frontend calls it correctly but backend only exposes `DELETE /admin/user/:id` — self-delete endpoint (B-1) still needs to be added to backend
-- `PATCH /merchant/shop` does not exist in backend — shop profile editor uses `PATCH /shops/:id` (accepts MERCHANT role with ownership enforcement)
+- `deleteAccount` (`DELETE /user`): the backend self-delete endpoint exists and is used by Profile.
+- Shop profile editor uses `PATCH /merchant/shop` (shop resolved from the JWT); `PATCH /shops/:id` also accepts MERCHANT for its own shop.
 - **Jest mocking:** `@reduxjs/toolkit` and `react-redux` ship ESM-only builds that Jest cannot parse. `jest-setup.ts` globally mocks `@/store` (minimal dispatch/getState/persistor/useAppDispatch/useAppSelector), `@/store/slices/preferencesSlice`, and `react-native-restart` to prevent the ESM chain from ever loading. `jest.config.js` `transformIgnorePatterns` also includes `immer|@reduxjs/toolkit|redux-persist`. Do NOT remove these mocks.
 
 ## Maintenance Pass — What Was Fixed (April 2026)
