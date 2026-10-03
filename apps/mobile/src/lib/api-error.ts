@@ -23,3 +23,27 @@ export function pickErrorKey(
     return map.network ?? fallbackKey;
   return map[status] ?? fallbackKey;
 }
+
+/** Toast copy for mutations, keyed by HTTP status (see backend services). */
+export const VOTE_ERROR_KEYS = {
+  400: "governance.error_expired", // poll/election.error.expired
+  403: "errors.forbidden",
+  404: "errors.unknown",
+  409: "governance.error_already_voted", // *.error.alreadyVoted
+  429: "errors.rate_limited",
+  network: "errors.unreachable",
+} as const;
+
+export const CANCEL_ORDER_ERROR_KEYS = {
+  400: "orders.error_cannot_cancel_started", // cannotCancelAfterConfirmation
+  403: "errors.forbidden",
+  409: "orders.error_cannot_cancel_paid", // cannotCancelPaidOrder / statusChanged
+  429: "errors.rate_limited",
+  network: "errors.unreachable",
+} as const;
+
+export const COMMENT_ERROR_KEYS = {
+  403: "errors.forbidden",
+  429: "errors.rate_limited",
+  network: "errors.unreachable",
+} as const;

@@ -224,7 +224,10 @@
     "network": "No internet connection",
     "server": "Server error. Please try again later.",
     "session_expired": "Your session has expired. Please sign in again.",
-    "unknown": "Something went wrong"
+    "unknown": "Something went wrong",
+    "forbidden": "You don't have permission to do that.",
+    "rate_limited": "Too many attempts. Please wait a moment and try again.",
+    "unreachable": "We couldn't reach the server. Check your connection and try again."
   },
   "feedback": {
     "ACKNOWLEDGED": "Acknowledged",
@@ -266,7 +269,9 @@
     "vote_confirm": "Are you sure you want to vote for \"{{option}}\"? This cannot be undone.",
     "vote_submitted": "Your vote has been submitted!",
     "voted": "Voted",
-    "votes_label": "votes"
+    "votes_label": "votes",
+    "error_already_voted": "You have already voted here.",
+    "error_expired": "Voting has closed."
   },
   "home": {
     "community": "Community",
@@ -358,7 +363,9 @@
     "unpaid": "Unpaid",
     "guest_prompt": "Sign in to see your orders",
     "guest_subtitle": "Track deliveries and reorder from shops in the compound.",
-    "pay_now": "Pay now"
+    "pay_now": "Pay now",
+    "error_cannot_cancel_paid": "This order can't be cancelled because it was already paid or has changed.",
+    "error_cannot_cancel_started": "This order has already been confirmed and can no longer be cancelled."
   },
   "profile": {
     "account": "Account",

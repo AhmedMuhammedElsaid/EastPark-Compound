@@ -9,6 +9,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "r
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CANCEL_ORDER_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { getOrderItemTotal, ordersApi, TERMINAL_ORDER_STATUSES } from "@/services/api/orders";
@@ -167,6 +168,11 @@ export default function OrderDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
+    onError: (error) => {
+      showMessage({ message: t(pickErrorKey(error, CANCEL_ORDER_ERROR_KEYS, "common.error")), type: "danger" });
+      // The order may have moved on (confirmed/paid) since this screen loaded.
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    },
   });
 
   const { mutate: payNow, isPending: paying } = useMutation({
@@ -216,7 +222,7 @@ export default function OrderDetailScreen() {
             <Text style={styles.payBtnText}>{t("orders.pay_now")}</Text>
           </Pressable>
         )}
-        {order.status === "PLACED" && (
+        {order.status === "PLACED" && !order.isPaid && (
           <Pressable
             style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
             onPress={handleCancel}

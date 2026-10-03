@@ -9,6 +9,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "rea
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pickErrorKey, VOTE_ERROR_KEYS } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { governanceApi, votePercent } from "@/services/api/governance";
@@ -121,6 +122,10 @@ export default function ElectionScreen() {
       showMessage({ message: t("governance.vote_submitted"), type: "success" });
       queryClient.invalidateQueries({ queryKey: ["election", id] });
       queryClient.invalidateQueries({ queryKey: ["elections"] });
+    },
+    onError: (error) => {
+      showMessage({ message: t(pickErrorKey(error, VOTE_ERROR_KEYS, "common.error")), type: "danger" });
+      queryClient.invalidateQueries({ queryKey: ["election", id] });
     },
   });
 

@@ -9,6 +9,7 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { pickErrorKey, VOTE_ERROR_KEYS } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { governanceApi, votePercent } from "@/services/api/governance";
@@ -111,6 +112,11 @@ export default function PollDetailScreen() {
       showMessage({ message: t("governance.vote_submitted"), type: "success" });
       queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
       queryClient.invalidateQueries({ queryKey: ["polls"] });
+    },
+    onError: (error) => {
+      showMessage({ message: t(pickErrorKey(error, VOTE_ERROR_KEYS, "common.error")), type: "danger" });
+      // Already voted / expired: refetch so the screen shows the true state.
+      queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
     },
   });
 

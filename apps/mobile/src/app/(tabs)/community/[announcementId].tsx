@@ -6,8 +6,10 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { COMMENT_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { communityApi } from "@/services/api/community";
@@ -195,6 +197,9 @@ function AddCommentBar({ announcementId, bottomInset, styles }: { announcementId
       setText("");
       // Comments are embedded in the announcement detail response.
       queryClient.invalidateQueries({ queryKey: ["announcement", announcementId] });
+    },
+    onError: (error) => {
+      showMessage({ message: t(pickErrorKey(error, COMMENT_ERROR_KEYS, "common.error")), type: "danger" });
     },
   });
 
