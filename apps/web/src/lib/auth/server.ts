@@ -12,9 +12,11 @@ import { authTokensEnvelopeSchema, authUserEnvelopeSchema } from '@/lib/api/auth
  * The single BFF -> backend client.
  *
  * - `backendFetch` is the transport: base URL, `/v1` prefix, no-store, timeout, and the browser's
- *   client IP as `X-Forwarded-For` so backend rate limiting is per user, not per Vercel instance,
- *   plus `X-EastPark-Internal: $BFF_INTERNAL_SECRET` (when configured) so the backend trusts that
- *   forwarded IP only from this BFF. Every server-side backend call must go through it.
+ *   client IP as `X-EastPark-Client-IP` (plus `X-Forwarded-For` for older backends) so backend rate
+ *   limiting is per user, not per Vercel egress IP, plus `X-EastPark-Internal: $BFF_INTERNAL_SECRET`
+ *   (when configured) so the backend trusts that IP only from this BFF. Without a matching secret
+ *   the backend keys every web user on Vercel's egress IP. Every server-side backend call must go
+ *   through it.
  * - `sessionFetch` / `authenticatedBackendFetch` / `getProfile` add the session cookies.
  *   `mutateCookies` is explicit: route handlers pass `true` (refresh rotates and stores tokens);
  *   Server Components pass `false` and receive `refresh-required` instead, because Next forbids
@@ -28,13 +30,15 @@ const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
 const API_TIMEOUT_MS = 25_000;
 const INTERNAL_HEADER = 'X-EastPark-Internal';
+const CLIENT_IP_HEADER = 'X-EastPark-Client-IP';
+const FORWARDED_FOR_HEADER = 'X-Forwarded-For';
 const WAKE_TIMEOUT_MS = 8_000;
 const WAKE_INTERVAL_MS = 60_000;
 /** After a refresh settles, late arrivals with the same token reuse its result for this long. */
 export const REFRESH_SETTLED_GRACE_MS = 2_000;
 
 export type BackendContext = {
-  /** Browser IP forwarded as `X-Forwarded-For`; `null`/absent sends no header. */
+  /** Browser IP forwarded as `X-EastPark-Client-IP`/`X-Forwarded-For`; `null`/absent sends neither. */
   clientIp?: string | null;
 };
 
@@ -90,13 +94,16 @@ function apiBase(): string {
   return value.replace(/\/+$/, '');
 }
 
-/** First valid IP from `x-forwarded-for`, else `x-real-ip` (both set by Vercel's edge). */
+/**
+ * The visitor IP: `x-real-ip`, else the first `x-forwarded-for` entry. Vercel's edge sets both to
+ * the client's public IP and overwrites any client-supplied values; `x-real-ip` is a single value.
+ */
 export function clientIpFrom(source: Headers | null | undefined): string | null {
   if (!source) return null;
-  const forwarded = source.get('x-forwarded-for')?.split(',')[0]?.trim();
-  if (forwarded && isIP(forwarded)) return forwarded;
   const real = source.get('x-real-ip')?.trim();
-  return real && isIP(real) ? real : null;
+  if (real && isIP(real)) return real;
+  const forwarded = source.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwarded && isIP(forwarded) ? forwarded : null;
 }
 
 /**
@@ -118,9 +125,17 @@ export async function backendFetch(
   context: BackendContext = {},
 ): Promise<Response> {
   const requestHeaders = new Headers(init.headers);
-  if (context.clientIp) requestHeaders.set('X-Forwarded-For', context.clientIp);
-  // Proves to the backend that this hop is the BFF, so it trusts X-Forwarded-For for rate limiting.
-  // Set last so callers cannot override it. Server-only secret: never NEXT_PUBLIC_, never logged.
+  // Client-IP headers come only from `context`, never from caller-supplied init headers.
+  requestHeaders.delete(CLIENT_IP_HEADER);
+  requestHeaders.delete(FORWARDED_FOR_HEADER);
+  const clientIp = context.clientIp?.trim();
+  if (clientIp && isIP(clientIp)) {
+    requestHeaders.set(CLIENT_IP_HEADER, clientIp);
+    requestHeaders.set(FORWARDED_FOR_HEADER, clientIp);
+  }
+  // Proves to the backend that this hop is the BFF, so it trusts X-EastPark-Client-IP for rate
+  // limiting. Set last so callers cannot override it. Server-only secret: never NEXT_PUBLIC_, never
+  // logged.
   const internalSecret = process.env.BFF_INTERNAL_SECRET?.trim();
   if (internalSecret) requestHeaders.set(INTERNAL_HEADER, internalSecret);
   else requestHeaders.delete(INTERNAL_HEADER);

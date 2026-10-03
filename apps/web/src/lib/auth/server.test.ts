@@ -70,8 +70,10 @@ afterEach(() => {
 });
 
 describe('clientIpFrom', () => {
-  it('uses the first valid x-forwarded-for entry, then x-real-ip', async () => {
+  it('uses x-real-ip, then the first valid x-forwarded-for entry', async () => {
     const { clientIpFrom } = await loadClient();
+    expect(clientIpFrom(new Headers({ 'x-real-ip': '198.51.100.8', 'x-forwarded-for': '198.51.100.4' }))).toBe('198.51.100.8');
+    expect(clientIpFrom(new Headers({ 'x-real-ip': 'garbage', 'x-forwarded-for': '198.51.100.4' }))).toBe('198.51.100.4');
     expect(clientIpFrom(new Headers({ 'x-forwarded-for': '198.51.100.4, 10.0.0.1' }))).toBe('198.51.100.4');
     expect(clientIpFrom(new Headers({ 'x-forwarded-for': 'garbage', 'x-real-ip': '2001:db8::1' }))).toBe('2001:db8::1');
     expect(clientIpFrom(new Headers({ 'x-forwarded-for': '1.2.3.4:443' }))).toBeNull();
@@ -80,18 +82,30 @@ describe('clientIpFrom', () => {
 });
 
 describe('backendFetch', () => {
-  it('forwards the client IP as a single X-Forwarded-For value', async () => {
+  it('forwards the client IP as X-EastPark-Client-IP and a single X-Forwarded-For value', async () => {
     const { backendFetch } = await loadClient();
     routes = () => jsonResponse(200, { data: {} });
     await backendFetch('/auth/login', { method: 'POST' }, { clientIp: '203.0.113.7' });
     expect(calls[0]!.url).toBe('https://api.example.test/v1/auth/login');
+    expect(calls[0]!.headers.get('x-eastpark-client-ip')).toBe('203.0.113.7');
     expect(calls[0]!.headers.get('x-forwarded-for')).toBe('203.0.113.7');
   });
 
-  it('sends no X-Forwarded-For without a client IP', async () => {
+  it('sends no client-IP headers without a client IP, even if the caller set them', async () => {
     const { backendFetch } = await loadClient();
     routes = () => jsonResponse(200, { data: {} });
-    await backendFetch('/shops');
+    await backendFetch('/shops', {
+      headers: { 'X-EastPark-Client-IP': '6.6.6.6', 'X-Forwarded-For': '6.6.6.6' },
+    });
+    expect(calls[0]!.headers.has('x-eastpark-client-ip')).toBe(false);
+    expect(calls[0]!.headers.has('x-forwarded-for')).toBe(false);
+  });
+
+  it('never forwards a client IP that is not a valid address', async () => {
+    const { backendFetch } = await loadClient();
+    routes = () => jsonResponse(200, { data: {} });
+    await backendFetch('/shops', {}, { clientIp: '1.2.3.4, 5.6.7.8' });
+    expect(calls[0]!.headers.has('x-eastpark-client-ip')).toBe(false);
     expect(calls[0]!.headers.has('x-forwarded-for')).toBe(false);
   });
 });
@@ -107,6 +121,7 @@ describe('backendFetch internal secret', () => {
     routes = () => jsonResponse(200, { data: {} });
     await backendFetch('/shops', { headers: { 'X-EastPark-Internal': 'spoofed' } }, { clientIp: '203.0.113.7' });
     expect(calls[0]!.headers.get('x-eastpark-internal')).toBe('test-secret');
+    expect(calls[0]!.headers.get('x-eastpark-client-ip')).toBe('203.0.113.7');
     expect(calls[0]!.headers.get('x-forwarded-for')).toBe('203.0.113.7');
   });
 

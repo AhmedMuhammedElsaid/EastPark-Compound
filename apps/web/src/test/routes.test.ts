@@ -92,6 +92,7 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'invalid_credentials' });
     const [, init] = fetchMock.mock.calls[0]!;
+    expect(new Headers(init?.headers).get('x-eastpark-client-ip')).toBe('203.0.113.50');
     expect(new Headers(init?.headers).get('x-forwarded-for')).toBe('203.0.113.50');
   });
 });
