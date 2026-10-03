@@ -157,15 +157,43 @@ describe('sessionFetch in route-handler mode', () => {
     expect(cookieState.set).toHaveBeenCalledWith('eastpark_refresh', 'refresh-new', expect.objectContaining({ httpOnly: true }));
   });
 
-  it('reports a rejected refresh as signed out without deleting cookies (single-use rotation race)', async () => {
+  it('reports a revoked refresh as signed out without deleting cookies (single-use rotation race)', async () => {
     const { sessionFetch } = await loadClient();
     cookieState.values.set('eastpark_refresh', 'refresh-old');
-    routes = () => jsonResponse(401);
+    routes = () => jsonResponse(401, { statusCode: 401, message: 'Token revoked' });
     const result = await sessionFetch('/orders', {}, { mutateCookies: true });
     expect(result.status).toBe('unauthenticated');
     // Deleting here would wipe the newer pair a concurrent response already set in the browser.
     expect(cookieState.delete).not.toHaveBeenCalled();
     expect(cookieState.set).not.toHaveBeenCalled();
+  });
+
+  it('keeps cookies when the rejection body is unreadable (treated as a possible race)', async () => {
+    const { sessionFetch } = await loadClient();
+    cookieState.values.set('eastpark_refresh', 'refresh-old');
+    routes = () => jsonResponse(401);
+    await expect(sessionFetch('/orders', {}, { mutateCookies: true })).resolves.toEqual({ status: 'unauthenticated' });
+    expect(cookieState.delete).not.toHaveBeenCalled();
+  });
+
+  it.each(['Session expired', 'Unauthorized', 'Refresh token mismatch'])(
+    'clears provably dead cookies when the refresh is rejected with %s',
+    async (message) => {
+      const { sessionFetch } = await loadClient();
+      cookieState.values.set('eastpark_refresh', 'refresh-dead');
+      routes = () => jsonResponse(401, { statusCode: 401, message });
+      await expect(sessionFetch('/orders', {}, { mutateCookies: true })).resolves.toEqual({ status: 'unauthenticated' });
+      expect(cookieState.delete).toHaveBeenCalledWith('eastpark_access');
+      expect(cookieState.delete).toHaveBeenCalledWith('eastpark_refresh');
+    },
+  );
+
+  it('throws a distinct rate-limit error on a 429 refresh and keeps cookies', async () => {
+    const { sessionFetch, BackendRateLimitedError } = await loadClient();
+    cookieState.values.set('eastpark_refresh', 'refresh-old');
+    routes = () => jsonResponse(429, { statusCode: 429, message: 'Too Many Requests' });
+    await expect(sessionFetch('/orders', {}, { mutateCookies: true })).rejects.toBeInstanceOf(BackendRateLimitedError);
+    expect(cookieState.delete).not.toHaveBeenCalled();
   });
 
   it('uses a pair rotated earlier in the same request when the refresh is rejected', async () => {
@@ -268,6 +296,14 @@ describe('getProfile', () => {
       accessToken: 'access-1',
       user: { id: 'u1', role: 'RESIDENT' },
     });
+  });
+
+  it('reports rate_limited (not unavailable or signed out) when the refresh is throttled', async () => {
+    const { getProfile } = await loadClient();
+    cookieState.values.set('eastpark_refresh', 'refresh-1');
+    routes = () => jsonResponse(429, {});
+    await expect(getProfile({ mutateCookies: true })).resolves.toEqual({ status: 'rate_limited' });
+    expect(cookieState.delete).not.toHaveBeenCalled();
   });
 
   it('reports unavailable (not signed out) on backend failure', async () => {

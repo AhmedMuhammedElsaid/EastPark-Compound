@@ -11,7 +11,7 @@ type AdminAuthResult =
 
 export type AdminSession =
   | { status: 'authenticated'; token: string; user: AuthUser }
-  | { status: 'unauthenticated' | 'refresh-required' | 'forbidden' | 'unavailable' };
+  | { status: 'unauthenticated' | 'refresh-required' | 'forbidden' | 'unavailable' | 'rate_limited' };
 
 /**
  * `allowRefresh` must be `true` only in route handlers. Server Components (the admin layout) pass
@@ -29,6 +29,9 @@ export async function requireAdmin(): Promise<AdminAuthResult> {
   if (session.status === 'authenticated') return session;
   if (session.status === 'forbidden') {
     return { response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
+  }
+  if (session.status === 'rate_limited') {
+    return { response: NextResponse.json({ error: 'rate_limited' }, { status: 429 }) };
   }
   return {
     response: NextResponse.json(

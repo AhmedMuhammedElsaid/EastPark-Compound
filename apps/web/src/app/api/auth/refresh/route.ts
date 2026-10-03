@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { loginPath, safeReturnPath } from '@/lib/auth/return-path';
 import {
+  BackendRateLimitedError,
   authCookies,
   clearAuthCookies,
   clientIpFrom,
@@ -11,6 +12,13 @@ import {
 } from '@/lib/auth/server';
 
 export const maxDuration = 30;
+
+const NO_STORE = { 'Cache-Control': 'no-store' };
+
+/** Throttled by the backend: not an outage and not a logout. Cookies are kept for a retry. */
+function rateLimited() {
+  return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { ...NO_STORE, 'Retry-After': '60' } });
+}
 
 /**
  * Session bounce for Server Components, which cannot write cookies: rotate the refresh token, store
@@ -32,12 +40,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const outcome = await refreshTokens(refreshToken, { clientIp: clientIpFrom(request.headers) });
-    // Rejected (revoked, expired, or a lost single-use rotation race). Auth-only pages go to login
-    // without deleting cookies, so a newer pair set by a concurrent response survives; login is
-    // terminal, so this cannot loop. Optional pages return as a guest, which requires clearing the
+    // Rejected. A `revoked` token may be a lost single-use rotation race, so auth-only pages go to
+    // login without deleting cookies and a newer pair set by a concurrent response survives; login
+    // is terminal, so this cannot loop. A provably dead (`invalid`) token is cleared so the browser
+    // stops replaying it. Optional pages return as a guest, which always requires clearing the
     // stale refresh cookie or the page would ask for a refresh again.
     if (outcome.status === 'rejected') {
-      if (optional) await clearAuthCookies();
+      if (optional || outcome.reason === 'invalid') await clearAuthCookies();
       return signedOut();
     }
     await setAuthCookies(outcome.tokens);
@@ -48,10 +57,12 @@ export async function GET(request: NextRequest) {
       await clearAuthCookies();
       return signedOut();
     }
+    if (profile.status === 'rate_limited') return rateLimited();
   } catch (error) {
+    if (error instanceof BackendRateLimitedError) return rateLimited();
     console.error('Session refresh bounce failed', error instanceof Error ? error.name : 'unknown');
   }
 
   // Transport failure: do not bounce back (the page would ask for a refresh again).
-  return NextResponse.json({ error: 'network' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ error: 'network' }, { status: 503, headers: NO_STORE });
 }

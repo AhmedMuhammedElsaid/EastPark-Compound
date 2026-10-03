@@ -95,6 +95,7 @@ const ROUTE_SESSION: SessionOptions = { mutateCookies: true };
 async function residentAccessToken(): Promise<string> {
   const profile = await getProfile(ROUTE_SESSION);
   if (profile.status === 'unavailable') throw new GovernanceVoteError(502);
+  if (profile.status === 'rate_limited') throw new GovernanceVoteError(429);
   if (profile.status !== 'authenticated') throw new GovernanceVoteError(401);
   if (profile.user.role !== 'RESIDENT') throw new GovernanceVoteError(403);
   return profile.accessToken;

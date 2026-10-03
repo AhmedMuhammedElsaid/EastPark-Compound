@@ -49,7 +49,7 @@ export type SessionFetchResult =
 
 export type ProfileResult =
   | { status: 'authenticated'; user: AuthUser; accessToken: string }
-  | { status: 'unauthenticated' | 'refresh-required' | 'unavailable' };
+  | { status: 'unauthenticated' | 'refresh-required' | 'unavailable' | 'rate_limited' };
 
 export class BackendContractError extends Error {
   constructor(readonly endpoint: string) {
@@ -62,6 +62,14 @@ export class BackendUnavailableError extends Error {
   constructor(readonly status: number) {
     super(`Backend responded with ${status}`);
     this.name = 'BackendUnavailableError';
+  }
+}
+
+/** The backend throttled the request (HTTP 429). Not an outage and never a logout. */
+export class BackendRateLimitedError extends Error {
+  constructor() {
+    super('Backend rate limit reached');
+    this.name = 'BackendRateLimitedError';
   }
 }
 
@@ -168,7 +176,33 @@ export async function clearAuthCookies(): Promise<void> {
   store.delete(REFRESH_COOKIE);
 }
 
-export type RefreshOutcome = { status: 'refreshed'; tokens: AuthTokens } | { status: 'rejected' };
+/**
+ * Why the backend rejected a refresh token.
+ * - `revoked`: the token was already used. This is what the loser of a concurrent single-use
+ *   rotation sees, so the browser may already hold a newer pair: never clear cookies for it.
+ * - `invalid`: expired/bad signature, session version bumped, or malformed request. The token can
+ *   never succeed again, so the dead cookies should be cleared.
+ */
+export type RefreshRejection = 'revoked' | 'invalid';
+
+export type RefreshOutcome =
+  | { status: 'refreshed'; tokens: AuthTokens }
+  | { status: 'rejected'; reason: RefreshRejection };
+
+/**
+ * Classifies a rejection from the backend error envelope. Coupled to the backend's
+ * `UnauthorizedException('Token revoked')` in `AuthService.refresh`; an unreadable body is treated
+ * as `revoked` (possible race) so the safe default is never to clear cookies.
+ */
+async function rejectionReason(response: Response): Promise<RefreshRejection> {
+  const body = (await response.json().catch(() => null)) as { message?: unknown } | null;
+  const raw = body?.message;
+  const messages = Array.isArray(raw) ? raw : [raw];
+  if (!messages.some((message) => typeof message === 'string')) return 'revoked';
+  return messages.some((message) => typeof message === 'string' && /revoked/i.test(message))
+    ? 'revoked'
+    : 'invalid';
+}
 
 // The backend blacklists a refresh token on use. Parallel requests that arrive with the same expired
 // session must share one rotation, otherwise the second refresh is rejected and logs the user out.
@@ -180,8 +214,8 @@ const refreshesInFlight = new Map<string, RefreshEntry>();
 
 /**
  * Exchanges a refresh token for a new pair. Pure: never touches cookies. Rejection by the backend
- * resolves to `rejected`; transport failures and 5xx throw so callers do not log users out on an
- * outage.
+ * resolves to `rejected` with a reason; a 429 throws `BackendRateLimitedError`, and transport
+ * failures and 5xx throw `BackendUnavailableError`, so callers never log users out on an outage.
  */
 export function refreshTokens(refreshToken: string, context: BackendContext = {}): Promise<RefreshOutcome> {
   const now = Date.now();
@@ -221,8 +255,9 @@ async function requestRefresh(refreshToken: string, context: BackendContext): Pr
     context,
   );
   if (response.status === 400 || response.status === 401 || response.status === 403) {
-    return { status: 'rejected' };
+    return { status: 'rejected', reason: await rejectionReason(response) };
   }
+  if (response.status === 429) throw new BackendRateLimitedError();
   if (!response.ok) throw new BackendUnavailableError(response.status);
 
   const parsed = authTokensEnvelopeSchema.safeParse(await response.json().catch(() => null));
@@ -234,14 +269,17 @@ async function requestRefresh(refreshToken: string, context: BackendContext): Pr
 async function refreshAndStore(refreshToken: string, context: BackendContext): Promise<string | null> {
   const outcome = await refreshTokens(refreshToken, context);
   if (outcome.status === 'rejected') {
-    // Refresh tokens are single-use. A rejection is often a race: another request (or tab) already
-    // rotated this token and the browser holds the new pair. If this request has meanwhile stored a
-    // newer pair, use it; otherwise report "signed out" for this request only and never delete the
-    // cookies, because that Set-Cookie would wipe the newer pair the other response just set.
+    // Refresh tokens are single-use. A `revoked` rejection is often a race: another request (or
+    // tab) already rotated this token and the browser holds the new pair. If this request has
+    // meanwhile stored a newer pair, use it.
     const current = await authCookies();
     if (current.refreshToken && current.refreshToken !== refreshToken && current.accessToken) {
       return current.accessToken;
     }
+    // A provably dead token (expired, bad signature, session version bumped) is cleared so the
+    // browser stops replaying it into rate limits. A `revoked` one is kept: deleting it would also
+    // wipe a newer pair that a concurrent response may already have set.
+    if (outcome.reason === 'invalid') await clearAuthCookies();
     return null;
   }
   await setAuthCookies(outcome.tokens);
@@ -259,7 +297,8 @@ function withBearer(init: RequestInit, accessToken: string): RequestInit {
  *
  * - `mutateCookies: true` (route handlers): a missing/expired access token is refreshed once
  *   (single-flight per refresh token) and cookies are rotated. A rejected refresh is reported as
- *   unauthenticated without deleting cookies (it may be a lost rotation race).
+ *   unauthenticated; cookies are cleared only when the token is provably dead (not `revoked`,
+ *   which may be a lost rotation race). A backend 429 throws `BackendRateLimitedError`.
  * - `mutateCookies: false` (Server Components): cookies are never written. A session that needs a
  *   refresh yields `refresh-required` without contacting the backend when the access cookie is
  *   simply absent (the normal state 15 minutes after login).
@@ -325,6 +364,7 @@ export async function getProfile(options: SessionOptions): Promise<ProfileResult
       if (options.mutateCookies) await clearAuthCookies();
       return { status: 'unauthenticated' };
     }
+    if (response.status === 429) return { status: 'rate_limited' };
     if (!response.ok) return { status: 'unavailable' };
 
     const parsed = authUserEnvelopeSchema.safeParse(await response.json().catch(() => null));
@@ -333,7 +373,8 @@ export async function getProfile(options: SessionOptions): Promise<ProfileResult
       return { status: 'unavailable' };
     }
     return { status: 'authenticated', user: parsed.data.data, accessToken: result.accessToken };
-  } catch {
+  } catch (error) {
+    if (error instanceof BackendRateLimitedError) return { status: 'rate_limited' };
     return { status: 'unavailable' };
   }
 }

@@ -17,7 +17,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
   if (session.status !== 'authenticated') {
     return (
       <main className="grid min-h-screen place-items-center bg-background px-5 text-foreground">
-        <AccessNotice area="merchant" unavailable={session.status === 'unavailable'} />
+        <AccessNotice area="merchant" unavailable={session.status === 'unavailable' || session.status === 'rate_limited'} />
       </main>
     );
   }

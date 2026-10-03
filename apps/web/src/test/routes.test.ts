@@ -120,3 +120,47 @@ describe('GET /api/announcements/[id]', () => {
     expect(body.data.comments[0]!.user.name).toBe('Ahmed');
   });
 });
+
+describe('session routes and backend rate limiting', () => {
+  it('GET /api/auth/session maps a throttled refresh to 429 rate_limited', async () => {
+    state.cookies.set('eastpark_refresh', 'refresh-1');
+    backend = () => json(429, { statusCode: 429, message: 'Too Many Requests' });
+    const { GET } = await import('@/app/api/auth/session/route');
+    const response = await GET();
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'rate_limited' });
+    expect(state.delete).not.toHaveBeenCalled();
+  });
+
+  it('GET /api/auth/refresh maps a throttled refresh to 429 instead of 503', async () => {
+    state.cookies.set('eastpark_refresh', 'refresh-1');
+    backend = () => json(429, { statusCode: 429, message: 'Too Many Requests' });
+    const { GET } = await import('@/app/api/auth/refresh/route');
+    const { NextRequest } = await import('next/server');
+    const response = await GET(new NextRequest('https://web.test/api/auth/refresh?next=%2Forders'));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'rate_limited' });
+    expect(state.delete).not.toHaveBeenCalled();
+  });
+
+  it('GET /api/auth/refresh clears a provably dead session before sending the user to login', async () => {
+    state.cookies.set('eastpark_refresh', 'refresh-dead');
+    backend = () => json(401, { statusCode: 401, message: 'Session expired' });
+    const { GET } = await import('@/app/api/auth/refresh/route');
+    const { NextRequest } = await import('next/server');
+    const response = await GET(new NextRequest('https://web.test/api/auth/refresh?next=%2Forders'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://web.test/login?next=%2Forders');
+    expect(state.delete).toHaveBeenCalledWith('eastpark_refresh');
+  });
+
+  it('GET /api/auth/refresh keeps cookies on a revoked token (possible rotation race)', async () => {
+    state.cookies.set('eastpark_refresh', 'refresh-raced');
+    backend = () => json(401, { statusCode: 401, message: 'Token revoked' });
+    const { GET } = await import('@/app/api/auth/refresh/route');
+    const { NextRequest } = await import('next/server');
+    const response = await GET(new NextRequest('https://web.test/api/auth/refresh?next=%2Forders'));
+    expect(response.status).toBe(307);
+    expect(state.delete).not.toHaveBeenCalled();
+  });
+});

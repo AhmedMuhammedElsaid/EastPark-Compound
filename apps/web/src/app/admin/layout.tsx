@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return (
       <AppShell>
         <Container className="flex min-h-[65vh] items-center justify-center py-16">
-          <AccessNotice area="admin" unavailable={session.status === 'unavailable'} />
+          <AccessNotice area="admin" unavailable={session.status === 'unavailable' || session.status === 'rate_limited'} />
         </Container>
       </AppShell>
     );
