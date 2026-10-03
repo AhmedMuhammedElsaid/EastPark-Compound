@@ -117,6 +117,8 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > 7. Smoke: login 401 unknown / 403 unverified; refresh reuse → 401; announcement with comments loads
 >    (guest + signed in); resident confined to `/home`, merchant reaches `/merchant`; a REAL image upload
 >    (profile + feedback) succeeds and its URL loads — uploads are still unverified until this passes.
+>    **Run `node scripts/smoke/run.mjs` (then `--with-writes`, then `--only=throttle` for step 8b) — see
+>    `scripts/smoke/README.md`.** All of the above is automated except the 403-unverified login.
 >    **The secret is load-bearing:** since 2026-10-03 (`0af50b8`/`e324dd1`) the backend keys direct traffic
 >    on Cloudflare's `CF-Connecting-IP` and BFF traffic on `X-EastPark-Client-IP` only when the secret
 >    matches. A missing/mismatched secret keys ALL web users on Vercel's egress IP → mass 429 on login.
