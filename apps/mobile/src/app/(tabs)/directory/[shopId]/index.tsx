@@ -239,6 +239,15 @@ export default function ShopDetailScreen() {
   );
 }
 
+const NON_DIGITS = /\D/g;
+
+/** wa.me only accepts digits in international format (no "+", spaces or dashes). */
+function openWhatsApp(raw: string | null) {
+  const digits = raw?.replace(NON_DIGITS, "");
+  if (digits)
+    Linking.openURL(`https://wa.me/${digits}`).catch(() => {});
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 type ShopHeroProps = {
@@ -254,7 +263,7 @@ function ShopHero({ shop, saved, canSave, onBack, onSave, topInset }: ShopHeroPr
   const { t } = useTranslation();
   const colors = useAppColors();
   const styles = useStyles();
-  const coverPhoto = shop.photos?.[0];
+  const coverPhoto = shop.photos?.find(p => p.isPrimary) ?? shop.photos?.[0];
   return (
     <View style={styles.hero}>
       {coverPhoto
@@ -320,7 +329,7 @@ function ShopInfoSection({ shop, isAr }: { shop: Shop; isAr: boolean }) {
           </Text>
         </View>
       </View>
-      {shop.averageRating !== null && (
+      {typeof shop.averageRating === "number" && (
         <View style={styles.ratingRow}>
           <Star size={14} weight="fill" color={BRAND.gold} />
           <Text style={styles.rating}>
@@ -358,7 +367,7 @@ function ShopInfoSection({ shop, isAr }: { shop: Shop; isAr: boolean }) {
           ? (
               <Pressable
                 style={[styles.ctaBtn, styles.ctaBtnWhatsapp]}
-                onPress={() => Linking.openURL(`https://wa.me/${shop.whatsapp}`)}
+                onPress={() => openWhatsApp(shop.whatsapp)}
                 accessibilityRole="button"
                 accessibilityLabel="WhatsApp"
               >

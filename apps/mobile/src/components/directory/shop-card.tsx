@@ -58,7 +58,7 @@ export function ShopCard({ shop }: Props) {
         <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
         <View style={styles.meta}>
           <Text style={styles.category}>{categoryLabel}</Text>
-          {shop.averageRating !== null && (
+          {typeof shop.averageRating === "number" && (
             <>
               <Text style={styles.dot}> · </Text>
               <View style={styles.ratingRow}>
