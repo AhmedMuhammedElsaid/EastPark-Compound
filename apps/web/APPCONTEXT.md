@@ -41,10 +41,31 @@ On a fresh machine, install dependencies and run `pnpm check`. A green compile/b
 the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
 upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
 
+## Post-Launch Web Pass — 2026-10-03 (later)
+
+- **Profile is open to residents.** `src/config/access-policy.ts` keeps residents confined, but
+  `/home` and `/profile` (plus `/api/profile`; uploads, session and logout were already open) are
+  allowed. `isOpenToRestricted()` decides which `GatedLink`s navigate for real; everything else
+  still opens the Coming soon dialog and the proxy still redirects/403s the other sections. Avatar
+  uploads send `?purpose=avatar` (the backend default, now explicit).
+- **Logout always leaves the app.** `useAuth().logout()` hides signed-in UI immediately and calls
+  `signOut()` (`src/lib/auth/logout.ts`), which POSTs `/api/auth/logout` and then does a
+  full-document `location.replace('/login')` (account deletion passes `redirectTo: '/'`). This
+  drops the router cache and in-memory state; a back/forward-cache restore re-checks the session.
+  The expired-session redirect in `useSessionInterceptor` uses the same full replace. The logout
+  BFF gives backend revocation a 4-second budget and always clears the cookies, because the
+  browser aborts after 10 seconds and an aborted response would lose the cookie-clearing headers.
+- **Resident home teaser** (`src/components/app/home/*`, styles under "Resident home teaser" in
+  `globals.css`): cinematic hero with a CSS staged entrance and an unlocking rollout timeline
+  (vertical on phones, horizontal from 640px), an "Unlocking soon" ticker, and a "Sealed until
+  launch" vault holding the marketplace, governance and order-tracking previews. The latest
+  announcement remains the live element (streamed via Suspense). All motion is CSS and is disabled
+  under `prefers-reduced-motion`. Phases are labels only; never add dates or progress numbers.
+
 ## Review Fixes — 2026-10-03
 
 - **Home-only lockdown (`src/config/access-policy.ts`):** while `RESIDENT_HOME_ONLY` is true only
-  residents are confined to `/home`. `ADMIN` and `MERCHANT` are never restricted (owner decision
+  residents are confined to `/home` (and, since the later pass above, `/profile`). `ADMIN` and `MERCHANT` are never restricted (owner decision
   REV-45), so merchants reach `/merchant/*` and `/api/merchant/*` through `src/proxy.ts` and their
   links are not turned into Coming soon buttons. Server-side role checks are unchanged.
 - **Backend client (`src/lib/auth/server.ts`)** is the only server code that calls the API origin.
