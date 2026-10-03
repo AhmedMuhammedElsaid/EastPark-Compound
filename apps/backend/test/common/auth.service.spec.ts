@@ -133,6 +133,21 @@ describe('AuthService', () => {
             ).rejects.toBeInstanceOf(ConflictException);
         });
 
+        it('maps a concurrent duplicate registration (P2002) to 409', async () => {
+            db.user.findUnique.mockResolvedValue(null);
+            db.user.create.mockRejectedValue({ code: 'P2002' });
+            await expect(
+                service.register({
+                    name: 'Jane',
+                    email: 'jane@eastpark.app',
+                    password: 'Secret123!',
+                    phone: '0500000000',
+                    unitNumber: 'A1',
+                })
+            ).rejects.toBeInstanceOf(ConflictException);
+            expect(email.sendOtp).not.toHaveBeenCalled();
+        });
+
         it('creates user and sends OTP on success', async () => {
             db.user.findUnique.mockResolvedValue(null);
             db.user.create.mockResolvedValue(mockUser({ isVerified: false }));

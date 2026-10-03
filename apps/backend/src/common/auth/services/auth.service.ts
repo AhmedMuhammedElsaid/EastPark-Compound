@@ -14,6 +14,10 @@ import { ConfigService } from '@nestjs/config';
 import { ResidentLead, ResidentLeadStatus, Role, User } from '@prisma/client';
 
 import { CacheService } from '../../cache/services/cache.service';
+import {
+    isPrismaError,
+    PRISMA_UNIQUE_VIOLATION,
+} from '../../database/prisma-errors';
 import { DatabaseService } from '../../database/services/database.service';
 import { EmailService } from '../../email/email.service';
 import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interface';
@@ -82,17 +86,24 @@ export class AuthService {
 
         const passwordHash = await this.encryption.createHash(dto.password);
 
-        await this.db.user.create({
-            data: {
-                name: dto.name.trim(),
-                email,
-                phone: dto.phone,
-                unitNumber: dto.unitNumber,
-                passwordHash,
-                role: Role.RESIDENT,
-                isVerified: false,
-            },
-        });
+        try {
+            await this.db.user.create({
+                data: {
+                    name: dto.name.trim(),
+                    email,
+                    phone: dto.phone,
+                    unitNumber: dto.unitNumber,
+                    passwordHash,
+                    role: Role.RESIDENT,
+                    isVerified: false,
+                },
+            });
+        } catch (error) {
+            // Concurrent double-submit: the unique email index decides.
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('Email already registered');
+            throw error;
+        }
 
         await this.sendOtp(email);
         return { message: 'OTP sent to your email' };
