@@ -12,7 +12,9 @@ import { authTokensEnvelopeSchema, authUserEnvelopeSchema } from '@/lib/api/auth
  * The single BFF -> backend client.
  *
  * - `backendFetch` is the transport: base URL, `/v1` prefix, no-store, timeout, and the browser's
- *   client IP as `X-Forwarded-For` so backend rate limiting is per user, not per Vercel instance.
+ *   client IP as `X-Forwarded-For` so backend rate limiting is per user, not per Vercel instance,
+ *   plus `X-EastPark-Internal: $BFF_INTERNAL_SECRET` (when configured) so the backend trusts that
+ *   forwarded IP only from this BFF. Every server-side backend call must go through it.
  * - `sessionFetch` / `authenticatedBackendFetch` / `getProfile` add the session cookies.
  *   `mutateCookies` is explicit: route handlers pass `true` (refresh rotates and stores tokens);
  *   Server Components pass `false` and receive `refresh-required` instead, because Next forbids
@@ -25,6 +27,7 @@ const REFRESH_COOKIE = 'eastpark_refresh';
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
 const API_TIMEOUT_MS = 25_000;
+const INTERNAL_HEADER = 'X-EastPark-Internal';
 const WAKE_TIMEOUT_MS = 8_000;
 const WAKE_INTERVAL_MS = 60_000;
 /** After a refresh settles, late arrivals with the same token reuse its result for this long. */
@@ -116,6 +119,11 @@ export async function backendFetch(
 ): Promise<Response> {
   const requestHeaders = new Headers(init.headers);
   if (context.clientIp) requestHeaders.set('X-Forwarded-For', context.clientIp);
+  // Proves to the backend that this hop is the BFF, so it trusts X-Forwarded-For for rate limiting.
+  // Set last so callers cannot override it. Server-only secret: never NEXT_PUBLIC_, never logged.
+  const internalSecret = process.env.BFF_INTERNAL_SECRET?.trim();
+  if (internalSecret) requestHeaders.set(INTERNAL_HEADER, internalSecret);
+  else requestHeaders.delete(INTERNAL_HEADER);
   return fetch(`${apiBase()}/v1${path}`, {
     ...init,
     headers: requestHeaders,

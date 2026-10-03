@@ -96,6 +96,41 @@ describe('backendFetch', () => {
   });
 });
 
+describe('backendFetch internal secret', () => {
+  afterEach(() => {
+    delete process.env.BFF_INTERNAL_SECRET;
+  });
+
+  it('sends X-EastPark-Internal when BFF_INTERNAL_SECRET is set, and callers cannot override it', async () => {
+    process.env.BFF_INTERNAL_SECRET = ' test-secret ';
+    const { backendFetch } = await loadClient();
+    routes = () => jsonResponse(200, { data: {} });
+    await backendFetch('/shops', { headers: { 'X-EastPark-Internal': 'spoofed' } }, { clientIp: '203.0.113.7' });
+    expect(calls[0]!.headers.get('x-eastpark-internal')).toBe('test-secret');
+    expect(calls[0]!.headers.get('x-forwarded-for')).toBe('203.0.113.7');
+  });
+
+  it('omits the header when the secret is unset', async () => {
+    delete process.env.BFF_INTERNAL_SECRET;
+    const { backendFetch } = await loadClient();
+    routes = () => jsonResponse(200, { data: {} });
+    await backendFetch('/shops', { headers: { 'X-EastPark-Internal': 'spoofed' } });
+    expect(calls[0]!.headers.has('x-eastpark-internal')).toBe(false);
+  });
+
+  it('is also sent on session requests but never on the /health wake-up ping', async () => {
+    process.env.BFF_INTERNAL_SECRET = 'test-secret';
+    const { sessionFetch, wakeBackend } = await loadClient();
+    cookieState.values.set('eastpark_access', 'access-1');
+    routes = () => jsonResponse(200, { data: [] });
+    await sessionFetch('/notifications', {}, { mutateCookies: false });
+    await wakeBackend(5_000_000);
+    expect(calls[0]!.headers.get('x-eastpark-internal')).toBe('test-secret');
+    expect(calls[1]!.url).toBe('https://api.example.test/health');
+    expect(calls[1]!.headers.has('x-eastpark-internal')).toBe(false);
+  });
+});
+
 describe('sessionFetch in read-only (RSC) mode', () => {
   it('asks for a refresh without calling the backend when only the refresh cookie exists', async () => {
     const { sessionFetch } = await loadClient();
