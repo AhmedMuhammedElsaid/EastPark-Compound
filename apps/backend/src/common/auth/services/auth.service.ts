@@ -38,7 +38,8 @@ const LOGIN_MAX_FAILURES = 10; // failed logins per email per window
 const LOGIN_FAILURE_WINDOW = 900; // 15 minutes
 const FORGOT_MAX_REQUESTS = 3; // reset mails per email per window
 const FORGOT_REQUEST_WINDOW = 900; // 15 minutes
-const FORGOT_PASSWORD_MESSAGE = 'If that email exists, a reset link has been sent';
+const FORGOT_PASSWORD_MESSAGE =
+    'If that email exists, a reset link has been sent';
 
 /** Privilege order used so an invitation can upgrade but never downgrade. */
 const ROLE_RANK: Record<Role, number> = {
@@ -230,7 +231,10 @@ export class AuthService {
     async resetPassword(
         dto: AuthResetPasswordDto
     ): Promise<{ message: string }> {
-        const email = await this.cache.get<string>(this.resetKey(dto.token));
+        // Consume the token atomically (GETDEL): of two concurrent requests
+        // carrying the same token only one receives the email, so a reset
+        // token can never be used twice.
+        const email = await this.cache.getdel<string>(this.resetKey(dto.token));
         if (!email)
             throw new BadRequestException('Reset token expired or invalid');
 
@@ -239,11 +243,10 @@ export class AuthService {
             where: { email },
             data: { passwordHash },
         });
-        // Burn the token and lift any per-email login lockout: someone who
-        // reset because they were locked out must be able to sign in now. The
-        // reset-request counter goes too: a successful reset ends the episode.
+        // Lift any per-email login lockout: someone who reset because they
+        // were locked out must be able to sign in now. The reset-request
+        // counter goes too: a successful reset ends the episode.
         await this.cache.del(
-            this.resetKey(dto.token),
             this.loginAttemptsKey(email),
             this.forgotAttemptsKey(email)
         );

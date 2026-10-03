@@ -1,6 +1,8 @@
 export interface CacheClient {
     close(): Promise<void>;
     get(key: string): Promise<unknown>;
+    /** Atomically read and delete a key (Redis GETDEL). */
+    getdel(key: string): Promise<unknown>;
     set(key: string, value: string, ttlSeconds?: number): Promise<void>;
     del(...keys: string[]): Promise<void>;
     exists(key: string): Promise<number>;

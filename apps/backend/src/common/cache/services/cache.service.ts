@@ -29,6 +29,22 @@ export class CacheService implements OnModuleDestroy {
     }
 
     /**
+     * Atomically read a value and delete its key (Redis GETDEL). Of several
+     * concurrent callers only one ever receives the value; the rest get null.
+     * Use for single-use tokens.
+     */
+    async getdel<T = string>(key: string): Promise<T | null> {
+        const value = await this.redis.getdel(key);
+        if (value === null || value === undefined) return null;
+        if (typeof value !== 'string') return value as T;
+        try {
+            return JSON.parse(value) as T;
+        } catch {
+            return value as unknown as T;
+        }
+    }
+
+    /**
      * Store a value. Objects/arrays are JSON-serialised automatically.
      * @param ttlSeconds Optional TTL in seconds. Omit to persist indefinitely.
      */

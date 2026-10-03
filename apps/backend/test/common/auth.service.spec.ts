@@ -61,6 +61,7 @@ const db = {
 
 const cache = {
     get: jest.fn(),
+    getdel: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
     exists: jest.fn(),
@@ -420,7 +421,7 @@ describe('AuthService', () => {
 
     describe('resetPassword', () => {
         it('updates the hash and bumps the session version', async () => {
-            cache.get.mockResolvedValue('jane@eastpark.app');
+            cache.getdel.mockResolvedValue('jane@eastpark.app');
             db.user.update.mockResolvedValue(mockUser());
 
             await service.resetPassword({ token: 't', password: 'NewPass1!' });
@@ -432,17 +433,52 @@ describe('AuthService', () => {
             expect(sessions.bump).toHaveBeenCalledWith('user-1');
         });
 
-        it('burns the token and clears the login lockout for that email', async () => {
-            cache.get.mockResolvedValue('jane@eastpark.app');
+        it('consumes the token atomically and clears the login lockout for that email', async () => {
+            cache.getdel.mockResolvedValue('jane@eastpark.app');
             db.user.update.mockResolvedValue(mockUser());
 
             await service.resetPassword({ token: 't', password: 'NewPass1!' });
 
+            expect(cache.getdel).toHaveBeenCalledWith('reset:t');
+            expect(cache.get).not.toHaveBeenCalled();
             expect(cache.del).toHaveBeenCalledWith(
-                'reset:t',
                 'login-attempts:jane@eastpark.app',
                 'forgot-attempts:jane@eastpark.app'
             );
+        });
+
+        it('rejects an unknown or already-used token without touching the user', async () => {
+            cache.getdel.mockResolvedValue(null);
+
+            await expect(
+                service.resetPassword({ token: 't', password: 'NewPass1!' })
+            ).rejects.toBeInstanceOf(BadRequestException);
+            expect(db.user.update).not.toHaveBeenCalled();
+            expect(sessions.bump).not.toHaveBeenCalled();
+        });
+
+        it('lets exactly one of two concurrent requests with the same token succeed', async () => {
+            // Redis GETDEL hands the value to the first caller only.
+            cache.getdel
+                .mockResolvedValueOnce('jane@eastpark.app')
+                .mockResolvedValueOnce(null);
+            db.user.update.mockResolvedValue(mockUser());
+
+            const results = await Promise.allSettled([
+                service.resetPassword({ token: 't', password: 'NewPass1!' }),
+                service.resetPassword({ token: 't', password: 'Other1!x' }),
+            ]);
+
+            expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(
+                1
+            );
+            const rejected = results.filter(
+                (r): r is PromiseRejectedResult => r.status === 'rejected'
+            );
+            expect(rejected).toHaveLength(1);
+            expect(rejected[0]!.reason).toBeInstanceOf(BadRequestException);
+            expect(db.user.update).toHaveBeenCalledTimes(1);
+            expect(sessions.bump).toHaveBeenCalledTimes(1);
         });
     });
 

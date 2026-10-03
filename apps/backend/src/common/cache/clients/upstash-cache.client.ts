@@ -17,6 +17,10 @@ export class UpstashCacheClient implements CacheClient {
         return this.redis.get(key);
     }
 
+    getdel(key: string): Promise<unknown> {
+        return this.redis.getdel(key);
+    }
+
     async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
         if (ttlSeconds !== undefined && ttlSeconds > 0) {
             await this.redis.set(key, value, { ex: ttlSeconds });
