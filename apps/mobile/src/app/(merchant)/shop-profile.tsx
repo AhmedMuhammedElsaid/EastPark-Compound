@@ -207,12 +207,7 @@ export default function MerchantShopProfileScreen() {
   }, [shop, reset, defaultWorkingHours]);
 
   const { mutate: saveProfile, isPending } = useMutation({
-    mutationFn: (payload: ShopUpdatePayload) => {
-      if (!shop?.id)
-        throw new Error("no shop id");
-      // Backend endpoint: PATCH /shops/:id — available to MERCHANT role for their own shop
-      return merchantApi.updateShop(shop.id, payload);
-    },
+    mutationFn: (payload: ShopUpdatePayload) => merchantApi.updateShop(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["merchant-shop"] });
       showMessage({ message: t("merchant.shop_saved"), type: "success", backgroundColor: SEMANTIC.success });

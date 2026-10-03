@@ -67,12 +67,10 @@ export const merchantApi = {
   toggleShopOpen: (isOpen: boolean) =>
     client.patch<{ data: MerchantShop }>("/merchant/shop", { isOpen }),
 
-  // TODO: backend endpoint is PATCH /shops/:id (merchant can update own shop).
-  // The frontend calls this as /shops/:shopId — get the shopId from getMyShop() first.
-  // There is no dedicated /merchant/shop PATCH route; the generic PATCH /shops/:id
-  // accepts MERCHANT role for their own shop.
-  updateShop: (shopId: string, data: ShopUpdatePayload) =>
-    client.patch<{ data: MerchantShop }>(`/shops/${shopId}`, data),
+  // PATCH /merchant/shop resolves the shop from the JWT (same ShopUpdateDto
+  // as PATCH /shops/:id), so no shop id is needed.
+  updateShop: (data: ShopUpdatePayload) =>
+    client.patch<{ data: MerchantShop }>("/merchant/shop", data),
 
   // Products
   // ProductQueryDto: cursor, limit (1-50), search, isAvailable. Omitting
