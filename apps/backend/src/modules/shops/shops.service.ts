@@ -140,7 +140,10 @@ export class ShopsService {
         dto: ShopUpdateDto,
         actor: IAuthUser
     ): Promise<ShopResponseDto> {
-        const shop = await this.db.shop.findUnique({ where: { id } });
+        const shop = await this.db.shop.findUnique({
+            where: { id },
+            select: { merchantId: true },
+        });
         if (!shop) throw new NotFoundException('shop.error.notFound');
 
         // Merchants can only update their own shop
@@ -148,29 +151,31 @@ export class ShopsService {
             throw new ForbiddenException('shop.error.forbidden');
         }
 
-        const updated = await this.db.shop.update({
-            where: { id },
-            data: {
-                name: dto.name,
-                nameAr: dto.nameAr,
-                description: dto.description,
-                descriptionAr: dto.descriptionAr,
-                category: dto.category,
-                phone: dto.phone,
-                whatsapp: dto.whatsapp,
-                deliveryTime: dto.deliveryTime,
-                isOpen: dto.isOpen,
-                workingHours: toJson(dto.workingHours),
-            },
-            include: {
-                photos: { orderBy: { order: 'asc' } },
-                _count: { select: { reviews: true } },
-            },
-        });
-        const aggregate = await this.db.review.aggregate({
-            where: { shopId: id },
-            _avg: { rating: true },
-        });
+        const [updated, aggregate] = await Promise.all([
+            this.db.shop.update({
+                where: { id },
+                data: {
+                    name: dto.name,
+                    nameAr: dto.nameAr,
+                    description: dto.description,
+                    descriptionAr: dto.descriptionAr,
+                    category: dto.category,
+                    phone: dto.phone,
+                    whatsapp: dto.whatsapp,
+                    deliveryTime: dto.deliveryTime,
+                    isOpen: dto.isOpen,
+                    workingHours: toJson(dto.workingHours),
+                },
+                include: {
+                    photos: { orderBy: { order: 'asc' } },
+                    _count: { select: { reviews: true } },
+                },
+            }),
+            this.db.review.aggregate({
+                where: { shopId: id },
+                _avg: { rating: true },
+            }),
+        ]);
         return {
             ...updated,
             photos: updated.photos.map((photo, i) => ({ ...photo, isPrimary: i === 0 })),
@@ -210,7 +215,10 @@ export class ShopsService {
         order: number,
         actor: IAuthUser
     ): Promise<ShopResponseDto> {
-        const shop = await this.db.shop.findUnique({ where: { id: shopId } });
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { merchantId: true },
+        });
         if (!shop) throw new NotFoundException('shop.error.notFound');
         if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
             throw new ForbiddenException('shop.error.forbidden');

@@ -223,12 +223,9 @@ export class OrdersService {
         if (actor.role === Role.RESIDENT) {
             where = { residentId: actor.userId };
         } else if (actor.role === Role.MERCHANT) {
-            // Find the merchant's shops
-            const shops = await this.db.shop.findMany({
-                where: { merchantId: actor.userId },
-                select: { id: true },
-            });
-            where = { shopId: { in: shops.map(s => s.id) } };
+            // Orders of the merchant's shops — a relation filter, so no
+            // separate round-trip to list the shop ids first.
+            where = { shop: { merchantId: actor.userId } };
         }
         // ADMIN: no restriction
 

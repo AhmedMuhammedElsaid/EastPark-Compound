@@ -217,6 +217,29 @@ describe('OrdersService', () => {
 
     // ── response mapping ──────────────────────────────────────────────────────
 
+    describe('findAll scoping', () => {
+        it('scopes a merchant to their shops with a relation filter (no extra query)', async () => {
+            db.order.findMany.mockResolvedValue([]);
+            await service.findAll({ limit: 20 }, merchantActor);
+            expect(db.shop.findMany).not.toHaveBeenCalled();
+            expect(db.order.findMany.mock.calls[0][0].where).toEqual({
+                shop: { merchantId: 'merchant-1' },
+            });
+        });
+
+        it('scopes a resident to their own orders', async () => {
+            db.order.findMany.mockResolvedValue([]);
+            await service.findAll(
+                { limit: 20, status: OrderStatus.PLACED },
+                { userId: 'resident-1', role: Role.RESIDENT }
+            );
+            expect(db.order.findMany.mock.calls[0][0].where).toEqual({
+                residentId: 'resident-1',
+                status: OrderStatus.PLACED,
+            });
+        });
+    });
+
     describe('toOrderResponse', () => {
         it('returns numeric money, lineTotal, shop and resident summary', () => {
             const response = toOrderResponse({
