@@ -260,6 +260,30 @@ describe('ResidentsService', () => {
             });
         });
 
+        it('refuses to re-invite a REJECTED lead whose unit has a newer active lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.REJECTED })
+            );
+            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-2' });
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).rejects.toBeInstanceOf(ConflictException);
+            expect(invitationsService.create).not.toHaveBeenCalled();
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('maps a lost unit-reservation race on the lead update to 409', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            db.user.findUnique.mockResolvedValue(null);
+            invitationsService.create.mockResolvedValue({});
+            db.residentLead.update.mockRejectedValue({ code: 'P2002' });
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).rejects.toBeInstanceOf(ConflictException);
+        });
+
         it('when no User exists: creates an Invitation with role RESIDENT and sets status INVITED', async () => {
             const lead = mockLead();
             db.residentLead.findUnique.mockResolvedValue(lead);

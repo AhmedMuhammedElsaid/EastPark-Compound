@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { ResidentLeadStatus, Role } from '@prisma/client';
 
+import {
+    isPrismaError,
+    PRISMA_UNIQUE_VIOLATION,
+} from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -133,17 +137,32 @@ export class ResidentsService {
         const lead = await this.db.residentLead.findUnique({ where: { id } });
         if (!lead) throw new NotFoundException('residentLead.error.notFound');
 
+        // Re-activating a REJECTED lead must not collide with a newer active
+        // lead for the same unit (partial unique index). Checked before any
+        // invitation email goes out.
+        if (lead.status === ResidentLeadStatus.REJECTED) {
+            const activeForUnit = await this.db.residentLead.findFirst({
+                where: {
+                    building: lead.building,
+                    floor: lead.floor,
+                    flatNumber: lead.flatNumber,
+                    status: { not: ResidentLeadStatus.REJECTED },
+                    id: { not: lead.id },
+                },
+                select: { id: true },
+            });
+            if (activeForUnit)
+                throw new ConflictException('residentLead.error.unitReserved');
+        }
+
         const existingUser = await this.db.user.findUnique({
             where: { email: lead.email },
         });
 
         if (existingUser) {
-            await this.db.residentLead.update({
-                where: { id: lead.id },
-                data: {
-                    userId: existingUser.id,
-                    status: ResidentLeadStatus.CONVERTED,
-                },
+            await this.updateLeadStatus(lead.id, {
+                userId: existingUser.id,
+                status: ResidentLeadStatus.CONVERTED,
             });
             return { message: 'residentLead.success.alreadyRegistered' };
         }
@@ -153,12 +172,25 @@ export class ResidentsService {
             actor
         );
 
-        await this.db.residentLead.update({
-            where: { id: lead.id },
-            data: { status: ResidentLeadStatus.INVITED },
+        await this.updateLeadStatus(lead.id, {
+            status: ResidentLeadStatus.INVITED,
         });
 
         return { message: 'residentLead.success.invited' };
+    }
+
+    /** Lead status update; a lost unit-reservation race is a 409, not a 500. */
+    private async updateLeadStatus(
+        id: string,
+        data: { status: ResidentLeadStatus; userId?: string }
+    ): Promise<void> {
+        try {
+            await this.db.residentLead.update({ where: { id }, data });
+        } catch (error) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('residentLead.error.unitReserved');
+            throw error;
+        }
     }
 
     /**
