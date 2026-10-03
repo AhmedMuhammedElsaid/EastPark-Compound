@@ -38,7 +38,8 @@ const CATEGORIES: FeedbackCategory[] = [
 
 const schema = z.object({
   category: z.enum(["MAINTENANCE", "SECURITY", "CLEANLINESS", "NOISE", "SUGGESTION", "OTHER"]),
-  body: z.string().min(10).max(2000),
+  // Messages are translation keys, rendered with t().
+  body: z.string().trim().min(10, "feedback.body_too_short").max(2000, "feedback.body_too_long"),
   isAnonymous: z.boolean(),
 });
 
@@ -162,7 +163,7 @@ export default function NewFeedbackScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <CategoryPickerField control={control} styles={styles} />
-        <RhfTextInput control={control} name="body" label={t("feedback.feedback_body")} error={errors.body?.message} multiline styles={styles} colors={colors} />
+        <RhfTextInput control={control} name="body" label={t("feedback.feedback_body")} error={errors.body?.message ? t(errors.body.message as any) : undefined} multiline styles={styles} colors={colors} />
         <AnonymousToggleField control={control} styles={styles} colors={colors} />
 
         <Pressable

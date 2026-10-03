@@ -244,6 +244,8 @@
     "add_photo": "Add photo",
     "anonymous": "Submit anonymously",
     "anonymous_subtitle": "Other residents will not see your identity. Compound administrators can identify you while processing the request.",
+    "body_too_long": "Keep the description under 2000 characters",
+    "body_too_short": "Please describe the issue in at least 10 characters",
     "category": "Category",
     "empty": "No feedback submitted yet",
     "empty_subtitle": "Tap the button below to share your thoughts",
