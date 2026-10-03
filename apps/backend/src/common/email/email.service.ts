@@ -114,16 +114,6 @@ export class EmailService {
 
     // ── Convenience methods ──────────────────────────────────────────────────
 
-    sendOtp(to: string, otp: string): Promise<void> {
-        return this.send({
-            to,
-            subject: 'رمز التحقق الخاص بك من إيست بارك',
-            template: 'otp',
-            context: { otp, appName: 'EastPark' },
-            text: `رمز التحقق الخاص بك من إيست بارك هو ${otp}. تنتهي صلاحية الرمز خلال 10 دقائق. لا تشارك هذا الرمز مع أي شخص.`,
-        });
-    }
-
     sendPasswordReset(to: string, resetUrl: string): Promise<void> {
         return this.send({
             to,

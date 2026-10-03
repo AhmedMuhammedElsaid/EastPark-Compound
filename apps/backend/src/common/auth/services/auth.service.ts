@@ -1,4 +1,4 @@
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import {
     BadRequestException,
@@ -14,10 +14,6 @@ import { ConfigService } from '@nestjs/config';
 import { ResidentLead, ResidentLeadStatus, Role, User } from '@prisma/client';
 
 import { CacheService } from '../../cache/services/cache.service';
-import {
-    isPrismaError,
-    PRISMA_UNIQUE_VIOLATION,
-} from '../../database/prisma-errors';
 import { DatabaseService } from '../../database/services/database.service';
 import { EmailService } from '../../email/email.service';
 import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interface';
@@ -28,10 +24,7 @@ import {
     AcceptInvitationDto,
     AuthForgotPasswordDto,
     AuthLoginDto,
-    AuthRegisterDto,
-    AuthResendOtpDto,
     AuthResetPasswordDto,
-    AuthVerifyOtpDto,
 } from '../dtos/request/auth.dto';
 import {
     AuthRefreshResponseDto,
@@ -40,8 +33,6 @@ import {
 
 import { SessionVersionService } from './session-version.service';
 
-const OTP_TTL = 600; // 10 minutes
-const OTP_MAX_ATTEMPTS = 5; // failed verifications before the OTP is burned
 const RESET_TTL = 1800; // 30 minutes
 const LOGIN_MAX_FAILURES = 10; // failed logins per email per window
 const LOGIN_FAILURE_WINDOW = 900; // 15 minutes
@@ -81,107 +72,13 @@ export class AuthService {
             config.get<string>('app.webUrl') ?? 'http://localhost:3000';
     }
 
-    // ── Register ─────────────────────────────────────────────────────────────
-
-    async register(dto: AuthRegisterDto): Promise<{ message: string }> {
-        const email = normalizeEmail(dto.email);
-        const existing = await this.db.user.findUnique({ where: { email } });
-        // NOTE: 409 reveals that the email is registered. Kept deliberately:
-        // clients rely on it to route the user to login instead of OTP.
-        if (existing) throw new ConflictException('Email already registered');
-
-        const passwordHash = await this.encryption.createHash(dto.password);
-
-        try {
-            await this.db.user.create({
-                data: {
-                    name: dto.name.trim(),
-                    email,
-                    phone: dto.phone,
-                    unitNumber: dto.unitNumber,
-                    passwordHash,
-                    role: Role.RESIDENT,
-                    isVerified: false,
-                },
-            });
-        } catch (error) {
-            // Concurrent double-submit: the unique email index decides.
-            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
-                throw new ConflictException('Email already registered');
-            throw error;
-        }
-
-        await this.sendOtp(email);
-        return { message: 'OTP sent to your email' };
-    }
-
-    // ── Verify OTP ───────────────────────────────────────────────────────────
-
-    async verifyOtp(dto: AuthVerifyOtpDto): Promise<AuthResponseDto> {
-        const email = normalizeEmail(dto.email);
-        const otpKey = this.otpKey(email);
-        const attemptsKey = this.otpAttemptsKey(email);
-
-        const stored = await this.cache.get<string>(otpKey);
-        if (!stored) throw new BadRequestException('OTP expired or not found');
-
-        // Count the attempt BEFORE comparing: INCR is atomic, so parallel
-        // guesses each get a distinct number and at most OTP_MAX_ATTEMPTS of
-        // them ever reach the comparison.
-        const attempts = await this.cache.incr(attemptsKey);
-        if (attempts === 1) await this.cache.expire(attemptsKey, OTP_TTL);
-        if (attempts > OTP_MAX_ATTEMPTS) {
-            // Burn only the code. The counter is left to expire so requests
-            // already in flight cannot restart it at 1; sendOtp resets it.
-            await this.cache.del(otpKey);
-            throw new BadRequestException(
-                'Too many invalid attempts — request a new OTP'
-            );
-        }
-
-        const valid = await this.encryption.match(stored, dto.otp);
-        if (!valid) {
-            if (attempts >= OTP_MAX_ATTEMPTS) {
-                // Last allowed guess failed: burn the code.
-                await this.cache.del(otpKey);
-                throw new BadRequestException(
-                    'Too many invalid attempts — request a new OTP'
-                );
-            }
-            throw new BadRequestException('Invalid OTP');
-        }
-
-        await this.cache.del(otpKey, attemptsKey);
-
-        const user = await this.db.user.update({
-            where: { email },
-            data: { isVerified: true },
-        });
-
-        return this.buildAuthResponse(user);
-    }
-
-    // ── Resend OTP ────────────────────────────────────────────────────────────
-
-    async resendOtp(dto: AuthResendOtpDto): Promise<{ message: string }> {
-        const email = normalizeEmail(dto.email);
-        const user = await this.db.user.findUnique({ where: { email } });
-        if (!user) throw new NotFoundException('User not found');
-        if (user.isVerified)
-            throw new BadRequestException('Account already verified');
-
-        await this.cache.del(this.otpKey(email), this.otpAttemptsKey(email));
-        await this.sendOtp(email);
-        return { message: 'New OTP sent' };
-    }
-
     // ── Login ─────────────────────────────────────────────────────────────────
 
     async login(dto: AuthLoginDto): Promise<AuthResponseDto> {
         const email = normalizeEmail(dto.email);
 
         // Per-email cap that holds across client IPs. Counted before the
-        // password check (atomic INCR, like the OTP budget) and for unknown
+        // password check (atomic INCR) and for unknown
         // emails too, so the 429 does not reveal which emails exist.
         const attemptsKey = this.loginAttemptsKey(email);
         const attempts = await this.cache.incr(attemptsKey);
@@ -214,7 +111,8 @@ export class AuthService {
         // Correct password: only failures count toward the cap.
         await this.cache.del(attemptsKey);
 
-        // 403 stays distinct: clients route unverified users to the OTP screen.
+        // Harmless guard: every account is created verified (invitation flow).
+        // Public self-registration and its OTP step were removed.
         if (!user.isVerified)
             throw new ForbiddenException('Please verify your email first');
 
@@ -502,15 +400,6 @@ export class AuthService {
         return { ...tokens, user: safeUser };
     }
 
-    private async sendOtp(email: string): Promise<void> {
-        const otp = String(randomInt(100000, 999999));
-        const hash = await this.encryption.createHash(otp);
-        // A fresh code gets a fresh attempt budget.
-        await this.cache.del(this.otpAttemptsKey(email));
-        await this.cache.set(this.otpKey(email), hash, OTP_TTL);
-        await this.email.sendOtp(email, otp);
-    }
-
     private getDummyHash(): Promise<string> {
         this.dummyHash ??= this.encryption.createHash(
             randomBytes(16).toString('hex')
@@ -528,14 +417,6 @@ export class AuthService {
         return this.parseExpiry(
             this.config.get<string>('auth.refreshToken.tokenExp') ?? '7d'
         );
-    }
-
-    private otpKey(email: string): string {
-        return `otp:${email}`;
-    }
-
-    private otpAttemptsKey(email: string): string {
-        return `otp-attempts:${email}`;
     }
 
     private loginAttemptsKey(email: string): string {

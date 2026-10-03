@@ -26,10 +26,7 @@ import {
     AuthLoginDto,
     AuthLogoutDto,
     AuthPushTokenDto,
-    AuthRegisterDto,
-    AuthResendOtpDto,
     AuthResetPasswordDto,
-    AuthVerifyOtpDto,
 } from '../dtos/request/auth.dto';
 import {
     AuthRefreshResponseDto,
@@ -51,29 +48,6 @@ export const AUTH_SESSION_THROTTLE = { default: { limit: 60, ttl: 60000 } };
 @Controller({ version: '1', path: '/auth' })
 export class AuthPublicController {
     constructor(private readonly authService: AuthService) {}
-
-    @Post('register')
-    @PublicRoute()
-    @ApiOperation({ summary: 'Register a new resident account' })
-    register(@Body() dto: AuthRegisterDto): Promise<{ message: string }> {
-        return this.authService.register(dto);
-    }
-
-    @Post('verify-otp')
-    @PublicRoute()
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Verify email OTP — returns JWT pair on success' })
-    verifyOtp(@Body() dto: AuthVerifyOtpDto): Promise<AuthResponseDto> {
-        return this.authService.verifyOtp(dto);
-    }
-
-    @Post('resend-otp')
-    @PublicRoute()
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Resend OTP to email' })
-    resendOtp(@Body() dto: AuthResendOtpDto): Promise<{ message: string }> {
-        return this.authService.resendOtp(dto);
-    }
 
     @Post('login')
     @PublicRoute()

@@ -7,9 +7,6 @@ import {
     AuthForgotPasswordDto,
     AuthLoginDto,
     AuthLogoutDto,
-    AuthRegisterDto,
-    AuthResendOtpDto,
-    AuthVerifyOtpDto,
 } from 'src/common/auth/dtos/request/auth.dto';
 import { AuthService } from 'src/common/auth/services/auth.service';
 import { maskEmail, maskToken } from 'src/common/helper/utils/redact';
@@ -218,9 +215,6 @@ describe('resolveClientIp (throttler tracker)', () => {
 
 describe('email normalization at the DTO boundary', () => {
     it.each([
-        ['AuthRegisterDto', AuthRegisterDto],
-        ['AuthVerifyOtpDto', AuthVerifyOtpDto],
-        ['AuthResendOtpDto', AuthResendOtpDto],
         ['AuthLoginDto', AuthLoginDto],
         ['AuthForgotPasswordDto', AuthForgotPasswordDto],
         ['InvitationCreateDto', InvitationCreateDto],

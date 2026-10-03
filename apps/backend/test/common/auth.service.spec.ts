@@ -76,7 +76,6 @@ const sessions = {
 };
 
 const email = {
-    sendOtp: jest.fn(),
     sendPasswordReset: jest.fn(),
 };
 
@@ -128,95 +127,6 @@ describe('AuthService', () => {
 
         service = module.get(AuthService);
     });
-
-    // ── register ──────────────────────────────────────────────────────────────
-
-    describe('register', () => {
-        it('throws ConflictException when email already exists', async () => {
-            db.user.findUnique.mockResolvedValue(mockUser());
-            await expect(
-                service.register({
-                    name: 'Jane',
-                    email: 'jane@eastpark.app',
-                    password: 'Secret123!',
-                    phone: '0500000000',
-                    unitNumber: 'A1',
-                })
-            ).rejects.toBeInstanceOf(ConflictException);
-        });
-
-        it('maps a concurrent duplicate registration (P2002) to 409', async () => {
-            db.user.findUnique.mockResolvedValue(null);
-            db.user.create.mockRejectedValue({ code: 'P2002' });
-            await expect(
-                service.register({
-                    name: 'Jane',
-                    email: 'jane@eastpark.app',
-                    password: 'Secret123!',
-                    phone: '0500000000',
-                    unitNumber: 'A1',
-                })
-            ).rejects.toBeInstanceOf(ConflictException);
-            expect(email.sendOtp).not.toHaveBeenCalled();
-        });
-
-        it('creates user and sends OTP on success', async () => {
-            db.user.findUnique.mockResolvedValue(null);
-            db.user.create.mockResolvedValue(mockUser({ isVerified: false }));
-            cache.set.mockResolvedValue(undefined);
-            email.sendOtp.mockResolvedValue(undefined);
-
-            const result = await service.register({
-                name: 'Jane',
-                email: 'jane@eastpark.app',
-                password: 'Secret123!',
-                phone: '0500000000',
-                unitNumber: 'A1',
-            });
-
-            expect(db.user.create).toHaveBeenCalledTimes(1);
-            expect(email.sendOtp).toHaveBeenCalledTimes(1);
-            expect(result.message).toMatch(/OTP/i);
-        });
-    });
-
-    // ── verifyOtp ─────────────────────────────────────────────────────────────
-
-    describe('verifyOtp', () => {
-        it('throws BadRequestException when OTP not found in cache', async () => {
-            cache.get.mockResolvedValue(null);
-            await expect(
-                service.verifyOtp({ email: 'jane@eastpark.app', otp: '123456' })
-            ).rejects.toBeInstanceOf(BadRequestException);
-        });
-
-        it('throws BadRequestException when OTP does not match', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            encryption.match.mockResolvedValue(false);
-            await expect(
-                service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
-            ).rejects.toBeInstanceOf(BadRequestException);
-        });
-
-        it('returns tokens and marks user as verified on success', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            encryption.match.mockResolvedValue(true);
-            cache.del.mockResolvedValue(undefined);
-            db.user.update.mockResolvedValue(mockUser());
-
-            const result = await service.verifyOtp({
-                email: 'jane@eastpark.app',
-                otp: '123456',
-            });
-
-            expect(db.user.update).toHaveBeenCalledWith(
-                expect.objectContaining({ data: { isVerified: true } })
-            );
-            expect(result.accessToken).toBe(mockTokens.accessToken);
-        });
-    });
-
-    // ── login ─────────────────────────────────────────────────────────────────
 
     describe('login', () => {
         it('throws 401 "Invalid credentials" for unknown email (no enumeration)', async () => {
@@ -503,83 +413,6 @@ describe('AuthService', () => {
             await service.logout(actor, 'garbage');
             await service.logout(actor);
             expect(cache.set).not.toHaveBeenCalled();
-        });
-    });
-
-    // ── verifyOtp attempt limit ───────────────────────────────────────────────
-
-    describe('verifyOtp attempt limit', () => {
-        it('normalizes the email for the OTP key and user update', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            encryption.match.mockResolvedValue(true);
-            db.user.update.mockResolvedValue(mockUser());
-            await service.verifyOtp({
-                email: ' Jane@EastPark.app',
-                otp: '123456',
-            });
-            expect(cache.get).toHaveBeenCalledWith('otp:jane@eastpark.app');
-            expect(db.user.update).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    where: { email: 'jane@eastpark.app' },
-                })
-            );
-        });
-
-        it('counts failures and burns the OTP on the 5th', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            encryption.match.mockResolvedValue(false);
-
-            cache.incr.mockResolvedValueOnce(1);
-            await expect(
-                service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
-            ).rejects.toThrow('Invalid OTP');
-            expect(cache.expire).toHaveBeenCalledWith(
-                'otp-attempts:jane@eastpark.app',
-                600
-            );
-            expect(cache.del).not.toHaveBeenCalled();
-
-            cache.incr.mockResolvedValueOnce(5);
-            await expect(
-                service.verifyOtp({ email: 'jane@eastpark.app', otp: '000000' })
-            ).rejects.toThrow(/too many/i);
-            expect(cache.del).toHaveBeenCalledWith('otp:jane@eastpark.app');
-        });
-
-        it('rejects without comparing once the attempt budget is spent', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            encryption.match.mockResolvedValue(true);
-            cache.incr.mockResolvedValueOnce(6);
-
-            await expect(
-                service.verifyOtp({ email: 'jane@eastpark.app', otp: '123456' })
-            ).rejects.toThrow(/too many/i);
-            expect(encryption.match).not.toHaveBeenCalled();
-            expect(db.user.update).not.toHaveBeenCalled();
-            expect(cache.del).toHaveBeenCalledWith('otp:jane@eastpark.app');
-        });
-
-        it('compares at most 5 of many concurrent guesses', async () => {
-            cache.get.mockResolvedValue('$storedHash');
-            // Atomic counter, as Redis INCR provides.
-            let counter = 0;
-            cache.incr.mockImplementation(() => Promise.resolve(++counter));
-            encryption.match.mockImplementation(
-                () =>
-                    new Promise(resolve => setTimeout(() => resolve(false), 5))
-            );
-
-            const results = await Promise.allSettled(
-                Array.from({ length: 20 }, (_, i) =>
-                    service.verifyOtp({
-                        email: 'jane@eastpark.app',
-                        otp: String(100000 + i),
-                    })
-                )
-            );
-
-            expect(results.every(r => r.status === 'rejected')).toBe(true);
-            expect(encryption.match).toHaveBeenCalledTimes(5);
         });
     });
 

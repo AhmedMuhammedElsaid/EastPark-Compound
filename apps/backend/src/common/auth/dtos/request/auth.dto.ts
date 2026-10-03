@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsEmail,
     IsNotEmpty,
-    IsPhoneNumber,
     IsString,
     Length,
     IsOptional,
@@ -15,64 +14,6 @@ const PASSWORD_REGEX =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[\x21-\x7E]{8,}$/;
 const PASSWORD_MSG =
     'Password must be 8+ chars with uppercase, lowercase, number, and special character';
-
-// ── Register ──────────────────────────────────────────────────────────────────
-
-export class AuthRegisterDto {
-    @ApiProperty({ example: 'Ahmed Hassan' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(2, 100)
-    name: string;
-
-    @ApiProperty({ example: 'ahmed@example.com' })
-    @NormalizeEmail()
-    @IsEmail()
-    @IsNotEmpty()
-    email: string;
-
-    @ApiProperty({ example: '+201234567890' })
-    @IsPhoneNumber()
-    @IsNotEmpty()
-    phone: string;
-
-    @ApiProperty({ example: 'A1-301' })
-    @IsString()
-    @IsNotEmpty()
-    unitNumber: string;
-
-    @ApiProperty({ example: 'Passw0rd!', description: PASSWORD_MSG })
-    @IsString()
-    @IsNotEmpty()
-    @Matches(PASSWORD_REGEX, { message: PASSWORD_MSG })
-    password: string;
-}
-
-// ── Verify OTP ────────────────────────────────────────────────────────────────
-
-export class AuthVerifyOtpDto {
-    @ApiProperty({ example: 'ahmed@example.com' })
-    @NormalizeEmail()
-    @IsEmail()
-    @IsNotEmpty()
-    email: string;
-
-    @ApiProperty({ example: '482910' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(6, 6)
-    otp: string;
-}
-
-// ── Resend OTP ────────────────────────────────────────────────────────────────
-
-export class AuthResendOtpDto {
-    @ApiProperty({ example: 'ahmed@example.com' })
-    @NormalizeEmail()
-    @IsEmail()
-    @IsNotEmpty()
-    email: string;
-}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 

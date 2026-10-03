@@ -5,10 +5,7 @@ import {
     AcceptInvitationDto,
     AuthForgotPasswordDto,
     AuthLoginDto,
-    AuthRegisterDto,
-    AuthResendOtpDto,
     AuthResetPasswordDto,
-    AuthVerifyOtpDto,
 } from '../dtos/request/auth.dto';
 import {
     AuthRefreshResponseDto,
@@ -16,9 +13,6 @@ import {
 } from '../dtos/response/auth.response.dto';
 
 export interface IAuthService {
-    register(data: AuthRegisterDto): Promise<{ message: string }>;
-    verifyOtp(data: AuthVerifyOtpDto): Promise<AuthResponseDto>;
-    resendOtp(data: AuthResendOtpDto): Promise<{ message: string }>;
     login(data: AuthLoginDto): Promise<AuthResponseDto>;
     refresh(
         payload: IRefreshTokenPayload,
