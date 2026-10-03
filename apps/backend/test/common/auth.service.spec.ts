@@ -607,7 +607,8 @@ describe('AuthService', () => {
 
             expect(cache.del).toHaveBeenCalledWith(
                 'reset:t',
-                'login-attempts:jane@eastpark.app'
+                'login-attempts:jane@eastpark.app',
+                'forgot-attempts:jane@eastpark.app'
             );
         });
     });
@@ -615,6 +616,12 @@ describe('AuthService', () => {
     // ── forgotPassword ────────────────────────────────────────────────────────
 
     describe('forgotPassword', () => {
+        const MESSAGE = 'If that email exists, a reset link has been sent';
+
+        beforeEach(() => {
+            cache.incr.mockResolvedValue(1);
+        });
+
         it('returns the same message when user does not exist (no email enumeration)', async () => {
             db.user.findUnique.mockResolvedValue(null);
 
@@ -637,6 +644,50 @@ describe('AuthService', () => {
 
             expect(email.sendPasswordReset).toHaveBeenCalledTimes(1);
             expect(result.message).toMatch(/if that email/i);
+        });
+
+        it('counts the first request per email and starts the 15 minute window', async () => {
+            db.user.findUnique.mockResolvedValue(mockUser());
+            cache.set.mockResolvedValue(undefined);
+            email.sendPasswordReset.mockResolvedValue(undefined);
+
+            await service.forgotPassword({ email: 'Jane@EastPark.app' });
+
+            expect(cache.incr).toHaveBeenCalledWith(
+                'forgot-attempts:jane@eastpark.app'
+            );
+            expect(cache.expire).toHaveBeenCalledWith(
+                'forgot-attempts:jane@eastpark.app',
+                900
+            );
+            expect(email.sendPasswordReset).toHaveBeenCalledTimes(1);
+        });
+
+        it('over the cap: same message, no lookup, no email', async () => {
+            cache.incr.mockResolvedValue(4);
+
+            const result = await service.forgotPassword({
+                email: 'jane@eastpark.app',
+            });
+
+            expect(result).toEqual({ message: MESSAGE });
+            expect(db.user.findUnique).not.toHaveBeenCalled();
+            expect(email.sendPasswordReset).not.toHaveBeenCalled();
+        });
+
+        it('over the cap for an unknown email is indistinguishable from under the cap', async () => {
+            db.user.findUnique.mockResolvedValue(null);
+            cache.incr.mockResolvedValue(1);
+            const underCap = await service.forgotPassword({
+                email: 'noone@eastpark.app',
+            });
+
+            cache.incr.mockResolvedValue(4);
+            const overCap = await service.forgotPassword({
+                email: 'noone@eastpark.app',
+            });
+
+            expect(overCap).toEqual(underCap);
         });
     });
 

@@ -45,6 +45,9 @@ const OTP_MAX_ATTEMPTS = 5; // failed verifications before the OTP is burned
 const RESET_TTL = 1800; // 30 minutes
 const LOGIN_MAX_FAILURES = 10; // failed logins per email per window
 const LOGIN_FAILURE_WINDOW = 900; // 15 minutes
+const FORGOT_MAX_REQUESTS = 3; // reset mails per email per window
+const FORGOT_REQUEST_WINDOW = 900; // 15 minutes
+const FORGOT_PASSWORD_MESSAGE = 'If that email exists, a reset link has been sent';
 
 /** Privilege order used so an invitation can upgrade but never downgrade. */
 const ROLE_RANK: Record<Role, number> = {
@@ -298,14 +301,22 @@ export class AuthService {
     async forgotPassword(
         dto: AuthForgotPasswordDto
     ): Promise<{ message: string }> {
-        const user = await this.db.user.findUnique({
-            where: { email: normalizeEmail(dto.email) },
-        });
+        const email = normalizeEmail(dto.email);
+
+        // Per-email cap that holds across client IPs. Counted before the DB
+        // lookup and for unknown emails too, and an over-cap request gets the
+        // exact same response as any other, so neither the status nor the body
+        // reveals whether the account exists.
+        const attemptsKey = this.forgotAttemptsKey(email);
+        const attempts = await this.cache.incr(attemptsKey);
+        if (attempts === 1)
+            await this.cache.expire(attemptsKey, FORGOT_REQUEST_WINDOW);
+        if (attempts > FORGOT_MAX_REQUESTS)
+            return { message: FORGOT_PASSWORD_MESSAGE };
+
+        const user = await this.db.user.findUnique({ where: { email } });
         // Always respond with the same message to prevent email enumeration
-        if (!user)
-            return {
-                message: 'If that email exists, a reset link has been sent',
-            };
+        if (!user) return { message: FORGOT_PASSWORD_MESSAGE };
 
         const token = randomBytes(32).toString('hex');
         await this.cache.set(this.resetKey(token), user.email, RESET_TTL);
@@ -313,7 +324,7 @@ export class AuthService {
         const resetUrl = `${this.appUrl}/auth/reset-password?token=${token}`;
         await this.email.sendPasswordReset(user.email, resetUrl);
 
-        return { message: 'If that email exists, a reset link has been sent' };
+        return { message: FORGOT_PASSWORD_MESSAGE };
     }
 
     // ── Reset Password ────────────────────────────────────────────────────────
@@ -331,10 +342,12 @@ export class AuthService {
             data: { passwordHash },
         });
         // Burn the token and lift any per-email login lockout: someone who
-        // reset because they were locked out must be able to sign in now.
+        // reset because they were locked out must be able to sign in now. The
+        // reset-request counter goes too: a successful reset ends the episode.
         await this.cache.del(
             this.resetKey(dto.token),
-            this.loginAttemptsKey(email)
+            this.loginAttemptsKey(email),
+            this.forgotAttemptsKey(email)
         );
 
         // Invalidate every existing session: access and refresh tokens minted
@@ -527,6 +540,10 @@ export class AuthService {
 
     private loginAttemptsKey(email: string): string {
         return `login-attempts:${email}`;
+    }
+
+    private forgotAttemptsKey(email: string): string {
+        return `forgot-attempts:${email}`;
     }
 
     private resetKey(token: string): string {
