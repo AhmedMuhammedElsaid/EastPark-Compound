@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { rateLimitedResponse } from '@/lib/api/bff-errors';
 import { parseUploadResult } from '@/lib/api/feedback';
 import { authenticatedBackendFetch } from '@/lib/auth/proxy';
 
@@ -40,6 +41,8 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ data: parseUploadResult(await response.json()) });
   } catch (error) {
+    const throttled = rateLimitedResponse(error);
+    if (throttled) return throttled;
     console.error('Image upload proxy failed', error);
     return NextResponse.json({ error: 'unavailable' }, { status: 502 });
   }

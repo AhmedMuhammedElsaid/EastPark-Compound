@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { authUserEnvelopeSchema } from '@/lib/api/auth-schemas';
+import { rateLimitedResponse } from '@/lib/api/bff-errors';
 import { authenticatedBackendFetch, clearAuthCookies } from '@/lib/auth/server';
 import { profileFormSchema, toProfileUpdate } from '@/lib/validation/profile';
 
@@ -27,8 +28,8 @@ async function proxy(path: string, init?: RequestInit): Promise<NextResponse> {
     const parsed = authUserEnvelopeSchema.safeParse(await response.json().catch(() => null));
     if (!parsed.success) return upstreamError(502);
     return NextResponse.json(parsed.data);
-  } catch {
-    return NextResponse.json({ error: 'network' }, { status: 503 });
+  } catch (error) {
+    return rateLimitedResponse(error) ?? NextResponse.json({ error: 'network' }, { status: 503 });
   }
 }
 

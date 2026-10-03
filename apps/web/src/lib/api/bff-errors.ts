@@ -2,6 +2,8 @@ import 'server-only';
 
 import { NextResponse } from 'next/server';
 
+import { BackendRateLimitedError } from '@/lib/auth/server';
+
 /**
  * The BFF error vocabulary. Backend error bodies (messages, stacks, validation internals) are never
  * forwarded to the browser; only these codes and a safe status are.
@@ -53,4 +55,13 @@ export async function relayBackendResponse(response: Response): Promise<NextResp
   // An empty/non-JSON success keeps its 2xx status (clients may only check `response.ok`).
   if (payload === undefined) return NextResponse.json({ data: null }, { status: response.status });
   return NextResponse.json(payload, { status: response.status });
+}
+
+/**
+ * For a route's catch block: a session refresh the backend throttled (`BackendRateLimitedError`)
+ * is `rate_limited`/429, never an outage. Returns null for any other error.
+ */
+export function rateLimitedResponse(error: unknown): NextResponse<{ error: BffErrorCode }> | null {
+  if (!(error instanceof BackendRateLimitedError)) return null;
+  return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '60' } });
 }

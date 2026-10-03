@@ -188,3 +188,15 @@ describe('POST /api/auth/logout', () => {
     }
   });
 });
+
+describe('GET /api/profile', () => {
+  it('reports a throttled session refresh as 429, not a network outage', async () => {
+    state.cookies.set('eastpark_refresh', 'refresh-throttled');
+    backend = () => json(429, { message: 'ThrottlerException: Too Many Requests' });
+    const { GET } = await import('@/app/api/profile/route');
+    const response = await GET();
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'rate_limited' });
+    expect(state.delete).not.toHaveBeenCalled();
+  });
+});
