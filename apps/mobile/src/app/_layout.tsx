@@ -110,12 +110,19 @@ function Providers({ children }: { children: React.ReactNode }) {
 
   // Navigate to the relevant screen when user taps a push notification.
   React.useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    function openNotification(response: Notifications.NotificationResponse) {
+      // Consume it so a remount never routes the same tap twice.
+      Notifications.clearLastNotificationResponse();
       const data = response.notification.request.content.data as Record<string, unknown> | null;
       const href = getNotificationHref(data?.type, data);
       if (href)
         router.push(href as Href);
-    });
+    }
+    // A tap that cold-starts the app arrives before this listener exists.
+    const launchResponse = Notifications.getLastNotificationResponse();
+    if (launchResponse)
+      openNotification(launchResponse);
+    const subscription = Notifications.addNotificationResponseReceivedListener(openNotification);
     return () => subscription.remove();
   }, [router]);
 
