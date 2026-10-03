@@ -180,11 +180,15 @@ export class ShopsService {
     }
 
     async remove(id: string): Promise<void> {
-        const shop = await this.db.shop.findUnique({ where: { id } });
+        const shop = await this.db.shop.findUnique({
+            where: { id },
+            select: { id: true },
+        });
         if (!shop) throw new NotFoundException('shop.error.notFound');
 
         // Orders and products reference the shop with restrictive FKs; block
-        // instead of surfacing a 500 from the database.
+        // instead of surfacing a 500 from the database. Reviews and resident
+        // bookmarks belong to the shop and go with it (photos cascade).
         const [orderCount, productCount] = await Promise.all([
             this.db.order.count({ where: { shopId: id } }),
             this.db.product.count({ where: { shopId: id } }),
@@ -193,7 +197,11 @@ export class ShopsService {
             throw new ConflictException('shop.error.hasDependents');
         }
 
-        await this.db.shop.delete({ where: { id } });
+        await this.db.$transaction([
+            this.db.savedShop.deleteMany({ where: { shopId: id } }),
+            this.db.review.deleteMany({ where: { shopId: id } }),
+            this.db.shop.delete({ where: { id } }),
+        ]);
     }
 
     async addPhoto(

@@ -13,6 +13,9 @@ const db = {
     shop: { findUnique: jest.fn(), delete: jest.fn() },
     order: { count: jest.fn() },
     product: { count: jest.fn() },
+    review: { deleteMany: jest.fn() },
+    savedShop: { deleteMany: jest.fn() },
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
     announcement: { findUnique: jest.fn() },
 };
 
@@ -42,6 +45,21 @@ describe('ShopsService.remove', () => {
         db.product.count.mockResolvedValue(0);
         await svc.remove('s1');
         expect(db.shop.delete).toHaveBeenCalled();
+    });
+
+    it('removes reviews and bookmarks with the shop in one transaction', async () => {
+        const svc = await build(ShopsService);
+        db.shop.findUnique.mockResolvedValue({ id: 's1' });
+        db.order.count.mockResolvedValue(0);
+        db.product.count.mockResolvedValue(0);
+        await svc.remove('s1');
+        expect(db.review.deleteMany).toHaveBeenCalledWith({
+            where: { shopId: 's1' },
+        });
+        expect(db.savedShop.deleteMany).toHaveBeenCalledWith({
+            where: { shopId: 's1' },
+        });
+        expect(db.$transaction).toHaveBeenCalledTimes(1);
     });
 });
 
