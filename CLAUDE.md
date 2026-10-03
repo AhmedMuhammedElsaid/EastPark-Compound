@@ -127,8 +127,8 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 >    on Cloudflare's `CF-Connecting-IP` and BFF traffic on `X-EastPark-Client-IP` only when the secret
 >    matches. A missing/mismatched secret keys ALL web users on Vercel's egress IP → mass 429 on login.
 > 8. Verify client-IP throttling on Render (never print the secret): (a) 6 direct `POST /v1/auth/login`
->    with no extra headers → 6th is 429; (b) 6 direct with rotating fake `CF-Connecting-IP`/`X-Forwarded-For`
->    → 6th is 429 (Cloudflare overwrites CF-Connecting-IP); (c) 6 web logins/min from IP A → 6th is 429
+>    with no extra headers → 6th is 429; (b) 6 direct with rotating fake `X-Forwarded-For` → 6th is 429
+>    (a client-set `CF-Connecting-IP` never reaches Render: Cloudflare rejects it with 403); (c) 6 web logins/min from IP A → 6th is 429
 >    while IP B is unaffected. If (c) never 429s, the secret differs between Vercel and Render. If IP B is
 >    also 429, the secret is unset/mismatched and web users share Vercel egress buckets. Confirm
 >    `x-eastpark-internal` / `x-eastpark-client-ip` do not appear in Render logs.
