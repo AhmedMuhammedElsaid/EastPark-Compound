@@ -13,6 +13,7 @@ import { GovernancePreview } from './home/GovernancePreview';
 import { HomeHero } from './home/HomeHero';
 import { MarketplacePreview } from './home/MarketplacePreview';
 import { OrderTrackingPreview } from './home/OrderTrackingPreview';
+import { TeaserTicker } from './home/TeaserTicker';
 
 function subscribeToClock(onStoreChange: () => void) {
   const interval = window.setInterval(onStoreChange, 60_000);
@@ -43,6 +44,8 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
     <Container className="py-8 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-8 sm:space-y-10">
         <HomeHero greeting={greeting} />
+
+        <TeaserTicker />
 
         <div className="grid items-stretch gap-6 lg:grid-cols-2">
       <div id="account" className="min-w-0 rounded-lg border border-border bg-card p-5 sm:p-6">
@@ -112,12 +115,26 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
           {latestSlot}
         </div>
 
-        <MarketplacePreview />
+        <section aria-labelledby="vault-title" className="space-y-6">
+          <div>
+            <p className="text-[length:var(--text-overline)] font-bold uppercase tracking-[1px] text-primary">
+              {t('home.teaser.sealed')}
+            </p>
+            <h2 id="vault-title" className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight text-foreground">
+              {t('home.teaser.vault_title')}
+            </h2>
+            <p className="mt-2 max-w-[60ch] text-[length:var(--text-body)] leading-6 text-muted-foreground">
+              {t('home.teaser.vault_sub')}
+            </p>
+          </div>
 
-        <div className="grid items-stretch gap-6 lg:grid-cols-2">
-          <GovernancePreview />
-          <OrderTrackingPreview />
-        </div>
+          <MarketplacePreview />
+
+          <div className="grid items-stretch gap-6 lg:grid-cols-2">
+            <GovernancePreview />
+            <OrderTrackingPreview />
+          </div>
+        </section>
 
         <AlsoOnTheWay role={user?.role} />
       </div>

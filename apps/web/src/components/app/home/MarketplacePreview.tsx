@@ -21,15 +21,15 @@ export function MarketplacePreview() {
   return (
     <Reveal>
       <section aria-labelledby="market-preview-title">
-        <h2 id="market-preview-title" className="text-[length:var(--text-h2)] font-bold text-foreground">
+        <h3 id="market-preview-title" className="text-[length:var(--text-h2)] font-bold text-foreground">
           {t('home.teaser.market_title')}
-        </h2>
+        </h3>
         <p className="mt-1 text-[length:var(--text-body)] text-muted-foreground">{t('home.teaser.market_sub')}</p>
 
-        <div className="relative mt-4 overflow-hidden rounded-lg border border-border bg-card p-4">
-          <div aria-hidden="true" inert className="flex gap-3 overflow-hidden lg:grid lg:grid-cols-4">
+        <div className="sealed-card relative mt-4 overflow-hidden rounded-lg border border-border bg-card p-4">
+          <div aria-hidden="true" inert className="flex gap-3 overflow-hidden sm:grid sm:grid-cols-4">
             {CARDS.map(({ key, icon: Icon, label, tint }) => (
-              <div key={key} className="w-[40%] shrink-0 rounded-md border border-border bg-background lg:w-auto">
+              <div key={key} className="w-[42%] shrink-0 rounded-md border border-border bg-background sm:w-auto">
                 <div className={`flex h-24 items-center justify-center rounded-t-md ${tint}`}>
                   <Icon className="size-8 text-foreground/70" />
                 </div>
@@ -45,13 +45,17 @@ export function MarketplacePreview() {
           <GatedLink
             href="/directory"
             aria-label={t('home.teaser.market_cta')}
-            className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-md focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-gold-500 dark:bg-background/40"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/60 px-6 text-center backdrop-blur-md focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-gold-500 dark:bg-background/40"
           >
             <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary bg-card px-5 text-[length:var(--text-label)] font-bold text-primary">
               <Lock aria-hidden="true" className="size-4" />
               {t('home.teaser.market_soon')}
             </span>
+            <span className="sealed-hint max-w-[36ch] text-[length:var(--text-label)] font-semibold leading-5 text-foreground">
+              {t('home.teaser.hint_market')}
+            </span>
           </GatedLink>
+          <span aria-hidden="true" className="sealed-sweep pointer-events-none absolute inset-0" />
         </div>
       </section>
     </Reveal>

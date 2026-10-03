@@ -372,6 +372,317 @@ button:disabled {
   }
 }
 
+/* ─── Resident home teaser ──────────────────────────────────────────── */
+
+.home-hero {
+  --hero-track: rgb(250 248 245 / 14%);
+  --hero-accent: var(--color-gold-400);
+  --hero-node: var(--color-gold-500);
+  --hero-node-foreground: var(--color-dark-bg);
+}
+
+.light .home-hero {
+  --hero-track: rgb(26 23 20 / 14%);
+  --hero-accent: var(--color-gold-700);
+  --hero-node: var(--color-gold-700);
+  --hero-node-foreground: var(--color-light-bg);
+}
+
+.home-hero-accent {
+  color: var(--hero-accent);
+}
+
+.home-hero-glow {
+  background:
+    radial-gradient(70% 90% at 100% 0%, rgb(184 150 106 / 24%), transparent 65%),
+    radial-gradient(55% 70% at 0% 100%, rgb(184 150 106 / 10%), transparent 70%);
+  animation: home-glow-breathe 9s ease-in-out infinite alternate;
+}
+
+[dir='rtl'] .home-hero-glow {
+  transform: scaleX(-1);
+}
+
+.light .home-hero-glow {
+  background:
+    radial-gradient(70% 90% at 100% 0%, rgb(184 150 106 / 22%), transparent 65%),
+    radial-gradient(55% 70% at 0% 100%, rgb(184 150 106 / 12%), transparent 70%);
+}
+
+.home-hero-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+}
+
+.home-hero-mark {
+  top: 50%;
+  inset-inline-end: -14%;
+  width: clamp(13rem, 46%, 26rem);
+  aspect-ratio: 1;
+  opacity: 0.11;
+  transform: translateY(-50%);
+}
+
+.home-hero-mark .hero-logo-art {
+  animation: home-mark-breathe 7s ease-in-out infinite;
+}
+
+.light .home-hero-mark .hero-logo-art {
+  background: var(--color-gold-900);
+}
+
+@keyframes home-glow-breathe {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+@keyframes home-mark-breathe {
+  0%, 100% { transform: scale(0.97); opacity: 0.8; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+/* Staged entrance. Runs in CSS, so content is visible without JavaScript. */
+@keyframes home-stage-in {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.home-stage {
+  animation: home-stage-in 700ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--stage, 0) * 140ms + 80ms);
+}
+
+/* Rollout timeline: vertical on phones, horizontal from 640px. */
+.home-timeline-node {
+  border: 2px solid var(--hero-track);
+}
+
+.home-timeline-step[data-status='next'] .home-timeline-node {
+  opacity: 0.75;
+}
+
+.home-timeline-step[data-status='live'] .home-timeline-node {
+  border-color: var(--hero-node);
+  background: var(--hero-node);
+  color: var(--hero-node-foreground);
+}
+
+.home-timeline-step[data-status='preparing'] .home-timeline-node {
+  border-color: var(--hero-node);
+}
+
+.home-timeline-pulse {
+  background: var(--hero-node);
+  animation: home-pulse 1.8s var(--ease-standard) infinite;
+}
+
+.home-timeline-status {
+  color: var(--color-dark-muted);
+}
+
+.light .home-timeline-status {
+  color: var(--color-light-muted);
+}
+
+.home-timeline-step[data-status='live'] .home-timeline-status,
+.home-timeline-step[data-status='preparing'] .home-timeline-status {
+  color: var(--hero-accent);
+}
+
+.home-timeline-step:not(:last-child)::before,
+.home-timeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 15px;
+  top: 36px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+}
+
+.home-timeline-step:not(:last-child)::before {
+  background: var(--hero-track);
+}
+
+/* Live -> preparing: the finished segment fills in once. */
+.home-timeline-step[data-status='live']::after {
+  background: var(--hero-node);
+  transform-origin: top;
+  animation: home-fill-y 1100ms var(--ease-out-soft) 900ms both;
+}
+
+/* Preparing -> next: light keeps travelling toward the locked phase (no fake percentage). */
+.home-timeline-step[data-status='preparing']:not(:last-child)::after {
+  background: linear-gradient(180deg, transparent, var(--hero-node), transparent) no-repeat;
+  background-size: 100% 45%;
+  animation: home-charge-y 2.4s var(--ease-standard) infinite;
+}
+
+@media (min-width: 640px) {
+  .home-timeline-step:not(:last-child)::before,
+  .home-timeline-step:not(:last-child)::after {
+    top: 15px;
+    bottom: auto;
+    inset-inline-start: 40px;
+    width: calc(100% - 48px + 1rem);
+    height: 2px;
+  }
+
+  .home-timeline-step[data-status='live']::after {
+    transform-origin: left;
+    animation-name: home-fill-x;
+  }
+
+  [dir='rtl'] .home-timeline-step[data-status='live']::after {
+    transform-origin: right;
+  }
+
+  .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+    background-image: linear-gradient(90deg, transparent, var(--hero-node), transparent);
+    background-size: 45% 100%;
+    animation-name: home-charge-x;
+  }
+
+  [dir='rtl'] .home-timeline-step[data-status='preparing']:not(:last-child)::after {
+    animation-name: home-charge-x-rtl;
+  }
+}
+
+@keyframes home-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(184 150 106 / 55%); }
+  70%, 100% { box-shadow: 0 0 0 10px rgb(184 150 106 / 0%); }
+}
+
+@keyframes home-fill-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes home-fill-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes home-charge-y {
+  from { background-position: 0 -120%; }
+  to { background-position: 0 220%; }
+}
+
+@keyframes home-charge-x {
+  from { background-position: -120% 0; }
+  to { background-position: 220% 0; }
+}
+
+@keyframes home-charge-x-rtl {
+  from { background-position: 220% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* "Unlocking soon" ticker. */
+.home-ticker {
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+
+.home-ticker-track {
+  animation: home-ticker-ltr 38s linear infinite;
+}
+
+[dir='rtl'] .home-ticker-track {
+  animation-name: home-ticker-rtl;
+}
+
+.home-ticker:hover .home-ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes home-ticker-ltr {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes home-ticker-rtl {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(50%, 0, 0); }
+}
+
+/* Sealed teaser cards: a slow diagonal light sweep and a hint revealed on hover/focus. */
+.sealed-sweep {
+  background: linear-gradient(105deg, transparent 35%, rgb(184 150 106 / 12%) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%;
+  animation: sealed-sweep 7s var(--ease-standard) infinite;
+}
+
+@keyframes sealed-sweep {
+  0%, 55% { background-position: 130% 0; }
+  100% { background-position: -30% 0; }
+}
+
+.sealed-blur {
+  filter: blur(2.5px);
+  transition: filter 400ms var(--ease-standard);
+}
+
+.sealed-card:hover .sealed-blur,
+.sealed-card:focus-visible .sealed-blur {
+  filter: blur(1px);
+}
+
+@media (hover: hover) {
+  .sealed-hint {
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 300ms var(--ease-standard), transform 300ms var(--ease-standard);
+  }
+
+  .sealed-card:hover .sealed-hint,
+  .sealed-card:focus-within .sealed-hint {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-stage,
+  .home-hero-glow,
+  .home-hero-mark .hero-logo-art,
+  .home-timeline-pulse,
+  .home-timeline-step::after,
+  .sealed-sweep {
+    animation: none;
+  }
+
+  .home-timeline-step[data-status='preparing']:not(:last-child)::after,
+  .sealed-sweep {
+    background: none;
+  }
+
+  .home-ticker-track {
+    animation: none;
+    width: auto;
+  }
+
+  .home-ticker-track > :nth-child(2) {
+    display: none;
+  }
+
+  .home-ticker-track > ul {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    min-width: 0;
+    row-gap: 0.5rem;
+  }
+
+  .home-ticker {
+    mask-image: none;
+  }
+
+  .sealed-blur,
+  .sealed-hint {
+    transition: none;
+  }
+}
+
 /* ─── Coming soon dialog ─────────────────────────────────────────────── */
 
 @keyframes coming-soon-fade {

@@ -11,3 +11,19 @@ export function SoonPill({ label, className = '' }: { label: string; className?:
     </span>
   );
 }
+
+/**
+ * Decorative light sweep plus the hint line for a sealed teaser card. Place inside an element with
+ * the `sealed-card` class. On devices with hover the hint fades in on hover/focus; on touch devices
+ * it is always visible (there is no hover to reveal it).
+ */
+export function SealedHint({ hint }: { hint: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className="sealed-sweep pointer-events-none absolute inset-0" />
+      <span className="sealed-hint mt-4 block border-t border-border pt-3 text-[length:var(--text-label)] leading-5 text-muted-foreground">
+        {hint}
+      </span>
+    </>
+  );
+}

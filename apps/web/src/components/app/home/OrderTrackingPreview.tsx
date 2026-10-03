@@ -7,6 +7,8 @@ import { Reveal } from '@/components/Reveal';
 import { GatedLink } from '@/lib/access/ComingSoon';
 import { useTranslation } from '@/lib/i18n';
 
+import { SealedHint, SoonPill } from './SoonPill';
+
 const STEPS = ['PLACED', 'CONFIRMED', 'PREPARING', 'ON_THE_WAY', 'DELIVERED'] as const;
 const STATIC_STEP = 2; // step 3 lit under reduced motion
 const STEP_MS = 2000;
@@ -25,9 +27,12 @@ export function OrderTrackingPreview() {
     <Reveal className="h-full" delayMs={80}>
       <GatedLink
         href="/orders"
-        className="flex h-full flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+        className="sealed-card relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
       >
-        <h2 className="text-[length:var(--text-h2)] font-bold text-foreground">{t('home.teaser.track_title')}</h2>
+        <span className="flex items-start justify-between gap-3">
+          <h3 className="text-[length:var(--text-h2)] font-bold text-foreground">{t('home.teaser.track_title')}</h3>
+          <SoonPill label={t('home.teaser.sealed')} className="shrink-0" />
+        </span>
         <ol aria-hidden="true" className="mt-6 flex items-start">
           {STEPS.map((step, index) => {
             const reached = index <= active;
@@ -67,6 +72,7 @@ export function OrderTrackingPreview() {
           {t(`orders.${STEPS[active]}`)}
         </p>
         <p className="mt-5 text-[length:var(--text-body)] text-muted-foreground">{t('home.teaser.track_caption')}</p>
+        <SealedHint hint={t('home.teaser.hint_track')} />
       </GatedLink>
     </Reveal>
   );
