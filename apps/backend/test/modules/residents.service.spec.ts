@@ -59,6 +59,7 @@ const db = {
         create: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+        groupBy: jest.fn(),
     },
     user: {
         findUnique: jest.fn(),
@@ -395,6 +396,48 @@ describe('ResidentsService', () => {
                     usedAt: null,
                 }),
                 data: { expiresAt: expect.any(Date) },
+            });
+        });
+    });
+
+    // ── stats ─────────────────────────────────────────────────────────────────
+
+    describe('stats', () => {
+        it('groups all leads by status in one query without a filter', async () => {
+            db.residentLead.groupBy.mockResolvedValue([]);
+
+            await service.stats();
+
+            expect(db.residentLead.groupBy).toHaveBeenCalledTimes(1);
+            const call = db.residentLead.groupBy.mock.calls[0]?.[0];
+            expect(call?.by).toEqual(['status']);
+            expect(call?.where).toBeUndefined();
+        });
+
+        it('zero-fills missing statuses and sums the total', async () => {
+            db.residentLead.groupBy.mockResolvedValue([
+                { status: ResidentLeadStatus.PENDING, _count: { _all: 4 } },
+                { status: ResidentLeadStatus.REJECTED, _count: { _all: 2 } },
+            ]);
+
+            await expect(service.stats()).resolves.toEqual({
+                PENDING: 4,
+                INVITED: 0,
+                CONVERTED: 0,
+                REJECTED: 2,
+                total: 6,
+            });
+        });
+
+        it('returns all zeros when there are no leads', async () => {
+            db.residentLead.groupBy.mockResolvedValue([]);
+
+            await expect(service.stats()).resolves.toEqual({
+                PENDING: 0,
+                INVITED: 0,
+                CONVERTED: 0,
+                REJECTED: 0,
+                total: 0,
             });
         });
     });

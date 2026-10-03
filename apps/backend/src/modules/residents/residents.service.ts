@@ -19,6 +19,7 @@ import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
 import {
     ResidentLeadListResponseDto,
     ResidentLeadResponseDto,
+    ResidentLeadStatsResponseDto,
 } from './dtos/response/resident-lead.response.dto';
 
 function isSameSubmission(
@@ -121,6 +122,26 @@ export class ResidentsService {
         const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items, nextCursor };
+    }
+
+    /** Lead counts per status (zero-filled) plus the overall total. */
+    async stats(): Promise<ResidentLeadStatsResponseDto> {
+        const groups = await this.db.residentLead.groupBy({
+            by: ['status'],
+            _count: { _all: true },
+        });
+        const counts: ResidentLeadStatsResponseDto = {
+            PENDING: 0,
+            INVITED: 0,
+            CONVERTED: 0,
+            REJECTED: 0,
+            total: 0,
+        };
+        for (const group of groups) {
+            counts[group.status] = group._count._all;
+            counts.total += group._count._all;
+        }
+        return counts;
     }
 
     /**

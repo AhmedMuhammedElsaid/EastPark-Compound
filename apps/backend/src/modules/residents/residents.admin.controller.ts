@@ -8,7 +8,12 @@ import {
     Post,
     Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+    ApiBearerAuth,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+} from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
 import { AllowedRoles } from 'src/common/request/decorators/request.role.decorator';
@@ -16,7 +21,10 @@ import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
-import { ResidentLeadListResponseDto } from './dtos/response/resident-lead.response.dto';
+import {
+    ResidentLeadListResponseDto,
+    ResidentLeadStatsResponseDto,
+} from './dtos/response/resident-lead.response.dto';
 import { ResidentsService } from './residents.service';
 
 @ApiTags('admin/residents')
@@ -33,6 +41,15 @@ export class ResidentsAdminController {
         @Query() query: ResidentLeadQueryDto,
     ): Promise<ResidentLeadListResponseDto> {
         return this.residentsService.findAll(query);
+    }
+
+    @Get('leads/stats')
+    @AllowedRoles([Role.ADMIN])
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Resident lead counts per status [ADMIN]' })
+    @ApiOkResponse({ type: ResidentLeadStatsResponseDto })
+    stats(): Promise<ResidentLeadStatsResponseDto> {
+        return this.residentsService.stats();
     }
 
     @Post('leads/:id/invite')

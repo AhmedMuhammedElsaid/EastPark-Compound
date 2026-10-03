@@ -27,3 +27,12 @@ export class ResidentLeadListResponseDto {
     items: ResidentLeadResponseDto[];
     @ApiPropertyOptional() nextCursor?: string;
 }
+
+/** Lead counts per status for the admin summary cards. */
+export class ResidentLeadStatsResponseDto {
+    @ApiProperty() PENDING: number;
+    @ApiProperty() INVITED: number;
+    @ApiProperty() CONVERTED: number;
+    @ApiProperty() REJECTED: number;
+    @ApiProperty() total: number;
+}
