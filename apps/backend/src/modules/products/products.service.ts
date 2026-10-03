@@ -6,6 +6,7 @@ import {
 import { Product, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
@@ -60,7 +61,7 @@ export class ProductsService {
     ): Promise<ProductListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.product.findMany({
+        const rows = await this.db.product.findMany({
             where: {
                 shopId,
                 isDeleted: false,
@@ -87,15 +88,11 @@ export class ProductsService {
                     : {}),
             },
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'asc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items: items.map(toProductResponse), nextCursor };
     }

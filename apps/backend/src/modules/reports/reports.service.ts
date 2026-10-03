@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 
 import { ReportCreateDto } from './dtos/request/report.create.dto';
 import { ReportQueryDto } from './dtos/request/report.query.dto';
@@ -25,17 +26,13 @@ export class ReportsService {
     async findAll(query: ReportQueryDto): Promise<ReportListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.report.findMany({
+        const rows = await this.db.report.findMany({
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { publishedAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            items.pop();
-            nextCursor = items[items.length - 1]?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items, nextCursor };
     }

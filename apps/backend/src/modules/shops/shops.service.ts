@@ -7,6 +7,7 @@ import {
 import { Prisma, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { ShopCreateDto } from './dtos/request/shop.create.dto';
@@ -58,7 +59,7 @@ export class ShopsService {
     async findAll(query: ShopQueryDto): Promise<ShopListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.shop.findMany({
+        const rows = await this.db.shop.findMany({
             where: {
                 ...(query.category ? { category: query.category } : {}),
                 ...(query.search
@@ -81,19 +82,15 @@ export class ShopsService {
                     : {}),
             },
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: {
                 photos: { orderBy: { order: 'asc' } },
                 _count: { select: { reviews: true } },
             },
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         // Batch-fetch average ratings for all shops in one query
         const shopIds = items.map(s => s.id);

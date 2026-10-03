@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 
 import { ReviewCreateDto } from './dtos/request/review.create.dto';
 import { ReviewQueryDto } from './dtos/request/review.query.dto';
@@ -13,12 +14,12 @@ export class ReviewsService {
     async findAll(shopId: string, query: ReviewQueryDto): Promise<ReviewListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const [items, aggregate] = await Promise.all([
+        const [rows, aggregate] = await Promise.all([
             this.db.review.findMany({
                 where: { shopId },
                 take: limit + 1,
-                ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-                orderBy: { createdAt: 'desc' },
+                ...cursorArgs(query.cursor),
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                 include: { user: { select: { id: true, name: true } } },
             }),
             this.db.review.aggregate({
@@ -27,11 +28,7 @@ export class ReviewsService {
             }),
         ]);
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return {
             items: items.map((r) => ({

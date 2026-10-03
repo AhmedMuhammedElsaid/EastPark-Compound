@@ -3,6 +3,7 @@ import { NotificationType } from '@prisma/client';
 import Expo from 'expo-server-sdk';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { maskToken } from 'src/common/helper/utils/redact';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
@@ -108,25 +109,19 @@ export class NotificationsService {
         const where: Record<string, unknown> = { userId: actor.userId };
         if (query.isRead !== undefined) where.isRead = query.isRead;
 
-        const [notifications, unreadCount] = await Promise.all([
+        const [rows, unreadCount] = await Promise.all([
             this.db.notification.findMany({
                 where,
                 take: limit + 1,
-                ...(query.cursor
-                    ? { skip: 1, cursor: { id: query.cursor } }
-                    : {}),
-                orderBy: { createdAt: 'desc' },
+                ...cursorArgs(query.cursor),
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             }),
             this.db.notification.count({
                 where: { userId: actor.userId, isRead: false },
             }),
         ]);
 
-        let nextCursor: string | undefined;
-        if (notifications.length > limit) {
-            const last = notifications.pop();
-            nextCursor = last?.id;
-        }
+        const { items: notifications, nextCursor } = toCursorPage(rows, limit);
 
         const items: NotificationResponseDto[] = notifications.map(n => ({
             id: n.id,

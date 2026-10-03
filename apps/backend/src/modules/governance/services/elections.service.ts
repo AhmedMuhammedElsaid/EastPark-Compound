@@ -9,6 +9,7 @@ import { Cron } from '@nestjs/schedule';
 import { ElectionVisibilityMode, Prisma } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { CandidateCreateDto } from '../dtos/request/candidate.create.dto';
@@ -148,10 +149,10 @@ export class ElectionsService {
     ): Promise<ElectionListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const elections = await this.db.election.findMany({
+        const rows = await this.db.election.findMany({
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: {
                 candidates: {
                     include: { _count: { select: { votes: true } } },
@@ -160,11 +161,7 @@ export class ElectionsService {
             },
         });
 
-        let nextCursor: string | undefined;
-        if (elections.length > limit) {
-            const last = elections.pop();
-            nextCursor = last?.id;
-        }
+        const { items: elections, nextCursor } = toCursorPage(rows, limit);
 
         const items = elections.map(election => {
             const myVote =

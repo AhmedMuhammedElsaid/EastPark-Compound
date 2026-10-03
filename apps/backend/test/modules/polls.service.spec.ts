@@ -84,7 +84,7 @@ describe('PollsService', () => {
             const result = await service.findAll({ limit: 5 }, actor);
 
             expect(result.items).toHaveLength(5);
-            expect(result.nextCursor).toBe('poll-5');
+            expect(result.nextCursor).toBe('poll-4');
         });
 
         it('hides vote counts on active (non-expired) polls', async () => {

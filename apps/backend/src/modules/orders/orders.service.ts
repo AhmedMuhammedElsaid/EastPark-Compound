@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
@@ -233,19 +234,15 @@ export class OrdersService {
 
         if (query.status) where.status = query.status;
 
-        const items = await this.db.order.findMany({
+        const rows = await this.db.order.findMany({
             where,
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: orderInclude(actor),
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items: items.map(toOrderResponse), nextCursor };
     }

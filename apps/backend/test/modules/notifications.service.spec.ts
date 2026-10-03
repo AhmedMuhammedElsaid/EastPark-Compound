@@ -162,7 +162,7 @@ describe('NotificationsService', () => {
             const result = await service.findAll(actor, { limit: 5 });
 
             expect(result.items).toHaveLength(5);
-            expect(result.nextCursor).toBe('notif-5');
+            expect(result.nextCursor).toBe('notif-4');
         });
     });
 

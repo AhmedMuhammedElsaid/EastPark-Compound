@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { toCursorPage } from 'src/common/helper/pagination';
 
 import { SavedShopQueryDto } from './dtos/request/saved-shop.query.dto';
 import { SavedShopListResponseDto } from './dtos/response/saved-shop.response.dto';
@@ -28,7 +29,7 @@ export class SavedShopsService {
     async findSavedShops(userId: string, query: SavedShopQueryDto): Promise<SavedShopListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.savedShop.findMany({
+        const rows = await this.db.savedShop.findMany({
             where: { userId },
             take: limit + 1,
             ...(query.cursor
@@ -38,11 +39,7 @@ export class SavedShopsService {
             include: { shop: { include: { photos: { orderBy: { order: 'asc' } } } } },
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.shopId;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit, s => s.shopId);
 
         return {
             items: items.map((s) => ({

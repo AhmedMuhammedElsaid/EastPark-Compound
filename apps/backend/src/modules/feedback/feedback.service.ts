@@ -6,6 +6,7 @@ import {
 import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { FeedbackCreateDto } from './dtos/request/feedback.create.dto';
@@ -57,18 +58,14 @@ export class FeedbackService {
         if (query.category) where['category'] = query.category;
         if (query.status) where['status'] = query.status;
 
-        const items = await this.db.feedback.findMany({
+        const rows = await this.db.feedback.findMany({
             where,
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return {
             items: items.map(f => this.maskAnonymous(f, actor)),

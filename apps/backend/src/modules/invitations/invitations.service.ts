@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'node:crypto';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { EmailService } from 'src/common/email/email.service';
 import { normalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -78,10 +79,10 @@ export class InvitationsService {
     async findAll(query: InvitationQueryDto): Promise<InvitationListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.invitation.findMany({
+        const rows = await this.db.invitation.findMany({
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             select: {
                 id: true,
                 email: true,
@@ -93,11 +94,7 @@ export class InvitationsService {
             },
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items, nextCursor };
     }

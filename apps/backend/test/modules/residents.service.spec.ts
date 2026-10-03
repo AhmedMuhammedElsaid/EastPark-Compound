@@ -378,7 +378,7 @@ describe('ResidentsService', () => {
     // ── findAll ───────────────────────────────────────────────────────────────
 
     describe('findAll', () => {
-        it('cursor pagination: fetches limit+1, pops extra, nextCursor = popped row id', async () => {
+        it('cursor pagination: fetches limit+1, drops the extra row, nextCursor = last returned row id', async () => {
             const leads = Array.from({ length: 6 }, (_, i) =>
                 mockLead({ id: `lead-${i}` })
             );
@@ -390,7 +390,7 @@ describe('ResidentsService', () => {
             expect(findManyCall?.take).toBe(6);
 
             expect(result.items).toHaveLength(5);
-            expect(result.nextCursor).toBe('lead-5');
+            expect(result.nextCursor).toBe('lead-4');
         });
 
         it('returns undefined nextCursor when fewer than limit+1 rows come back', async () => {

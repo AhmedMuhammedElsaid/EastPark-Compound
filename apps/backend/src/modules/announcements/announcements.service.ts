@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { AnnouncementCreateDto } from './dtos/request/announcement.create.dto';
@@ -32,18 +33,14 @@ export class AnnouncementsService {
     ): Promise<AnnouncementListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const items = await this.db.announcement.findMany({
+        const rows = await this.db.announcement.findMany({
             where: query.category ? { category: query.category } : {},
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { publishedAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
         });
 
-        let nextCursor: string | undefined;
-        if (items.length > limit) {
-            const last = items.pop();
-            nextCursor = last?.id;
-        }
+        const { items, nextCursor } = toCursorPage(rows, limit);
 
         return { items, nextCursor };
     }

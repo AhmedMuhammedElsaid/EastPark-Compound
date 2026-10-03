@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { PollCreateDto } from '../dtos/request/poll.create.dto';
@@ -41,10 +42,10 @@ export class PollsService {
     ): Promise<PollListResponseDto> {
         const limit = query.limit ?? 20;
 
-        const polls = await this.db.poll.findMany({
+        const rows = await this.db.poll.findMany({
             take: limit + 1,
-            ...(query.cursor ? { skip: 1, cursor: { id: query.cursor } } : {}),
-            orderBy: { createdAt: 'desc' },
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: {
                 options: {
                     include: { _count: { select: { votes: true } } },
@@ -53,11 +54,7 @@ export class PollsService {
             },
         });
 
-        let nextCursor: string | undefined;
-        if (polls.length > limit) {
-            const last = polls.pop();
-            nextCursor = last?.id;
-        }
+        const { items: polls, nextCursor } = toCursorPage(rows, limit);
 
         const now = new Date();
         const items = polls.map(poll => {
