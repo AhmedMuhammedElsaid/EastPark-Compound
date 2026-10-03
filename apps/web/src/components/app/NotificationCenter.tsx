@@ -10,9 +10,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { startTransition, useState } from 'react';
+import { startTransition, useRef, useState } from 'react';
 
 import { Container } from '@/components/Container';
+import { PendingMark } from '@/components/PendingMark';
 import {
   parseMarkAllRead,
   parseNotificationPage,
@@ -48,7 +49,13 @@ export function NotificationCenter({
   const [items, setItems] = useState(initialPage?.items ?? []);
   const [nextCursor, setNextCursor] = useState(initialPage?.nextCursor);
   const [unreadCount, setUnreadCount] = useState(initialPage?.unreadCount ?? 0);
+  // `filter` is the tab whose items are on screen; `pendingFilter` is a tab still loading. The visible
+  // tab only switches once its page has arrived, so a failed fetch never shows the wrong list.
   const [filter, setFilter] = useState<ReadFilter>('all');
+  const [pendingFilter, setPendingFilter] = useState<ReadFilter | null>(null);
+  const filterRef = useRef<ReadFilter>('all');
+  // Bumped by every tab switch: list responses that started before it are stale and dropped.
+  const listRequestRef = useRef(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(initialPage === null);
   const [markingAll, setMarkingAll] = useState(false);
@@ -74,30 +81,45 @@ export function NotificationCenter({
   }
 
   async function selectFilter(nextFilter: ReadFilter) {
-    if (nextFilter === filter || isLoading) return;
-    setFilter(nextFilter);
+    if (nextFilter === (pendingFilter ?? filter)) return;
+    const request = ++listRequestRef.current;
+    if (nextFilter === filter) {
+      // Back to the tab already on screen: abandon the pending switch.
+      setPendingFilter(null);
+      setIsLoading(false);
+      return;
+    }
+    setPendingFilter(nextFilter);
     setIsLoading(true);
     setLoadError(false);
     try {
       const page = await fetchPage(nextFilter);
+      if (request !== listRequestRef.current) return;
+      filterRef.current = nextFilter;
       startTransition(() => {
+        setFilter(nextFilter);
         setItems(page.items);
         setNextCursor(page.nextCursor);
         setUnreadCount(page.unreadCount);
       });
     } catch {
-      setLoadError(true);
+      if (request === listRequestRef.current) setLoadError(true);
     } finally {
-      setIsLoading(false);
+      if (request === listRequestRef.current) {
+        setPendingFilter(null);
+        setIsLoading(false);
+      }
     }
   }
 
   async function loadMore() {
     if (!nextCursor || isLoading) return;
+    const request = listRequestRef.current;
     setIsLoading(true);
     setLoadError(false);
     try {
       const page = await fetchPage(filter, nextCursor);
+      if (request !== listRequestRef.current) return;
       startTransition(() => {
         setItems((current) => {
           const known = new Set(current.map((item) => item.id));
@@ -107,15 +129,15 @@ export function NotificationCenter({
         setUnreadCount(page.unreadCount);
       });
     } catch {
-      setLoadError(true);
+      if (request === listRequestRef.current) setLoadError(true);
     } finally {
-      setIsLoading(false);
+      if (request === listRequestRef.current) setIsLoading(false);
     }
   }
 
   async function markRead(notification: AppNotification) {
     if (notification.isRead) return true;
-    const previousItems = items;
+    // Functional updates only: pages loaded while this request is in flight must survive a rollback.
     setItems((current) => current.map((item) => (
       item.id === notification.id ? { ...item, isRead: true } : item
     )));
@@ -127,12 +149,15 @@ export function NotificationCenter({
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error('Request failed');
-      if (filter === 'unread') {
+      if (filterRef.current === 'unread') {
         setItems((current) => current.filter((item) => item.id !== notification.id));
       }
       return true;
     } catch {
-      setItems(previousItems);
+      // Targeted rollback: revert only this notification, keep everything else as it is now.
+      setItems((current) => current.map((item) => (
+        item.id === notification.id ? { ...item, isRead: false } : item
+      )));
       setUnreadCount((current) => current + 1);
       setLoadError(true);
       return false;
@@ -157,7 +182,7 @@ export function NotificationCenter({
       if (!response.ok) throw new Error('Request failed');
       parseMarkAllRead(await response.json());
       setUnreadCount(0);
-      setItems((current) => filter === 'unread' ? [] : current.map((item) => ({ ...item, isRead: true })));
+      setItems((current) => filterRef.current === 'unread' ? [] : current.map((item) => ({ ...item, isRead: true })));
     } catch {
       setLoadError(true);
     } finally {
@@ -234,9 +259,11 @@ export function NotificationCenter({
                 key={value}
                 type="button"
                 aria-pressed={filter === value}
+                aria-busy={pendingFilter === value || undefined}
                 onClick={() => void selectFilter(value)}
-                className={`min-h-11 flex-1 rounded-sm px-3 text-[length:var(--text-label)] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none ${filter === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-sm px-3 text-[length:var(--text-label)] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none ${filter === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
+                {pendingFilter === value && <PendingMark size={14} />}
                 {t(`notifications.filter_${value}`)}
               </button>
             ))}
@@ -257,7 +284,11 @@ export function NotificationCenter({
               <p className="mt-2 text-[length:var(--text-body)] text-muted-foreground">{t('notifications.empty_subtitle')}</p>
             </div>
           ) : (
-            <div className="mt-6 divide-y divide-border border-y border-border" aria-live="polite">
+            <div
+              className={`mt-6 divide-y divide-border border-y border-border transition-opacity motion-reduce:transition-none ${pendingFilter ? 'opacity-60' : ''}`}
+              aria-live="polite"
+              aria-busy={pendingFilter ? true : undefined}
+            >
               {items.map((notification) => {
                 const title = lang === 'ar' ? notification.titleAr : notification.title;
                 const body = lang === 'ar' ? notification.bodyAr : notification.body;
