@@ -4,12 +4,13 @@ import { getSecureItem } from "@/lib/secure-storage";
 
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
 import { usersApi } from "@/services/api/users";
-import { useAppDispatch } from "@/store";
-import { login } from "@/store/slices/auth-slice";
+import { store, useAppDispatch } from "@/store";
+import { login, logout } from "@/store/slices/auth-slice";
 
 /**
  * Reads persisted tokens from SecureStore on cold launch.
- * If valid tokens are found, fetches the user profile and rehydrates Redux auth state.
+ * If valid tokens are found, fetches the user profile and rehydrates Redux auth state;
+ * if they are missing, clears a stale persisted "signed in" state.
  * Always calls SplashScreen.hideAsync() in the finally block so the splash is dismissed.
  */
 export function useAuthRehydration(): void {
@@ -23,6 +24,14 @@ export function useAuthRehydration(): void {
         if (accessToken && refreshToken) {
           const { data } = await usersApi.getProfile();
           dispatch(login({ user: data.data, accessToken, refreshToken }));
+        }
+        else if (store.getState().auth.isAuthenticated) {
+          // `user`/`isAuthenticated` are persisted in AsyncStorage, tokens in
+          // SecureStore. If the tokens are gone (keychain reset, interrupted
+          // logout) the UI must not keep looking signed in while every
+          // request goes out as a guest. Secure items are left untouched so a
+          // kept biometric refresh token still works.
+          dispatch(logout());
         }
       }
       catch (err: any) {
