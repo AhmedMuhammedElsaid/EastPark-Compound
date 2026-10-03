@@ -65,11 +65,16 @@ export default function ConfirmationScreen() {
 
   const reduceMotion = useReducedMotion();
 
+  // Success haptic exactly once, independent of the reduced-motion value
+  // (which may flip after mount and re-run the animation effect).
+  React.useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
   React.useEffect(() => {
     if (reduceMotion) {
       scale.setValue(1);
       opacity.setValue(1);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return;
     }
     Animated.spring(scale, { toValue: 1, damping: 12, stiffness: 120, useNativeDriver: true }).start();
@@ -77,7 +82,6 @@ export default function ConfirmationScreen() {
       Animated.delay(200),
       Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
     ]).start();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [opacity, scale, reduceMotion]);
 
   const iconStyle = { transform: [{ scale }] };

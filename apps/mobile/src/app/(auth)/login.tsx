@@ -118,13 +118,21 @@ export default function LoginScreen() {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 403) {
         // Account exists but the email is not verified yet.
-        showMessage({ message: t("auth.errors.email_not_verified"), type: "warning", backgroundColor: SEMANTIC.warning });
-        router.push({ pathname: "/(auth)/verify-otp", params: { email } });
+        // Login sends no code, so request a fresh one before routing to verify.
+        const resent = await authApi.resendOtp(email).then(() => true, () => false);
+        showMessage({
+          message: t(resent ? "auth.errors.email_not_verified" : "auth.errors.email_not_verified_no_code"),
+          type: "warning",
+          backgroundColor: SEMANTIC.warning,
+        });
+        router.push({ pathname: "/(auth)/verify-otp", params: resent ? { email, resent: "1" } : { email } });
         return;
       }
       const message = status === undefined
         ? t("auth.errors.server_unreachable")
-        : t("auth.errors.login_failed");
+        : status === 429
+          ? t("errors.rate_limited")
+          : t("auth.errors.login_failed");
       showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {

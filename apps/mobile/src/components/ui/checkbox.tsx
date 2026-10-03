@@ -11,7 +11,8 @@ import {
 import Svg, { Path } from "react-native-svg";
 
 import colors from "@/components/ui/colors";
-import { BRAND, LIGHT } from "@/theme/tokens";
+import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { BRAND } from "@/theme/tokens";
 
 import { Text } from "./text";
 
@@ -75,6 +76,7 @@ function Label({ text, testID, className = "" }: LabelProps) {
 }
 
 export function CheckboxIcon({ checked = false }: IconProps) {
+  const appColors = useAppColors();
   const color = checked ? colors.primary[300] : colors.charcoal[400];
   return (
     <MotiView
@@ -84,7 +86,7 @@ export function CheckboxIcon({ checked = false }: IconProps) {
         borderColor: color,
       }}
       className="items-center justify-center rounded-[5px] border-2"
-      from={{ backgroundColor: "transparent", borderColor: LIGHT.border }}
+      from={{ backgroundColor: "transparent", borderColor: appColors.border }}
       animate={{
         backgroundColor: checked ? color : "transparent",
         borderColor: color,
@@ -148,6 +150,7 @@ export const Checkbox = Object.assign(CheckboxBase, {
 });
 
 export function RadioIcon({ checked = false }: IconProps) {
+  const appColors = useAppColors();
   const color = checked ? colors.primary[300] : colors.charcoal[400];
   return (
     <MotiView
@@ -157,7 +160,7 @@ export function RadioIcon({ checked = false }: IconProps) {
         borderColor: color,
       }}
       className="items-center justify-center rounded-[20px] border-2 bg-transparent"
-      from={{ borderColor: LIGHT.border }}
+      from={{ borderColor: appColors.border }}
       animate={{
         borderColor: color,
       }}

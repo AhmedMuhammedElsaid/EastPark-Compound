@@ -78,9 +78,10 @@
       "passwords_no_match": "Passwords do not match",
       "unit_required": "Unit number is required",
       "password_requirements": "Use 8+ characters with an uppercase letter, a lowercase letter, a number and a symbol. English letters only, no spaces.",
-      "email_not_verified": "Please verify your email first. Enter the code we sent you.",
+      "email_not_verified": "Please verify your email first. We've sent you a new code.",
       "server_unreachable": "We couldn't reach the server. Check your connection and try again.",
-      "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation."
+      "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation.",
+      "email_not_verified_no_code": "Please verify your email first. We couldn't send a new code — tap Resend on the next screen."
     },
     "forgot": {
       "tryDifferentEmail": "Try a different email"

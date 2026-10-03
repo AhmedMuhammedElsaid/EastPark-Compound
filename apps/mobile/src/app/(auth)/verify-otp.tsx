@@ -35,13 +35,14 @@ function useStyles() {
 
 export default function VerifyOtpScreen() {
   const { t } = useTranslation();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, resent } = useLocalSearchParams<{ email: string; resent?: string }>();
   const colors = useAppColors();
   const styles = useStyles();
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [resending, setResending] = React.useState(false);
-  const [cooldown, setCooldown] = React.useState(0);
+  // Arriving from login already triggered a resend: start the cooldown.
+  const [cooldown, setCooldown] = React.useState(resent === "1" ? RESEND_COOLDOWN : 0);
 
   React.useEffect(() => {
     if (!email) {
