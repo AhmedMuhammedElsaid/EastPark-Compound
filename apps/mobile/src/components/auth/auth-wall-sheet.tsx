@@ -52,12 +52,6 @@ export function AuthWallSheet() {
     router.push("/(auth)/login");
   }
 
-  function handleRegister() {
-    continuingToAuthRef.current = true;
-    dispatch(hideAuthWall());
-    router.push("/(auth)/register");
-  }
-
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
@@ -90,12 +84,6 @@ export function AuthWallSheet() {
           label={t("auth.login")}
           onPress={handleLogin}
           variant="filled"
-        />
-
-        <GoldButton
-          label={t("auth.register")}
-          onPress={handleRegister}
-          variant="outline"
         />
 
         <GoldButton

@@ -40,9 +40,8 @@ function useStyles() {
     form: { gap: SPACING.xs },
     forgotRow: { alignSelf: "flex-end" as const, marginTop: SPACING.xs, marginBottom: SPACING.sm },
     forgotText: { fontFamily: FONT.sans, fontSize: 13, color: BRAND.gold, fontWeight: "500" },
-    footer: { flexDirection: "row" as const, justifyContent: "center" as const, alignItems: "center" as const, marginTop: SPACING.lg },
-    footerText: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted },
-    footerLink: { fontFamily: FONT.sans, fontSize: 14, color: BRAND.gold, fontWeight: "600" },
+    footer: { alignItems: "center" as const, marginTop: SPACING.lg },
+    footerText: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const },
     bottomPad: { height: SPACING["2xl"] },
     wakingText: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, textAlign: "center" as const, marginTop: SPACING.sm },
     biometricBtn: {
@@ -117,15 +116,14 @@ export default function LoginScreen() {
     catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 403) {
-        // Account exists but the email is not verified yet.
-        // Login sends no code, so request a fresh one before routing to verify.
-        const resent = await authApi.resendOtp(email).then(() => true, () => false);
+        // Unverified account. Self-registration (and its email code) is gone:
+        // every account is created through an admin invitation, so this is a
+        // guard for legacy accounts only.
         showMessage({
-          message: t(resent ? "auth.errors.email_not_verified" : "auth.errors.email_not_verified_no_code"),
+          message: t("auth.errors.account_not_activated"),
           type: "warning",
           backgroundColor: SEMANTIC.warning,
         });
-        router.push({ pathname: "/(auth)/verify-otp", params: resent ? { email, resent: "1" } : { email } });
         return;
       }
       const message = status === undefined
@@ -244,19 +242,7 @@ export default function LoginScreen() {
         ? <Text style={styles.wakingText} accessibilityLiveRegion="polite">{t("common.server_waking")}</Text>
         : null}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {t("auth.no_account")}
-          {" "}
-        </Text>
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.replace("/(auth)/register");
-          }}
-          hitSlop={8}
-        >
-          <Text style={styles.footerLink}>{t("auth.register")}</Text>
-        </Pressable>
+        <Text style={styles.footerText}>{t("auth.join_via_unit_registration")}</Text>
       </View>
       <View style={styles.bottomPad} />
     </AuthScreenWrapper>

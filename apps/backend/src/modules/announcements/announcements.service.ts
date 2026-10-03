@@ -15,6 +15,9 @@ import {
     CommentResponseDto,
 } from './dtos/response/announcement.response.dto';
 
+/** Comments embedded in `GET /announcements/:id`: the latest N, oldest first. */
+export const ANNOUNCEMENT_COMMENTS_LIMIT = 100;
+
 @Injectable()
 export class AnnouncementsService {
     constructor(private readonly db: DatabaseService) {}
@@ -52,8 +55,11 @@ export class AnnouncementsService {
         const announcement = await this.db.announcement.findUnique({
             where: { id },
             include: {
+                // Newest ANNOUNCEMENT_COMMENTS_LIMIT only (reversed below so the
+                // response stays oldest-first, as before).
                 comments: {
-                    orderBy: { createdAt: 'asc' },
+                    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+                    take: ANNOUNCEMENT_COMMENTS_LIMIT,
                     select: {
                         id: true,
                         body: true,
@@ -69,7 +75,7 @@ export class AnnouncementsService {
 
         // Privacy: guests see first names only; internal user ids are exposed
         // only to the comment owner and admins.
-        const comments = announcement.comments.map(comment => {
+        const comments = [...announcement.comments].reverse().map(comment => {
             const canSeeIdentity =
                 !!actor &&
                 (actor.role === Role.ADMIN || actor.userId === comment.userId);

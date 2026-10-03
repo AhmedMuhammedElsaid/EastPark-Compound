@@ -7,14 +7,6 @@ import { SECURE_KEY_REFRESH } from "./secure-keys";
 
 export type { AuthTokens } from "./client";
 
-export type RegisterPayload = {
-  name: string;
-  email: string;
-  phone: string;
-  unitNumber: string;
-  password: string;
-};
-
 export type LoginPayload = {
   email: string;
   password: string;
@@ -27,15 +19,6 @@ export type AuthResponse = {
 };
 
 export const authApi = {
-  register: (payload: RegisterPayload) =>
-    client.post<{ data: { message: string } }>("/auth/register", payload),
-
-  verifyOtp: (email: string, otp: string) =>
-    client.post<{ data: AuthResponse }>("/auth/verify-otp", { email, otp }),
-
-  resendOtp: (email: string) =>
-    client.post<{ data: { message: string } }>("/auth/resend-otp", { email }),
-
   login: (payload: LoginPayload) =>
     client.post<{ data: AuthResponse }>("/auth/login", payload),
 

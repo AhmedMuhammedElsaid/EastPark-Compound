@@ -5,7 +5,10 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
-import { AnnouncementsService } from 'src/modules/announcements/announcements.service';
+import {
+    ANNOUNCEMENT_COMMENTS_LIMIT,
+    AnnouncementsService,
+} from 'src/modules/announcements/announcements.service';
 import { ShopUpdateDto } from 'src/modules/shops/dtos/request/shop.update.dto';
 import { ShopsService } from 'src/modules/shops/shops.service';
 
@@ -126,5 +129,31 @@ describe('AnnouncementsService.findOne comment privacy', () => {
             expect(c.userId).toBe('u1');
             expect(c.user.id).toBe('u1');
         }
+    });
+});
+
+describe('AnnouncementsService.findOne comment cap', () => {
+    it('loads only the newest comments and returns them oldest first', async () => {
+        const at = (m: number) => new Date(Date.UTC(2026, 9, 3, 12, m));
+        // As the DB returns them for orderBy desc.
+        db.announcement.findUnique.mockResolvedValue({
+            id: 'a1',
+            comments: [
+                { id: 'c3', body: '3', userId: 'u1', createdAt: at(3), user: { id: 'u1', name: 'A' } },
+                { id: 'c2', body: '2', userId: 'u1', createdAt: at(2), user: { id: 'u1', name: 'A' } },
+                { id: 'c1', body: '1', userId: 'u1', createdAt: at(1), user: { id: 'u1', name: 'A' } },
+            ],
+        });
+        const svc = await build(AnnouncementsService);
+
+        const r = await svc.findOne('a1');
+
+        expect(r.comments.map((c: any) => c.id)).toEqual(['c1', 'c2', 'c3']);
+        const args = db.announcement.findUnique.mock.calls.at(-1)![0];
+        expect(args.include.comments).toMatchObject({
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: ANNOUNCEMENT_COMMENTS_LIMIT,
+        });
+        expect(ANNOUNCEMENT_COMMENTS_LIMIT).toBe(100);
     });
 });
