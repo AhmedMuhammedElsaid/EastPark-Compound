@@ -1,5 +1,10 @@
 # EastPark Backend + Mobile — Completion Roadmap
 
+> **HISTORICAL (2026-10-03):** this roadmap is superseded. Most items (Paymob amount check, money
+> Decimal, coverage honesty, invitation unit/phone copy, lead reject endpoint, dead env vars) were fixed
+> in the 2026-10-02/03 review batch. The live status, go-live runbook and remaining backlog are in the
+> root `CLAUDE.md` "2026-10-03" section. Keep this file for history only.
+
 **Produced:** 2026-09-29 · **Mode:** read-only audit (no code edits, no migrations, no commits)
 **Verified against:** backend `b293bba` (tree clean) · frontend `a17f0cd` (3 modified files)
 **Toolchain:** default shell Node is v12.22.9 and cannot run the tooling — every command below assumes `. ~/.nvm/nvm.sh && nvm use 24`. The `fly` and `vercel` CLIs are **not installed**.

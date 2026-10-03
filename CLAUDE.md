@@ -93,6 +93,13 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > (10 fails lock an email 15 min); WEB-12 global fetch patch; WEB-17 OG titles English; push only sent for
 > ORDER_UPDATE; no `isPinned` on announcements.
 
+> ---
+> **HISTORY BELOW.** Every section from here down is superseded by the 2026-10-03 section above. Their
+> "Next task", "Known blocker", "Resume" and "Open" items are either done or carried into the 2026-10-03
+> runbook/backlog — do not act on them directly. (Upload blocker: code chain verified and hardened; still
+> needs the Supabase bucket + a real end-to-end upload, step 3/7 of the runbook. Support web form is
+> still not implemented.)
+
 > ### 2026-10-02 — RESIDENT LAUNCH HANDOFF + IMAGE UPLOAD BLOCKER
 >
 > Root `main` is committed and pushed; clone or pull `origin/main` for the current checkpoint. Production remains

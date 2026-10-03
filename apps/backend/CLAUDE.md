@@ -98,10 +98,15 @@ This does not block `POST /v1/residents/leads`.
 - `APP_ENV=production` in fly.toml — closes Swagger/CSP/CORS exposure. Health check on `/health`
   (**not** `/v1/health` — the controller is `VERSION_NEUTRAL`).
 
-**Open — see `COMPLETION-ROADMAP.md` for the full ranked list:** the Paymob webhook does not verify
-the paid amount (`payments.service.ts:135-149`) · money is still `Float` (schema.prisma:216/237/263;
-Decimal is a BREAKING API change without `.toNumber()` boundary mapping) · real whole-repo coverage
-is **12.44%**, not the headline 81.11% (that figure averages only the 5 files in `test/jest.json`).
+**2026-10-03 update (supersedes the "Open" list that used to be here):** the Paymob webhook now
+verifies HMAC (from `?hmac=`), Paymob order id, amount and currency; money is `Decimal(10,2)` with
+`.toNumber()` at the API boundary (migration `20261002000000_money_decimal`, not yet applied to prod);
+coverage is measured across `src/**` (~40%, thresholds 37/40/73). Also: single-use refresh tokens +
+session version, per-IP throttling trusted only with `BFF_INTERNAL_SECRET` (`trustProxy: 1`), OTP and
+per-email login caps, order state machine, upload magic-byte sniffing + purpose folders, socket JWT auth,
+email lower-casing migration `20261003000000_lowercase_emails` (run
+`prisma/scripts/check-email-case.sql` on prod first). Current state, go-live runbook and backlog: root
+`CLAUDE.md` → "2026-10-03" section. Card payments remain disabled (owner postponed).
 
 **2026-09-30 — Postgres moved from Neon to Supabase.** One vendor for DB + Storage, and Neon's free
 tier could not host this app: the Fly health check queries the DB every 15s, so the compute never
