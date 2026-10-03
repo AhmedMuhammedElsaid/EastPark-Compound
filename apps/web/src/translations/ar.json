@@ -473,6 +473,7 @@
     "greeting_afternoon": "مساء الخير",
     "greeting_evening": "مساء الخير",
     "greeting_morning": "صباح الخير",
+    "greeting_named": "{{greeting}}، {{name}}",
     "my_orders": "طلباتي",
     "quick_actions": "إجراءات سريعة",
     "recent_shops": "محلاتك الأخيرة",

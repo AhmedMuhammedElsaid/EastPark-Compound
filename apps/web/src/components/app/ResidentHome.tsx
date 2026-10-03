@@ -31,9 +31,13 @@ export function ResidentHome({ latestSlot }: { latestSlot: ReactNode }) {
   const { isLoading, logout, user } = useAuth();
   const { t } = useTranslation();
   const localHour = useSyncExternalStore(subscribeToClock, getLocalHour, getServerHour);
-  const greeting = user
-    ? `${t(localHour >= 17 ? 'home.greeting_evening' : 'home.greeting_morning')}، ${user.name}`
-    : null;
+  const greetingKey =
+    localHour >= 5 && localHour < 12
+      ? 'home.greeting_morning'
+      : localHour >= 12 && localHour < 17
+        ? 'home.greeting_afternoon'
+        : 'home.greeting_evening';
+  const greeting = user ? t('home.greeting_named', { greeting: t(greetingKey), name: user.name }) : null;
 
   return (
     <Container className="py-8 sm:py-12">
