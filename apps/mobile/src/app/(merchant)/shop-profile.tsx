@@ -8,6 +8,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  I18nManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -243,7 +244,7 @@ export default function MerchantShopProfileScreen() {
       {/* Header */}
       <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft size={18} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("merchant.shop_profile")}</Text>
         <Pressable

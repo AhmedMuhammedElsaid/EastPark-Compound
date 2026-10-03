@@ -3,6 +3,7 @@ import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
+  I18nManager,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -98,7 +99,7 @@ export default function AddressScreen() {
     >
       <View style={[styles.nav, { paddingTop: insets.top + SPACING.sm }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft size={18} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("checkout.title")}</Text>
       </View>

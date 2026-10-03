@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { ArrowLeft, Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -203,7 +203,7 @@ function CartNav({ shopName, onClear, styles, colors }: { shopName?: string; onC
   return (
     <View style={styles.nav}>
       <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-        <ArrowLeft size={18} color={colors.text} />
+        <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
       </Pressable>
       <Text style={styles.navTitle}>{shopName || t("cart.title")}</Text>
       {onClear && (

@@ -7,7 +7,7 @@ import { ArrowLeft, CheckSquare } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -125,7 +125,7 @@ export default function GovernanceScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft size={18} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("governance.title")}</Text>
       </View>

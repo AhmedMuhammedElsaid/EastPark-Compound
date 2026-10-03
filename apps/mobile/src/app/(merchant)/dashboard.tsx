@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { Bell, CaretRight, ForkKnife, Package, Storefront } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,7 +129,7 @@ export default function MerchantDashboard() {
             <Text style={styles.alertText}>
               {t("merchant.pending_count_waiting", { count: pendingCount })}
             </Text>
-            <CaretRight size={18} color={colors.textMuted} />
+            <CaretRight mirrored={I18nManager.isRTL} size={18} color={colors.textMuted} />
           </Pressable>
         )}
 

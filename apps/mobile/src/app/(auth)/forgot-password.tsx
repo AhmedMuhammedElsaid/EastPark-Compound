@@ -5,7 +5,7 @@ import { ArrowLeft, EnvelopeSimple } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 import { z } from "zod";
@@ -199,7 +199,7 @@ export default function ForgotPasswordScreen() {
           hitSlop={8}
           style={styles.backLinkRow}
         >
-          <ArrowLeft size={14} color={colors.textMuted} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={14} color={colors.textMuted} />
           <Text style={styles.backLink}>{t("common.back")}</Text>
         </Pressable>
       </View>

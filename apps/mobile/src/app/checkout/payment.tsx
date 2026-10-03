@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, CreditCard, Money } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -177,7 +177,7 @@ export default function PaymentScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft size={18} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("checkout.payment")}</Text>
       </View>

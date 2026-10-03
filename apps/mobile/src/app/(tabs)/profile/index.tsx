@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { BookmarkSimple, CaretRight, ChatCircle, FaceMask, Fingerprint, LockKey, Package, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -377,7 +377,7 @@ function ProfileRow({ icon, label, onPress, styles, colors }: { icon: React.Reac
     >
       <View style={styles.rowIconWrap}>{icon}</View>
       <Text style={styles.rowLabel}>{label}</Text>
-      <CaretRight size={16} color={colors.textMuted} />
+      <CaretRight mirrored={I18nManager.isRTL} size={16} color={colors.textMuted} />
     </Pressable>
   );
 }

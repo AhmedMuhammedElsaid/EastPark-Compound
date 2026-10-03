@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { ArrowLeft, ForkKnife, Pencil, Plus, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, I18nManager, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -110,7 +110,7 @@ export default function MerchantMenuScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.nav}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft size={18} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{t("merchant.menu")}</Text>
         <Pressable style={styles.addBtn} onPress={() => router.push("/(merchant)/menu/new")}>

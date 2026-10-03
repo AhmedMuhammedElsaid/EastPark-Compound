@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { CaretRight, ChartBar, EnvelopeSimple, Megaphone, Trophy } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
           >
             <View style={styles.actionIcon}>{action.icon}</View>
             <Text style={styles.actionLabel}>{t(action.labelKey)}</Text>
-            <CaretRight size={16} color={colors.textMuted} />
+            <CaretRight mirrored={I18nManager.isRTL} size={16} color={colors.textMuted} />
           </Pressable>
         ))}
       </ScrollView>

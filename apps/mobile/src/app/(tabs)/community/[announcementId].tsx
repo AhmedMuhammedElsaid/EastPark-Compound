@@ -5,7 +5,7 @@ import { ArrowLeft, FilePdf, PaperPlaneTilt } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { I18nManager, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,7 +131,7 @@ export default function AnnouncementDetailScreen() {
     >
       <View style={[styles.nav, { paddingTop: insets.top + SPACING.sm }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft size={18} color={styles.navTitle.color} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={styles.navTitle.color} />
         </Pressable>
         <Text style={styles.navTitle} numberOfLines={1}>{title}</Text>
       </View>

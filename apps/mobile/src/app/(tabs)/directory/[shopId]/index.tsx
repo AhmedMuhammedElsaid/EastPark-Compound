@@ -8,7 +8,7 @@ import { ArrowLeft, ChatCircle, Heart, HeartStraight, Phone, Plus, Star } from "
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { I18nManager, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
@@ -226,7 +226,7 @@ function ShopHero({ shop, saved, onBack, onSave, topInset }: ShopHeroProps) {
         : <View style={[styles.heroImage, styles.heroPlaceholder]} />}
       <View style={[styles.heroNav, { top: topInset + SPACING.sm }]}>
         <Pressable style={styles.navBtn} onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft size={20} color={colors.text} />
+          <ArrowLeft mirrored={I18nManager.isRTL} size={20} color={colors.text} />
         </Pressable>
         <Pressable style={styles.navBtn} onPress={onSave} hitSlop={8} accessibilityRole="button" accessibilityLabel={saved ? t("directory.saved") : t("directory.save")}>
           {saved ? <Heart size={20} color={colors.text} weight="fill" /> : <HeartStraight size={20} color={colors.text} />}
