@@ -4,6 +4,7 @@ import type { AuthUser, LoginPayload } from '@/lib/api/contracts';
 
 import * as React from 'react';
 
+import { readSessionCheck, shareInFlight, type SessionCheck } from '@/lib/auth/session-check';
 import { useSessionInterceptor } from '@/lib/auth/useSessionInterceptor';
 
 export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'unverified' | 'validation';
@@ -64,8 +65,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // One deduplicated `/api/auth/session` probe. It also adopts a newer cookie pair that a
+  // concurrent request may have stored, so a lost refresh race does not look like a sign-out.
+  const checkSession = React.useMemo(
+    () =>
+      shareInFlight(async (): Promise<SessionCheck> => {
+        try {
+          const response = await fetch('/api/auth/session', {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(30_000),
+          });
+          const result = await readSessionCheck(response);
+          if (result.status === 'authenticated') setUser(result.user);
+          return result;
+        } catch {
+          return { status: 'unknown' };
+        }
+      }),
+    [],
+  );
+
   const clearSession = React.useCallback(() => setUser(null), []);
-  useSessionInterceptor({ user, clearSession, validateSession: refreshUser });
+  useSessionInterceptor({ user, clearSession, checkSession });
 
   const authenticate = React.useCallback(async (path: string, payload: unknown): Promise<LoginResult> => {
     try {

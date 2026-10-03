@@ -5,6 +5,8 @@ import type { AuthUser } from '@/lib/api/contracts';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import type { SessionCheck } from '@/lib/auth/session-check';
+
 import { loginPath } from '@/lib/auth/return-path';
 
 /** Focus/visibility re-validation runs at most once per interval (each call hits the backend). */
@@ -25,13 +27,14 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
 type SessionInterceptorOptions = {
   user: AuthUser | null;
   clearSession: () => void;
-  validateSession: () => Promise<AuthUser | null>;
+  /** Deduplicated `/api/auth/session` probe. Only `signed_out` may log the browser out. */
+  checkSession: () => Promise<SessionCheck>;
 };
 
 export function useSessionInterceptor({
   user,
   clearSession,
-  validateSession,
+  checkSession,
 }: SessionInterceptorOptions): void {
   const router = useRouter();
   const userRef = React.useRef<AuthUser | null>(user);
@@ -51,6 +54,15 @@ export function useSessionInterceptor({
     router.replace(loginPath(`${window.location.pathname}${window.location.search}`));
   }, [clearSession, router]);
 
+  // A BFF 401 is not proof of a sign-out: a concurrent request may have won the single-use refresh
+  // rotation and already stored a newer cookie pair. Re-check the session once before logging out,
+  // and never on a throttled/unavailable backend.
+  const confirmSignedOut = React.useCallback(async () => {
+    if (redirectingRef.current) return;
+    const result = await checkSession();
+    if (result.status === 'signed_out') redirectToLogin();
+  }, [checkSession, redirectToLogin]);
+
   React.useEffect(() => {
     const originalFetch = window.fetch.bind(window);
     const interceptedFetch: typeof window.fetch = async (input, init) => {
@@ -64,7 +76,7 @@ export function useSessionInterceptor({
         url.pathname.startsWith('/api/') &&
         !PUBLIC_AUTH_ENDPOINTS.has(url.pathname)
       ) {
-        redirectToLogin();
+        void confirmSignedOut();
       }
 
       return response;
@@ -74,7 +86,7 @@ export function useSessionInterceptor({
     return () => {
       if (window.fetch === interceptedFetch) window.fetch = originalFetch;
     };
-  }, [redirectToLogin]);
+  }, [confirmSignedOut]);
 
   React.useEffect(() => {
     const validateVisibleSession = async () => {
@@ -83,8 +95,8 @@ export function useSessionInterceptor({
       const now = Date.now();
       if (now - lastValidatedAtRef.current < SESSION_REVALIDATE_INTERVAL_MS) return;
       lastValidatedAtRef.current = now;
-      const sessionUser = await validateSession();
-      if (!sessionUser && hadSession) redirectToLogin();
+      const result = await checkSession();
+      if (result.status === 'signed_out' && hadSession) redirectToLogin();
     };
 
     const handleVisibilityChange = () => {
@@ -97,5 +109,5 @@ export function useSessionInterceptor({
       window.removeEventListener('focus', handleVisibilityChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [redirectToLogin, validateSession]);
+  }, [checkSession, redirectToLogin]);
 }

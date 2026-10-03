@@ -55,3 +55,14 @@ export function sessionRefreshPath(next: string, options: { optional?: boolean }
   if (options.optional) params.set('optional', '1');
   return `/api/auth/refresh?${params.toString()}`;
 }
+
+/**
+ * Where a signed-in user goes from `/login`: the safe `next` path, else the role's home. Shared by
+ * the post-submit redirect and the "already signed in" redirect so both agree. `next` pointing back
+ * at an auth page would loop, so it falls back to the role default.
+ */
+export function postLoginPath(role: string | null | undefined, next: string | null | undefined): string {
+  const fallback = role === 'ADMIN' ? '/admin' : DEFAULT_RETURN_PATH;
+  const path = safeReturnPath(next, fallback);
+  return /^\/login(?:[/?#]|$)/.test(path) ? fallback : path;
+}

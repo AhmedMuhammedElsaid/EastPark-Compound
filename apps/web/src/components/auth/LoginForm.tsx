@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/Button';
 import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { safeReturnPath } from '@/lib/auth/return-path';
+import { postLoginPath } from '@/lib/auth/return-path';
 import { useTranslation } from '@/lib/i18n';
 import { loginSchema } from '@/lib/validation/auth';
 
@@ -26,7 +26,7 @@ const ERROR_KEYS = {
 
 export function LoginForm() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { isLoading, login, user } = useAuth();
   const { t } = useTranslation();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -40,6 +40,12 @@ export function LoginForm() {
     void fetch('/api/auth/login', { cache: 'no-store' }).catch(() => undefined);
   }, []);
 
+  // Already signed in (session validated by AuthProvider, not mere cookie presence): leave /login.
+  React.useEffect(() => {
+    if (isLoading || !user) return;
+    router.replace(postLoginPath(user.role, new URLSearchParams(window.location.search).get('next')));
+  }, [isLoading, router, user]);
+
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
     const result = await login(values);
@@ -47,9 +53,7 @@ export function LoginForm() {
       setSubmitError(t(ERROR_KEYS[result.error]));
       return;
     }
-    const requestedPath = new URLSearchParams(window.location.search).get('next');
-    const defaultPath = result.user.role === 'ADMIN' ? '/admin' : '/home';
-    router.replace(safeReturnPath(requestedPath, defaultPath));
+    router.replace(postLoginPath(result.user.role, new URLSearchParams(window.location.search).get('next')));
   });
 
   return (

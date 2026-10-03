@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { loginPath, safeReturnPath, sessionRefreshPath } from './return-path';
+import { loginPath, postLoginPath, safeReturnPath, sessionRefreshPath } from './return-path';
 
 describe('safeReturnPath', () => {
   it.each([
@@ -58,5 +58,22 @@ describe('loginPath / sessionRefreshPath', () => {
       '/api/auth/refresh?next=%2Fgovernance&optional=1',
     );
     expect(sessionRefreshPath('https://evil.com')).toBe('/api/auth/refresh?next=%2Fhome');
+  });
+});
+
+describe('postLoginPath', () => {
+  it('honours a safe next path', () => {
+    expect(postLoginPath('RESIDENT', '/orders/o1')).toBe('/orders/o1');
+  });
+
+  it('falls back to the role home', () => {
+    expect(postLoginPath('RESIDENT', null)).toBe('/home');
+    expect(postLoginPath('MERCHANT', undefined)).toBe('/home');
+    expect(postLoginPath('ADMIN', 'https://evil.example')).toBe('/admin');
+  });
+
+  it('never sends a signed-in user back to the login page', () => {
+    expect(postLoginPath('RESIDENT', '/login?next=%2Fhome')).toBe('/home');
+    expect(postLoginPath('ADMIN', '/login')).toBe('/admin');
   });
 });
