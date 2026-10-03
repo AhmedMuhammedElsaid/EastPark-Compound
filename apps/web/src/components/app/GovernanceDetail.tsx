@@ -28,6 +28,7 @@ export function PollDetail({ initialPoll }: { initialPoll: Poll }) {
         resultsVisible={countsVisible}
         totalVotes={totalVotes}
         onUpdated={setPoll}
+        onVoted={(optionId) => setPoll((current) => ({ ...current, myVoteOptionId: optionId }))}
       />
       {countsVisible && <p className="mt-6 text-center text-[length:var(--text-label)] text-muted-foreground">{totalVotes} {t('governance.votes_label')}</p>}
     </DetailLayout>
@@ -55,6 +56,7 @@ export function ElectionDetail({ initialElection }: { initialElection: Election 
         resultsVisible={resultsVisible}
         totalVotes={totalVotes}
         onUpdated={setElection}
+        onVoted={(candidateId) => setElection((current) => ({ ...current, myVoteCandidateId: candidateId }))}
       />
       {resultsVisible && <p className="mt-6 text-center text-[length:var(--text-label)] text-muted-foreground">{totalVotes} {t('governance.votes_label')}</p>}
     </DetailLayout>
@@ -78,9 +80,26 @@ export function GovernanceUnavailable({ kind }: { kind: 'poll' | 'election' }) {
   );
 }
 
+/** Best-effort re-read after a vote whose server-side re-read failed. */
+async function refetchItem(url: string): Promise<Poll | Election | null> {
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { data?: Poll | Election };
+    return payload.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 type Choice = { id: string; label: string; description?: string | null; photoUrl?: string | null; count?: number };
 
-function VoteForm<T extends Poll | Election>({ kind, itemId, choices, selectedId, expiresAt, resultsVisible, totalVotes, onUpdated }: { kind: 'poll' | 'election'; itemId: string; choices: Choice[]; selectedId: string | null; expiresAt: string; resultsVisible: boolean; totalVotes: number; onUpdated: (value: T) => void }) {
+/**
+ * `onUpdated` receives the re-read poll/election after a vote. When the vote was recorded but the
+ * re-read failed (`data: null`), `onVoted` marks the choice locally (no counts are invented) and the
+ * item is refetched in the background, so the user is never told to retry a vote that already counted.
+ */
+function VoteForm<T extends Poll | Election>({ kind, itemId, choices, selectedId, expiresAt, resultsVisible, totalVotes, onUpdated, onVoted }: { kind: 'poll' | 'election'; itemId: string; choices: Choice[]; selectedId: string | null; expiresAt: string; resultsVisible: boolean; totalVotes: number; onUpdated: (value: T) => void; onVoted: (choiceId: string) => void }) {
   const { isLoading, user } = useAuth();
   const { t } = useTranslation();
   const [pendingChoice, setPendingChoice] = useState('');
@@ -98,7 +117,9 @@ function VoteForm<T extends Poll | Election>({ kind, itemId, choices, selectedId
     setMessage(null);
     try {
       const key = kind === 'poll' ? 'optionId' : 'candidateId';
-      const response = await fetch(`/api/governance/${kind === 'poll' ? 'polls' : 'elections'}/${encodeURIComponent(itemId)}/vote`, {
+      const itemUrl = `/api/governance/${kind === 'poll' ? 'polls' : 'elections'}/${encodeURIComponent(itemId)}`;
+      const votedChoice = pendingChoice;
+      const response = await fetch(`${itemUrl}/vote`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: pendingChoice }),
       });
       if (!response.ok) {
@@ -106,11 +127,18 @@ function VoteForm<T extends Poll | Election>({ kind, itemId, choices, selectedId
         else if (response.status === 403) setMessage({ error: true, text: t('governance.residents_only') });
         else if (response.status === 409) setMessage({ error: true, text: t('governance.already_voted') });
         else if (response.status === 400) setMessage({ error: true, text: t('governance.voting_closed') });
+        else if (response.status === 429) setMessage({ error: true, text: t('auth.errors.rate_limited') });
         else setMessage({ error: true, text: t('governance.vote_failed') });
         return;
       }
-      const payload = (await response.json()) as { data: T };
-      onUpdated(payload.data);
+      // The vote is recorded from here on: never report a failure that would prompt a retry (409).
+      const payload = (await response.json().catch(() => null)) as { data?: T | null } | null;
+      if (payload?.data) {
+        onUpdated(payload.data);
+      } else {
+        onVoted(votedChoice);
+        void refetchItem(itemUrl).then((fresh) => fresh && onUpdated(fresh as T));
+      }
       setMessage({ error: false, text: t('governance.vote_submitted') });
     } catch {
       setMessage({ error: true, text: t('errors.network') });

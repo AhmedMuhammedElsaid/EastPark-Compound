@@ -278,3 +278,40 @@ describe('BFF error mapping backlog', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('governance vote re-read', () => {
+  const resident = {
+    id: 'u1', name: 'R', email: 'r@example.com', phone: null, unitNumber: null, avatarUrl: null,
+    role: 'RESIDENT', isVerified: true, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z',
+  };
+
+  it('treats a recorded vote as success when re-reading the poll fails', async () => {
+    state.cookies.set('eastpark_access', 'access-1');
+    backend = (url, init) => {
+      if (url.endsWith('/user/profile')) return json(200, { data: resident });
+      if (url.endsWith('/vote') && init?.method === 'POST') return json(201, { data: { ok: true } });
+      return json(500, { message: 'boom' });
+    };
+    const { POST } = await import('@/app/api/governance/polls/[id]/vote/route');
+    const response = await POST(
+      new Request('https://web.test/x', { method: 'POST', body: JSON.stringify({ optionId: 'o1' }) }),
+      { params: Promise.resolve({ id: 'p1' }) },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: null });
+    // Exactly one vote POST: the vote is never retried.
+    expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/vote') && init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('keeps a rejected vote as an error (409 already voted)', async () => {
+    state.cookies.set('eastpark_access', 'access-1');
+    backend = (url) => (url.endsWith('/user/profile') ? json(200, { data: resident }) : json(409, { message: 'Already voted' }));
+    const { POST } = await import('@/app/api/governance/elections/[id]/vote/route');
+    const response = await POST(
+      new Request('https://web.test/x', { method: 'POST', body: JSON.stringify({ candidateId: 'c1' }) }),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'vote_rejected' });
+  });
+});

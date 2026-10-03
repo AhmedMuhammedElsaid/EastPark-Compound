@@ -131,12 +131,25 @@ async function castVote(path: string, body: unknown): Promise<void> {
   if (!response.ok) throw new GovernanceVoteError(response.status);
 }
 
-export async function votePoll(id: string, optionId: string): Promise<Poll> {
-  await castVote(`/polls/${encodeURIComponent(id)}/vote`, { optionId });
-  return getPoll(id, { session: ROUTE_SESSION });
+/**
+ * Once the vote is recorded, a failed re-read must not surface as an error: the user would retry and
+ * hit 409 "already voted". It resolves to `null` and the client applies the vote locally and refetches.
+ */
+async function rereadAfterVote<T>(read: () => Promise<T>, label: string): Promise<T | null> {
+  try {
+    return await read();
+  } catch (error) {
+    console.warn(`${label} re-read after a recorded vote failed`, error);
+    return null;
+  }
 }
 
-export async function voteElection(id: string, candidateId: string): Promise<Election> {
+export async function votePoll(id: string, optionId: string): Promise<Poll | null> {
+  await castVote(`/polls/${encodeURIComponent(id)}/vote`, { optionId });
+  return rereadAfterVote(() => getPoll(id, { session: ROUTE_SESSION }), 'Poll');
+}
+
+export async function voteElection(id: string, candidateId: string): Promise<Election | null> {
   await castVote(`/elections/${encodeURIComponent(id)}/vote`, { candidateId });
-  return getElection(id, { session: ROUTE_SESSION });
+  return rereadAfterVote(() => getElection(id, { session: ROUTE_SESSION }), 'Election');
 }
