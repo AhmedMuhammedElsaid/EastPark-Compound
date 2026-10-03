@@ -1,3 +1,4 @@
+import type { InfiniteData } from "@tanstack/react-query";
 import type { AxiosResponse } from "axios";
 import type { Href } from "expo-router";
 import type { AppNotification, NotificationPage } from "@/services/api/notifications";
@@ -127,9 +128,16 @@ export default function NotificationsScreen() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
+  // Flip the item locally instead of refetching every loaded page.
   const { mutate: markRead } = useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onMutate: (id: string) => {
+      queryClient.setQueryData<InfiniteData<AxiosResponse<{ data: NotificationPage }>>>(
+        ["notifications"],
+        old => old && markNotificationRead(old, id),
+      );
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   if (!isAuthenticated) {
@@ -141,7 +149,8 @@ export default function NotificationsScreen() {
   const unreadCount = data?.pages.at(-1)?.data.data.unreadCount ?? 0;
 
   function handleNotificationPress(notification: AppNotification) {
-    markRead(notification.id);
+    if (!notification.isRead)
+      markRead(notification.id);
     const href = getNotificationHref(notification.type, notification.data);
     if (href)
       router.push(href as Href);
@@ -268,6 +277,22 @@ function NotificationsSkeleton({ styles }: { styles: any }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Marks one notification read in every loaded page; each page carries the server-wide unread count. */
+function markNotificationRead(
+  data: InfiniteData<AxiosResponse<{ data: NotificationPage }>>,
+  id: string,
+): InfiniteData<AxiosResponse<{ data: NotificationPage }>> {
+  return {
+    ...data,
+    pages: data.pages.map((page) => {
+      const current = page.data.data;
+      const items = current.items.map(n => (n.id === id ? { ...n, isRead: true } : n));
+      const unreadCount = Math.max(0, current.unreadCount - 1);
+      return { ...page, data: { ...page.data, data: { ...current, items, unreadCount } } };
+    }),
+  };
+}
 
 function formatRelativeTime(iso: string, t: (key: string, opts?: object) => string): string {
   const diff = Date.now() - new Date(iso).getTime();
