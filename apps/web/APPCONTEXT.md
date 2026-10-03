@@ -41,6 +41,34 @@ On a fresh machine, install dependencies and run `pnpm check`. A green compile/b
 the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
 upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
 
+## Landing Teaser and BFF Hardening — 2026-10-03
+
+- **Public landing `/` is the logged-out teaser.** It shares `src/components/teaser/*` with `/home`:
+  `TeaserHero` (props: `titleId`, `eyebrow`, `lede`, optional `actions`), `TeaserTimeline` (rollout
+  phases, or numbered `step` items; `wideFrom="lg"` keeps four captioned steps vertical until
+  1024px), `TeaserTicker`, and `SealedVault` (marketplace/governance/tracking previews). Change these
+  once and both pages follow. `/home` passes the greeting and resident lede; `/` passes the
+  "Integrated Community" eyebrow, Register your unit / Sign in actions, the four-step join flow
+  (`landing/HowItWorks`, anchor `#how-it-works`), the old pillar copy as card body + checklist, and
+  `interactive={false}` so sealed cards are plain articles (hint always visible) instead of links.
+  `/` reads no cookies/headers and stays static (○); do not add the live announcement there.
+  `landing/Hero.tsx` and `Pillars.tsx` were removed (the missing `landing.hero_title` key went with them).
+- **Cache-Control:** `/api/auth/session`, the shared helpers in `src/lib/api/bff-errors.ts` and the
+  refresh bounce send `Cache-Control: private, no-store`; `next.config.ts` adds the same header to
+  `/api/:path*` as a backstop (Vercel otherwise sends `public, max-age=0, must-revalidate`).
+- **BFF error vocabulary:** route catch blocks use `bffErrorResponse(error, label, fallback?)`. A
+  throttled token refresh (`BackendRateLimitedError`) or backend 429 → `rate_limited` (429 +
+  `Retry-After`); errors carrying a backend status (`UpstreamStatusError` and the per-module
+  `*RequestError`s) → `upstreamError` codes; anything else → `upstream`/502 (or the route's
+  `network`/`unavailable` fallback). Public reads return codes, never prose. Malformed JSON → 400.
+- **Votes:** once the backend accepts a vote, a failed re-read returns `200 { data: null }`; the form
+  marks the choice locally (no invented counts) and refetches. The vote POST is never retried.
+- **Notifications:** mark-as-read rolls back only the affected item (functional update); filter tabs
+  switch only after their page loads (pending tab shows `aria-busy` + mark), and stale list responses
+  are dropped.
+- Owner note: marketplace copy (`landing.pillar_market_*`, `home.teaser.track_caption`) still
+  mentions card payment while card payments are postponed.
+
 ## Admin Resident Requests Revamp — 2026-10-03
 
 - `/admin` → Resident requests (`src/components/admin/residents/*`) replaces the old list in
