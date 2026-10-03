@@ -77,16 +77,41 @@ export function shouldPersistQuery(query: Query): boolean {
  */
 const PERSONAL_NULL_KEYS: ReadonlySet<string> = new Set(["myVoteOptionId", "myVoteCandidateId"]);
 
-export function redactPersonalFields(value: unknown): unknown {
-  if (Array.isArray(value))
-    return value.map(redactPersonalFields);
-  if (value && typeof value === "object") {
+/**
+ * Query functions return whole AxiosResponse objects. Their `config` carries
+ * the `Authorization: Bearer <accessToken>` header and request body, and
+ * `request` is the native XHR (request headers, raw body, possible cycles).
+ * Screens only read `.data`, so persist nothing but `{ data, status }`.
+ */
+function isAxiosResponseLike(value: object): value is { data: unknown; status: unknown } {
+  return "data" in value && "status" in value && "config" in value && "headers" in value;
+}
+
+function redact(value: unknown, seen: WeakSet<object>): unknown {
+  if (!value || typeof value !== "object")
+    return value;
+  if (seen.has(value))
+    return undefined; // drop cycles instead of overflowing the stack
+  seen.add(value);
+  let result: unknown;
+  if (Array.isArray(value)) {
+    result = value.map(v => redact(v, seen));
+  }
+  else if (isAxiosResponseLike(value)) {
+    result = { data: redact(value.data, seen), status: value.status };
+  }
+  else {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>))
-      out[k] = PERSONAL_NULL_KEYS.has(k) ? null : redactPersonalFields(v);
-    return out;
+      out[k] = PERSONAL_NULL_KEYS.has(k) ? null : redact(v, seen);
+    result = out;
   }
-  return value;
+  seen.delete(value);
+  return result;
+}
+
+export function redactPersonalFields(value: unknown): unknown {
+  return redact(value, new WeakSet());
 }
 
 export function serializePersistedClient(client: unknown): string {
@@ -102,8 +127,9 @@ export const asyncStoragePersister = createAsyncStoragePersister({
 });
 
 // Changing the buster discards any previously persisted cache — including
-// private data written by builds that persisted the whole cache.
-export const QUERY_CACHE_BUSTER = `v${Env.EXPO_PUBLIC_VERSION}-public-2`;
+// private data written by builds that persisted the whole cache (`-public-2`
+// and earlier could contain Axios request config with the access token).
+export const QUERY_CACHE_BUSTER = `v${Env.EXPO_PUBLIC_VERSION}-public-3`;
 
 export const queryPersistOptions = {
   persister: asyncStoragePersister,

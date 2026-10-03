@@ -178,6 +178,31 @@ describe("persisted cache redaction", () => {
     expect(out.clientState.queries[1].state.data.candidates[0]).toEqual({ id: "c1", voteCount: 3 });
     expect(redactPersonalFields("x")).toBe("x");
   });
+
+  it("persists only data/status of Axios responses, never request config or tokens", () => {
+    const xhr: Record<string, unknown> = { _headers: { authorization: "Bearer xhr-secret" } };
+    xhr.self = xhr; // native XHR objects can be cyclic
+    const response = {
+      data: { success: true, data: { items: [{ id: "s1", name: "Shop" }], nextCursor: null } },
+      status: 200,
+      statusText: "OK",
+      headers: { "content-type": "application/json" },
+      config: { headers: { Authorization: "Bearer access-secret" }, data: "{\"password\":\"pw\"}" },
+      request: xhr,
+    };
+    const client = { clientState: { queries: [{ state: { data: { pages: [response], pageParams: [null] } } }] } };
+    const json = serializePersistedClient(client);
+    expect(json).not.toContain("secret");
+    expect(json).not.toContain("password");
+    const page = JSON.parse(json).clientState.queries[0].state.data.pages[0];
+    expect(page).toEqual({ data: response.data, status: 200 });
+  });
+
+  it("drops cyclic references instead of overflowing", () => {
+    const a: Record<string, unknown> = { id: "a" };
+    a.loop = a;
+    expect(() => serializePersistedClient({ a })).not.toThrow();
+  });
 });
 
 describe("password policy mirrors the backend", () => {
