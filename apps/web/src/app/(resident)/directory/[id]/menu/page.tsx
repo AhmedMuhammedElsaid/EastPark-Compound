@@ -16,15 +16,18 @@ export default async function ProductMenuPage({ params }: ProductMenuPageProps) 
   const { id } = await params;
 
   const context = { clientIp: await requestClientIp() };
-  const shop = await getShopDetail(id, context).catch((error) => {
-    if (error instanceof ShopRequestError && error.status === 404) notFound();
-    console.error('Product menu shop request failed', error);
-    throw error;
-  });
-  const initialPage = await getProducts(id, context).catch((error) => {
-    console.error('Product menu request failed', error);
-    return null;
-  });
+  // Independent requests: fetch in parallel instead of shop-then-products.
+  const [shop, initialPage] = await Promise.all([
+    getShopDetail(id, context).catch((error) => {
+      if (error instanceof ShopRequestError && error.status === 404) notFound();
+      console.error('Product menu shop request failed', error);
+      throw error;
+    }),
+    getProducts(id, context).catch((error) => {
+      console.error('Product menu request failed', error);
+      return null;
+    }),
+  ]);
 
   return <ProductMenu shop={shop} initialPage={initialPage} />;
 }
