@@ -25,16 +25,19 @@ export type Report = {
   id: string;
   title: string;
   titleAr: string;
-  description: string | null;
   pdfUrl: string;
   publishedAt: string;
 };
 
+/**
+ * CommentResponseDto. `userId` and `user.id` are only sent to the comment's
+ * author and to admins; guests get the author's first name only.
+ */
 export type Comment = {
   id: string;
   body: string;
-  userId: string;
-  user: { id: string; name: string } | null;
+  userId?: string;
+  user: { id?: string; name: string } | null;
   createdAt: string;
 };
 
