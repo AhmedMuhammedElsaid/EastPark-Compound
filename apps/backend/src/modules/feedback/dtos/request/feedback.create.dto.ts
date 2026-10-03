@@ -9,6 +9,7 @@ import {
     IsOptional,
     IsString,
     IsUrl,
+    MaxLength,
 } from 'class-validator';
 
 export class FeedbackCreateDto {
@@ -17,9 +18,10 @@ export class FeedbackCreateDto {
     @IsNotEmpty()
     category: FeedbackCategory;
 
-    @ApiProperty()
+    @ApiProperty({ maxLength: 4000 })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(4000)
     body: string;
 
     @ApiPropertyOptional({ default: false, description: 'Submit anonymously' })
