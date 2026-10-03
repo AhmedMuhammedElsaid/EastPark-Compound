@@ -137,8 +137,13 @@ function isAuthRejection(err: unknown): boolean {
   return status === 401 || status === 403;
 }
 
-async function runTokenRefresh(refreshToken: string): Promise<string> {
+async function runTokenRefresh(): Promise<string> {
   try {
+    // Read inside the single-flight so a caller that arrived after another
+    // refresh rotated the token never submits the already-spent one.
+    const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+    if (!refreshToken)
+      throw new Error("No refresh token available");
     const { data } = await requestTokenRefresh(refreshToken);
     const { accessToken, refreshToken: newRefresh } = data.data;
     await setSecureItem(SECURE_KEY_ACCESS, accessToken);
@@ -162,9 +167,9 @@ async function runTokenRefresh(refreshToken: string): Promise<string> {
 }
 
 /** Returns a fresh access token, sharing one refresh call across callers. */
-export function refreshAccessToken(refreshToken: string): Promise<string> {
+export function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
-    refreshPromise = runTokenRefresh(refreshToken).finally(() => {
+    refreshPromise = runTokenRefresh().finally(() => {
       refreshPromise = null;
     });
   }
@@ -205,10 +210,7 @@ client.interceptors.response.use(
         accessToken = await refreshPromise;
       }
       else {
-        const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
-        if (!refreshToken)
-          return Promise.reject(error);
-        accessToken = await refreshAccessToken(refreshToken);
+        accessToken = await refreshAccessToken();
       }
     }
     catch {
