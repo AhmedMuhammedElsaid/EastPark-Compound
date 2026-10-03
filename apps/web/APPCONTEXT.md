@@ -138,6 +138,9 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
   launch" vault holding the marketplace, governance and order-tracking previews. The latest
   announcement remains the live element (streamed via Suspense). All motion is CSS and is disabled
   under `prefers-reduced-motion`. Phases are labels only; never add dates or progress numbers.
+- **"Also on the way" tiles (2026-10-04, `e23d95e`):** `home/AlsoOnTheWay.tsx` renders compact rows
+  under 480px (icon · text · Soon pill, or an RTL-flipped chevron for live tiles) and cards from 480px
+  with the pill absolutely pinned top-end. Owner phone click-test pending.
 
 ## Review Fixes — 2026-10-03
 
