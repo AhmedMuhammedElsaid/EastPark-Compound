@@ -2,20 +2,21 @@ import type { AxiosResponse } from "axios";
 import type { CursorPage, Product, Review, Shop } from "@/services/api/shops";
 import type { CartItem } from "@/store/slices/cart-slice";
 import { FlashList } from "@shopify/flash-list";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChatCircle, Heart, HeartStraight, Phone, Plus, Star } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
 import { I18nManager, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DetailErrorScreen, ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
-import { shopsApi } from "@/services/api/shops";
+import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { addItem } from "@/store/slices/cart-slice";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -147,11 +148,17 @@ function useStyles() {
 
 export default function ShopDetailScreen() {
   const { shopId } = useLocalSearchParams<{ shopId: string }>();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { requireAuth } = useAuthGuard();
   const styles = useStyles();
-  const [saved, setSaved] = React.useState(false);
+  const queryClient = useQueryClient();
+  const role = useAppSelector(s => s.auth.user?.role);
+  const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  // Saving is RESIDENT-only on the backend; guests still see the heart
+  // (it opens the auth wall), merchants/admins would only get a 403.
+  const isResident = isAuthenticated && role === "RESIDENT";
+  const canSave = !isAuthenticated || isResident;
   const [activeTab, setActiveTab] = React.useState<"menu" | "reviews">("menu");
 
   const { data, isError, isLoading, refetch } = useQuery({
@@ -163,15 +170,38 @@ export default function ShopDetailScreen() {
   const shop = data?.data.data;
   const isAr = i18n.language === "ar";
 
-  async function handleSave() {
-    requireAuth(async () => {
-      try {
-        if (saved)
-          await shopsApi.unsaveShop(shopId);
-        else await shopsApi.saveShop(shopId);
-        setSaved(v => !v);
+  // The shop response has no "saved" flag, so read the resident's saved ids.
+  const { data: savedShopIds } = useQuery({
+    queryKey: ["saved-shop-ids"],
+    queryFn: getAllSavedShopIds,
+    enabled: isResident,
+  });
+  const saved = !!savedShopIds?.includes(shopId);
+
+  const setSavedLocally = React.useCallback((next: boolean) => {
+    queryClient.setQueryData<string[]>(["saved-shop-ids"], (ids) => {
+      const rest = (ids ?? []).filter(id => id !== shopId);
+      return next ? [...rest, shopId] : rest;
+    });
+  }, [queryClient, shopId]);
+
+  const { mutate: toggleSaved, isPending: savePending } = useMutation({
+    mutationFn: (next: boolean) => (next ? shopsApi.saveShop(shopId) : shopsApi.unsaveShop(shopId)),
+    onSuccess: (_res, next) => setSavedLocally(next),
+    onError: (error, next) => {
+      // Unsaving a shop that is no longer saved answers 404: already done.
+      if (!next && (error as { response?: { status?: number } }).response?.status === 404) {
+        setSavedLocally(false);
+        return;
       }
-      catch {}
+      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    },
+  });
+
+  function handleSave() {
+    requireAuth(() => {
+      if (!savePending)
+        toggleSaved(!saved);
     });
   }
 
@@ -190,6 +220,7 @@ export default function ShopDetailScreen() {
         <ShopHero
           shop={shop}
           saved={saved}
+          canSave={canSave}
           onBack={() => router.back()}
           onSave={handleSave}
           topInset={insets.top}
@@ -212,12 +243,13 @@ export default function ShopDetailScreen() {
 type ShopHeroProps = {
   shop: Shop;
   saved: boolean;
+  canSave: boolean;
   onBack: () => void;
   onSave: () => void;
   topInset: number;
 };
 
-function ShopHero({ shop, saved, onBack, onSave, topInset }: ShopHeroProps) {
+function ShopHero({ shop, saved, canSave, onBack, onSave, topInset }: ShopHeroProps) {
   const { t } = useTranslation();
   const colors = useAppColors();
   const styles = useStyles();
@@ -231,9 +263,11 @@ function ShopHero({ shop, saved, onBack, onSave, topInset }: ShopHeroProps) {
         <Pressable style={styles.navBtn} onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
           <ArrowLeft mirrored={I18nManager.isRTL} size={20} color={colors.text} />
         </Pressable>
-        <Pressable style={styles.navBtn} onPress={onSave} hitSlop={8} accessibilityRole="button" accessibilityLabel={saved ? t("directory.saved") : t("directory.save")}>
-          {saved ? <Heart size={20} color={colors.text} weight="fill" /> : <HeartStraight size={20} color={colors.text} />}
-        </Pressable>
+        {canSave && (
+          <Pressable style={styles.navBtn} onPress={onSave} hitSlop={8} accessibilityRole="button" accessibilityLabel={saved ? t("directory.saved") : t("directory.save")}>
+            {saved ? <Heart size={20} color={colors.text} weight="fill" /> : <HeartStraight size={20} color={colors.text} />}
+          </Pressable>
+        )}
       </View>
     </View>
   );
