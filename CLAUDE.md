@@ -29,7 +29,45 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
-> ### 2026-10-03 — FULL-STACK REVIEW + FIX BATCH, READY TO GO LIVE (NEWEST — READ FIRST)
+> ### 2026-10-03 (later) — WENT LIVE (NEWEST — READ FIRST)
+>
+> **State:** `main` pushed: `027ba88..6a21144` (go-live batch), then `6a21144..f22d9a0` (client-IP throttle
+> fix). Render (`eastpark-backend`) and Vercel (`eastpark-web-app`) are both live on `f22d9a0`; `/health` 200.
+>
+> **Runbook results:**
+> 1. Backup: pg_dump of the prod public schema at
+>    `D:\CodeLab\EastPark-backups\eastpark-prod-20261003-044259-pre-golive.dump` (outside repo; contains PII).
+> 2. `check-email-case.sql`: users collision_groups 0, non-canonical 0 (users 10, invitations 3, resident_leads 33).
+> 3. Public bucket `eastpark-uploads` created on prod project `pwylqeodkxigmukghqfd` (jpeg/png/webp/pdf, 20 MB cap).
+>    Storage origin `https://pwylqeodkxigmukghqfd.supabase.co`.
+> 4. `BFF_INTERNAL_SECRET` set identically on Vercel (sensitive, Production+Preview) and Render (hash-verified equal).
+> 5. Render `AUTH_RESET_TOKEN_TTL_SEC` deleted; `EXPO_ACCESS_TOKEN` was already absent. `NEXT_PUBLIC_STORAGE_ORIGIN`
+>    deliberately NOT set (owner decision): prod shop photos (12) and product images (24) use `images.unsplash.com`
+>    demo URLs (no picsum); setting it would block them. Set it (or allow Unsplash in CSP) once real shop photos exist.
+> 6. Migrations `20261002000000_money_decimal` and `20261003000000_lowercase_emails` applied, none pending;
+>    `orders.totalAmount` is numeric(10,2).
+>
+> **Smoke (step 7):** login unknown 401 OK; refresh-token reuse 401 OK; announcement detail + comments render for
+> guest and signed-in on API and web (test comment posted then deleted; guest view hides author id) OK; merchant
+> reaches `/merchant` OK; REAL avatar and feedback image uploads succeed through the web BFF and their public URLs
+> load (image/png) — the old upload blocker is RESOLVED (test objects deleted). NOT tested: 403-unverified (prod has
+> no unverified users) and resident confinement to `/home` (no resident test credentials; owner checking manually).
+>
+> **Step 8 (throttle):** before the fix, Render behind Cloudflare made `req.ip` the per-request Cloudflare edge, so
+> the per-IP login throttle never fired. Fixed in `0af50b8`/`e324dd1` (CF-Connecting-IP for direct traffic;
+> `X-EastPark-Client-IP` trusted only with the BFF secret). Re-verified live: direct no-header 6th -> 429; direct
+> rotating fake XFF/True-Client-IP/X-EastPark-Client-IP 6th -> 429; client-set `CF-Connecting-IP` -> Cloudflare 403;
+> web BFF logins from one IP 6th -> 429. Render logs never include request headers (serializer logs method/url/UA
+> only), so the secret cannot leak; the redact list also covers it. Owner to confirm "IP B unaffected" from a phone
+> on mobile data.
+>
+> **Still open:** owner decision on removing public self-registration (recommended yes); mobile needs a new EAS
+> build (runbook step 9); revoke the temporary Vercel token used for go-live; rotate credentials per backlog.
+> **Service access:** Render via API key in root `.env` (`RENDERER_TOKEN`); Vercel via `VERCEL_TOKEN` in root `.env`
+> (team `team_ZIzP3nzOIDbyKF9jVEr5oQS1`); prod DB via root `.env` `DIRECT_DATABASE_URL`. The claude.ai Supabase MCP
+> is linked to a DIFFERENT, unrelated project (`uywnep…`) — do not use it for prod.
+
+> ### 2026-10-03 — FULL-STACK REVIEW + FIX BATCH, READY TO GO LIVE (superseded by the WENT LIVE note above for state; runbook/backlog still valid)
 >
 > **State:** `main` is ~75 commits ahead of `origin/main` (`027ba88..HEAD`), **NOTHING PUSHED**. Working tree
 > clean. Final Fable re-check verdict: **safe to push code-wise**; no Critical/High findings. Gates green:
