@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
+import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { UserService } from 'src/modules/user/services/user.service';
 
@@ -43,11 +44,16 @@ describe('UserService.deleteUser', () => {
         shop: { count: jest.fn() },
         $transaction: jest.fn(),
     };
-    const service = new UserService(db as unknown as DatabaseService);
+    const sessions = { revokeDeletedUser: jest.fn() };
+    const service = new UserService(
+        db as unknown as DatabaseService,
+        sessions as unknown as SessionVersionService
+    );
 
     beforeEach(() => {
         jest.clearAllMocks();
         tx = buildTx();
+        sessions.revokeDeletedUser.mockResolvedValue(undefined);
         db.$transaction.mockImplementation(
             (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)
         );
@@ -67,6 +73,7 @@ describe('UserService.deleteUser', () => {
             where: { merchantId: 'merchant-1' },
         });
         expect(db.$transaction).not.toHaveBeenCalled();
+        expect(sessions.revokeDeletedUser).not.toHaveBeenCalled();
     });
 
     it('deletes a resident with their own orders and never touches shops', async () => {
@@ -93,6 +100,21 @@ describe('UserService.deleteUser', () => {
         }
         expect(tx.product.deleteMany).not.toHaveBeenCalled();
         expect(tx.shopPhoto.deleteMany).not.toHaveBeenCalled();
+        expect(sessions.revokeDeletedUser).toHaveBeenCalledWith('resident-1');
+    });
+
+    it('does not revoke sessions when the delete transaction fails', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'resident-1',
+            role: Role.RESIDENT,
+        });
+        db.shop.count.mockResolvedValue(0);
+        db.$transaction.mockRejectedValue(new Error('db down'));
+
+        await expect(service.deleteUser('resident-1')).rejects.toThrow(
+            'db down'
+        );
+        expect(sessions.revokeDeletedUser).not.toHaveBeenCalled();
     });
 
     it('self-delete (deleteAccount) gets the same 409 for a shop-owning merchant', async () => {

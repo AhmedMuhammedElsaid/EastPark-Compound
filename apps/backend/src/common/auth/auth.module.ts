@@ -10,6 +10,7 @@ import { AuthPublicController } from './controllers/auth.public.controller';
 import { JwtAccessStrategy } from './providers/access-jwt.strategy';
 import { JwtRefreshStrategy } from './providers/refresh-jwt.strategy';
 import { AuthService } from './services/auth.service';
+import { SessionVersionService } from './services/session-version.service';
 
 @Module({
     controllers: [AuthPublicController],
@@ -20,7 +21,17 @@ import { AuthService } from './services/auth.service';
         CacheModule,
         EmailModule,
     ],
-    providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
-    exports: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
+    providers: [
+        AuthService,
+        SessionVersionService,
+        JwtAccessStrategy,
+        JwtRefreshStrategy,
+    ],
+    exports: [
+        AuthService,
+        SessionVersionService,
+        JwtAccessStrategy,
+        JwtRefreshStrategy,
+    ],
 })
 export class AuthModule {}

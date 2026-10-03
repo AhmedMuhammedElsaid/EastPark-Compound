@@ -12,6 +12,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 
 import { AuthService } from 'src/common/auth/services/auth.service';
+import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { CacheService } from 'src/common/cache/services/cache.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { EmailService } from 'src/common/email/email.service';
@@ -67,6 +68,13 @@ const cache = {
     expire: jest.fn(),
 };
 
+const sessions = {
+    getCurrent: jest.fn(),
+    bump: jest.fn(),
+    revokeDeletedUser: jest.fn(),
+    assertCurrent: jest.fn(),
+};
+
 const email = {
     sendOtp: jest.fn(),
     sendPasswordReset: jest.fn(),
@@ -100,6 +108,8 @@ describe('AuthService', () => {
         // Defaults: no session-version bump recorded, first INCR wins.
         cache.get.mockResolvedValue(null);
         cache.incr.mockResolvedValue(1);
+        sessions.getCurrent.mockResolvedValue(0);
+        sessions.bump.mockResolvedValue(1);
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
             fn(db)
         );
@@ -112,6 +122,7 @@ describe('AuthService', () => {
                 { provide: EmailService, useValue: email },
                 { provide: HelperEncryptionService, useValue: encryption },
                 { provide: ConfigService, useValue: config },
+                { provide: SessionVersionService, useValue: sessions },
             ],
         }).compile();
 
@@ -437,9 +448,7 @@ describe('AuthService', () => {
         });
 
         it('rejects tokens issued before a password reset (session version bump)', async () => {
-            cache.get.mockImplementation((key: string) =>
-                Promise.resolve(key === 'session-version:user-1' ? '1' : null)
-            );
+            sessions.getCurrent.mockResolvedValue(1);
             await expect(
                 service.refresh({ ...payload, ver: 0 }, 'header.token')
             ).rejects.toThrow('Session expired');
@@ -447,9 +456,7 @@ describe('AuthService', () => {
         });
 
         it('accepts tokens carrying the current session version', async () => {
-            cache.get.mockImplementation((key: string) =>
-                Promise.resolve(key === 'session-version:user-1' ? '1' : null)
-            );
+            sessions.getCurrent.mockResolvedValue(1);
             db.user.findUnique.mockResolvedValue(mockUser());
             await service.refresh({ ...payload, ver: 1 }, 'header.token');
             expect(encryption.createJwtTokens).toHaveBeenCalledWith(
@@ -589,7 +596,7 @@ describe('AuthService', () => {
                 where: { email: 'jane@eastpark.app' },
                 data: { passwordHash: '$hash' },
             });
-            expect(cache.incr).toHaveBeenCalledWith('session-version:user-1');
+            expect(sessions.bump).toHaveBeenCalledWith('user-1');
         });
 
         it('burns the token and clears the login lockout for that email', async () => {

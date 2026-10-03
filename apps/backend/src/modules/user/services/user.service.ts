@@ -4,6 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 
+import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
 
@@ -15,7 +16,10 @@ import {
 
 @Injectable()
 export class UserService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly sessions: SessionVersionService
+    ) {}
 
     async getProfile(userId: string): Promise<UserGetProfileResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
@@ -78,6 +82,10 @@ export class UserService {
             // 4. Finally delete the user
             await tx.user.delete({ where: { id: userId } });
         });
+
+        // Tokens already issued to the deleted account must stop working now,
+        // not when they expire.
+        await this.sessions.revokeDeletedUser(userId);
 
         return { success: true, message: 'User deleted' };
     }

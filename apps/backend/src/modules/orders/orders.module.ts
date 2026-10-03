@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthModule } from 'src/common/auth/auth.module';
 import { DatabaseModule } from 'src/common/database/database.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 
@@ -8,7 +9,7 @@ import { OrdersGateway } from './orders.gateway';
 import { OrdersService } from './orders.service';
 
 @Module({
-    imports: [DatabaseModule, NotificationsModule],
+    imports: [AuthModule, DatabaseModule, NotificationsModule],
     controllers: [OrdersController],
     providers: [OrdersGateway, OrdersService],
     exports: [OrdersService, OrdersGateway],

@@ -38,6 +38,8 @@ import {
     AuthResponseDto,
 } from '../dtos/response/auth.response.dto';
 
+import { SessionVersionService } from './session-version.service';
+
 const OTP_TTL = 600; // 10 minutes
 const OTP_MAX_ATTEMPTS = 5; // failed verifications before the OTP is burned
 const RESET_TTL = 1800; // 30 minutes
@@ -69,7 +71,8 @@ export class AuthService {
         private readonly cache: CacheService,
         private readonly email: EmailService,
         private readonly encryption: HelperEncryptionService,
-        private readonly config: ConfigService
+        private readonly config: ConfigService,
+        private readonly sessions: SessionVersionService
     ) {
         this.appUrl =
             config.get<string>('app.webUrl') ?? 'http://localhost:3000';
@@ -232,7 +235,7 @@ export class AuthService {
         if (bodyToken !== undefined && bodyToken !== rawToken)
             throw new UnauthorizedException('Refresh token mismatch');
 
-        const currentVersion = await this.getSessionVersion(payload.userId);
+        const currentVersion = await this.sessions.getCurrent(payload.userId);
         if ((payload.ver ?? 0) < currentVersion)
             throw new UnauthorizedException('Session expired');
 
@@ -334,9 +337,9 @@ export class AuthService {
             this.loginAttemptsKey(email)
         );
 
-        // Invalidate every existing session: refresh tokens minted before this
-        // point carry a lower version and are rejected by refresh().
-        await this.cache.incr(this.sessionVersionKey(user.id));
+        // Invalidate every existing session: access and refresh tokens minted
+        // before this point carry a lower version and are rejected.
+        await this.sessions.bump(user.id);
 
         return { message: 'Password reset successfully' };
     }
@@ -480,7 +483,7 @@ export class AuthService {
         const tokens = await this.encryption.createJwtTokens({
             userId: user.id,
             role: user.role,
-            ver: await this.getSessionVersion(user.id),
+            ver: await this.sessions.getCurrent(user.id),
         });
         const { passwordHash: _h, pushToken: _p, ...safeUser } = user;
         return { ...tokens, user: safeUser };
@@ -500,14 +503,6 @@ export class AuthService {
             randomBytes(16).toString('hex')
         );
         return this.dummyHash;
-    }
-
-    private async getSessionVersion(userId: string): Promise<number> {
-        const raw = await this.cache.get<number | string>(
-            this.sessionVersionKey(userId)
-        );
-        const version = Number(raw ?? 0);
-        return Number.isFinite(version) ? version : 0;
     }
 
     /** Seconds until the refresh token expires (falls back to full TTL). */
@@ -536,11 +531,6 @@ export class AuthService {
 
     private resetKey(token: string): string {
         return `reset:${token}`;
-    }
-
-    /** Persistent per-user session version; bumped to revoke all sessions. */
-    private sessionVersionKey(userId: string): string {
-        return `session-version:${userId}`;
     }
 
     /** Tokens minted before `jti` existed fall back to the raw token. */

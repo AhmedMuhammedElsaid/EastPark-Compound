@@ -14,8 +14,10 @@ import { OrderStatus, Role } from '@prisma/client';
 import { verify } from 'jsonwebtoken';
 import { Server, Socket } from 'socket.io';
 
+import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import appConfig from 'src/common/config/app.config';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { IJwtClaims } from 'src/common/helper/interfaces/encryption.interface';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 /** Same allow-list the HTTP layer uses (app.cors.origin / APP_CORS_ORIGINS) */
@@ -33,7 +35,8 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     constructor(
         private readonly config: ConfigService,
-        private readonly db: DatabaseService
+        private readonly db: DatabaseService,
+        private readonly sessions: SessionVersionService
     ) {}
 
     /** Token from handshake.auth.token, falling back to the Authorization header */
@@ -50,17 +53,23 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return null;
     }
 
-    handleConnection(client: Socket): void {
+    async handleConnection(client: Socket): Promise<void> {
         const token = this.extractToken(client);
         try {
             if (!token) throw new Error('missing token');
             const payload = verify(
                 token,
                 this.config.getOrThrow<string>('auth.accessToken.secret')
-            ) as Partial<IAuthUser>;
+            ) as Partial<IJwtClaims>;
             if (!payload.userId || !payload.role) {
                 throw new Error('invalid payload');
             }
+            // Same revocation rule as HTTP: tokens issued before a password
+            // reset or account deletion are refused.
+            await this.sessions.assertCurrent({
+                userId: payload.userId,
+                ver: payload.ver,
+            });
             client.data.user = {
                 userId: payload.userId,
                 role: payload.role,
