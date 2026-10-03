@@ -3,11 +3,13 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { assertStoragePublicUrls } from 'src/common/file/storage-url';
 import { HelperEncryptionService } from 'src/common/helper/services/helper.encryption.service';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
 
@@ -33,7 +35,8 @@ export class UserService {
     constructor(
         private readonly db: DatabaseService,
         private readonly sessions: SessionVersionService,
-        private readonly encryption: HelperEncryptionService
+        private readonly encryption: HelperEncryptionService,
+        private readonly config: ConfigService
     ) {}
 
     async getProfile(userId: string): Promise<UserGetProfileResponseDto> {
@@ -48,6 +51,17 @@ export class UserService {
     ): Promise<UserUpdateProfileResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
+
+        // A new avatar must be a file uploaded to our storage. Re-sending the
+        // stored value unchanged (clients save the whole form) and clearing it
+        // (null) are always allowed, so legacy external avatars keep working.
+        if (data.avatarUrl && data.avatarUrl !== user.avatarUrl) {
+            assertStoragePublicUrls(
+                this.config,
+                [data.avatarUrl],
+                'file.error.urlNotStored'
+            );
+        }
 
         return this.db.user.update({ where: { id: userId }, data });
     }

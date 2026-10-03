@@ -3,9 +3,11 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { assertStoragePublicUrls } from 'src/common/file/storage-url';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
@@ -22,7 +24,10 @@ import {
 
 @Injectable()
 export class FeedbackService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly config: ConfigService
+    ) {}
 
     private maskAnonymous(
         feedback: FeedbackResponseDto & { userId?: string | null },
@@ -38,6 +43,13 @@ export class FeedbackService {
         dto: FeedbackCreateDto,
         actor: IAuthUser
     ): Promise<FeedbackResponseDto> {
+        // Attachments must be images uploaded through /uploads (our bucket).
+        assertStoragePublicUrls(
+            this.config,
+            dto.attachments ?? [],
+            'file.error.urlNotStored'
+        );
+
         return this.db.feedback.create({
             data: {
                 ...dto,

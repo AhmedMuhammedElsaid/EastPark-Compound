@@ -1,4 +1,9 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
@@ -58,7 +63,8 @@ describe('UserService.deleteUser', () => {
     const service = new UserService(
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
-        encryption as unknown as HelperEncryptionService
+        encryption as unknown as HelperEncryptionService,
+        {} as ConfigService
     );
 
     const resident = {
@@ -262,5 +268,70 @@ describe('UserService.deleteUser', () => {
         expect(email).toBe('deleted-clxabc@deleted.invalid');
         expect(isDeletedUserEmail(email)).toBe(true);
         expect(isDeletedUserEmail('someone@example.com')).toBe(false);
+    });
+});
+
+describe('UserService.updateUser avatar URL', () => {
+    const STORAGE =
+        'https://proj.supabase.co/storage/v1/object/public/eastpark-uploads';
+    const db = {
+        user: { findUnique: jest.fn(), update: jest.fn() },
+    };
+    const config = {
+        getOrThrow: jest.fn(
+            (key: string) =>
+                ({
+                    'supabase.url': 'https://proj.supabase.co',
+                    'supabase.bucket': 'eastpark-uploads',
+                })[key]
+        ),
+    };
+    const service = new UserService(
+        db as unknown as DatabaseService,
+        {} as SessionVersionService,
+        {} as HelperEncryptionService,
+        config as unknown as ConfigService
+    );
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        db.user.findUnique.mockResolvedValue({
+            id: 'u1',
+            avatarUrl: 'https://picsum.photos/legacy.jpg',
+        });
+        db.user.update.mockResolvedValue({ id: 'u1' });
+    });
+
+    it('accepts a new avatar from our bucket', async () => {
+        const avatarUrl = `${STORAGE}/user-avatars/u1/1-a.webp`;
+        await service.updateUser('u1', { avatarUrl });
+        expect(db.user.update).toHaveBeenCalledWith({
+            where: { id: 'u1' },
+            data: { avatarUrl },
+        });
+    });
+
+    it('rejects a new external avatar with 400', async () => {
+        await expect(
+            service.updateUser('u1', {
+                avatarUrl: 'https://evil.example/a.jpg',
+            })
+        ).rejects.toThrow(new BadRequestException('file.error.urlNotStored'));
+        expect(db.user.update).not.toHaveBeenCalled();
+    });
+
+    it('accepts the stored legacy value re-sent unchanged', async () => {
+        await service.updateUser('u1', {
+            name: 'New Name',
+            avatarUrl: 'https://picsum.photos/legacy.jpg',
+        });
+        expect(db.user.update).toHaveBeenCalled();
+    });
+
+    it('accepts clearing the avatar and updates without an avatar', async () => {
+        await service.updateUser('u1', { avatarUrl: null });
+        await service.updateUser('u1', { name: 'Only Name' });
+        expect(db.user.update).toHaveBeenCalledTimes(2);
+        expect(config.getOrThrow).not.toHaveBeenCalled();
     });
 });

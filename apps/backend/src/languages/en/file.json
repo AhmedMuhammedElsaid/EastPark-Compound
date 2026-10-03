@@ -5,6 +5,7 @@
     "error": {
         "uploadFailed": "File upload failed",
         "invalidFileType": "Invalid file type",
-        "fileTooLarge": "File size exceeds the allowed limit"
+        "fileTooLarge": "File size exceeds the allowed limit",
+        "urlNotStored": "Images must be uploaded through the app before they can be attached"
     }
 }
