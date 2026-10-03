@@ -124,7 +124,7 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > 6. Push `main` (Render + Vercel auto-deploy; migrations `20261002000000_money_decimal` and
 >    `20261003000000_lowercase_emails` run on boot). Confirm `/health` 200 and `prisma migrate status`.
 > 7. Smoke: login 401 unknown / 403 unverified; refresh reuse → 401; announcement with comments loads
->    (guest + signed in); resident confined to `/home`, merchant reaches `/merchant`; a REAL image upload
+>    (guest + signed in); resident confined to `/home`, `/profile` and `/directory` (shops browse-only; ordering locked), merchant reaches `/merchant`; a REAL image upload
 >    (profile + feedback) succeeds and its URL loads — uploads are still unverified until this passes.
 >    **Run `node scripts/smoke/run.mjs` (then `--with-writes`, then `--only=throttle` for step 8b) — see
 >    `scripts/smoke/README.md`.** All of the above is automated except the 403-unverified login.

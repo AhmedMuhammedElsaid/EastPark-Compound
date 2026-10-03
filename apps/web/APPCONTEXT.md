@@ -119,6 +119,7 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
 
 ## Post-Launch Web Pass — 2026-10-03 (later)
 
+- **Shops directory is open to residents (browse-only).** `/directory` (list, `[id]` detail with reviews, `[id]/menu`) and `/api/shops/**` (list, detail, products, reviews, save) are no longer blocked; `/directory` is in `OPEN_PAGE_PREFIXES`, so nav and teaser links navigate. The backend allows residents to review and save shops. Ordering stays locked: `/cart`, `/checkout`, `/orders`, `/api/orders` remain blocked, `residentOrderingEnabled = false` keeps Add-to-cart disabled with the ordering-paused notice, and the menu cart shortcut is a `GatedLink`.
 - **Profile is open to residents.** `src/config/access-policy.ts` keeps residents confined, but
   `/home` and `/profile` (plus `/api/profile`; uploads, session and logout were already open) are
   allowed. `isOpenToRestricted()` decides which `GatedLink`s navigate for real; everything else
