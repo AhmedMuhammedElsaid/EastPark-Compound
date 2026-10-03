@@ -111,6 +111,15 @@ email lower-casing migration `20261003000000_lowercase_emails` (run
 `prisma/scripts/check-email-case.sql` on prod first). Current state, go-live runbook and backlog: root
 `CLAUDE.md` → "2026-10-03" section. Card payments remain disabled (owner postponed).
 
+**2026-10-03 backend review pass (local commits, not pushed):** cursor pagination no longer drops the
+first row of every following page (shared `toCursorPage`; id tie-breakers); `?isRead=false` /
+`?isAvailable=false` now filter correctly; unknown shop ids on review/save/admin product create → 404;
+concurrent duplicate register → 409; re-inviting a rejected lead whose unit is re-reserved → 409;
+`PATCH /auth/push-token` detaches the token from any other account; `DELETE /shops/:id` removes the
+shop's reviews and bookmarks (REV-19); feedback body/reply ≤ 4000 and review comment ≤ 1000 chars;
+password reset clears the per-email login lockout; unused offset-pagination/query-builder helpers
+removed. No route, response shape or migration changed.
+
 **2026-09-30 — Postgres moved from Neon to Supabase.** One vendor for DB + Storage, and Neon's free
 tier could not host this app: the Fly health check queries the DB every 15s, so the compute never
 scale-to-zeros, and always-on burns ~183 of the 100 free CU-hours/month — suspended around day 16,
@@ -271,11 +280,25 @@ src/
 **Cursor pagination (all list endpoints):**
 
 ```typescript
-take: limit + 1,
-...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-orderBy: { createdAt: 'desc' },
-// After query: if items.length > limit → items.pop(); nextCursor = last.id
+import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
+
+const rows = await this.db.x.findMany({
+    take: limit + 1,
+    ...cursorArgs(query.cursor),                       // skip: 1 + cursor: { id }
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],  // unique tie-breaker last
+});
+const { items, nextCursor } = toCursorPage(rows, limit);
 ```
+
+`nextCursor` is the LAST RETURNED row. Never use the popped look-ahead row: with `skip: 1` the next
+page would skip it (this dropped one row per page until 2026-10-03).
+
+**Query booleans.** Use `@ToBoolean()` (`src/common/helper/transforms/to-boolean.transform.ts`), never
+`@Type(() => Boolean)` — `Boolean('false')` is `true`.
+
+**Prisma errors.** Map expected codes with `isPrismaError(error, PRISMA_UNIQUE_VIOLATION |
+PRISMA_FOREIGN_KEY_VIOLATION | PRISMA_RECORD_NOT_FOUND)` from `src/common/database/prisma-errors.ts`;
+anything unmapped surfaces as a 500.
 
 **Response format.** DocResponse interceptor wraps all responses: `{ success: true, message: 'i18n.key', data: ... }`.
 
