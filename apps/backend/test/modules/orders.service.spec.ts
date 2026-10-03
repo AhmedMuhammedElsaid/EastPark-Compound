@@ -4,6 +4,7 @@ import {
     ForbiddenException,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderStatus, PaymentMethod, Prisma, Role } from '@prisma/client';
 
@@ -65,6 +66,11 @@ const notifications = {
     send: jest.fn().mockResolvedValue(undefined),
 };
 
+/** Payments off by default, as in production for the first release. */
+const paymentsConfig = (values: Record<string, unknown> = {}) => ({
+    get: jest.fn((key: string) => values[key]),
+});
+
 // ─── Test suite ───────────────────────────────────────────────────────────────
 
 describe('OrdersService', () => {
@@ -79,6 +85,7 @@ describe('OrdersService', () => {
                 { provide: DatabaseService, useValue: db },
                 { provide: OrdersGateway, useValue: gateway },
                 { provide: NotificationsService, useValue: notifications },
+                { provide: ConfigService, useValue: paymentsConfig() },
             ],
         }).compile();
 
@@ -95,6 +102,71 @@ describe('OrdersService', () => {
             paymentMethod: PaymentMethod.CASH,
             notes: '',
         };
+
+        describe('card payments switch', () => {
+            const paymobDto = {
+                ...validDto,
+                paymentMethod: PaymentMethod.PAYMOB,
+            };
+            const build = (values: Record<string, unknown>) =>
+                new OrdersService(
+                    db as never,
+                    gateway as never,
+                    notifications as never,
+                    paymentsConfig(values) as never
+                );
+
+            it('rejects PAYMOB with 409 paymentsDisabled before any DB work when payments are off', async () => {
+                const attempt = service.create(paymobDto, residentActor);
+                await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+                await expect(attempt).rejects.toThrow(
+                    'order.error.paymentsDisabled'
+                );
+                expect(db.product.findMany).not.toHaveBeenCalled();
+                expect(db.order.create).not.toHaveBeenCalled();
+            });
+
+            it('rejects PAYMOB when the flag is on but no HMAC secret is configured', async () => {
+                await expect(
+                    build({ 'paymob.enabled': true }).create(
+                        paymobDto,
+                        residentActor
+                    )
+                ).rejects.toThrow('order.error.paymentsDisabled');
+            });
+
+            it('accepts PAYMOB when payments are enabled with a secret', async () => {
+                db.product.findMany.mockResolvedValue([
+                    mockProduct('prod-1', 'shop-1'),
+                ]);
+                db.shop.findUnique.mockResolvedValue({ isOpen: true });
+                db.order.create.mockResolvedValue(mockOrder());
+
+                await build({
+                    'paymob.enabled': true,
+                    'paymob.hmacSecret': 'secret',
+                }).create(paymobDto, residentActor);
+
+                expect(db.order.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            paymentMethod: PaymentMethod.PAYMOB,
+                        }),
+                    })
+                );
+            });
+
+            it('still accepts CASH while payments are off', async () => {
+                db.product.findMany.mockResolvedValue([
+                    mockProduct('prod-1', 'shop-1'),
+                ]);
+                db.shop.findUnique.mockResolvedValue({ isOpen: true });
+                db.order.create.mockResolvedValue(mockOrder());
+
+                await service.create(validDto, residentActor);
+                expect(db.order.create).toHaveBeenCalledTimes(1);
+            });
+        });
 
         it('throws BadRequestException when a product is unavailable', async () => {
             // findMany returns fewer products than requested → some unavailable

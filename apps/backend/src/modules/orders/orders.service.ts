@@ -5,6 +5,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
     NotificationType,
     OrderStatus,
@@ -125,16 +126,32 @@ export function toOrderResponse(order: OrderRow): OrderResponseDto {
 
 @Injectable()
 export class OrdersService {
+    /** Same rule as PaymentsService.ensureEnabled: flag on AND HMAC secret set. */
+    private readonly paymentsEnabled: boolean;
+
     constructor(
         private readonly db: DatabaseService,
         private readonly gateway: OrdersGateway,
-        private readonly notifications: NotificationsService
-    ) {}
+        private readonly notifications: NotificationsService,
+        config: ConfigService
+    ) {
+        this.paymentsEnabled =
+            config.get<boolean>('paymob.enabled') === true &&
+            Boolean(config.get<string>('paymob.hmacSecret'));
+    }
 
     async create(
         dto: OrderCreateDto,
         actor: IAuthUser
     ): Promise<OrderResponseDto> {
+        // Card payments are off: refuse instead of creating an unpayable order.
+        if (
+            dto.paymentMethod === PaymentMethod.PAYMOB &&
+            !this.paymentsEnabled
+        ) {
+            throw new ConflictException('order.error.paymentsDisabled');
+        }
+
         const productIds = dto.items.map(i => i.productId);
         if (new Set(productIds).size !== productIds.length) {
             throw new BadRequestException('order.error.duplicateProducts');
