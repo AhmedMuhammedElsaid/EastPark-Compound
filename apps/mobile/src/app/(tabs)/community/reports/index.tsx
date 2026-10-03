@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
@@ -72,7 +73,7 @@ export default function ReportsScreen() {
   const colors = useAppColors();
   const isAr = i18n.language === "ar";
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch }
+  const { data, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
       AxiosResponse<{ data: { items: Report[]; nextCursor: string | null } }>,
       Error,
@@ -97,40 +98,42 @@ export default function ReportsScreen() {
         <Text style={styles.title}>{t("community.reports")}</Text>
       </View>
 
-      {isLoading
-        ? (
-            <View style={styles.loadingPad}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={`report-sk-${i}`} width="100%" height={80} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-              ))}
-            </View>
-          )
-        : (
-            <FlashList
-              data={reports}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => <ReportRow report={item} isAr={isAr} styles={styles} />}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage)
-                  fetchNextPage();
-              }}
-              onEndReachedThreshold={0.5}
-              contentContainerStyle={styles.listContent}
-              onRefresh={refetch}
-              refreshing={isRefetching}
-              ListEmptyComponent={(
-                <View style={styles.empty}>
-                  <ClipboardText size={48} color={colors.textMuted} />
-                  <Text style={styles.emptyText}>{t("community.no_reports")}</Text>
-                </View>
-              )}
-              ListFooterComponent={
-                isFetchingNextPage
-                  ? <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
-                  : null
-              }
-            />
-          )}
+      {isError && !data
+        ? <ErrorState onRetry={() => refetch()} />
+        : isLoading
+          ? (
+              <View style={styles.loadingPad}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={`report-sk-${i}`} width="100%" height={80} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                ))}
+              </View>
+            )
+          : (
+              <FlashList
+                data={reports}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <ReportRow report={item} isAr={isAr} styles={styles} />}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage)
+                    fetchNextPage();
+                }}
+                onEndReachedThreshold={0.5}
+                contentContainerStyle={styles.listContent}
+                onRefresh={refetch}
+                refreshing={isRefetching}
+                ListEmptyComponent={(
+                  <View style={styles.empty}>
+                    <ClipboardText size={48} color={colors.textMuted} />
+                    <Text style={styles.emptyText}>{t("community.no_reports")}</Text>
+                  </View>
+                )}
+                ListFooterComponent={
+                  isFetchingNextPage
+                    ? <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
+                    : null
+                }
+              />
+            )}
     </View>
   );
 }

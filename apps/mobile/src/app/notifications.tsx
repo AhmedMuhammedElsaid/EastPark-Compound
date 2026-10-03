@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { notificationsApi } from "@/services/api/notifications";
@@ -105,7 +106,7 @@ export default function NotificationsScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch }
+  const { data, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
       AxiosResponse<{ data: NotificationPage }>,
       Error,
@@ -173,32 +174,34 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      {isLoading
-        ? <NotificationsSkeleton styles={styles} />
-        : (
-            <FlashList
-              data={notifications}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <NotificationItem notification={item} onPress={() => handleNotificationPress(item)} styles={styles} colors={colors} />
-              )}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage) {
-                  fetchNextPage();
+      {isError && !data
+        ? <ErrorState onRetry={() => refetch()} />
+        : isLoading
+          ? <NotificationsSkeleton styles={styles} />
+          : (
+              <FlashList
+                data={notifications}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                  <NotificationItem notification={item} onPress={() => handleNotificationPress(item)} styles={styles} colors={colors} />
+                )}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                onRefresh={refetch}
+                refreshing={isRefetching}
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={<EmptyState styles={styles} colors={colors} />}
+                ListFooterComponent={
+                  isFetchingNextPage
+                    ? <Skeleton width="100%" height={72} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
+                    : null
                 }
-              }}
-              onEndReachedThreshold={0.5}
-              onRefresh={refetch}
-              refreshing={isRefetching}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={<EmptyState styles={styles} colors={colors} />}
-              ListFooterComponent={
-                isFetchingNextPage
-                  ? <Skeleton width="100%" height={72} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
-                  : null
-              }
-            />
-          )}
+              />
+            )}
     </View>
   );
 }

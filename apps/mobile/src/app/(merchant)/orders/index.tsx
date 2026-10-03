@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -104,7 +105,7 @@ export default function MerchantOrdersScreen() {
   const colors = useAppColors();
   const [filter, setFilter] = React.useState<StatusFilter>("ALL");
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch }
+  const { data, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading, refetch }
     = useInfiniteQuery<
       AxiosResponse<{ data: { items: MerchantOrder[]; nextCursor: string | null } }>,
       Error,
@@ -137,38 +138,40 @@ export default function MerchantOrdersScreen() {
 
       <StatusFilterBar filter={filter} onSelect={setFilter} styles={styles} />
 
-      {isLoading
-        ? (
-            <View style={styles.loadingPad}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={`morder-sk-${i}`} width="100%" height={104} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-              ))}
-            </View>
-          )
-        : (
-            <FlashList
-              data={orders}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => <MerchantOrderCard order={item} styles={styles} colors={colors} />}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage)
-                  fetchNextPage();
-              }}
-              onEndReachedThreshold={0.5}
-              contentContainerStyle={styles.listContent}
-              onRefresh={refetch}
-              refreshing={false}
-              ListEmptyComponent={(
-                <View style={styles.empty}>
-                  <Tray size={48} color={colors.textMuted} />
-                  <Text style={styles.emptyText}>{t("common.no_results")}</Text>
-                </View>
-              )}
-              ListFooterComponent={
-                isFetchingNextPage ? <Skeleton width="100%" height={104} borderRadius={RADIUS.md} /> : null
-              }
-            />
-          )}
+      {isError && !data
+        ? <ErrorState onRetry={() => refetch()} />
+        : isLoading
+          ? (
+              <View style={styles.loadingPad}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={`morder-sk-${i}`} width="100%" height={104} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                ))}
+              </View>
+            )
+          : (
+              <FlashList
+                data={orders}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <MerchantOrderCard order={item} styles={styles} colors={colors} />}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage)
+                    fetchNextPage();
+                }}
+                onEndReachedThreshold={0.5}
+                contentContainerStyle={styles.listContent}
+                onRefresh={refetch}
+                refreshing={false}
+                ListEmptyComponent={(
+                  <View style={styles.empty}>
+                    <Tray size={48} color={colors.textMuted} />
+                    <Text style={styles.emptyText}>{t("common.no_results")}</Text>
+                  </View>
+                )}
+                ListFooterComponent={
+                  isFetchingNextPage ? <Skeleton width="100%" height={104} borderRadius={RADIUS.md} /> : null
+                }
+              />
+            )}
     </View>
   );
 }

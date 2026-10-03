@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
@@ -85,7 +86,7 @@ export default function FeedbackListScreen() {
   const colors = useAppColors();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch }
+  const { data, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
       AxiosResponse<{ data: { items: Feedback[]; nextCursor: string | null } }>,
       Error,
@@ -114,35 +115,37 @@ export default function FeedbackListScreen() {
         </Pressable>
       </View>
 
-      {isLoading
-        ? (
-            <View style={styles.loadingPad}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={`fb-sk-${i}`} width="100%" height={88} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-              ))}
-            </View>
-          )
-        : (
-            <FlashList
-              data={items}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => <FeedbackRow feedback={item} styles={styles} colors={colors} />}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage)
-                  fetchNextPage();
-              }}
-              onEndReachedThreshold={0.5}
-              contentContainerStyle={styles.listContent}
-              onRefresh={refetch}
-              refreshing={isRefetching}
-              ListEmptyComponent={<FeedbackEmpty styles={styles} colors={colors} />}
-              ListFooterComponent={
-                isFetchingNextPage
-                  ? <Skeleton width="100%" height={88} borderRadius={RADIUS.md} />
-                  : null
-              }
-            />
-          )}
+      {isError && !data
+        ? <ErrorState onRetry={() => refetch()} />
+        : isLoading
+          ? (
+              <View style={styles.loadingPad}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={`fb-sk-${i}`} width="100%" height={88} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                ))}
+              </View>
+            )
+          : (
+              <FlashList
+                data={items}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <FeedbackRow feedback={item} styles={styles} colors={colors} />}
+                onEndReached={() => {
+                  if (hasNextPage && !isFetchingNextPage)
+                    fetchNextPage();
+                }}
+                onEndReachedThreshold={0.5}
+                contentContainerStyle={styles.listContent}
+                onRefresh={refetch}
+                refreshing={isRefetching}
+                ListEmptyComponent={<FeedbackEmpty styles={styles} colors={colors} />}
+                ListFooterComponent={
+                  isFetchingNextPage
+                    ? <Skeleton width="100%" height={88} borderRadius={RADIUS.md} />
+                    : null
+                }
+              />
+            )}
     </View>
   );
 }

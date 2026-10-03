@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18nManager, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DetailErrorScreen } from "@/components/ui/error-state";
+import { DetailErrorScreen, ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -343,7 +343,7 @@ function MenuTabContent({ shopId, shopName }: { shopId: string; shopName: string
 
   const isAr = i18n.language === "ar";
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<
+  const { data, isError, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } = useInfiniteQuery<
     AxiosResponse<{ data: CursorPage<Product> }>,
     Error,
     { pages: AxiosResponse<{ data: CursorPage<Product> }>[] },
@@ -358,6 +358,8 @@ function MenuTabContent({ shopId, shopName }: { shopId: string; shopName: string
 
   const products = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
+  if (isError && !data)
+    return <ErrorState onRetry={() => refetch()} />;
   if (isLoading) {
     return (
       <View style={styles.tabContent}>
@@ -448,7 +450,7 @@ function ProductRow({
 function ReviewsTabContent({ shopId }: { shopId: string }) {
   const { t } = useTranslation();
   const styles = useStyles();
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<
+  const { data, isError, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } = useInfiniteQuery<
     AxiosResponse<{ data: CursorPage<Review> }>,
     Error,
     { pages: AxiosResponse<{ data: CursorPage<Review> }>[] },
@@ -463,6 +465,8 @@ function ReviewsTabContent({ shopId }: { shopId: string }) {
 
   const reviews = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
+  if (isError && !data)
+    return <ErrorState onRetry={() => refetch()} />;
   if (isLoading) {
     return (
       <View style={styles.tabContent}>

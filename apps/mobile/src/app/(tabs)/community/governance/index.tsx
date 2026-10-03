@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
@@ -148,72 +149,76 @@ export default function GovernanceScreen() {
 
       {tab === "polls"
         ? (
-            pollsQuery.isLoading
-              ? (
-                  <View style={styles.loadingPad}>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={`gov-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-                    ))}
-                  </View>
-                )
-              : (
-                  <FlashList
-                    data={polls}
-                    keyExtractor={item => item.id}
-                    renderItem={({ item }) => <PollCard poll={item} styles={styles} />}
-                    onEndReached={() => {
-                      if (pollsQuery.hasNextPage && !pollsQuery.isFetchingNextPage)
-                        pollsQuery.fetchNextPage();
-                    }}
-                    onEndReachedThreshold={0.5}
-                    contentContainerStyle={styles.listContent}
-                    ListEmptyComponent={(
-                      <View style={styles.empty}>
-                        <CheckSquare size={48} color={colors.textMuted} />
-                        <Text style={styles.emptyText}>{t("governance.no_polls")}</Text>
-                      </View>
-                    )}
-                    ListFooterComponent={
-                      pollsQuery.isFetchingNextPage
-                        ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
-                        : null
-                    }
-                  />
-                )
+            pollsQuery.isError && !pollsQuery.data
+              ? <ErrorState onRetry={() => pollsQuery.refetch()} />
+              : pollsQuery.isLoading
+                ? (
+                    <View style={styles.loadingPad}>
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={`gov-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                      ))}
+                    </View>
+                  )
+                : (
+                    <FlashList
+                      data={polls}
+                      keyExtractor={item => item.id}
+                      renderItem={({ item }) => <PollCard poll={item} styles={styles} />}
+                      onEndReached={() => {
+                        if (pollsQuery.hasNextPage && !pollsQuery.isFetchingNextPage)
+                          pollsQuery.fetchNextPage();
+                      }}
+                      onEndReachedThreshold={0.5}
+                      contentContainerStyle={styles.listContent}
+                      ListEmptyComponent={(
+                        <View style={styles.empty}>
+                          <CheckSquare size={48} color={colors.textMuted} />
+                          <Text style={styles.emptyText}>{t("governance.no_polls")}</Text>
+                        </View>
+                      )}
+                      ListFooterComponent={
+                        pollsQuery.isFetchingNextPage
+                          ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
+                          : null
+                      }
+                    />
+                  )
           )
         : (
-            electionsQuery.isLoading
-              ? (
-                  <View style={styles.loadingPad}>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={`gov-el-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-                    ))}
-                  </View>
-                )
-              : (
-                  <FlashList
-                    data={elections}
-                    keyExtractor={item => item.id}
-                    renderItem={({ item }) => <ElectionCard election={item} styles={styles} />}
-                    onEndReached={() => {
-                      if (electionsQuery.hasNextPage && !electionsQuery.isFetchingNextPage)
-                        electionsQuery.fetchNextPage();
-                    }}
-                    onEndReachedThreshold={0.5}
-                    contentContainerStyle={styles.listContent}
-                    ListEmptyComponent={(
-                      <View style={styles.empty}>
-                        <CheckSquare size={48} color={colors.textMuted} />
-                        <Text style={styles.emptyText}>{t("governance.no_elections")}</Text>
-                      </View>
-                    )}
-                    ListFooterComponent={
-                      electionsQuery.isFetchingNextPage
-                        ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
-                        : null
-                    }
-                  />
-                )
+            electionsQuery.isError && !electionsQuery.data
+              ? <ErrorState onRetry={() => electionsQuery.refetch()} />
+              : electionsQuery.isLoading
+                ? (
+                    <View style={styles.loadingPad}>
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={`gov-el-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                      ))}
+                    </View>
+                  )
+                : (
+                    <FlashList
+                      data={elections}
+                      keyExtractor={item => item.id}
+                      renderItem={({ item }) => <ElectionCard election={item} styles={styles} />}
+                      onEndReached={() => {
+                        if (electionsQuery.hasNextPage && !electionsQuery.isFetchingNextPage)
+                          electionsQuery.fetchNextPage();
+                      }}
+                      onEndReachedThreshold={0.5}
+                      contentContainerStyle={styles.listContent}
+                      ListEmptyComponent={(
+                        <View style={styles.empty}>
+                          <CheckSquare size={48} color={colors.textMuted} />
+                          <Text style={styles.emptyText}>{t("governance.no_elections")}</Text>
+                        </View>
+                      )}
+                      ListFooterComponent={
+                        electionsQuery.isFetchingNextPage
+                          ? <Skeleton width="100%" height={96} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
+                          : null
+                      }
+                    />
+                  )
           )}
     </View>
   );

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -122,7 +123,7 @@ export default function InvitationsScreen() {
   const [role, setRole] = React.useState<InvitationRole>("MERCHANT");
   const [showForm, setShowForm] = React.useState(false);
 
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery<
+  const { data, isError, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = useInfiniteQuery<
     AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>,
     Error,
     { pages: AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>[] },
@@ -220,11 +221,13 @@ export default function InvitationsScreen() {
           </View>
         )}
 
-        {isLoading
-          ? Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={`inv-sk-${i}`} width="100%" height={72} borderRadius={RADIUS.md} style={{ marginBottom: SPACING.sm }} />
-            ))
-          : invitations.map(inv => <InvitationRow key={inv.id} invitation={inv} styles={styles} colors={colors} />)}
+        {isError && !data
+          ? <ErrorState onRetry={() => refetch()} />
+          : isLoading
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={`inv-sk-${i}`} width="100%" height={72} borderRadius={RADIUS.md} style={{ marginBottom: SPACING.sm }} />
+              ))
+            : invitations.map(inv => <InvitationRow key={inv.id} invitation={inv} styles={styles} colors={colors} />)}
 
         {hasNextPage && (
           <Pressable

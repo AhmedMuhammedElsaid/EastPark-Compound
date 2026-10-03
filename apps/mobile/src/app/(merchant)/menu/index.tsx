@@ -8,6 +8,7 @@ import { Alert, I18nManager, Pressable, RefreshControl, ScrollView, StyleSheet, 
 import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -75,7 +76,7 @@ export default function MerchantMenuScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["merchant-products"],
     queryFn: () => merchantApi.getAllMyProducts(),
   });
@@ -118,40 +119,42 @@ export default function MerchantMenuScreen() {
         </Pressable>
       </View>
 
-      {isLoading
-        ? (
-            <View style={styles.loadingPad}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={`product-sk-${i}`} width="100%" height={72} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
-              ))}
-            </View>
-          )
-        : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + SPACING.xl }]}
-              refreshControl={<RefreshControl refreshing={false} onRefresh={() => { void refetch(); }} tintColor={BRAND.gold} />}
-            >
-              {products.length === 0 && (
-                <View style={styles.empty}>
-                  <ForkKnife size={48} color={colors.textMuted} />
-                  <Text style={styles.emptyText}>{t("common.no_results")}</Text>
-                </View>
-              )}
-              {products.map(product => (
-                <ProductRow
-                  key={product.id}
-                  product={product}
-                  isAr={isAr}
-                  onToggle={v => toggleAvailability({ productId: product.id, isAvailable: v })}
-                  onEdit={() => router.push(`/(merchant)/menu/${product.id}`)}
-                  onDelete={() => handleDelete(product)}
-                  styles={styles}
-                  colors={colors}
-                />
-              ))}
-            </ScrollView>
-          )}
+      {isError && !data
+        ? <ErrorState onRetry={() => refetch()} />
+        : isLoading
+          ? (
+              <View style={styles.loadingPad}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={`product-sk-${i}`} width="100%" height={72} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                ))}
+              </View>
+            )
+          : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + SPACING.xl }]}
+                refreshControl={<RefreshControl refreshing={false} onRefresh={() => { void refetch(); }} tintColor={BRAND.gold} />}
+              >
+                {products.length === 0 && (
+                  <View style={styles.empty}>
+                    <ForkKnife size={48} color={colors.textMuted} />
+                    <Text style={styles.emptyText}>{t("common.no_results")}</Text>
+                  </View>
+                )}
+                {products.map(product => (
+                  <ProductRow
+                    key={product.id}
+                    product={product}
+                    isAr={isAr}
+                    onToggle={v => toggleAvailability({ productId: product.id, isAvailable: v })}
+                    onEdit={() => router.push(`/(merchant)/menu/${product.id}`)}
+                    onDelete={() => handleDelete(product)}
+                    styles={styles}
+                    colors={colors}
+                  />
+                ))}
+              </ScrollView>
+            )}
     </View>
   );
 }

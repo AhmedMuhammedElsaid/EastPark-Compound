@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
@@ -85,7 +86,7 @@ export default function CommunityScreen() {
   const styles = useStyles();
   const [filter, setFilter] = React.useState<Filter>("ALL");
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch }
+  const { data, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
       AxiosResponse<{ data: { items: Announcement[]; nextCursor: string | null } }>,
       Error,
@@ -117,6 +118,7 @@ export default function CommunityScreen() {
       <FilterChips selected={filter} onSelect={setFilter} styles={styles} />
       <AnnouncementList
         announcements={announcements}
+        isError={isError && !data}
         isLoading={isLoading}
         isFetchingNextPage={isFetchingNextPage}
         isRefetching={isRefetching}
@@ -192,6 +194,8 @@ function FilterChips({ selected, onSelect, styles }: { selected: Filter; onSelec
 
 type ListProps = {
   announcements: Announcement[];
+  /** Failed before any page arrived. */
+  isError: boolean;
   isLoading: boolean;
   isFetchingNextPage: boolean;
   isRefetching: boolean;
@@ -201,9 +205,11 @@ type ListProps = {
   styles: any;
 };
 
-function AnnouncementList({ announcements, isLoading, isFetchingNextPage, isRefetching, hasNextPage, fetchNextPage, refetch, styles }: ListProps) {
+function AnnouncementList({ announcements, isError, isLoading, isFetchingNextPage, isRefetching, hasNextPage, fetchNextPage, refetch, styles }: ListProps) {
   const { t } = useTranslation();
   const colors = useAppColors();
+  if (isError)
+    return <ErrorState onRetry={refetch} />;
   if (isLoading) {
     return (
       <View style={styles.loadingPad}>
