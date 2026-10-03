@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { ChatCircle, CheckSquare, FileText, Megaphone, Package, Storefront } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,15 +79,22 @@ export default function HomeScreen() {
 
   const greetKey = greeting(new Date().getHours());
 
-  const { data: announcementsData, isLoading: annLoading } = useQuery({
+  const { data: announcementsData, isLoading: annLoading, refetch: refetchAnnouncements } = useQuery({
     queryKey: ["home-announcements"],
     queryFn: () => communityApi.getAnnouncements({ limit: 3 }),
   });
 
-  const { data: shopsData, isLoading: shopsLoading } = useQuery({
+  const { data: shopsData, isLoading: shopsLoading, refetch: refetchShops } = useQuery({
     queryKey: ["home-shops"],
     queryFn: () => shopsApi.getShops({ limit: 6 }),
   });
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchAnnouncements(), refetchShops()]);
+    setRefreshing(false);
+  }, [refetchAnnouncements, refetchShops]);
 
   const announcements = announcementsData?.data.data.items ?? [];
   const shops = shopsData?.data.data.items ?? [];
@@ -96,6 +103,7 @@ export default function HomeScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.gold} />}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {/* Greeting */}
