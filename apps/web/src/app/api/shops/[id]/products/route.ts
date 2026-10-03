@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { upstreamError } from '@/lib/api/bff-errors';
 import { parseProductPage } from '@/lib/api/products';
 import { backendFetch, clientIpFrom } from '@/lib/auth/server';
 
@@ -20,9 +21,8 @@ export async function GET(request: Request, { params }: ProductRouteContext) {
       {},
       { clientIp: clientIpFrom(request.headers) },
     );
-    if (!response.ok) {
-      return NextResponse.json({ error: 'Products are temporarily unavailable.' }, { status: response.status });
-    }
+    // Shared error vocabulary: backend 5xx bodies/statuses are never relayed verbatim.
+    if (!response.ok) return upstreamError(response.status);
     return NextResponse.json({ data: parseProductPage(await response.json()) });
   } catch (error) {
     console.error('Products proxy failed', error);
