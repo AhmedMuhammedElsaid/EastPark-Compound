@@ -41,6 +41,30 @@ On a fresh machine, install dependencies and run `pnpm check`. A green compile/b
 the runtime upload blocker. If backend/storage code changes, also run backend typecheck and focused
 upload tests. Never print or persist credentials, cookies, SMTP values, storage keys, or signed URLs.
 
+## Review Fixes — 2026-10-03
+
+- **Home-only lockdown (`src/config/access-policy.ts`):** while `RESIDENT_HOME_ONLY` is true only
+  residents are confined to `/home`. `ADMIN` and `MERCHANT` are never restricted (owner decision
+  REV-45), so merchants reach `/merchant/*` and `/api/merchant/*` through `src/proxy.ts` and their
+  links are not turned into Coming soon buttons. Server-side role checks are unchanged.
+- **Backend client (`src/lib/auth/server.ts`)** is the only server code that calls the API origin.
+  It forwards the visitor IP as `X-Forwarded-For` and, when the server-only env var
+  `BFF_INTERNAL_SECRET` is set, `X-EastPark-Internal` so the backend trusts that IP only from the BFF.
+  Configure the same value on Vercel and the backend; never prefix it with `NEXT_PUBLIC_`.
+- Public RSC loaders (`/home`, `/announcements`, `/announcements/[id]`, `/directory`, `/reports`)
+  forward the request IP; all of them render per request. `/home` previously prerendered at build and
+  froze the latest-announcement card. Static pages would send no IP and share one rate-limit bucket.
+- **Refresh:** concurrent refreshes of one token share a single pending backend call until it
+  settles, then reuse the result for 2 seconds. A backend 429 surfaces as `rate_limited` (HTTP 429)
+  from `/api/auth/session`, `/api/auth/refresh` and login, never as an outage or a logout. A refresh
+  rejected as `Token revoked` (possible rotation race) keeps cookies; other rejections (expired,
+  version bumped, mismatch) clear the dead cookies.
+- **Client 401 handling:** the session interceptor re-checks `/api/auth/session` once (deduplicated)
+  and logs out only when it explicitly returns `user: null`. `/login` redirects an already signed-in
+  user to the safe `next` path or the role home.
+- Announcement comments and shop reviews may omit author ids (guest/non-owner view); only the name is
+  rendered.
+
 ## Previous Handoff — 2026-10-01
 
 - Production API traffic targets `https://eastpark-backend.onrender.com`; Fly is rollback only.
@@ -106,8 +130,10 @@ touch-target checks, and document/container overflow checks before changing code
   not be copied to web. Comment creation remains authenticated and is outside this public slice.
 - The backend contract has no `isPinned` field, so web does not reproduce the mobile client's stale
   pinned-announcement type.
-- `/admin` is restricted to authenticated users whose live profile role is `ADMIN`. Expired access
-  tokens are refreshed by `/api/admin/session`, where Next permits cookie mutation; admin write BFFs
+- `/admin` is restricted to authenticated users whose live profile role is `ADMIN`. Server
+  Components cannot write cookies, so an expired access token redirects through the shared
+  `/api/auth/refresh?next=...` bounce route (single-flight refresh, then back to `next`);
+  `/api/admin/session` survives only as a redirect to that bounce for old links. Admin write BFFs
   independently enforce the same role before forwarding requests.
 - The admin workspace creates announcements, polls, elections, and candidates through
   `POST /v1/announcements`, `POST /v1/polls`, `POST /v1/elections`, and
@@ -164,6 +190,10 @@ The only required browser environment variable is:
 ```dotenv
 NEXT_PUBLIC_API_URL=https://eastpark-backend.fly.dev
 ```
+
+Server-only (never `NEXT_PUBLIC_`): `BFF_INTERNAL_SECRET` — shared secret sent as
+`X-EastPark-Internal` so the backend trusts the forwarded client IP. Optional; when unset the
+header is omitted.
 
 Rules:
 

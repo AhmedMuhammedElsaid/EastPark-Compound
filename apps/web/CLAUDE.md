@@ -61,7 +61,7 @@ successful build because the failure is runtime/infrastructure-facing.
 	comments-list endpoint, so web must not copy the mobile client's stale paginated-comments call.
 - Local parity work adds an ADMIN-only `/admin` workspace for creating announcements, polls,
 	elections, and election candidates. Server layouts verify the live profile role, expired access
-	tokens refresh through `/api/admin/session`, and every write BFF repeats the ADMIN check before
+	tokens refresh through the shared `/api/auth/refresh` bounce route, and every write BFF repeats the ADMIN check before
 	forwarding to the authoritative backend endpoint.
 - Share description: `Commerce, services, and community in one trusted place. Built By Ahmed
 	Muhammed Elsaid.`
