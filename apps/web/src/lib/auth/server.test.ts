@@ -42,7 +42,7 @@ const USER = {
 };
 
 let calls: Call[];
-let routes: (call: Call) => Response;
+let routes: (call: Call) => Response | Promise<Response>;
 
 async function loadClient() {
   vi.resetModules();
@@ -65,6 +65,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -214,6 +215,46 @@ describe('sessionFetch in route-handler mode', () => {
     cookieState.values.set('eastpark_refresh', 'refresh-old');
     routes = () => jsonResponse(200, { data: { token: 'wrong-shape' } });
     await expect(sessionFetch('/orders', {}, { mutateCookies: true })).rejects.toBeInstanceOf(BackendContractError);
+  });
+});
+
+describe('refreshTokens single-flight', () => {
+  const refreshCalls = () => calls.filter((call) => call.url.endsWith('/auth/refresh'));
+  const tokens = { data: { accessToken: 'access-new', refreshToken: 'refresh-new' } };
+
+  it('keeps sharing a pending refresh beyond 10 s (Render cold start) and expires it ~2 s after settling', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1_000_000);
+    const { refreshTokens } = await loadClient();
+    let release!: (response: Response) => void;
+    routes = () => new Promise<Response>((resolve) => { release = resolve; });
+
+    const first = refreshTokens('refresh-slow');
+    vi.setSystemTime(1_000_000 + 15_000);
+    const second = refreshTokens('refresh-slow');
+    expect(second).toBe(first);
+    expect(refreshCalls()).toHaveLength(1);
+
+    release(jsonResponse(200, tokens));
+    await expect(first).resolves.toMatchObject({ status: 'refreshed' });
+
+    vi.setSystemTime(Date.now() + 1_000);
+    expect(refreshTokens('refresh-slow')).toBe(first);
+    expect(refreshCalls()).toHaveLength(1);
+
+    routes = () => jsonResponse(401);
+    vi.setSystemTime(Date.now() + 2_000);
+    await expect(refreshTokens('refresh-slow')).resolves.toMatchObject({ status: 'rejected' });
+    expect(refreshCalls()).toHaveLength(2);
+  });
+
+  it('does not cache transport failures', async () => {
+    const { refreshTokens } = await loadClient();
+    routes = () => jsonResponse(503);
+    await expect(refreshTokens('refresh-down')).rejects.toThrow();
+    routes = () => jsonResponse(200, tokens);
+    await expect(refreshTokens('refresh-down')).resolves.toMatchObject({ status: 'refreshed' });
+    expect(refreshCalls()).toHaveLength(2);
   });
 });
 

@@ -27,7 +27,8 @@ const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
 const API_TIMEOUT_MS = 25_000;
 const WAKE_TIMEOUT_MS = 8_000;
 const WAKE_INTERVAL_MS = 60_000;
-const REFRESH_SHARE_MS = 10_000;
+/** After a refresh settles, late arrivals with the same token reuse its result for this long. */
+export const REFRESH_SETTLED_GRACE_MS = 2_000;
 
 export type BackendContext = {
   /** Browser IP forwarded as `X-Forwarded-For`; `null`/absent sends no header. */
@@ -171,7 +172,11 @@ export type RefreshOutcome = { status: 'refreshed'; tokens: AuthTokens } | { sta
 
 // The backend blacklists a refresh token on use. Parallel requests that arrive with the same expired
 // session must share one rotation, otherwise the second refresh is rejected and logs the user out.
-const refreshesInFlight = new Map<string, { promise: Promise<RefreshOutcome>; expiresAt: number }>();
+// A pending entry is never evicted (a Render cold start can take longer than the API timeout's
+// worth of wall-clock time to answer); once settled, the result is kept only for a short grace
+// window so stragglers share it without widening the replay window for the old token.
+type RefreshEntry = { promise: Promise<RefreshOutcome>; settledAt: number | null };
+const refreshesInFlight = new Map<string, RefreshEntry>();
 
 /**
  * Exchanges a refresh token for a new pair. Pure: never touches cookies. Rejection by the backend
@@ -181,17 +186,27 @@ const refreshesInFlight = new Map<string, { promise: Promise<RefreshOutcome>; ex
 export function refreshTokens(refreshToken: string, context: BackendContext = {}): Promise<RefreshOutcome> {
   const now = Date.now();
   for (const [key, entry] of refreshesInFlight) {
-    if (entry.expiresAt <= now) refreshesInFlight.delete(key);
+    if (entry.settledAt !== null && now - entry.settledAt >= REFRESH_SETTLED_GRACE_MS) {
+      refreshesInFlight.delete(key);
+    }
   }
 
   const key = createHash('sha256').update(refreshToken).digest('hex');
   const shared = refreshesInFlight.get(key);
   if (shared) return shared.promise;
 
-  const promise = requestRefresh(refreshToken, context);
-  refreshesInFlight.set(key, { promise, expiresAt: now + REFRESH_SHARE_MS });
-  promise.catch(() => refreshesInFlight.delete(key));
-  return promise;
+  const entry: RefreshEntry = { promise: requestRefresh(refreshToken, context), settledAt: null };
+  refreshesInFlight.set(key, entry);
+  entry.promise.then(
+    () => {
+      entry.settledAt = Date.now();
+    },
+    () => {
+      // Failures are not cached: the next request may retry once the backend is reachable.
+      if (refreshesInFlight.get(key) === entry) refreshesInFlight.delete(key);
+    },
+  );
+  return entry.promise;
 }
 
 async function requestRefresh(refreshToken: string, context: BackendContext): Promise<RefreshOutcome> {
