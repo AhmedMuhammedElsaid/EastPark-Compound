@@ -165,3 +165,26 @@ describe('session routes and backend rate limiting', () => {
     expect(state.delete).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/auth/logout', () => {
+  it('clears the session cookies within the revoke budget even when the backend never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      state.cookies.set('eastpark_access', 'access-1');
+      state.cookies.set('eastpark_refresh', 'refresh-1');
+      fetchMock.mockImplementationOnce(() => new Promise<Response>(() => undefined));
+      const { POST } = await import('@/app/api/auth/logout/route');
+
+      const pending = POST(new Request('https://web.test/api/auth/logout', { method: 'POST' }));
+      // Well under the browser's 10s abort in `signOut`.
+      await vi.advanceTimersByTimeAsync(5_000);
+      const response = await pending;
+
+      expect(response.status).toBe(200);
+      expect(state.delete).toHaveBeenCalledWith('eastpark_access');
+      expect(state.delete).toHaveBeenCalledWith('eastpark_refresh');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

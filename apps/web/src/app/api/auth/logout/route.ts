@@ -11,11 +11,28 @@ import {
 
 export const maxDuration = 30;
 
+/**
+ * Revocation is best effort and must never hold the response hostage: the browser aborts its
+ * logout request after 10s, and an aborted response loses the Set-Cookie headers that clear the
+ * session (the user would bounce from /login straight back into the app). A cold Render backend
+ * can take far longer than that, so the backend work gets this budget and the cookies are cleared
+ * regardless.
+ */
+const REVOKE_BUDGET_MS = 4_000;
+
+function withinBudget(work: Promise<unknown>): Promise<unknown> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise((resolve) => {
+    timer = setTimeout(resolve, REVOKE_BUDGET_MS);
+  });
+  return Promise.race([work, budget]).finally(() => clearTimeout(timer));
+}
+
 export async function POST(request: Request) {
   const current = await authCookies();
   const context = { clientIp: clientIpFrom(request.headers) };
 
-  try {
+  const revoke = async () => {
     let accessToken = current.accessToken;
     let refreshToken = current.refreshToken;
 
@@ -38,6 +55,10 @@ export async function POST(request: Request) {
         context,
       );
     }
+  };
+
+  try {
+    await withinBudget(revoke());
   } catch {
     // Local logout must succeed even if the API is temporarily unavailable.
   } finally {
