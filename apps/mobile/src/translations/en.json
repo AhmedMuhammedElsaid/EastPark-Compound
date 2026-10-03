@@ -320,7 +320,13 @@
     "shop_saved": "Shop profile saved",
     "status_open": "Open",
     "total": "Total",
-    "update_status": "Update status"
+    "update_status": "Update status",
+    "status_conflict": "This order was just updated or paid, so that change wasn't applied. It has been refreshed.",
+    "advance_to_CONFIRMED": "Accept",
+    "advance_to_PREPARING": "Start preparing",
+    "advance_to_READY": "Mark ready",
+    "advance_to_ON_THE_WAY": "Out for delivery",
+    "advance_to_DELIVERED": "Mark delivered"
   },
   "notifications": {
     "empty": "You're all caught up",

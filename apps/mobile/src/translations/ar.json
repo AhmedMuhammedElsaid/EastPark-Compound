@@ -320,7 +320,13 @@
     "shop_saved": "تم حفظ ملف المحل",
     "status_open": "مفتوح",
     "total": "الإجمالي",
-    "update_status": "تحديث الحالة"
+    "update_status": "تحديث الحالة",
+    "status_conflict": "تم تحديث هذا الطلب أو دفعه للتو فلم يُطبَّق التغيير. تم تحديث البيانات.",
+    "advance_to_CONFIRMED": "قبول",
+    "advance_to_PREPARING": "بدء التحضير",
+    "advance_to_READY": "جاهز",
+    "advance_to_ON_THE_WAY": "خرج للتوصيل",
+    "advance_to_DELIVERED": "تم التسليم"
   },
   "notifications": {
     "empty": "أنت على اطلاع بكل شيء",

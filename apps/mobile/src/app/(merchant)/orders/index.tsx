@@ -16,7 +16,7 @@ import i18n from "@/lib/i18n";
 import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
-const STATUS_FILTERS = ["ALL", "PLACED", "CONFIRMED", "PREPARING", "READY"] as const;
+const STATUS_FILTERS = ["ALL", "PLACED", "CONFIRMED", "PREPARING", "READY", "ON_THE_WAY"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const STATUS_COLOR: Record<string, string> = {

@@ -9,24 +9,14 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorStatus } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
 import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
 import { getOrderItemTotal } from "@/services/api/orders";
+import { canCancelOrder, getNextOrderStatus, isTerminalOrderStatus } from "@/services/orders/status-transitions";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
-
-// Merchants control: PLACED → CONFIRMED → PREPARING → READY
-// ON_THE_WAY and DELIVERED are set by delivery/logistics or webhook
-const NEXT_STATUS: Record<string, string | null> = {
-  PLACED: "CONFIRMED",
-  CONFIRMED: "PREPARING",
-  PREPARING: "READY",
-  READY: null,
-  ON_THE_WAY: null,
-  DELIVERED: null,
-  CANCELLED: null,
-};
 
 function useStyles() {
   const colors = useAppColors();
@@ -126,13 +116,28 @@ export default function MerchantOrderDetailScreen() {
 
   const order = data?.data.data;
 
+  // 409 = the order moved (or was paid) since this screen loaded: refetch so
+  // the merchant sees the real state, and say so.
+  function handleStatusError(error: unknown) {
+    const conflict = getErrorStatus(error) === 409;
+    if (conflict) {
+      queryClient.invalidateQueries({ queryKey: ["merchant-order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["merchant-orders"] });
+    }
+    showMessage({
+      message: t(conflict ? "merchant.status_conflict" : "common.error"),
+      type: "danger",
+      backgroundColor: SEMANTIC.error,
+    });
+  }
+
   const { mutate: updateStatus, isPending } = useMutation({
     mutationFn: (status: string) => merchantApi.updateOrderStatus(orderId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["merchant-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["merchant-orders"] });
     },
-    onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),
+    onError: handleStatusError,
   });
 
   const { mutate: rejectOrder, isPending: rejecting } = useMutation({
@@ -142,14 +147,15 @@ export default function MerchantOrderDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ["merchant-orders"] });
       router.back();
     },
-    onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),
+    onError: handleStatusError,
   });
 
   if (isLoading || !order)
     return <OrderDetailSkeleton insets={insets} />;
 
-  const nextStatus = NEXT_STATUS[order.status];
-  const isActive = order.status !== "DELIVERED" && order.status !== "CANCELLED";
+  const nextStatus = getNextOrderStatus(order.status);
+  const isActive = !isTerminalOrderStatus(order.status);
+  const canCancel = canCancelOrder(order);
   const locale = i18n.language === "ar" ? "ar-EG" : "en-GB";
   const time = new Date(order.createdAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
@@ -178,6 +184,7 @@ export default function MerchantOrderDetailScreen() {
           <ActionButtons
             status={order.status}
             nextStatus={nextStatus}
+            canCancel={canCancel}
             onAdvance={() => {
               if (nextStatus)
                 updateStatus(nextStatus);
@@ -256,6 +263,7 @@ function OrderMeta({ order, styles }: { order: MerchantOrder; styles: any }) {
 function ActionButtons({
   status,
   nextStatus,
+  canCancel,
   onAdvance,
   onReject,
   isPending,
@@ -264,6 +272,7 @@ function ActionButtons({
 }: {
   status: string;
   nextStatus: string | null;
+  canCancel: boolean;
   onAdvance: () => void;
   onReject: () => void;
   isPending: boolean;
@@ -273,13 +282,13 @@ function ActionButtons({
   const { t } = useTranslation();
   return (
     <View style={styles.actions}>
-      {status === "PLACED" && (
+      {canCancel && (
         <Pressable
           style={[styles.rejectBtn, isRejecting && styles.btnDisabled]}
           onPress={onReject}
           disabled={isRejecting}
         >
-          <Text style={styles.rejectBtnText}>{t("merchant.reject")}</Text>
+          <Text style={styles.rejectBtnText}>{status === "PLACED" ? t("merchant.reject") : t("orders.cancel_order")}</Text>
         </Pressable>
       )}
       {nextStatus && (
@@ -289,7 +298,7 @@ function ActionButtons({
           disabled={isPending}
         >
           <Text style={styles.acceptBtnText}>
-            {status === "PLACED" ? t("merchant.accept") : t("merchant.update_status")}
+            {status === "PLACED" ? t("merchant.accept") : t(`merchant.advance_to_${nextStatus}`)}
           </Text>
         </Pressable>
       )}
