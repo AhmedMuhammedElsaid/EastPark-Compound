@@ -13,6 +13,10 @@ import {
     Role,
 } from '@prisma/client';
 
+import {
+    isPrismaError,
+    PRISMA_RECORD_NOT_FOUND,
+} from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
@@ -117,13 +121,6 @@ export function toOrderResponse(order: OrderRow): OrderResponseDto {
         })),
         ...(resident ? { resident } : {}),
     };
-}
-
-function isRecordNotFound(error: unknown): boolean {
-    return (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-    );
 }
 
 @Injectable()
@@ -408,7 +405,7 @@ export class OrdersService {
                 include: orderInclude(actor),
             });
         } catch (error) {
-            if (isRecordNotFound(error)) {
+            if (isPrismaError(error, PRISMA_RECORD_NOT_FOUND)) {
                 throw new ConflictException('order.error.statusChanged');
             }
             throw error;

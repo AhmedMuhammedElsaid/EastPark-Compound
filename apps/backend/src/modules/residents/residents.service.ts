@@ -82,12 +82,7 @@ export class ResidentsService {
                 },
             });
         } catch (error) {
-            if (
-                typeof error === 'object' &&
-                error !== null &&
-                'code' in error &&
-                error.code === 'P2002'
-            ) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION)) {
                 const concurrent = await this.db.residentLead.findFirst({
                     where: {
                         building: dto.building,

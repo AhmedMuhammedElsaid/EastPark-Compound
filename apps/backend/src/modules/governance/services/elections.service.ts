@@ -6,8 +6,12 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { ElectionVisibilityMode, Prisma } from '@prisma/client';
+import { ElectionVisibilityMode } from '@prisma/client';
 
+import {
+    isPrismaError,
+    PRISMA_UNIQUE_VIOLATION,
+} from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -233,10 +237,7 @@ export class ElectionsService {
                 },
             });
         } catch (error) {
-            if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === 'P2002'
-            ) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION)) {
                 throw new ConflictException('election.error.alreadyVoted');
             }
             throw error;
