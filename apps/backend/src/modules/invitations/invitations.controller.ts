@@ -23,7 +23,9 @@ export class InvitationsController {
     @Post()
     @AllowedRoles([Role.ADMIN])
     @HttpCode(HttpStatus.CREATED)
-    @ApiOperation({ summary: 'Send an invitation to a merchant or admin [ADMIN]' })
+    @ApiOperation({
+        summary: 'Send an invitation [ADMIN]; role ADMIN requires SUPER_ADMIN',
+    })
     create(
         @Body() dto: InvitationCreateDto,
         @AuthUser() actor: IAuthUser,
