@@ -63,21 +63,6 @@ describe('SessionVersionService', () => {
         expect(cache.get).toHaveBeenCalledTimes(1);
     });
 
-    it('revokeDeletedUser bumps then expires the key after 8 days', async () => {
-        cache.incr.mockResolvedValue(1);
-        await service.revokeDeletedUser('u1');
-        expect(cache.incr).toHaveBeenCalledWith('session-version:u1');
-        expect(cache.expire).toHaveBeenCalledWith(
-            'session-version:u1',
-            691200
-        );
-        expect(cache.incr.mock.invocationCallOrder[0]).toBeLessThan(
-            cache.expire.mock.invocationCallOrder[0]
-        );
-        await expect(service.getCurrent('u1')).resolves.toBe(1);
-        expect(cache.get).not.toHaveBeenCalled();
-    });
-
     describe('assertCurrent', () => {
         it('accepts a legacy token (no ver) while the version is 0', async () => {
             await expect(

@@ -54,11 +54,13 @@ export class NotificationsService {
             where: { id: userId },
             select: {
                 pushToken: true,
+                deletedAt: true,
                 notificationPrefs: { where: { type } },
             },
         });
 
-        if (!user?.pushToken) return;
+        // Soft-deleted accounts never receive pushes.
+        if (!user?.pushToken || user.deletedAt) return;
 
         // Default preference is enabled; only skip if explicitly disabled
         const pref = user.notificationPrefs[0];

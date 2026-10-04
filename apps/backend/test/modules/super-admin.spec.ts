@@ -5,7 +5,6 @@ import { validate } from 'class-validator';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
-import { HelperEncryptionService } from 'src/common/helper/services/helper.encryption.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { feedbackLabel } from 'src/modules/feedback/feedback.service';
 import { InvitationCreateDto } from 'src/modules/invitations/dtos/request/invitation.create.dto';
@@ -71,7 +70,6 @@ describe('an audit write failure does not break the request', () => {
         const service = new UserService(
             db as unknown as DatabaseService,
             sessions as unknown as SessionVersionService,
-            {} as HelperEncryptionService,
             {} as ConfigService,
             audit
         );

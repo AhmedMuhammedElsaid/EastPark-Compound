@@ -155,6 +155,25 @@ describe('AuthService', () => {
             });
         });
 
+        it('a soft-deleted account gets the same generic 401 as an unknown email', async () => {
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ deletedAt: new Date() })
+            );
+            encryption.match.mockResolvedValue(true);
+            const attempt = service.login({
+                email: 'jane@eastpark.app',
+                password: 'Secret123!',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(UnauthorizedException);
+            await expect(attempt).rejects.toThrow('Invalid credentials');
+            // The real hash is never compared, only the dummy one.
+            expect(encryption.match).not.toHaveBeenCalledWith(
+                '$argon2hash',
+                expect.anything()
+            );
+            expect(encryption.createJwtTokens).not.toHaveBeenCalled();
+        });
+
         it('throws UnauthorizedException for wrong password', async () => {
             db.user.findUnique.mockResolvedValue(mockUser());
             encryption.match.mockResolvedValue(false);
@@ -349,6 +368,16 @@ describe('AuthService', () => {
             expect(encryption.createJwtTokens).not.toHaveBeenCalled();
         });
 
+        it('rejects when the account was soft-deleted', async () => {
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ deletedAt: new Date() })
+            );
+            await expect(
+                service.refresh(payload, 'header.token')
+            ).rejects.toBeInstanceOf(UnauthorizedException);
+            expect(encryption.createJwtTokens).not.toHaveBeenCalled();
+        });
+
         it('rejects when the user is not verified', async () => {
             db.user.findUnique.mockResolvedValue(
                 mockUser({ isVerified: false })
@@ -420,6 +449,23 @@ describe('AuthService', () => {
     // ── resetPassword ─────────────────────────────────────────────────────────
 
     describe('resetPassword', () => {
+        beforeEach(() => {
+            db.user.findUnique.mockResolvedValue(mockUser());
+        });
+
+        it('rejects a token mailed before the account was soft-deleted', async () => {
+            cache.getdel.mockResolvedValue('jane@eastpark.app');
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ deletedAt: new Date() })
+            );
+
+            await expect(
+                service.resetPassword({ token: 't', password: 'NewPass1!' })
+            ).rejects.toBeInstanceOf(BadRequestException);
+            expect(db.user.update).not.toHaveBeenCalled();
+            expect(sessions.bump).not.toHaveBeenCalled();
+        });
+
         it('updates the hash and bumps the session version', async () => {
             cache.getdel.mockResolvedValue('jane@eastpark.app');
             db.user.update.mockResolvedValue(mockUser());
@@ -500,6 +546,17 @@ describe('AuthService', () => {
 
             expect(email.sendPasswordReset).not.toHaveBeenCalled();
             expect(result.message).toMatch(/if that email/i);
+        });
+
+        it('a soft-deleted account silently gets no reset email', async () => {
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ deletedAt: new Date() })
+            );
+            await expect(
+                service.forgotPassword({ email: 'jane@eastpark.app' })
+            ).resolves.toEqual({ message: MESSAGE });
+            expect(cache.set).not.toHaveBeenCalled();
+            expect(email.sendPasswordReset).not.toHaveBeenCalled();
         });
 
         it('sends reset email when user exists', async () => {
@@ -609,6 +666,42 @@ describe('AuthService', () => {
                     password: 'Pass123!',
                 })
             ).rejects.toBeInstanceOf(BadRequestException);
+        });
+
+        it('409 accountDeleted when the email belongs to a soft-deleted account', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(
+                mockUser({
+                    email: 'merchant@eastpark.app',
+                    deletedAt: new Date(),
+                })
+            );
+            encryption.match.mockResolvedValue(true);
+            const attempt = service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'Pass123!',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow('user.error.accountDeleted');
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+            expect(db.user.update).not.toHaveBeenCalled();
+            expect(db.user.create).not.toHaveBeenCalled();
+        });
+
+        it("refuses an invitation sent by an admin who was soft-deleted", async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                invitedBy: { deletedAt: new Date() },
+            });
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('Invitation expired');
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
         });
 
         it('creates merchant account and marks invitation as used', async () => {

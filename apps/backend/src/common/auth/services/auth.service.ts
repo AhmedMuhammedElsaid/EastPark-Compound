@@ -94,9 +94,10 @@ export class AuthService {
         }
 
         const user = await this.db.user.findUnique({ where: { email } });
-        if (!user) {
+        if (!user || user.deletedAt) {
             // Same status, message and (roughly) timing as a wrong password,
-            // so login cannot be used to enumerate registered emails.
+            // so login cannot be used to enumerate registered emails. A
+            // soft-deleted account answers exactly like an unknown one.
             await this.encryption.match(
                 await this.getDummyHash(),
                 dto.password
@@ -154,7 +155,7 @@ export class AuthService {
         const user = await this.db.user.findUnique({
             where: { id: payload.userId },
         });
-        if (!user || !user.isVerified)
+        if (!user || !user.isVerified || user.deletedAt)
             throw new UnauthorizedException('Session expired');
 
         return this.encryption.createJwtTokens({
@@ -215,8 +216,9 @@ export class AuthService {
             return { message: FORGOT_PASSWORD_MESSAGE };
 
         const user = await this.db.user.findUnique({ where: { email } });
-        // Always respond with the same message to prevent email enumeration
-        if (!user) return { message: FORGOT_PASSWORD_MESSAGE };
+        // Always respond with the same message to prevent email enumeration.
+        // A soft-deleted account silently gets nothing.
+        if (!user || user.deletedAt) return { message: FORGOT_PASSWORD_MESSAGE };
 
         const token = randomBytes(32).toString('hex');
         await this.cache.set(this.resetKey(token), user.email, RESET_TTL);
@@ -237,6 +239,11 @@ export class AuthService {
         // token can never be used twice.
         const email = await this.cache.getdel<string>(this.resetKey(dto.token));
         if (!email)
+            throw new BadRequestException('Reset token expired or invalid');
+
+        // A token mailed before the account was soft-deleted must not work.
+        const existing = await this.db.user.findUnique({ where: { email } });
+        if (!existing || existing.deletedAt)
             throw new BadRequestException('Reset token expired or invalid');
 
         const passwordHash = await this.encryption.createHash(dto.password);
@@ -272,15 +279,22 @@ export class AuthService {
     async acceptInvitation(dto: AcceptInvitationDto): Promise<AuthResponseDto> {
         const invitation = await this.db.invitation.findUnique({
             where: { token: dto.token },
+            include: { invitedBy: { select: { deletedAt: true } } },
         });
         if (!invitation) throw new NotFoundException('Invitation not found');
         if (invitation.usedAt)
             throw new BadRequestException('Invitation already used');
-        if (invitation.expiresAt < new Date())
+        // A soft-deleted admin's pending invitations stop working (and work
+        // again if the SUPER_ADMIN restores the admin).
+        if (invitation.expiresAt < new Date() || invitation.invitedBy?.deletedAt)
             throw new BadRequestException('Invitation expired');
 
         const email = normalizeEmail(invitation.email);
         const existing = await this.db.user.findUnique({ where: { email } });
+
+        // The email of a soft-deleted account stays reserved for it.
+        if (existing?.deletedAt)
+            throw new ConflictException('user.error.accountDeleted');
 
         if (existing) {
             const owns = await this.encryption.match(

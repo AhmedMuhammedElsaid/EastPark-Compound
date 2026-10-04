@@ -176,6 +176,10 @@ export class ResidentsService {
         const existingUser = await this.db.user.findUnique({
             where: { email: lead.email },
         });
+        // A soft-deleted account keeps its email reserved: never link the lead
+        // to it or mail a new invitation (restore the account instead).
+        if (existingUser?.deletedAt)
+            throw new ConflictException('user.error.accountDeleted');
 
         if (existingUser) {
             await this.updateLeadStatus(lead.id, {

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 
@@ -23,6 +23,7 @@ describe('InvitationsService', () => {
             create: jest.fn(),
             findMany: jest.fn(),
         },
+        user: { findFirst: jest.fn() },
     };
     const email = { sendInvitation: jest.fn() };
     const config = {
@@ -37,12 +38,30 @@ describe('InvitationsService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        db.user.findFirst.mockResolvedValue(null);
         service = new InvitationsService(
             db as unknown as DatabaseService,
             email as unknown as EmailService,
             config as unknown as ConfigService,
             audit as unknown as AuditService
         );
+    });
+
+    it('409 accountDeleted for the email of a soft-deleted account (no invitation, no mail)', async () => {
+        db.user.findFirst.mockResolvedValue({ id: 'gone-1' });
+
+        const attempt = service.create(
+            { email: ' Gone@Example.com ', role: Role.RESIDENT },
+            actor
+        );
+        await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+        await expect(attempt).rejects.toThrow('user.error.accountDeleted');
+        expect(db.user.findFirst).toHaveBeenCalledWith({
+            where: { email: 'gone@example.com', deletedAt: { not: null } },
+            select: { id: true },
+        });
+        expect(db.invitation.create).not.toHaveBeenCalled();
+        expect(email.sendInvitation).not.toHaveBeenCalled();
     });
 
     it('resends an active invitation without creating a duplicate', async () => {

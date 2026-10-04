@@ -5,6 +5,8 @@ import { NotificationType } from '@prisma/client';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 
+import { mockExpoInstance } from '../mocks/expo.mock';
+
 // expo-server-sdk is mocked via jest.json moduleNameMapper → test/mocks/expo.mock.ts
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -97,6 +99,22 @@ describe('NotificationsService', () => {
             await expect(service.send(...sendArgs)).resolves.toBeUndefined();
         });
 
+        it('never pushes to a soft-deleted account (in-app record still kept)', async () => {
+            mockExpoInstance.sendPushNotificationsAsync.mockClear();
+            db.notification.create.mockResolvedValue({});
+            db.user.findUnique.mockResolvedValue({
+                pushToken: validExpoPushToken,
+                deletedAt: new Date(),
+                notificationPrefs: [],
+            });
+
+            await expect(service.send(...sendArgs)).resolves.toBeUndefined();
+            expect(db.notification.create).toHaveBeenCalledTimes(1);
+            expect(
+                mockExpoInstance.sendPushNotificationsAsync
+            ).not.toHaveBeenCalled();
+        });
+
         it('skips push send when preference is explicitly disabled', async () => {
             db.notification.create.mockResolvedValue({});
             db.user.findUnique.mockResolvedValue({
@@ -121,6 +139,7 @@ describe('NotificationsService', () => {
             // No error thrown — Expo mock handles it
             await expect(service.send(...sendArgs)).resolves.toBeUndefined();
             expect(db.notification.create).toHaveBeenCalledTimes(1);
+            expect(mockExpoInstance.sendPushNotificationsAsync).toHaveBeenCalled();
         });
 
         it('sends push when no preference row exists (default = enabled)', async () => {

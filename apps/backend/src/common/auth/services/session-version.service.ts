@@ -10,15 +10,12 @@ import { CacheService } from '../../cache/services/cache.service';
 export const SESSION_VERSION_MEMO_TTL_MS = 5_000;
 /** Memo size cap; when reached the memo is simply cleared. */
 export const SESSION_VERSION_MEMO_MAX_ENTRIES = 10_000;
-/**
- * TTL for the version key of a deleted account: the longest-lived token is a
- * 7 d refresh token (plus a 15 min access token), so after 8 d nothing signed
- * before the deletion can still be presented. Live accounts keep the key
- * persistent.
- */
-export const DELETED_USER_VERSION_TTL_SEC = 8 * 86400;
 
-/** Persistent per-user session version; bumped to revoke all sessions. */
+/**
+ * Persistent per-user session version (no TTL, also for soft-deleted
+ * accounts: they can be restored, and an expiring key would reset the version
+ * below tokens minted later); bumped to revoke all sessions.
+ */
 export function sessionVersionKey(userId: string): string {
     return `session-version:${userId}`;
 }
@@ -79,20 +76,6 @@ export class SessionVersionService {
         }
         this.remember(userId, version);
         return version;
-    }
-
-    async revokeDeletedUser(userId: string): Promise<void> {
-        await this.bump(userId);
-        try {
-            await this.cache.expire(
-                sessionVersionKey(userId),
-                DELETED_USER_VERSION_TTL_SEC
-            );
-        } catch {
-            throw new ServiceUnavailableException(
-                'auth.error.sessionStoreUnavailable'
-            );
-        }
     }
 
     /**

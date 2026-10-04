@@ -265,6 +265,23 @@ describe('ResidentsService', () => {
             });
         });
 
+        it('409 accountDeleted when the email belongs to a soft-deleted account: lead untouched, no invitation', async () => {
+            const lead = mockLead();
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({
+                id: 'user-1',
+                email: lead.email,
+                deletedAt: new Date(),
+            });
+
+            const attempt = service.invite('lead-1', adminActor);
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow('user.error.accountDeleted');
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(invitationsService.create).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+
         it('refuses to re-invite a REJECTED lead whose unit has a newer active lead', async () => {
             db.residentLead.findUnique.mockResolvedValue(
                 mockLead({ status: ResidentLeadStatus.REJECTED })

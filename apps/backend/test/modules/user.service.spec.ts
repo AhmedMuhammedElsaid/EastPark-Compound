@@ -9,85 +9,48 @@ import { Role } from '@prisma/client';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
-import { HelperEncryptionService } from 'src/common/helper/services/helper.encryption.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import {
-    DELETED_USER_NAME,
     deletedUserEmail,
     isDeletedUserEmail,
     UserService,
 } from 'src/modules/user/services/user.service';
 
-const models = [
-    'notificationPreference',
-    'notification',
-    'auditLog',
-    'feedbackReply',
-    'feedback',
-    'comment',
-    'electionVote',
-    'vote',
-    'review',
-    'savedShop',
-    'orderItem',
-    'order',
-    'invitation',
-    'residentLead',
-    'shop',
-    'product',
-    'shopPhoto',
-] as const;
-
-function buildTx() {
-    const tx: Record<string, Record<string, jest.Mock>> = {};
-    for (const model of models) {
-        tx[model] = {
-            deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-        };
-    }
-    tx.user = {
-        delete: jest.fn().mockResolvedValue({}),
-        update: jest.fn().mockResolvedValue({}),
-    };
-    return tx;
-}
-
-describe('UserService.deleteUser', () => {
-    let tx: ReturnType<typeof buildTx>;
-    const db = {
-        user: { findUnique: jest.fn() },
+function buildDeleteDb() {
+    return {
+        user: { findUnique: jest.fn(), update: jest.fn() },
         shop: { count: jest.fn() },
         $transaction: jest.fn(),
     };
-    const sessions = { revokeDeletedUser: jest.fn() };
-    const encryption = { createHash: jest.fn() };
+}
+
+describe('UserService.deleteUser (soft delete)', () => {
+    const db = buildDeleteDb();
+    const sessions = { bump: jest.fn() };
     const audit = { record: jest.fn() };
     const service = new UserService(
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
-        encryption as unknown as HelperEncryptionService,
         {} as ConfigService,
         audit as unknown as AuditService
     );
 
     const resident = {
         id: 'resident-1',
+        name: 'Sara',
         email: 'resident@example.com',
         role: Role.RESIDENT,
+        deletedAt: null,
     };
 
     beforeEach(() => {
         jest.clearAllMocks();
-        tx = buildTx();
-        sessions.revokeDeletedUser.mockResolvedValue(undefined);
-        encryption.createHash.mockResolvedValue('$argon2id$random');
-        db.$transaction.mockImplementation(
-            (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)
-        );
+        sessions.bump.mockResolvedValue(3);
+        db.user.update.mockResolvedValue({});
+        db.shop.count.mockResolvedValue(0);
     });
 
-    it('refuses to delete a merchant that still owns a shop', async () => {
+    it('refuses to delete a merchant that still owns an active shop', async () => {
         db.user.findUnique.mockResolvedValue({
             id: 'merchant-1',
             email: 'm@example.com',
@@ -98,173 +61,90 @@ describe('UserService.deleteUser', () => {
         const result = service.deleteUser('merchant-1');
         await expect(result).rejects.toBeInstanceOf(ConflictException);
         await expect(result).rejects.toThrow('user.error.merchantOwnsShop');
+        // Only non-deleted shops count.
         expect(db.shop.count).toHaveBeenCalledWith({
-            where: { merchantId: 'merchant-1' },
+            where: { merchantId: 'merchant-1', deletedAt: null },
         });
-        expect(db.$transaction).not.toHaveBeenCalled();
-        expect(sessions.revokeDeletedUser).not.toHaveBeenCalled();
+        expect(db.user.update).not.toHaveBeenCalled();
+        expect(sessions.bump).not.toHaveBeenCalled();
     });
 
-    describe('resident deletion anonymises instead of destroying', () => {
-        beforeEach(async () => {
-            db.user.findUnique.mockResolvedValue(resident);
-            db.shop.count.mockResolvedValue(0);
-            await expect(service.deleteUser('resident-1')).resolves.toEqual({
-                success: true,
-                message: 'User deleted',
-            });
-        });
-
-        it('keeps the account row as a tombstone with every personal field overwritten', () => {
-            expect(tx.user.delete).not.toHaveBeenCalled();
-            expect(tx.user.update).toHaveBeenCalledWith({
-                where: { id: 'resident-1' },
-                data: {
-                    name: DELETED_USER_NAME,
-                    email: 'deleted-resident-1@deleted.invalid',
-                    phone: null,
-                    unitNumber: null,
-                    avatarUrl: null,
-                    pushToken: null,
-                    passwordHash: '$argon2id$random',
-                    isVerified: false,
-                    role: Role.GUEST,
-                },
-            });
-            // The replacement password is a real hash of a random secret.
-            const [secret] = encryption.createHash.mock.calls[0] as [string];
-            expect(secret).toMatch(/^[0-9a-f]{64}$/);
-        });
-
-        it("keeps orders and order items (the shop's sales history)", () => {
-            expect(tx.order.deleteMany).not.toHaveBeenCalled();
-            expect(tx.orderItem.deleteMany).not.toHaveBeenCalled();
-        });
-
-        it('keeps review ratings but clears the review text', () => {
-            expect(tx.review.deleteMany).not.toHaveBeenCalled();
-            expect(tx.review.updateMany).toHaveBeenCalledWith({
-                where: { userId: 'resident-1' },
-                data: { comment: null },
-            });
-        });
-
-        it('keeps poll and election votes so tallies do not change', () => {
-            expect(tx.vote.deleteMany).not.toHaveBeenCalled();
-            expect(tx.electionVote.deleteMany).not.toHaveBeenCalled();
-        });
-
-        it('keeps feedback for the administration, forced anonymous', () => {
-            expect(tx.feedback.deleteMany).not.toHaveBeenCalled();
-            expect(tx.feedbackReply.deleteMany).not.toHaveBeenCalled();
-            expect(tx.feedback.updateMany).toHaveBeenCalledWith({
-                where: { userId: 'resident-1' },
-                data: { isAnonymous: true },
-            });
-        });
-
-        it('deletes purely personal data: comments, notifications, preferences, saved shops', () => {
-            for (const model of [
-                'comment',
-                'notification',
-                'notificationPreference',
-                'savedShop',
-            ] as const) {
-                expect(tx[model].deleteMany).toHaveBeenCalledWith({
-                    where: { userId: 'resident-1' },
-                });
-            }
-        });
-
-        it('detaches resident leads as the old FK SET NULL did', () => {
-            expect(tx.residentLead.updateMany).toHaveBeenCalledWith({
-                where: { userId: 'resident-1' },
-                data: { userId: null },
-            });
-        });
-
-        it('never touches shops, products or photos', () => {
-            for (const model of ['shop', 'product', 'shopPhoto'] as const) {
-                expect(tx[model].deleteMany).not.toHaveBeenCalled();
-                expect(tx[model].updateMany).not.toHaveBeenCalled();
-            }
-        });
-
-        it('revokes the sessions after the transaction', () => {
-            expect(sessions.revokeDeletedUser).toHaveBeenCalledWith(
-                'resident-1'
-            );
-        });
-    });
-
-    it('admin deletion keeps feedback replies and audit log, drops only unused invitations', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'admin-1',
-            email: 'admin@example.com',
-            role: Role.ADMIN,
-        });
-        db.shop.count.mockResolvedValue(0);
-
-        await service.deleteUser('admin-1');
-
-        expect(tx.feedbackReply.deleteMany).not.toHaveBeenCalled();
-        expect(tx.auditLog.deleteMany).not.toHaveBeenCalled();
-        expect(tx.invitation.deleteMany).toHaveBeenCalledWith({
-            where: { invitedById: 'admin-1', usedAt: null },
-        });
-        expect(tx.user.update).toHaveBeenCalledWith(
-            expect.objectContaining({
-                data: expect.objectContaining({ role: Role.GUEST }),
-            })
-        );
-    });
-
-    it('does not revoke sessions when the transaction fails', async () => {
+    it('self-delete keeps the row: only deletedAt, deletedById (self) and the push token change', async () => {
         db.user.findUnique.mockResolvedValue(resident);
-        db.shop.count.mockResolvedValue(0);
-        db.$transaction.mockRejectedValue(new Error('db down'));
 
-        await expect(service.deleteUser('resident-1')).rejects.toThrow(
-            'db down'
+        await expect(
+            service.deleteAccount('resident-1')
+        ).resolves.toBeUndefined();
+
+        expect(db.user.update).toHaveBeenCalledTimes(1);
+        const args = db.user.update.mock.calls[0][0];
+        expect(args.where).toEqual({ id: 'resident-1' });
+        expect(Object.keys(args.data).sort()).toEqual(
+            ['deletedAt', 'deletedById', 'pushToken'].sort()
         );
-        expect(sessions.revokeDeletedUser).not.toHaveBeenCalled();
+        expect(args.data.deletedAt).toBeInstanceOf(Date);
+        expect(args.data.deletedById).toBe('resident-1');
+        expect(args.data.pushToken).toBeNull();
+        // No anonymising and no wiping of related data.
+        expect(db.$transaction).not.toHaveBeenCalled();
+        // No admin actor: AuditService.record ignores it.
+        expect(audit.record).toHaveBeenCalledWith(
+            undefined,
+            'USER_DELETED',
+            'User',
+            'resident-1',
+            expect.anything()
+        );
     });
 
-    it('self-delete (deleteAccount) gets the same 409 for a shop-owning merchant', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'merchant-1',
-            email: 'm@example.com',
-            role: Role.MERCHANT,
-        });
-        db.shop.count.mockResolvedValue(2);
-
-        await expect(service.deleteAccount('merchant-1')).rejects.toThrow(
-            new ConflictException('user.error.merchantOwnsShop')
+    it('revokes every session (plain bump, before the row changes)', async () => {
+        db.user.findUnique.mockResolvedValue(resident);
+        await service.deleteUser('resident-1');
+        expect(sessions.bump).toHaveBeenCalledWith('resident-1');
+        expect(sessions.bump.mock.invocationCallOrder[0]).toBeLessThan(
+            db.user.update.mock.invocationCallOrder[0]
         );
-        expect(db.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('a session-store failure aborts before the account is marked deleted', async () => {
+        db.user.findUnique.mockResolvedValue(resident);
+        sessions.bump.mockRejectedValue(new Error('redis down'));
+        await expect(service.deleteUser('resident-1')).rejects.toThrow(
+            'redis down'
+        );
+        expect(db.user.update).not.toHaveBeenCalled();
     });
 
     it('unknown user is a 404', async () => {
         db.user.findUnique.mockResolvedValue(null);
-
         await expect(service.deleteUser('nope')).rejects.toBeInstanceOf(
             NotFoundException
         );
         expect(db.shop.count).not.toHaveBeenCalled();
-        expect(db.$transaction).not.toHaveBeenCalled();
+        expect(db.user.update).not.toHaveBeenCalled();
     });
 
-    it('an already-anonymised account is a 404', async () => {
+    it('an already soft-deleted account is a 404', async () => {
+        db.user.findUnique.mockResolvedValue({
+            ...resident,
+            deletedAt: new Date(),
+        });
+        await expect(service.deleteUser('resident-1')).rejects.toThrow(
+            'user.error.notFound'
+        );
+        expect(db.user.update).not.toHaveBeenCalled();
+    });
+
+    it('a legacy anonymised tombstone is a 404', async () => {
         db.user.findUnique.mockResolvedValue({
             id: 'resident-1',
             email: deletedUserEmail('resident-1'),
             role: Role.GUEST,
         });
-
         await expect(service.deleteUser('resident-1')).rejects.toBeInstanceOf(
             NotFoundException
         );
-        expect(db.$transaction).not.toHaveBeenCalled();
+        expect(db.user.update).not.toHaveBeenCalled();
     });
 
     it('tombstone emails are lower-case and recognised', () => {
@@ -272,6 +152,81 @@ describe('UserService.deleteUser', () => {
         expect(email).toBe('deleted-clxabc@deleted.invalid');
         expect(isDeletedUserEmail(email)).toBe(true);
         expect(isDeletedUserEmail('someone@example.com')).toBe(false);
+    });
+});
+
+describe('UserService super-admin protections on delete', () => {
+    const db = buildDeleteDb();
+    const sessions = { bump: jest.fn() };
+    const audit = { record: jest.fn() };
+    const service = new UserService(
+        db as unknown as DatabaseService,
+        sessions as unknown as SessionVersionService,
+        {} as ConfigService,
+        audit as unknown as AuditService
+    );
+    const admin = { userId: 'admin-1', role: Role.ADMIN };
+    const superAdmin = { userId: 'owner-1', role: Role.SUPER_ADMIN };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        sessions.bump.mockResolvedValue(1);
+        db.user.update.mockResolvedValue({});
+        db.shop.count.mockResolvedValue(0);
+    });
+
+    it('nobody can delete a SUPER_ADMIN (admin, super admin or self-delete)', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'owner-1',
+            name: 'Owner',
+            email: 'owner@example.com',
+            role: Role.SUPER_ADMIN,
+        });
+        for (const actor of [admin, superAdmin, undefined]) {
+            const result = service.deleteUser('owner-1', actor);
+            await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+            await expect(result).rejects.toThrow(
+                'user.error.cannotChangeSuperAdmin'
+            );
+        }
+        expect(db.user.update).not.toHaveBeenCalled();
+        expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('an ADMIN cannot delete another ADMIN', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'admin-2',
+            name: 'Mahmoud',
+            email: 'mahmoud@example.com',
+            role: Role.ADMIN,
+        });
+        const result = service.deleteUser('admin-2', admin);
+        await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+        await expect(result).rejects.toThrow('user.error.superAdminRequired');
+        expect(db.user.update).not.toHaveBeenCalled();
+    });
+
+    it('the SUPER_ADMIN soft-deletes an ADMIN: deletedById is the actor, audited', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'admin-2',
+            name: 'Mahmoud',
+            email: 'mahmoud@example.com',
+            role: Role.ADMIN,
+        });
+        await expect(
+            service.deleteUser('admin-2', superAdmin)
+        ).resolves.toEqual({ success: true, message: 'User deleted' });
+        expect(db.user.update).toHaveBeenCalledWith({
+            where: { id: 'admin-2' },
+            data: expect.objectContaining({ deletedById: 'owner-1' }),
+        });
+        expect(audit.record).toHaveBeenCalledWith(
+            superAdmin,
+            'USER_DELETED',
+            'User',
+            'admin-2',
+            { label: 'Mahmoud (mahmoud@example.com)', role: Role.ADMIN }
+        );
     });
 });
 
@@ -293,7 +248,6 @@ describe('UserService.updateUser avatar URL', () => {
     const service = new UserService(
         db as unknown as DatabaseService,
         {} as SessionVersionService,
-        {} as HelperEncryptionService,
         config as unknown as ConfigService,
         { record: jest.fn() } as unknown as AuditService
     );
@@ -341,106 +295,6 @@ describe('UserService.updateUser avatar URL', () => {
     });
 });
 
-describe('UserService super-admin protections on delete', () => {
-    let tx: ReturnType<typeof buildTx>;
-    const db = {
-        user: { findUnique: jest.fn() },
-        shop: { count: jest.fn() },
-        $transaction: jest.fn(),
-    };
-    const sessions = { revokeDeletedUser: jest.fn() };
-    const encryption = { createHash: jest.fn() };
-    const audit = { record: jest.fn() };
-    const service = new UserService(
-        db as unknown as DatabaseService,
-        sessions as unknown as SessionVersionService,
-        encryption as unknown as HelperEncryptionService,
-        {} as ConfigService,
-        audit as unknown as AuditService
-    );
-    const admin = { userId: 'admin-1', role: Role.ADMIN };
-    const superAdmin = { userId: 'owner-1', role: Role.SUPER_ADMIN };
-
-    beforeEach(() => {
-        jest.clearAllMocks();
-        tx = buildTx();
-        sessions.revokeDeletedUser.mockResolvedValue(undefined);
-        encryption.createHash.mockResolvedValue('$argon2id$random');
-        db.shop.count.mockResolvedValue(0);
-        db.$transaction.mockImplementation(
-            (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)
-        );
-    });
-
-    it('nobody can delete a SUPER_ADMIN (admin, super admin or self-delete)', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'owner-1',
-            name: 'Owner',
-            email: 'owner@example.com',
-            role: Role.SUPER_ADMIN,
-        });
-        for (const actor of [admin, superAdmin, undefined]) {
-            const result = service.deleteUser('owner-1', actor);
-            await expect(result).rejects.toBeInstanceOf(ForbiddenException);
-            await expect(result).rejects.toThrow(
-                'user.error.cannotChangeSuperAdmin'
-            );
-        }
-        expect(db.$transaction).not.toHaveBeenCalled();
-        expect(audit.record).not.toHaveBeenCalled();
-    });
-
-    it('an ADMIN cannot delete another ADMIN', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'admin-2',
-            name: 'Mahmoud',
-            email: 'mahmoud@example.com',
-            role: Role.ADMIN,
-        });
-        const result = service.deleteUser('admin-2', admin);
-        await expect(result).rejects.toBeInstanceOf(ForbiddenException);
-        await expect(result).rejects.toThrow('user.error.superAdminRequired');
-        expect(db.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('the SUPER_ADMIN can delete an ADMIN; the audit label uses the pre-deletion identity', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'admin-2',
-            name: 'Mahmoud',
-            email: 'mahmoud@example.com',
-            role: Role.ADMIN,
-        });
-        await expect(
-            service.deleteUser('admin-2', superAdmin)
-        ).resolves.toEqual({ success: true, message: 'User deleted' });
-        expect(audit.record).toHaveBeenCalledWith(
-            superAdmin,
-            'USER_DELETED',
-            'User',
-            'admin-2',
-            { label: 'Mahmoud (mahmoud@example.com)', role: Role.ADMIN }
-        );
-    });
-
-    it('an ADMIN can still delete a resident, and it is audited', async () => {
-        db.user.findUnique.mockResolvedValue({
-            id: 'resident-1',
-            name: 'Sara',
-            email: 'sara@example.com',
-            role: Role.RESIDENT,
-        });
-        await service.deleteUser('resident-1', admin);
-        expect(tx.user.update).toHaveBeenCalled();
-        expect(audit.record).toHaveBeenCalledWith(
-            admin,
-            'USER_DELETED',
-            'User',
-            'resident-1',
-            { label: 'Sara (sara@example.com)', role: Role.RESIDENT }
-        );
-    });
-});
-
 describe('UserService.changeRole', () => {
     const db = {
         user: { findUnique: jest.fn(), update: jest.fn() },
@@ -451,7 +305,6 @@ describe('UserService.changeRole', () => {
     const service = new UserService(
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
-        {} as HelperEncryptionService,
         {} as ConfigService,
         audit as unknown as AuditService
     );
@@ -556,6 +409,17 @@ describe('UserService.changeRole', () => {
         expect(db.user.update).not.toHaveBeenCalled();
     });
 
+    it('a soft-deleted user is a 404', async () => {
+        db.user.findUnique.mockResolvedValue({
+            ...resident,
+            deletedAt: new Date(),
+        });
+        await expect(
+            service.changeRole('u1', Role.ADMIN, superAdmin)
+        ).rejects.toThrow('user.error.notFound');
+        expect(db.user.update).not.toHaveBeenCalled();
+    });
+
     it('a merchant who owns a shop cannot change role (409)', async () => {
         db.user.findUnique.mockResolvedValue({
             ...resident,
@@ -574,7 +438,6 @@ describe('UserService.listUsers', () => {
     const service = new UserService(
         db as unknown as DatabaseService,
         {} as SessionVersionService,
-        {} as HelperEncryptionService,
         {} as ConfigService,
         { record: jest.fn() } as unknown as AuditService
     );
@@ -590,6 +453,7 @@ describe('UserService.listUsers', () => {
         });
         const args = db.user.findMany.mock.calls[0][0];
         expect(args.where).toEqual({
+            deletedAt: null,
             NOT: { email: { endsWith: '@deleted.invalid' } },
             role: Role.RESIDENT,
             OR: [

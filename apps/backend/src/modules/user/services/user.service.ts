@@ -6,13 +6,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, Role } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { isSuperAdmin } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { assertStoragePublicUrls } from 'src/common/file/storage-url';
-import { HelperEncryptionService } from 'src/common/helper/services/helper.encryption.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
@@ -32,7 +30,11 @@ import {
     UserUpdateProfileResponseDto,
 } from '../dtos/response/user.response';
 
-/** Display name every anonymised (deleted) account carries. */
+/**
+ * Legacy tombstones: before soft delete (2026-10-05) a deleted account was
+ * anonymised in place to this name/email. Those rows are marked deleted by the
+ * soft-delete migration and are never restorable.
+ */
 export const DELETED_USER_NAME = 'Deleted user';
 /** Reserved TLD (RFC 2606): unique per account, never deliverable. */
 const DELETED_USER_EMAIL_DOMAIN = '@deleted.invalid';
@@ -60,14 +62,13 @@ export class UserService {
     constructor(
         private readonly db: DatabaseService,
         private readonly sessions: SessionVersionService,
-        private readonly encryption: HelperEncryptionService,
         private readonly config: ConfigService,
         private readonly audit: AuditService
     ) {}
 
     async getProfile(userId: string): Promise<UserGetProfileResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
+        if (!user || user.deletedAt) throw new NotFoundException('User not found');
         return user;
     }
 
@@ -76,7 +77,7 @@ export class UserService {
         data: UserUpdateDto
     ): Promise<UserUpdateProfileResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
+        if (!user || user.deletedAt) throw new NotFoundException('User not found');
 
         // A new avatar must be a file uploaded to our storage. Re-sending the
         // stored value unchanged (clients save the whole form) and clearing it
@@ -93,39 +94,29 @@ export class UserService {
     }
 
     /**
-     * Deletes an account (self-delete and admin delete) by anonymising it in place.
+     * Soft-deletes an account (self-delete and admin delete). The row stays and
+     * only `deletedAt`/`deletedById` are set, so the SUPER_ADMIN can restore it
+     * from the recycle bin. Everything attached to the account (orders, votes,
+     * feedback, reviews, comments, audit entries) stays as it is; reads hide the
+     * account itself (login 401, refresh 401, lists, lookups) and its email
+     * stays reserved (invite / approve / accept → 409 `user.error.accountDeleted`).
+     * Every session is revoked at once and the push token is detached.
      *
-     * The user row is kept as a per-account tombstone and every piece of personal
-     * data on it is overwritten. Records that other people or the business depend
-     * on stay attached to that tombstone, so no foreign key changes and no
-     * migration is needed:
-     * - orders and order items: the shop's sales history (names/prices snapshotted);
-     * - review ratings: the shop's average keeps its contribution (the free-text
-     *   comment is cleared);
-     * - poll and election votes: closed results must not change retroactively.
-     *   Votes are only ever reported as tallies, and the tombstone id no longer
-     *   identifies anyone;
-     * - feedback: kept for the administration, forced anonymous;
-     * - an admin's feedback replies, audit log entries and used invitations.
-     * Purely personal data is deleted: notifications, notification preferences,
-     * saved shops, announcement comments and unused invitations (so a deleted
-     * admin's invite links stop working). A per-user tombstone (not one shared
-     * "deleted user") is required because votes and reviews are unique per user.
-     *
-     * A merchant that still owns a shop is refused with 409: the shop has to be
-     * removed or reassigned first through the shops module.
+     * A merchant that still owns an active (non-deleted) shop is refused with
+     * 409: the shop has to be removed first through the shops module.
      *
      * A SUPER_ADMIN can never be deleted (403 `user.error.cannotChangeSuperAdmin`).
-     * When `actor` is given (admin delete), deleting an ADMIN needs a SUPER_ADMIN
-     * actor (403 `user.error.superAdminRequired`) and the deletion is audited.
+     * When `actor` is given (admin delete, SUPER_ADMIN-only route), deleting an
+     * ADMIN needs a SUPER_ADMIN actor (403 `user.error.superAdminRequired`) and
+     * the deletion is audited. Legacy anonymised tombstones are already deleted.
      */
     async deleteUser(
         userId: string,
         actor?: IAuthUser
     ): Promise<ApiGenericResponseDto> {
         const user = await this.db.user.findUnique({ where: { id: userId } });
-        if (!user || isDeletedUserEmail(user.email))
-            throw new NotFoundException('User not found');
+        if (!user || user.deletedAt || isDeletedUserEmail(user.email))
+            throw new NotFoundException('user.error.notFound');
 
         if (user.role === Role.SUPER_ADMIN)
             throw new ForbiddenException('user.error.cannotChangeSuperAdmin');
@@ -133,64 +124,27 @@ export class UserService {
             throw new ForbiddenException('user.error.superAdminRequired');
 
         const ownedShops = await this.db.shop.count({
-            where: { merchantId: userId },
+            where: { merchantId: userId, deletedAt: null },
         });
         if (ownedShops > 0) {
             throw new ConflictException('user.error.merchantOwnsShop');
         }
 
-        // A real argon2 hash of a secret nobody keeps: login fails with 401
-        // (a malformed hash would make argon2.verify throw a 500 instead).
-        const passwordHash = await this.encryption.createHash(
-            randomBytes(32).toString('hex')
-        );
+        // Revoke first: if Redis is down this throws (503) before the row
+        // changes, so a retry is not a 404 that leaves live sessions behind.
+        // A plain bump (no TTL): the account can be restored, and an expiring
+        // key would later reset the version below tokens minted after restore.
+        await this.sessions.bump(userId);
 
-        await this.db.$transaction(async tx => {
-            // 1. Purely personal data
-            await tx.notificationPreference.deleteMany({ where: { userId } });
-            await tx.notification.deleteMany({ where: { userId } });
-            await tx.savedShop.deleteMany({ where: { userId } });
-            await tx.comment.deleteMany({ where: { userId } });
-            await tx.invitation.deleteMany({
-                where: { invitedById: userId, usedAt: null },
-            });
-
-            // 2. Records others rely on: keep, strip the personal parts
-            await tx.review.updateMany({
-                where: { userId },
-                data: { comment: null },
-            });
-            await tx.feedback.updateMany({
-                where: { userId },
-                data: { isAnonymous: true },
-            });
-            await tx.residentLead.updateMany({
-                where: { userId },
-                data: { userId: null },
-            });
-
-            // 3. Anonymise the account row itself
-            await tx.user.update({
-                where: { id: userId },
-                data: {
-                    name: DELETED_USER_NAME,
-                    email: deletedUserEmail(userId),
-                    phone: null,
-                    unitNumber: null,
-                    avatarUrl: null,
-                    pushToken: null,
-                    passwordHash,
-                    isVerified: false,
-                    role: Role.GUEST,
-                },
-            });
+        await this.db.user.update({
+            where: { id: userId },
+            data: {
+                deletedAt: new Date(),
+                deletedById: actor?.userId ?? userId,
+                pushToken: null,
+            },
         });
 
-        // Tokens already issued to the deleted account must stop working now,
-        // not when they expire. (Refresh also rejects unverified accounts.)
-        await this.sessions.revokeDeletedUser(userId);
-
-        // Label from the row read before anonymisation, not the tombstone.
         await this.audit.record(actor, 'USER_DELETED', 'User', userId, {
             label: userLabel(user),
             role: user.role,
@@ -205,6 +159,7 @@ export class UserService {
     ): Promise<AdminUserListResponseDto> {
         const limit = query.limit ?? 20;
         const where: Prisma.UserWhereInput = {
+            deletedAt: null,
             NOT: { email: { endsWith: DELETED_USER_EMAIL_DOMAIN } },
             ...(query.role ? { role: query.role } : {}),
             ...(query.q
@@ -247,19 +202,20 @@ export class UserService {
         role: AssignableRole,
         actor: IAuthUser
     ): Promise<AdminUserItemDto> {
-        const user = await this.db.user.findUnique({
+        const found = await this.db.user.findUnique({
             where: { id: userId },
-            select: ADMIN_USER_SELECT,
+            select: { ...ADMIN_USER_SELECT, deletedAt: true },
         });
-        if (!user || isDeletedUserEmail(user.email))
+        if (!found || found.deletedAt || isDeletedUserEmail(found.email))
             throw new NotFoundException('user.error.notFound');
+        const { deletedAt: _deletedAt, ...user } = found;
         if (user.role === Role.SUPER_ADMIN)
             throw new ForbiddenException('user.error.cannotChangeSuperAdmin');
         if (user.role === role) return user;
 
         if (user.role === Role.MERCHANT) {
             const ownedShops = await this.db.shop.count({
-                where: { merchantId: userId },
+                where: { merchantId: userId, deletedAt: null },
             });
             if (ownedShops > 0)
                 throw new ConflictException('user.error.merchantOwnsShop');

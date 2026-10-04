@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Invitation, Role } from '@prisma/client';
 import * as crypto from 'node:crypto';
@@ -46,6 +46,14 @@ export class InvitationsService {
         // bypassing the DTO transform. accept-invitation and login look users
         // up by the lower-cased email, so the stored invitation must match.
         const email = normalizeEmail(dto.email);
+
+        // The email of a soft-deleted account stays reserved for it: restore
+        // the account from the recycle bin instead of inviting it again.
+        const deletedAccount = await this.db.user.findFirst({
+            where: { email, deletedAt: { not: null } },
+            select: { id: true },
+        });
+        if (deletedAccount) throw new ConflictException('user.error.accountDeleted');
 
         // Check for existing active (unused, non-expired) invitation
         const existing = await this.db.invitation.findFirst({

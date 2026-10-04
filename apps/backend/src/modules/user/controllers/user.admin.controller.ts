@@ -61,11 +61,11 @@ export class UserAdminController {
     }
 
     @Delete(':id')
-    @AllowedRoles([Role.ADMIN])
+    @AllowedRoles([Role.SUPER_ADMIN])
     @ApiBearerAuth('accessToken')
     @ApiOperation({
         summary:
-            'Delete user [ADMIN]; deleting an ADMIN requires SUPER_ADMIN, a SUPER_ADMIN is never deletable',
+            'Soft-delete user [SUPER_ADMIN] (restorable from the recycle bin); a SUPER_ADMIN is never deletable',
     })
     @DocGenericResponse({
         httpStatus: HttpStatus.OK,

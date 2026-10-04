@@ -63,7 +63,10 @@ export class UserPublicController {
     @AllowedRoles([Role.RESIDENT, Role.MERCHANT])
     @ApiBearerAuth('accessToken')
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Delete my account [RESIDENT | MERCHANT]' })
+    @ApiOperation({
+        summary:
+            'Delete my account [RESIDENT | MERCHANT] (soft: the administration can restore it)',
+    })
     public async deleteAccount(@AuthUser() actor: IAuthUser): Promise<void> {
         await this.userService.deleteAccount(actor.userId);
     }
