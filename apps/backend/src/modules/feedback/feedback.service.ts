@@ -23,11 +23,14 @@ import {
     FeedbackResponseDto,
 } from './dtos/response/feedback.response.dto';
 
-/** Activity-log label: category plus the start of the body (feedback has no title). */
-function feedbackLabel(feedback: { category: string; body: string }): string {
-    const text = feedback.body.replace(/\s+/g, ' ').trim();
-    const excerpt = text.length > 60 ? `${text.slice(0, 60)}…` : text;
-    return `${feedback.category}: ${excerpt}`;
+/** Activity-log label: category plus a short ref (feedback has no title). */
+export function feedbackLabel(feedback: {
+    id: string;
+    category: string;
+}): string {
+    // Never the body: free text can hold a phone or national id, and the
+    // audit row outlives account deletion.
+    return `${feedback.category} #${feedback.id.slice(-6).toUpperCase()}`;
 }
 
 @Injectable()
