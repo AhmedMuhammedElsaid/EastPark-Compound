@@ -14,6 +14,16 @@ import { MessageService } from 'src/common/message/services/message.service';
 
 import { IApiErrorResponse } from '../interfaces/response.interface';
 
+/** A dotted message key such as `user.error.accountDeleted` (not free prose). */
+const MESSAGE_KEY = /^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9_]+)+$/;
+
+/** The stable error code for an exception message, when it is a message key. */
+export function errorCodeOf(message: unknown): string | undefined {
+    return typeof message === 'string' && MESSAGE_KEY.test(message)
+        ? message
+        : undefined;
+}
+
 @Catch()
 export class ResponseExceptionFilter implements ExceptionFilter {
     private readonly logger = new Logger(ResponseExceptionFilter.name);
@@ -37,6 +47,7 @@ export class ResponseExceptionFilter implements ExceptionFilter {
                 : HttpStatus.INTERNAL_SERVER_ERROR;
 
         let message: string;
+        let code: string | undefined;
         let validationMessages: string[] | undefined;
 
         if (exception instanceof BadRequestException) {
@@ -56,6 +67,7 @@ export class ResponseExceptionFilter implements ExceptionFilter {
                     }
                 );
             } else {
+                code = errorCodeOf(exceptionMessage);
                 message = this.messageService.translate(
                     exceptionMessage ?? 'http.error.400',
                     {
@@ -64,6 +76,7 @@ export class ResponseExceptionFilter implements ExceptionFilter {
                 );
             }
         } else if (exception instanceof HttpException) {
+            code = errorCodeOf(exception.message);
             message = this.messageService.translate(exception.message, {
                 defaultValue: exception.message,
             });
@@ -81,6 +94,7 @@ export class ResponseExceptionFilter implements ExceptionFilter {
             message,
             timestamp: new Date().toISOString(),
         };
+        if (code) errorResponse.code = code;
 
         if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
             this.logger.error(

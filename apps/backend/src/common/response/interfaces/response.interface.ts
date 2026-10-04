@@ -27,6 +27,12 @@ export interface IApiPaginatedResponse<T> extends IApiBaseResponse {
 }
 
 export interface IApiErrorResponse extends IApiBaseResponse {
+    /**
+     * Stable machine code: the untranslated message key (e.g.
+     * `user.error.accountDeleted`). Clients branch on this, never on `message`
+     * prose. Absent when the exception carried no key.
+     */
+    code?: string;
     error?: string | string[] | Record<string, unknown>;
 }
 
