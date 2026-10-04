@@ -12,6 +12,7 @@
     "expired": "Expired",
     "expires_at": "Expires at",
     "invitations": "Invitations",
+    "invite_account_deleted": "This email belongs to a deleted account. Restore it from the Recycle bin first.",
     "invite_forbidden": "Only the super admin can invite administrators",
     "invite_sent": "Invitation sent successfully",
     "new_announcement": "New Announcement",
@@ -77,7 +78,8 @@
       "passwords_no_match": "Passwords do not match",
       "password_requirements": "Use 8+ characters with an uppercase letter, a lowercase letter, a number and a symbol. English letters only, no spaces.",
       "server_unreachable": "We couldn't reach the server. Check your connection and try again.",
-      "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation."
+      "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation.",
+      "invitation_account_deleted": "This email belongs to a deleted account, so the invitation can't be accepted. Please contact the compound administration."
     },
     "forgot": {
       "tryDifferentEmail": "Try a different email"

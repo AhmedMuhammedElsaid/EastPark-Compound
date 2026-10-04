@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { sendInvitationErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { isSuperAdminRole } from "@/lib/roles";
 import { adminApi } from "@/services/api/admin";
@@ -151,8 +152,7 @@ export default function InvitationsScreen() {
       showMessage({ message: t("admin.invite_sent"), type: "success", backgroundColor: SEMANTIC.success });
     },
     onError: (err) => {
-      const status = (err as { response?: { status?: number } } | null)?.response?.status;
-      showMessage({ message: status === 403 ? t("admin.invite_forbidden") : t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+      showMessage({ message: t(sendInvitationErrorKey(err)), type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 

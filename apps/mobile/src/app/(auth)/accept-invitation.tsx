@@ -14,6 +14,7 @@ import { AuthInput } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
+import { acceptInvitationErrorKey } from "@/lib/api-error";
 import { newPasswordSchema } from "@/lib/auth/password";
 import { isAdminRole } from "@/lib/roles";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -67,13 +68,10 @@ export default function AcceptInvitationScreen() {
       await completeLogin({ user, accessToken, refreshToken });
     }
     catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      // 409: the invited email already has an account — the password field
-      // must contain that account's CURRENT password.
-      const message = status === 409
-        ? t("auth.errors.invitation_existing_account")
-        : t("common.error");
-      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
+      // 409 accountDeleted: the email belongs to a deleted account (contact the
+      // administration). Any other 409: the invited email already has an
+      // account and the password field must contain its CURRENT password.
+      showMessage({ message: t(acceptInvitationErrorKey(err)), type: "danger", backgroundColor: SEMANTIC.error });
     }
   }
 

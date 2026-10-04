@@ -4,6 +4,47 @@ export function getErrorStatus(error: unknown): number | undefined {
   return (error as { response?: { status?: number } } | null | undefined)?.response?.status;
 }
 
+/** A dotted message key such as `user.error.accountDeleted` (not prose). */
+const MESSAGE_KEY = /^[a-z][a-z0-9]*(?:\.\w+)+$/i;
+
+/**
+ * The backend's stable error code (the untranslated message key, e.g.
+ * `user.error.accountDeleted`). Older backends sent the raw key only in
+ * `message`, so a dotted key there is accepted too; prose never is.
+ */
+export function getErrorCode(error: unknown): string | undefined {
+  const data = (error as { response?: { data?: { code?: unknown; message?: unknown } } } | null | undefined)?.response?.data;
+  for (const value of [data?.code, data?.message]) {
+    if (typeof value === "string" && MESSAGE_KEY.test(value))
+      return value;
+  }
+  return undefined;
+}
+
+export const ACCOUNT_DELETED_CODE = "user.error.accountDeleted";
+
+/** 409 for an email that belongs to a soft-deleted account. */
+export function isAccountDeletedError(error: unknown): boolean {
+  return getErrorStatus(error) === 409 && getErrorCode(error) === ACCOUNT_DELETED_CODE;
+}
+
+/**
+ * Toast copy for a failed accept-invitation. A deleted account must never get
+ * the "enter your current password" hint: no password helps there.
+ */
+export function acceptInvitationErrorKey(error: unknown): string {
+  if (isAccountDeletedError(error))
+    return "auth.errors.invitation_account_deleted";
+  return getErrorStatus(error) === 409 ? "auth.errors.invitation_existing_account" : "common.error";
+}
+
+/** Toast copy for a failed admin invitation send. */
+export function sendInvitationErrorKey(error: unknown): string {
+  if (isAccountDeletedError(error))
+    return "admin.invite_account_deleted";
+  return getErrorStatus(error) === 403 ? "admin.invite_forbidden" : "common.error";
+}
+
 /** True when the request produced no HTTP response (timeout, offline, DNS). */
 export function isNoResponseError(error: unknown): boolean {
   return getErrorStatus(error) === undefined;

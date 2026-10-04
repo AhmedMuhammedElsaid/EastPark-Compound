@@ -1,4 +1,14 @@
-import { getErrorStatus, isNoResponseError, pickErrorKey } from "@/lib/api-error";
+import {
+  acceptInvitationErrorKey,
+  getErrorCode,
+  getErrorStatus,
+  isAccountDeletedError,
+  isNoResponseError,
+  pickErrorKey,
+  sendInvitationErrorKey,
+} from "@/lib/api-error";
+import ar from "@/translations/ar.json";
+import en from "@/translations/en.json";
 
 describe("api-error", () => {
   it("treats errors without a response as network/timeouts", () => {
@@ -14,5 +24,41 @@ describe("api-error", () => {
     expect(pickErrorKey({ response: { status: 418 } }, map, "f")).toBe("f");
     expect(pickErrorKey({}, map, "f")).toBe("n");
     expect(pickErrorKey({}, {}, "f")).toBe("f");
+  });
+});
+
+describe("deleted-account 409 mapping", () => {
+  const deleted = { response: { status: 409, data: { statusCode: 409, code: "user.error.accountDeleted", message: "user.error.accountDeleted" } } };
+  const legacyDeleted = { response: { status: 409, data: { message: "user.error.accountDeleted" } } };
+  const wrongPassword = { response: { status: 409, data: { message: "An account with this email already exists — enter its current password" } } };
+
+  it("reads the stable code, or a raw key in message, never prose", () => {
+    expect(getErrorCode(deleted)).toBe("user.error.accountDeleted");
+    expect(getErrorCode(legacyDeleted)).toBe("user.error.accountDeleted");
+    expect(getErrorCode(wrongPassword)).toBeUndefined();
+    expect(getErrorCode({})).toBeUndefined();
+    expect(isAccountDeletedError(deleted)).toBe(true);
+    expect(isAccountDeletedError({ response: { status: 400, data: { code: "user.error.accountDeleted" } } })).toBe(false);
+  });
+
+  it("accept-invitation: deleted account never gets the current-password hint", () => {
+    expect(acceptInvitationErrorKey(deleted)).toBe("auth.errors.invitation_account_deleted");
+    expect(acceptInvitationErrorKey(legacyDeleted)).toBe("auth.errors.invitation_account_deleted");
+    expect(acceptInvitationErrorKey(wrongPassword)).toBe("auth.errors.invitation_existing_account");
+    expect(acceptInvitationErrorKey({ response: { status: 500 } })).toBe("common.error");
+    expect(acceptInvitationErrorKey({})).toBe("common.error");
+  });
+
+  it("admin invitations: deleted account, forbidden, fallback", () => {
+    expect(sendInvitationErrorKey(deleted)).toBe("admin.invite_account_deleted");
+    expect(sendInvitationErrorKey({ response: { status: 403 } })).toBe("admin.invite_forbidden");
+    expect(sendInvitationErrorKey({ response: { status: 409 } })).toBe("common.error");
+  });
+
+  it("has en and ar copy for the new keys", () => {
+    for (const json of [en, ar]) {
+      expect(json.admin.invite_account_deleted).toEqual(expect.any(String));
+      expect(json.auth.errors.invitation_account_deleted).toEqual(expect.any(String));
+    }
   });
 });
