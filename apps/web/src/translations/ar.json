@@ -306,7 +306,13 @@
       "PRODUCT_CREATED": "أضاف المنتج",
       "PRODUCT_UPDATED": "عدّل المنتج",
       "PRODUCT_DELETED": "حذف المنتج",
-      "ORDER_STATUS_CHANGED": "حدّث حالة الطلب"
+      "ORDER_STATUS_CHANGED": "حدّث حالة الطلب",
+      "REVIEW_DELETED": "حذف التقييم",
+      "USER_RESTORED": "استعاد حساب",
+      "SHOP_RESTORED": "استعاد المتجر",
+      "SHOP_PHOTO_RESTORED": "استعاد صورة متجر",
+      "PRODUCT_RESTORED": "استعاد المنتج",
+      "REVIEW_RESTORED": "استعاد التقييم"
     }
   },
   "admin_trash": {
@@ -874,10 +880,10 @@
     "dark": "داكن",
     "delete_account": "حذف الحساب",
     "delete_account_button": "حذف الحساب",
-    "delete_account_confirm": "سيؤدي هذا إلى حذف حسابك وجميع بياناتك نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+    "delete_account_confirm": "سيُحذف حسابك ويُخفى، وسيتم تسجيل خروجك من كل الأجهزة. إذا غيّرت رأيك، يمكن لإدارة الكمبوند استعادته عند الطلب.",
     "delete_account_error": "تعذّر حذف الحساب. يرجى المحاولة مجدداً.",
     "delete_confirm_word": "حذف",
-    "delete_type_prompt": "اكتب {{word}} لتأكيد الحذف النهائي.",
+    "delete_type_prompt": "اكتب {{word}} لتأكيد حذف حسابك.",
     "delete_unavailable": "لا يمكن للمشرف حذف حسابه من هذا الملف الشخصي.",
     "edit": "تعديل الملف الشخصي",
     "english": "الإنجليزية",

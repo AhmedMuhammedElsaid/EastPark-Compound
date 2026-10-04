@@ -306,7 +306,13 @@
       "PRODUCT_CREATED": "added the product",
       "PRODUCT_UPDATED": "edited the product",
       "PRODUCT_DELETED": "deleted the product",
-      "ORDER_STATUS_CHANGED": "updated the status of order"
+      "ORDER_STATUS_CHANGED": "updated the status of order",
+      "REVIEW_DELETED": "deleted the review",
+      "USER_RESTORED": "restored the account of",
+      "SHOP_RESTORED": "restored the shop",
+      "SHOP_PHOTO_RESTORED": "restored a shop photo",
+      "PRODUCT_RESTORED": "restored the product",
+      "REVIEW_RESTORED": "restored the review"
     }
   },
   "admin_trash": {
@@ -874,10 +880,10 @@
     "dark": "Dark",
     "delete_account": "Delete account",
     "delete_account_button": "Delete account",
-    "delete_account_confirm": "This will permanently delete your account and all data. This cannot be undone.",
+    "delete_account_confirm": "Your account will be deleted and hidden, and you will be signed out on every device. If you change your mind, the compound administration can restore it on request.",
     "delete_account_error": "Could not delete account. Please try again.",
     "delete_confirm_word": "DELETE",
-    "delete_type_prompt": "Type {{word}} to confirm permanent deletion.",
+    "delete_type_prompt": "Type {{word}} to confirm deleting your account.",
     "delete_unavailable": "Administrators cannot delete their own account from this profile.",
     "edit": "Edit profile",
     "english": "English",
