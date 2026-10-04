@@ -1,12 +1,13 @@
 'use client';
 
-import { Lock, Search, SearchX, ShieldCheck, UserCog, X } from 'lucide-react';
+import { Lock, Search, SearchX, ShieldCheck, Trash2, UserCog, UserX, X } from 'lucide-react';
 import * as React from 'react';
 
 import { LeadToasts, useToasts } from '@/components/admin/residents/LeadToasts';
 import { roleLabel } from '@/lib/admin/activity-sentence';
 import {
   changeUserRole,
+  deleteUser,
   fetchUsers,
   SuperAdminRequestError,
   teamErrorKey,
@@ -17,6 +18,7 @@ import { ROLES, type AssignableRole, type RoleName } from '@/lib/auth/roles';
 import { useTranslation } from '@/lib/i18n';
 
 import { ChangeRoleDialog } from './ChangeRoleDialog';
+import { ConfirmActionDialog, type ConfirmContent } from './ConfirmActionDialog';
 import { EmptyState, ErrorState, FOCUS, initialOf, LoadMoreButton, PanelHeader, RowsSkeleton, SELECT_CLASS } from './panel-parts';
 import { RoleBadge } from './RoleBadge';
 
@@ -43,6 +45,7 @@ export function TeamRolesPanel() {
   const [reloadKey, setReloadKey] = React.useState(0);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<AdminUserItem | null>(null);
+  const [deleting, setDeleting] = React.useState<AdminUserItem | null>(null);
   const listSeq = React.useRef(0);
   const debouncedRef = React.useRef('');
 
@@ -106,7 +109,39 @@ export function TeamRolesPanel() {
     }
   }
 
+  async function removeUser(target: AdminUserItem) {
+    setPendingId(target.id);
+    const name = target.name || target.email;
+    try {
+      await deleteUser(target.id);
+      setRows((current) => current.filter((item) => item.id !== target.id));
+      push('success', t('admin_team.delete_success', { name }));
+    } catch (error) {
+      push('error', t(`admin_team.errors.${teamErrorKey(...errorStatus(error))}`));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   const closeDialog = React.useCallback(() => setEditing(null), []);
+  const closeDelete = React.useCallback(() => setDeleting(null), []);
+  const deleteContent = React.useMemo<ConfirmContent | null>(() => {
+    if (!deleting) return null;
+    const name = deleting.name || deleting.email;
+    return {
+      title: t('admin_team.delete_title', { name }),
+      icon: UserX,
+      tone: 'danger',
+      body: (
+        <>
+          <p>{t('admin_team.delete_body', { name })}</p>
+          <p className="text-muted-foreground">{t('admin_team.delete_restore_note')}</p>
+        </>
+      ),
+      confirmLabel: t('admin_team.delete_confirm'),
+      cancelLabel: t('admin_team.dialog_cancel'),
+    };
+  }, [deleting, t]);
   const searchId = React.useId();
   const roleId = React.useId();
   const titleId = React.useId();
@@ -217,17 +252,29 @@ export function TeamRolesPanel() {
                         <span className="sr-only">{t('admin_team.locked_hint')}</span>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(person)}
-                        disabled={pending}
-                        aria-busy={pending || undefined}
-                        aria-label={t('admin_team.change_role_for', { name })}
-                        className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:border-primary/60 hover:bg-muted disabled:cursor-wait disabled:opacity-60 ${FOCUS} ${pending ? 'lead-pending' : ''}`}
-                      >
-                        <ShieldCheck aria-hidden="true" className="size-4" />
-                        {pending ? t('admin_team.saving') : t('admin_team.change_role')}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(person)}
+                          disabled={pending}
+                          aria-busy={pending || undefined}
+                          aria-label={t('admin_team.change_role_for', { name })}
+                          className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:border-primary/60 hover:bg-muted disabled:cursor-wait disabled:opacity-60 ${FOCUS} ${pending ? 'lead-pending' : ''}`}
+                        >
+                          <ShieldCheck aria-hidden="true" className="size-4" />
+                          {pending ? t('admin_team.saving') : t('admin_team.change_role')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleting(person)}
+                          disabled={pending}
+                          aria-label={t('admin_team.delete_for', { name })}
+                          className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-error/55 px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:bg-error/10 disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
+                        >
+                          <Trash2 aria-hidden="true" className="size-4 text-error" />
+                          {t('admin_team.delete')}
+                        </button>
+                      </>
                     )}
                   </div>
                 </li>
@@ -241,6 +288,13 @@ export function TeamRolesPanel() {
       </div>
 
       <ChangeRoleDialog user={editing} onConfirm={(target, nextRole) => void applyRole(target, nextRole)} onCancel={closeDialog} />
+      <ConfirmActionDialog
+        content={deleteContent}
+        onConfirm={() => {
+          if (deleting) void removeUser(deleting);
+        }}
+        onCancel={closeDelete}
+      />
       <LeadToasts toasts={toasts} onDismiss={dismiss} />
     </section>
   );
