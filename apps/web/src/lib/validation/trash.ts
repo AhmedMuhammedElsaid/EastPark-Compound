@@ -58,9 +58,18 @@ const REASON_KEYS: Record<string, string> = {
   'user.error.notRestorable': 'not_restorable',
   'trash.error.parentDeleted': 'parent_deleted',
   'trash.error.conflict': 'conflict',
+  'trash.error.ownerNotMerchant': 'owner_not_merchant',
+  'trash.error.ownerHasShop': 'owner_has_shop',
 };
 
-type TrashReasonKey = 'not_restorable' | 'parent_deleted' | 'owner_deleted' | 'conflict' | 'generic';
+type TrashReasonKey =
+  | 'not_restorable'
+  | 'parent_deleted'
+  | 'owner_deleted'
+  | 'owner_not_merchant'
+  | 'owner_has_shop'
+  | 'conflict'
+  | 'generic';
 
 /**
  * Copy key under `admin_trash.reasons.*` for an item that can't be restored. Unknown keys and

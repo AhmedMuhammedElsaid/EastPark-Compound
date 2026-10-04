@@ -78,6 +78,12 @@ describe('trashReasonKey', () => {
     expect(trashReasonKey('trash.error.conflict')).toBe('conflict');
   });
 
+  it('maps the shop owner role and second-shop reasons', () => {
+    expect(trashReasonKey('trash.error.ownerNotMerchant', 'SHOP')).toBe('owner_not_merchant');
+    expect(trashReasonKey('trash.error.ownerHasShop', 'SHOP')).toBe('owner_has_shop');
+    expect(trashReasonKey(' trash.error.ownerHasShop ')).toBe('owner_has_shop');
+  });
+
   it('reads parentDeleted on a shop as the owner account being deleted', () => {
     expect(trashReasonKey('trash.error.parentDeleted', 'SHOP')).toBe('owner_deleted');
     expect(trashReasonKey('trash.error.parentDeleted', 'PRODUCT')).toBe('parent_deleted');
@@ -90,7 +96,7 @@ describe('trashReasonKey', () => {
     expect(trashReasonKey(null)).toBe('generic');
   });
 
-  it.each(['not_restorable', 'parent_deleted', 'owner_deleted', 'conflict', 'generic'])('has ar and en copy for %s', (key) => {
+  it.each(['not_restorable', 'parent_deleted', 'owner_deleted', 'owner_not_merchant', 'owner_has_shop', 'conflict', 'generic'])('has ar and en copy for %s', (key) => {
     const path = `admin_trash.reasons.${key}`;
     expect(translate(en, path)).not.toBe(path);
     expect(translate(ar, path)).not.toBe(path);
