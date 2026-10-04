@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Role } from '@prisma/client';
 
+import { isAdminRole } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -78,7 +78,7 @@ export class AnnouncementsService {
         const comments = [...announcement.comments].reverse().map(comment => {
             const canSeeIdentity =
                 !!actor &&
-                (actor.role === Role.ADMIN || actor.userId === comment.userId);
+                (isAdminRole(actor.role) || actor.userId === comment.userId);
             const fullName = comment.user?.name ?? '';
             const name = actor
                 ? fullName

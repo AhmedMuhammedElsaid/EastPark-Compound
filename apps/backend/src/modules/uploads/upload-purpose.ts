@@ -8,9 +8,14 @@ interface PurposeRule {
     roles: readonly Role[];
 }
 
-const ANY_USER: readonly Role[] = [Role.RESIDENT, Role.MERCHANT, Role.ADMIN];
-const STAFF: readonly Role[] = [Role.MERCHANT, Role.ADMIN];
-const ADMIN_ONLY: readonly Role[] = [Role.ADMIN];
+const ANY_USER: readonly Role[] = [
+    Role.RESIDENT,
+    Role.MERCHANT,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+];
+const STAFF: readonly Role[] = [Role.MERCHANT, Role.ADMIN, Role.SUPER_ADMIN];
+const ADMIN_ONLY: readonly Role[] = [Role.ADMIN, Role.SUPER_ADMIN];
 
 /** `POST /uploads/image?purpose=` — default `avatar` keeps old clients working. */
 export const IMAGE_UPLOAD_PURPOSES = {

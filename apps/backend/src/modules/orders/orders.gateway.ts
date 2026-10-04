@@ -10,11 +10,12 @@ import {
     WebSocketServer,
     WsException,
 } from '@nestjs/websockets';
-import { OrderStatus, Role } from '@prisma/client';
+import { OrderStatus } from '@prisma/client';
 import { verify } from 'jsonwebtoken';
 import { Server, Socket } from 'socket.io';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
+import { isAdminRole } from 'src/common/auth/utils/roles';
 import appConfig from 'src/common/config/app.config';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { IJwtClaims } from 'src/common/helper/interfaces/encryption.interface';
@@ -96,7 +97,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
             throw new WsException('forbidden');
         }
 
-        if (user.role !== Role.ADMIN) {
+        if (!isAdminRole(user.role)) {
             const order = await this.db.order.findUnique({
                 where: { id: orderId },
                 select: {

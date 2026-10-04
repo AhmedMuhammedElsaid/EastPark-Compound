@@ -126,7 +126,11 @@ export class EmailService {
 
     sendInvitation(to: string, inviteUrl: string, role: string): Promise<void> {
         const roleAr =
-            role === 'ADMIN' ? 'مشرف' : role === 'MERCHANT' ? 'تاجر' : 'ساكن';
+            role === 'ADMIN' || role === 'SUPER_ADMIN'
+                ? 'مشرف'
+                : role === 'MERCHANT'
+                  ? 'تاجر'
+                  : 'ساكن';
 
         return this.send({
             to,

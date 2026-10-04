@@ -7,6 +7,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 
+import { roleSatisfies } from 'src/common/auth/utils/roles';
+
 import { ROLES_DECORATOR_KEY } from '../constants/request.constant';
 
 @Injectable()
@@ -28,10 +30,13 @@ export class RolesGuard implements CanActivate {
             throw new ForbiddenException('auth.error.userRoleNotDefined');
         }
 
-        const hasRole = requiredRoles.some(
-            role =>
-                user.role === role ||
-                (Array.isArray(user.role) && user.role.includes(role))
+        // SUPER_ADMIN satisfies any route that allows ADMIN; it does NOT
+        // satisfy RESIDENT-only or MERCHANT-only routes.
+        const userRoles: Role[] = Array.isArray(user.role)
+            ? user.role
+            : [user.role];
+        const hasRole = requiredRoles.some(role =>
+            userRoles.some(userRole => roleSatisfies(userRole, role))
         );
 
         if (!hasRole) {

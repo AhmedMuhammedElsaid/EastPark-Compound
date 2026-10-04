@@ -4,8 +4,8 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Role } from '@prisma/client';
 
+import { isAdminRole } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { assertStoragePublicUrls } from 'src/common/file/storage-url';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
@@ -33,7 +33,7 @@ export class FeedbackService {
         feedback: FeedbackResponseDto & { userId?: string | null },
         actor: IAuthUser
     ): FeedbackResponseDto {
-        if (feedback.isAnonymous && actor.role !== Role.ADMIN) {
+        if (feedback.isAnonymous && !isAdminRole(actor.role)) {
             return { ...feedback, userId: null };
         }
         return feedback;
@@ -66,7 +66,7 @@ export class FeedbackService {
         const limit = query.limit ?? 20;
 
         const where: Record<string, unknown> =
-            actor.role === Role.ADMIN ? {} : { userId: actor.userId };
+            isAdminRole(actor.role) ? {} : { userId: actor.userId };
         if (query.category) where['category'] = query.category;
         if (query.status) where['status'] = query.status;
 
@@ -107,7 +107,7 @@ export class FeedbackService {
         if (!feedback) throw new NotFoundException('feedback.error.notFound');
 
         // Only admins can see any feedback — all other roles are limited to their own
-        if (actor.role !== Role.ADMIN && feedback.userId !== actor.userId) {
+        if (!isAdminRole(actor.role) && feedback.userId !== actor.userId) {
             throw new ForbiddenException('feedback.error.forbidden');
         }
 

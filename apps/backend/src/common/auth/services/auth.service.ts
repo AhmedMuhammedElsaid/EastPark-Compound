@@ -47,6 +47,7 @@ const ROLE_RANK: Record<Role, number> = {
     [Role.RESIDENT]: 0,
     [Role.MERCHANT]: 1,
     [Role.ADMIN]: 2,
+    [Role.SUPER_ADMIN]: 3,
 };
 
 /** Canonical `User.unitNumber` built from a resident lead's unit fields. */

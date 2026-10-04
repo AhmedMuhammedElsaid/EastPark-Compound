@@ -18,6 +18,7 @@ import {
     isPrismaError,
     PRISMA_RECORD_NOT_FOUND,
 } from 'src/common/database/prisma-errors';
+import { isAdminRole } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
@@ -97,7 +98,7 @@ type OrderRow = Prisma.OrderGetPayload<{
 
 function orderInclude(actor: IAuthUser) {
     const includeResident =
-        actor.role === Role.MERCHANT || actor.role === Role.ADMIN;
+        actor.role === Role.MERCHANT || isAdminRole(actor.role);
     return {
         items: true,
         shop: { select: SHOP_SUMMARY_SELECT },
