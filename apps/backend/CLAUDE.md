@@ -20,18 +20,30 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
-### Account deletion, storage URLs, JWT secrets, comment cap — 2026-10-03
+### Soft delete + recycle bin — 2026-10-05 (supersedes the 2026-10-03 anonymising deletion)
 
-- **Account deletion anonymises in place** (`UserService.deleteUser`, both `DELETE /v1/user` and
-  `DELETE /v1/admin/user/:id`). The user row becomes a per-account tombstone: name `Deleted user`, email
-  `deleted-<id>@deleted.invalid`, phone/unit/avatar/push token null, a fresh argon2 hash of a random
-  secret, `isVerified=false`, role `GUEST`; sessions revoked as before. Kept and attached to the
-  tombstone: orders + items, review ratings (comment text cleared), poll/election votes (tallies never
-  change), feedback (forced `isAnonymous`), an admin's feedback replies, audit logs, used invitations.
-  Deleted: notifications, notification prefs, saved shops, announcement comments, unused invitations.
-  Resident leads are detached (`userId=null`). Deleting a tombstone again → 404. Merchant-owns-shop
-  409 unchanged. A shared placeholder user is impossible (`Vote`/`ElectionVote` PK and
-  `Review @@unique` include `userId`), and nullable FKs cannot cover the vote PKs — so no migration.
+- **Every delete is soft** (migration `20261005000000_soft_delete`): `User`, `Shop`, `ShopPhoto`, `Review`
+  and `Product` carry `deletedAt` + `deletedById` (FK → users, SET NULL). Product keeps `isDeleted` in sync
+  (reads still filter on it) and delete no longer flips `isAvailable`. The migration backfills legacy
+  anonymised tombstones (`deleted-<id>@deleted.invalid`, never restorable → `user.error.notRestorable`) and
+  products already `isDeleted`. `SavedShop` unbookmark stays a real delete.
+- **Account deletion** (`UserService.deleteUser`): `DELETE /v1/user` (self, `deletedById` = self) and
+  `DELETE /v1/admin/user/:id` (now **SUPER_ADMIN only**, audited `USER_DELETED`) only set `deletedAt`/
+  `deletedById`, null the push token and bump the session version (plain bump, no TTL — the account can be
+  restored). Nothing attached is wiped. A deleted account: login → generic 401, refresh → 401, forgot-password
+  silent no-op, pending reset token → 400, no pushes, hidden from team list / role change / profile. Its email
+  stays reserved: invitation create, lead approve and accept-invitation → 409 `user.error.accountDeleted`;
+  invitations sent by a deleted admin stop working. Merchant with a live shop → 409 `merchantOwnsShop`.
+- **Shop delete** no longer wipes reviews/bookmarks and no longer 409s on orders/products; children are
+  hidden with the shop (directory, detail 404, photos, review counts/averages, products, saved shops,
+  ordering, merchant module 404, every mutation 404). Re-reviewing revives the resident's deleted review row.
+- **Recycle bin** (`src/modules/trash`, SUPER_ADMIN only): `GET /v1/admin/trash?type=USER|SHOP|SHOP_PHOTO|
+  PRODUCT|REVIEW` and `POST /v1/admin/trash/:type/:id/restore` (compare-and-set; 404 `trash.error.notFound`;
+  409 `trash.error.parentDeleted` / `user.error.notRestorable` / `trash.error.conflict`; audit `<TYPE>_RESTORED`).
+- **New reads must filter `deletedAt: null`** (or check the fetched row) on these five models.
+
+### Storage URLs, JWT secrets, comment cap — 2026-10-03
+
 - **Storage URL policy** (`src/common/file/storage-url.ts`): feedback `attachments[]` and a *changed*
   `avatarUrl` must be `<SUPABASE_URL>/storage/v1/object/public/<SUPABASE_BUCKET>/…` (same origin,
   parsed + normalised), else 400 `file.error.urlNotStored`. Unchanged/null avatar always accepted;
@@ -50,7 +62,8 @@ All reference files live in `Documentation/` — read these before exploring the
   `{ PENDING, INVITED, CONVERTED, REJECTED, total }` from one `residentLead.groupBy` on `status`,
   zero-filled. It sits next to `GET leads` in `residents.admin.controller.ts`, with unit tests in
   `test/modules/residents.service.spec.ts`. No schema change. The web admin status cards use it.
-- 409 semantics the web relies on: invite returns 409 only for `residentLead.error.unitReserved`;
+- 409 semantics the web relies on: invite returns 409 for `residentLead.error.unitReserved` and (since
+  2026-10-05) `user.error.accountDeleted`;
   reject returns 409 only for `residentLead.error.alreadyConverted`. If you add another 409 to
   either action, update `leadErrorKey` in `apps/web/src/lib/api/resident-leads.ts`.
 
@@ -364,7 +377,7 @@ are both set — the same rule as `PaymentsService.ensureEnabled`.
 
 **Socket.io.** Namespace `/orders`. Emit `order:status` on status change.
 
-**Product soft-delete.** `isDeleted: Boolean @default(false)`. Always `where: { isDeleted: false }` on queries.
+**Product soft-delete.** `isDeleted: Boolean @default(false)` (+ `deletedAt`/`deletedById`, kept in sync). Always `where: { isDeleted: false }` on queries, plus `shop: { deletedAt: null }` for public reads.
 
 **Shop photos.** `ShopPhoto.order: Int` — always `orderBy: { order: 'asc' }`. Service derives `isPrimary: index === 0` from sorted array. FE uses `photo.isPrimary` to find the cover.
 
