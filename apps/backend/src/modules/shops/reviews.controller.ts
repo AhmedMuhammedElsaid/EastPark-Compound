@@ -45,7 +45,7 @@ export class ReviewsController {
     @ApiBearerAuth('accessToken')
     @AllowedRoles([Role.RESIDENT])
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Delete my review for a shop [RESIDENT]' })
+    @ApiOperation({ summary: 'Soft-delete my review for a shop [RESIDENT]' })
     async remove(
         @Param('shopId') shopId: string,
         @AuthUser() actor: IAuthUser,

@@ -40,7 +40,8 @@ export class MerchantService {
     /** Resolve the merchant's own shop id from the JWT actor. */
     private async resolveShopId(actor: IAuthUser): Promise<string> {
         const shop = await this.db.shop.findFirst({
-            where: { merchantId: actor.userId },
+            // A soft-deleted shop is invisible to its merchant (404).
+            where: { merchantId: actor.userId, deletedAt: null },
             orderBy: { createdAt: 'asc' },
             select: { id: true },
         });

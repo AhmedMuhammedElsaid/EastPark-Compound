@@ -1,5 +1,4 @@
 import {
-    ConflictException,
     ForbiddenException,
     Injectable,
     NotFoundException,
@@ -18,6 +17,15 @@ import {
     ShopListResponseDto,
     ShopResponseDto,
 } from './dtos/response/shop.response.dto';
+
+/**
+ * Shop include used by every read: only live (non-deleted) photos, and a review
+ * count that ignores soft-deleted reviews.
+ */
+export const LIVE_SHOP_INCLUDE = {
+    photos: { where: { deletedAt: null }, orderBy: { order: 'asc' } },
+    _count: { select: { reviews: { where: { deletedAt: null } } } },
+} satisfies Prisma.ShopInclude;
 
 /** Serialise a validated DTO instance into plain JSON for a Prisma Json column */
 function toJson(value: object | undefined): Prisma.InputJsonValue | undefined {
@@ -47,10 +55,7 @@ export class ShopsService {
                 merchantId: dto.merchantId,
                 workingHours: toJson(dto.workingHours),
             },
-            include: {
-                photos: { orderBy: { order: 'asc' } },
-                _count: { select: { reviews: true } },
-            },
+            include: LIVE_SHOP_INCLUDE,
         });
         await this.audit.record(actor, 'SHOP_CREATED', 'Shop', shop.id, {
             label: shop.name,
@@ -68,6 +73,7 @@ export class ShopsService {
 
         const rows = await this.db.shop.findMany({
             where: {
+                deletedAt: null,
                 ...(query.category ? { category: query.category } : {}),
                 ...(query.search
                     ? {
@@ -91,10 +97,7 @@ export class ShopsService {
             take: limit + 1,
             ...cursorArgs(query.cursor),
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-            include: {
-                photos: { orderBy: { order: 'asc' } },
-                _count: { select: { reviews: true } },
-            },
+            include: LIVE_SHOP_INCLUDE,
         });
 
         const { items, nextCursor } = toCursorPage(rows, limit);
@@ -103,7 +106,7 @@ export class ShopsService {
         const shopIds = items.map(s => s.id);
         const ratingRows = await this.db.review.groupBy({
             by: ['shopId'],
-            where: { shopId: { in: shopIds } },
+            where: { shopId: { in: shopIds }, deletedAt: null },
             _avg: { rating: true },
         });
         const ratingMap = new Map(ratingRows.map(r => [r.shopId, r._avg.rating]));
@@ -123,17 +126,15 @@ export class ShopsService {
         const [shop, aggregate] = await Promise.all([
             this.db.shop.findUnique({
                 where: { id },
-                include: {
-                    photos: { orderBy: { order: 'asc' } },
-                    _count: { select: { reviews: true } },
-                },
+                include: LIVE_SHOP_INCLUDE,
             }),
             this.db.review.aggregate({
-                where: { shopId: id },
+                where: { shopId: id, deletedAt: null },
                 _avg: { rating: true },
             }),
         ]);
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
         return {
             ...shop,
             photos: shop.photos.map((photo, i) => ({ ...photo, isPrimary: i === 0 })),
@@ -149,9 +150,10 @@ export class ShopsService {
     ): Promise<ShopResponseDto> {
         const shop = await this.db.shop.findUnique({
             where: { id },
-            select: { merchantId: true },
+            select: { merchantId: true, deletedAt: true },
         });
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
 
         // Merchants can only update their own shop
         if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
@@ -173,13 +175,10 @@ export class ShopsService {
                     isOpen: dto.isOpen,
                     workingHours: toJson(dto.workingHours),
                 },
-                include: {
-                    photos: { orderBy: { order: 'asc' } },
-                    _count: { select: { reviews: true } },
-                },
+                include: LIVE_SHOP_INCLUDE,
             }),
             this.db.review.aggregate({
-                where: { shopId: id },
+                where: { shopId: id, deletedAt: null },
                 _avg: { rating: true },
             }),
         ]);
@@ -194,29 +193,25 @@ export class ShopsService {
         };
     }
 
+    /**
+     * Soft delete: the shop disappears from the directory, search, detail,
+     * ordering and the merchant module, but the row and everything attached
+     * to it (products, photos, reviews, bookmarks, order history) stay, so the
+     * SUPER_ADMIN can restore it from the recycle bin. Children are not
+     * touched; they are hidden with their shop.
+     */
     async remove(id: string, actor?: IAuthUser): Promise<void> {
         const shop = await this.db.shop.findUnique({
             where: { id },
-            select: { id: true, name: true },
+            select: { id: true, name: true, deletedAt: true },
         });
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
 
-        // Orders and products reference the shop with restrictive FKs; block
-        // instead of surfacing a 500 from the database. Reviews and resident
-        // bookmarks belong to the shop and go with it (photos cascade).
-        const [orderCount, productCount] = await Promise.all([
-            this.db.order.count({ where: { shopId: id } }),
-            this.db.product.count({ where: { shopId: id } }),
-        ]);
-        if (orderCount > 0 || productCount > 0) {
-            throw new ConflictException('shop.error.hasDependents');
-        }
-
-        await this.db.$transaction([
-            this.db.savedShop.deleteMany({ where: { shopId: id } }),
-            this.db.review.deleteMany({ where: { shopId: id } }),
-            this.db.shop.delete({ where: { id } }),
-        ]);
+        await this.db.shop.update({
+            where: { id },
+            data: { deletedAt: new Date(), deletedById: actor?.userId ?? null },
+        });
 
         await this.audit.record(actor, 'SHOP_DELETED', 'Shop', id, {
             label: shop.name,
@@ -231,9 +226,10 @@ export class ShopsService {
     ): Promise<ShopResponseDto> {
         const shop = await this.db.shop.findUnique({
             where: { id: shopId },
-            select: { merchantId: true, name: true },
+            select: { merchantId: true, name: true, deletedAt: true },
         });
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
         if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
             throw new ForbiddenException('shop.error.forbidden');
         }
@@ -249,15 +245,28 @@ export class ShopsService {
     async removePhoto(shopId: string, photoId: string, actor: IAuthUser): Promise<void> {
         const photo = await this.db.shopPhoto.findUnique({
             where: { id: photoId },
-            include: { shop: { select: { merchantId: true, name: true } } },
+            include: {
+                shop: {
+                    select: { merchantId: true, name: true, deletedAt: true },
+                },
+            },
         });
-        if (!photo || photo.shopId !== shopId) {
+        if (
+            !photo ||
+            photo.shopId !== shopId ||
+            photo.deletedAt ||
+            photo.shop.deletedAt
+        ) {
             throw new NotFoundException('shop.error.photoNotFound');
         }
         if (actor.role === Role.MERCHANT && photo.shop.merchantId !== actor.userId) {
             throw new ForbiddenException('shop.error.forbidden');
         }
-        await this.db.shopPhoto.delete({ where: { id: photoId } });
+        // Soft delete: restorable from the recycle bin.
+        await this.db.shopPhoto.update({
+            where: { id: photoId },
+            data: { deletedAt: new Date(), deletedById: actor.userId },
+        });
         await this.audit.record(actor, 'SHOP_PHOTO_DELETED', 'Shop', shopId, {
             label: photo.shop.name,
         });

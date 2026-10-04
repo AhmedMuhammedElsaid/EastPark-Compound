@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
@@ -14,7 +14,7 @@ import { ShopUpdateDto } from 'src/modules/shops/dtos/request/shop.update.dto';
 import { ShopsService } from 'src/modules/shops/shops.service';
 
 const db = {
-    shop: { findUnique: jest.fn(), delete: jest.fn() },
+    shop: { findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
     order: { count: jest.fn() },
     product: { count: jest.fn() },
     review: { deleteMany: jest.fn() },
@@ -31,40 +31,37 @@ async function build<T>(token: new (...a: any[]) => T): Promise<T> {
     return m.get(token);
 }
 
-describe('ShopsService.remove', () => {
+describe('ShopsService.remove (soft delete)', () => {
+    const admin = { userId: 'admin-1', role: Role.ADMIN };
     beforeEach(() => jest.clearAllMocks());
 
-    it('409 when orders exist', async () => {
+    it('marks the shop deleted and keeps the row, even with orders and products', async () => {
         const svc = await build(ShopsService);
-        db.shop.findUnique.mockResolvedValue({ id: 's1' });
+        db.shop.findUnique.mockResolvedValue({ id: 's1', name: 'Cafe', deletedAt: null });
         db.order.count.mockResolvedValue(2);
-        db.product.count.mockResolvedValue(0);
-        await expect(svc.remove('s1')).rejects.toBeInstanceOf(ConflictException);
+        db.product.count.mockResolvedValue(3);
+        await svc.remove('s1', admin);
         expect(db.shop.delete).not.toHaveBeenCalled();
+        expect(db.shop.update).toHaveBeenCalledWith({
+            where: { id: 's1' },
+            data: { deletedAt: expect.any(Date), deletedById: 'admin-1' },
+        });
     });
 
-    it('deletes when no dependents', async () => {
+    it('no longer deletes the shop reviews or bookmarks', async () => {
         const svc = await build(ShopsService);
-        db.shop.findUnique.mockResolvedValue({ id: 's1' });
-        db.order.count.mockResolvedValue(0);
-        db.product.count.mockResolvedValue(0);
-        await svc.remove('s1');
-        expect(db.shop.delete).toHaveBeenCalled();
+        db.shop.findUnique.mockResolvedValue({ id: 's1', name: 'Cafe', deletedAt: null });
+        await svc.remove('s1', admin);
+        expect(db.review.deleteMany).not.toHaveBeenCalled();
+        expect(db.savedShop.deleteMany).not.toHaveBeenCalled();
+        expect(db.$transaction).not.toHaveBeenCalled();
     });
 
-    it('removes reviews and bookmarks with the shop in one transaction', async () => {
+    it('an already deleted shop is a 404', async () => {
         const svc = await build(ShopsService);
-        db.shop.findUnique.mockResolvedValue({ id: 's1' });
-        db.order.count.mockResolvedValue(0);
-        db.product.count.mockResolvedValue(0);
-        await svc.remove('s1');
-        expect(db.review.deleteMany).toHaveBeenCalledWith({
-            where: { shopId: 's1' },
-        });
-        expect(db.savedShop.deleteMany).toHaveBeenCalledWith({
-            where: { shopId: 's1' },
-        });
-        expect(db.$transaction).toHaveBeenCalledTimes(1);
+        db.shop.findUnique.mockResolvedValue({ id: 's1', name: 'Cafe', deletedAt: new Date() });
+        await expect(svc.remove('s1', admin)).rejects.toBeInstanceOf(NotFoundException);
+        expect(db.shop.update).not.toHaveBeenCalled();
     });
 });
 

@@ -66,7 +66,7 @@ export class ShopsController {
     @AllowedRoles([Role.ADMIN])
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiBearerAuth('accessToken')
-    @ApiOperation({ summary: 'Delete shop [ADMIN]' })
+    @ApiOperation({ summary: 'Soft-delete shop [ADMIN] (restorable from the recycle bin)' })
     remove(
         @Param('id') id: string,
         @AuthUser() actor: IAuthUser
@@ -107,7 +107,7 @@ export class ShopsController {
     @AllowedRoles([Role.MERCHANT, Role.ADMIN])
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiBearerAuth('accessToken')
-    @ApiOperation({ summary: 'Delete shop photo [MERCHANT(own)/ADMIN]' })
+    @ApiOperation({ summary: 'Soft-delete shop photo [MERCHANT(own)/ADMIN]' })
     removePhoto(
         @Param('id') id: string,
         @Param('photoId') photoId: string,

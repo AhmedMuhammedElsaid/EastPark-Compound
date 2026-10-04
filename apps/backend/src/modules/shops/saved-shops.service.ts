@@ -15,6 +15,13 @@ export class SavedShopsService {
     constructor(private readonly db: DatabaseService) {}
 
     async saveShop(shopId: string, userId: string): Promise<void> {
+        // A soft-deleted shop still satisfies the FK: refuse it explicitly.
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { deletedAt: true },
+        });
+        if (!shop || shop.deletedAt) throw new NotFoundException('shop.error.notFound');
+
         try {
             await this.db.savedShop.upsert({
                 where: { userId_shopId: { userId, shopId } },
@@ -41,14 +48,22 @@ export class SavedShopsService {
     async findSavedShops(userId: string, query: SavedShopQueryDto): Promise<SavedShopListResponseDto> {
         const limit = query.limit ?? 20;
 
+        // Bookmarks of soft-deleted shops are kept but hidden (they come back
+        // if the shop is restored).
         const rows = await this.db.savedShop.findMany({
-            where: { userId },
+            where: { userId, shop: { deletedAt: null } },
             take: limit + 1,
             ...(query.cursor
                 ? { skip: 1, cursor: { userId_shopId: { userId, shopId: query.cursor } } }
                 : {}),
             orderBy: { shopId: 'desc' },
-            include: { shop: { include: { photos: { orderBy: { order: 'asc' } } } } },
+            include: {
+                shop: {
+                    include: {
+                        photos: { where: { deletedAt: null }, orderBy: { order: 'asc' } },
+                    },
+                },
+            },
         });
 
         const { items, nextCursor } = toCursorPage(rows, limit, s => s.shopId);

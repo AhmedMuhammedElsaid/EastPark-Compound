@@ -42,9 +42,10 @@ export class ProductsService {
     ): Promise<void> {
         const shop = await this.db.shop.findUnique({
             where: { id: shopId },
-            select: { merchantId: true },
+            select: { merchantId: true, deletedAt: true },
         });
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
         if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
             throw new ForbiddenException('product.error.forbidden');
         }
@@ -76,6 +77,8 @@ export class ProductsService {
             where: {
                 shopId,
                 isDeleted: false,
+                // Products of a soft-deleted shop are hidden with it.
+                shop: { deletedAt: null },
                 ...(query.isAvailable !== undefined
                     ? { isAvailable: query.isAvailable }
                     : {}),
@@ -110,7 +113,7 @@ export class ProductsService {
 
     async findOne(shopId: string, id: string): Promise<ProductResponseDto> {
         const product = await this.db.product.findFirst({
-            where: { id, shopId, isDeleted: false },
+            where: { id, shopId, isDeleted: false, shop: { deletedAt: null } },
         });
         if (!product) throw new NotFoundException('product.error.notFound');
         return toProductResponse(product);
@@ -139,10 +142,16 @@ export class ProductsService {
         await this.assertShopOwnership(shopId, actor);
         const existing = await this.findOne(shopId, id);
 
-        // Soft delete — preserves OrderItem FKs
+        // Soft delete — preserves OrderItem FKs and is restorable from the
+        // recycle bin. isAvailable is left as it was so a restore brings the
+        // product back exactly as it was (every read filters on isDeleted).
         await this.db.product.update({
             where: { id },
-            data: { isDeleted: true, isAvailable: false },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedById: actor.userId,
+            },
         });
         await this.audit.record(actor, 'PRODUCT_DELETED', 'Product', id, {
             label: existing.name,

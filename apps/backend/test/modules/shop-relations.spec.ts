@@ -18,7 +18,7 @@ const audit = { record: jest.fn() } as unknown as AuditService;
 
 describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     const db = {
-        review: { upsert: jest.fn() },
+        review: { upsert: jest.fn(), findUnique: jest.fn() },
         savedShop: { upsert: jest.fn() },
         shop: { findUnique: jest.fn() },
         product: { create: jest.fn() },
@@ -28,6 +28,16 @@ describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     beforeEach(() => jest.clearAllMocks());
 
     it('review upsert on a missing shop', async () => {
+        db.shop.findUnique.mockResolvedValue(null);
+        await expect(
+            new ReviewsService(asDb).upsert('nope', 'user-1', { rating: 5 })
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(db.review.upsert).not.toHaveBeenCalled();
+    });
+
+    it('review upsert when the shop vanishes before the insert (FK)', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
+        db.review.findUnique.mockResolvedValue(null);
         db.review.upsert.mockRejectedValue(fkViolation);
         await expect(
             new ReviewsService(asDb).upsert('nope', 'user-1', { rating: 5 })
@@ -35,6 +45,7 @@ describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     });
 
     it('saving a missing shop', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
         db.savedShop.upsert.mockRejectedValue(fkViolation);
         await expect(
             new SavedShopsService(asDb).saveShop('nope', 'user-1')
@@ -65,6 +76,8 @@ describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     });
 
     it('other errors still propagate', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
+        db.review.findUnique.mockResolvedValue(null);
         db.review.upsert.mockRejectedValue(new Error('db down'));
         await expect(
             new ReviewsService(asDb).upsert('shop-1', 'user-1', { rating: 5 })

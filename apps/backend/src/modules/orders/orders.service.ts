@@ -166,6 +166,8 @@ export class OrdersService {
                 id: { in: productIds },
                 isDeleted: false,
                 isAvailable: true,
+                // A soft-deleted shop cannot be ordered from.
+                shop: { deletedAt: null },
             },
         });
 
@@ -188,9 +190,10 @@ export class OrdersService {
         // client-side presentation concern.
         const shop = await this.db.shop.findUnique({
             where: { id: shopId },
-            select: { isOpen: true },
+            select: { isOpen: true, deletedAt: true },
         });
-        if (!shop) throw new NotFoundException('shop.error.notFound');
+        if (!shop || shop.deletedAt)
+            throw new NotFoundException('shop.error.notFound');
         if (!shop.isOpen) {
             throw new ConflictException('order.error.shopClosed');
         }
