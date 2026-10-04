@@ -37,6 +37,14 @@ const REVIEW_SELECT = {
     user: { select: { name: true } },
     shop: PARENT_SHOP,
 } as const;
+const SHOP_SELECT = {
+    id: true,
+    name: true,
+    nameAr: true,
+    deletedAt: true,
+    deletedBy: DELETED_BY,
+    merchant: { select: { deletedAt: true } },
+} as const;
 const DELETED_FIRST = [{ deletedAt: 'desc' }, { id: 'desc' }] as const;
 
 const AUDIT: Record<TrashType, { action: AuditAction; entity: AuditEntity }> =
@@ -63,6 +71,7 @@ interface UserRow extends Deleted {
 interface ShopRow extends Deleted {
     name: string;
     nameAr: string;
+    merchant: { deletedAt: Date | null };
 }
 interface PhotoRow extends Deleted {
     url: string;
@@ -112,11 +121,13 @@ const toUserItem = (r: UserRow): TrashItemDto =>
         isDeletedUserEmail(r.email) ? TRASH_REASON.notRestorable : null
     );
 
-const toShopItem = (r: ShopRow): TrashItemDto =>
-    item('SHOP', r, r.name, r.nameAr || null, null);
+const parentReason = (parent: { deletedAt: Date | null }): string | null =>
+    parent.deletedAt ? TRASH_REASON.parentDeleted : null;
 
-const parentReason = (shop: { deletedAt: Date | null }): string | null =>
-    shop.deletedAt ? TRASH_REASON.parentDeleted : null;
+// A shop's parent is its merchant: restoring a shop whose owner account is
+// soft-deleted would put a shop online that nobody can run.
+const toShopItem = (r: ShopRow): TrashItemDto =>
+    item('SHOP', r, r.name, r.nameAr || null, parentReason(r.merchant));
 
 const toPhotoItem = (r: PhotoRow): TrashItemDto =>
     item('SHOP_PHOTO', r, `${r.shop.name} photo`, r.url, parentReason(r.shop));
@@ -142,8 +153,9 @@ const toReviewItem = (r: ReviewRow): TrashItemDto =>
 /**
  * Recycle bin (SUPER_ADMIN only). Lists soft-deleted records per type, newest
  * deletion first, and restores them. A restore is refused (409) when it would
- * resurrect a child of a deleted shop, a legacy anonymised account, or a
- * second live review of the same user for the same shop.
+ * resurrect a child of a deleted shop, a shop of a deleted merchant, a legacy
+ * anonymised account, or a second live review of the same user for the same
+ * shop.
  */
 @Injectable()
 export class TrashService {
@@ -180,13 +192,7 @@ export class TrashService {
             case 'SHOP': {
                 const rows = await this.db.shop.findMany({
                     ...page,
-                    select: {
-                        id: true,
-                        name: true,
-                        nameAr: true,
-                        deletedAt: true,
-                        deletedBy: DELETED_BY,
-                    },
+                    select: SHOP_SELECT,
                 });
                 return this.page(rows, limit, toShopItem);
             }
@@ -286,13 +292,7 @@ export class TrashService {
     private async restoreShop(id: string): Promise<TrashItemDto> {
         const row = await this.db.shop.findUnique({
             where: { id },
-            select: {
-                id: true,
-                name: true,
-                nameAr: true,
-                deletedAt: true,
-                deletedBy: DELETED_BY,
-            },
+            select: SHOP_SELECT,
         });
         const current = this.assertDeleted(row, toShopItem);
         await this.clear(() =>

@@ -50,6 +50,8 @@ const service = new TrashService(
 
 const liveShop = { name: 'Cafe', deletedAt: null };
 const deadShop = { name: 'Cafe', deletedAt: new Date() };
+const liveMerchant = { deletedAt: null };
+const deadMerchant = { deletedAt: new Date() };
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -119,7 +121,7 @@ describe('TrashService.list', () => {
 
     it('last page has no nextCursor', async () => {
         db.shop.findMany.mockResolvedValue([
-            { id: 's1', name: 'Cafe', nameAr: 'مقهى', deletedAt, deletedBy: owner },
+            { id: 's1', name: 'Cafe', nameAr: 'مقهى', deletedAt, deletedBy: owner, merchant: liveMerchant },
         ]);
         const page = await service.list({ type: 'SHOP' });
         expect(page.nextCursor).toBeUndefined();
@@ -248,6 +250,7 @@ describe('TrashService.restore', () => {
             nameAr: 'مقهى',
             deletedAt: null,
             deletedBy: null,
+            merchant: liveMerchant,
         });
         await expect(service.restore('SHOP', 's1', superAdmin)).rejects.toBeInstanceOf(
             NotFoundException
@@ -262,11 +265,43 @@ describe('TrashService.restore', () => {
             nameAr: 'مقهى',
             deletedAt,
             deletedBy: owner,
+            merchant: liveMerchant,
         });
         db.shop.update.mockRejectedValue({ code: 'P2025' });
         await expect(service.restore('SHOP', 's1', superAdmin)).rejects.toBeInstanceOf(
             NotFoundException
         );
+        expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('a shop whose merchant account is deleted is listed as not restorable (parentDeleted)', async () => {
+        db.shop.findMany.mockResolvedValue([
+            { id: 's1', name: 'Cafe', nameAr: 'مقهى', deletedAt, deletedBy: owner, merchant: deadMerchant },
+        ]);
+        const page = await service.list({ type: 'SHOP' });
+        expect(page.items[0]).toEqual(
+            expect.objectContaining({
+                type: 'SHOP',
+                id: 's1',
+                restorable: false,
+                reason: 'trash.error.parentDeleted',
+            })
+        );
+    });
+
+    it('restoring a shop whose merchant account is deleted is 409 parentDeleted, nothing written', async () => {
+        db.shop.findUnique.mockResolvedValue({
+            id: 's1',
+            name: 'Cafe',
+            nameAr: 'مقهى',
+            deletedAt,
+            deletedBy: owner,
+            merchant: deadMerchant,
+        });
+        await expect(service.restore('SHOP', 's1', superAdmin)).rejects.toThrow(
+            new ConflictException('trash.error.parentDeleted')
+        );
+        expect(db.shop.update).not.toHaveBeenCalled();
         expect(audit.record).not.toHaveBeenCalled();
     });
 
@@ -277,6 +312,7 @@ describe('TrashService.restore', () => {
             nameAr: 'مقهى',
             deletedAt,
             deletedBy: owner,
+            merchant: liveMerchant,
         });
         const result = await service.restore('SHOP', 's1', superAdmin);
         expect(db.shop.update).toHaveBeenCalledWith({
