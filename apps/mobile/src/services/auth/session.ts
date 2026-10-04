@@ -22,6 +22,7 @@ const ROLE_HOME_ROUTE: Record<AuthUser["role"], string> = {
   RESIDENT: DEFAULT_HOME_ROUTE,
   MERCHANT: "/(merchant)/dashboard",
   ADMIN: "/(admin)",
+  SUPER_ADMIN: "/(admin)",
 };
 
 /**

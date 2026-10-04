@@ -6,7 +6,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  role: "RESIDENT" | "MERCHANT" | "ADMIN";
+  role: "RESIDENT" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
   isVerified: boolean;
   avatarUrl: string | null;
   unitNumber?: string;

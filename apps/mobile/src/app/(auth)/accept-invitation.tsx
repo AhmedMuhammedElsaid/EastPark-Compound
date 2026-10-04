@@ -15,6 +15,7 @@ import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { newPasswordSchema } from "@/lib/auth/password";
+import { isAdminRole } from "@/lib/roles";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { authApi } from "@/services/api/auth";
 import { completeLogin } from "@/services/auth/session";
@@ -97,7 +98,7 @@ export default function AcceptInvitationScreen() {
       {confirmedRole != null && (
         <View style={styles.roleBadgeRow}>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{confirmedRole === "ADMIN" ? t("auth.role_admin") : t("auth.role_merchant")}</Text>
+            <Text style={styles.roleBadgeText}>{isAdminRole(confirmedRole) ? t("auth.role_admin") : t("auth.role_merchant")}</Text>
           </View>
         </View>
       )}
