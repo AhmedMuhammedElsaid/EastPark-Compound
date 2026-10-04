@@ -23,6 +23,7 @@ enum Role {
   RESIDENT
   MERCHANT
   ADMIN
+  SUPER_ADMIN
 }
 
 enum ShopCategory {
