@@ -354,6 +354,7 @@
     "reasons": {
       "not_restorable": "This account was anonymised before the recycle bin existed and can't be restored.",
       "parent_deleted": "Its shop is deleted. Restore the shop first.",
+      "owner_deleted": "The shop owner's account is deleted. Restore the account first.",
       "conflict": "This person already has a newer review for this shop.",
       "generic": "This item can't be restored."
     },

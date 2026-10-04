@@ -263,7 +263,7 @@ function TrashRow({
           {!item.restorable && (
             <p id={reasonId} className="mt-2 flex items-start gap-2 text-[length:var(--text-caption)] font-semibold text-foreground">
               <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-              <span>{t(`admin_trash.reasons.${trashReasonKey(item.reason)}`)}</span>
+              <span>{t(`admin_trash.reasons.${trashReasonKey(item.reason, item.type)}`)}</span>
             </p>
           )}
         </div>

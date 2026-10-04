@@ -60,10 +60,14 @@ const REASON_KEYS: Record<string, string> = {
   'trash.error.conflict': 'conflict',
 };
 
+type TrashReasonKey = 'not_restorable' | 'parent_deleted' | 'owner_deleted' | 'conflict' | 'generic';
+
 /**
  * Copy key under `admin_trash.reasons.*` for an item that can't be restored. Unknown keys and
- * backend prose (never rendered raw) fall back to the generic reason.
+ * backend prose (never rendered raw) fall back to the generic reason. A SHOP's parent is its
+ * merchant account, so `parentDeleted` on a shop reads as "the owner's account is deleted".
  */
-export function trashReasonKey(reason: string | null): 'not_restorable' | 'parent_deleted' | 'conflict' | 'generic' {
-  return (reason && (REASON_KEYS[reason.trim()] as 'not_restorable' | 'parent_deleted' | 'conflict' | undefined)) || 'generic';
+export function trashReasonKey(reason: string | null, type?: TrashType): TrashReasonKey {
+  const key = (reason && (REASON_KEYS[reason.trim()] as TrashReasonKey | undefined)) || 'generic';
+  return key === 'parent_deleted' && type === 'SHOP' ? 'owner_deleted' : key;
 }

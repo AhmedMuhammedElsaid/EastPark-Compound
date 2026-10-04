@@ -78,13 +78,19 @@ describe('trashReasonKey', () => {
     expect(trashReasonKey('trash.error.conflict')).toBe('conflict');
   });
 
+  it('reads parentDeleted on a shop as the owner account being deleted', () => {
+    expect(trashReasonKey('trash.error.parentDeleted', 'SHOP')).toBe('owner_deleted');
+    expect(trashReasonKey('trash.error.parentDeleted', 'PRODUCT')).toBe('parent_deleted');
+    expect(trashReasonKey('trash.error.conflict', 'SHOP')).toBe('conflict');
+  });
+
   it('falls back to generic for unknown keys, prose and null', () => {
     expect(trashReasonKey('trash.error.somethingNew')).toBe('generic');
     expect(trashReasonKey('The shop of this item is deleted.')).toBe('generic');
     expect(trashReasonKey(null)).toBe('generic');
   });
 
-  it.each(['not_restorable', 'parent_deleted', 'conflict', 'generic'])('has ar and en copy for %s', (key) => {
+  it.each(['not_restorable', 'parent_deleted', 'owner_deleted', 'conflict', 'generic'])('has ar and en copy for %s', (key) => {
     const path = `admin_trash.reasons.${key}`;
     expect(translate(en, path)).not.toBe(path);
     expect(translate(ar, path)).not.toBe(path);
