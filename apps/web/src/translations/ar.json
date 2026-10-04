@@ -337,7 +337,7 @@
     },
     "deleted": "حُذف",
     "deleted_by": "بواسطة",
-    "deleted_by_unknown": "حذفه حساب غير معروف",
+    "deleted_by_unknown": "بواسطة حساب غير معروف",
     "restore": "استعادة",
     "restore_for": "استعادة {{label}}",
     "restoring": "جارٍ الاستعادة…",

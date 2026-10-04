@@ -337,7 +337,7 @@
     },
     "deleted": "Deleted",
     "deleted_by": "by",
-    "deleted_by_unknown": "Deleted by an unknown account",
+    "deleted_by_unknown": "by an unknown account",
     "restore": "Restore",
     "restore_for": "Restore {{label}}",
     "restoring": "Restoring…",
