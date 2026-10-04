@@ -370,7 +370,7 @@
     "dark": "Dark",
     "delete_account": "Delete account",
     "delete_account_button": "Delete account",
-    "delete_account_confirm": "This will permanently delete your account and all data. This cannot be undone.",
+    "delete_account_confirm": "Your account will be deleted and hidden, and you will be signed out. The compound administration can restore it if you contact them.",
     "delete_account_error": "Could not delete account. Please try again.",
     "edit": "Edit profile",
     "english": "English",
