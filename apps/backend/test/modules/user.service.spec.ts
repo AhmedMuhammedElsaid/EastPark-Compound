@@ -97,13 +97,18 @@ describe('UserService.deleteUser (soft delete)', () => {
         );
     });
 
-    it('revokes every session (plain bump, before the row changes)', async () => {
+    it('revokes every session: plain bump before the row changes and again after it', async () => {
         db.user.findUnique.mockResolvedValue(resident);
         await service.deleteUser('resident-1');
-        expect(sessions.bump).toHaveBeenCalledWith('resident-1');
-        expect(sessions.bump.mock.invocationCallOrder[0]).toBeLessThan(
-            db.user.update.mock.invocationCallOrder[0]
-        );
+        expect(sessions.bump).toHaveBeenCalledTimes(2);
+        expect(sessions.bump).toHaveBeenNthCalledWith(1, 'resident-1');
+        expect(sessions.bump).toHaveBeenNthCalledWith(2, 'resident-1');
+        const [before, after] = sessions.bump.mock.invocationCallOrder;
+        const update = db.user.update.mock.invocationCallOrder[0];
+        // The second bump closes the race with a login/refresh that read the
+        // row before deletedAt was set and minted a token after the first bump.
+        expect(before).toBeLessThan(update);
+        expect(after).toBeGreaterThan(update);
     });
 
     it('a session-store failure aborts before the account is marked deleted', async () => {

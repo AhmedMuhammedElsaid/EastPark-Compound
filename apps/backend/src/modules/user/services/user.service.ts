@@ -150,6 +150,11 @@ export class UserService {
             role: user.role,
         });
 
+        // Bump again now that deletedAt is set: a login or refresh that read
+        // the row before the update could have minted a token at the first
+        // bumped version after it; this second bump makes that token stale.
+        await this.sessions.bump(userId);
+
         return { success: true, message: 'User deleted' };
     }
 
