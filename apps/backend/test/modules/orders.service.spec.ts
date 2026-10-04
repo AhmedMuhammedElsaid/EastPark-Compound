@@ -9,6 +9,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrderStatus, PaymentMethod, Prisma, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 import { OrdersGateway } from 'src/modules/orders/orders.gateway';
 import {
@@ -83,6 +84,7 @@ describe('OrdersService', () => {
             providers: [
                 OrdersService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } },
                 { provide: OrdersGateway, useValue: gateway },
                 { provide: NotificationsService, useValue: notifications },
                 { provide: ConfigService, useValue: paymentsConfig() },
@@ -113,7 +115,8 @@ describe('OrdersService', () => {
                     db as never,
                     gateway as never,
                     notifications as never,
-                    paymentsConfig(values) as never
+                    paymentsConfig(values) as never,
+                    { record: jest.fn() } as never
                 );
 
             it('rejects PAYMOB with 409 paymentsDisabled before any DB work when payments are off', async () => {

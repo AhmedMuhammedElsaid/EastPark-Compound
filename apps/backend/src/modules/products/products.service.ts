@@ -9,6 +9,7 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { ProductCreateDto } from './dtos/request/product.create.dto';
 import { ProductQueryDto } from './dtos/request/product.query.dto';
@@ -25,7 +26,10 @@ export function toProductResponse(product: Product): ProductResponseDto {
 
 @Injectable()
 export class ProductsService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
     /**
      * The shop must exist for every role (an ADMIN creating a product in an
@@ -55,6 +59,9 @@ export class ProductsService {
 
         const product = await this.db.product.create({
             data: { ...dto, shopId, isDeleted: false },
+        });
+        await this.audit.record(actor, 'PRODUCT_CREATED', 'Product', product.id, {
+            label: product.name,
         });
         return toProductResponse(product);
     }
@@ -122,17 +129,23 @@ export class ProductsService {
             where: { id },
             data: dto,
         });
+        await this.audit.record(actor, 'PRODUCT_UPDATED', 'Product', id, {
+            label: product.name,
+        });
         return toProductResponse(product);
     }
 
     async remove(shopId: string, id: string, actor: IAuthUser): Promise<void> {
         await this.assertShopOwnership(shopId, actor);
-        await this.findOne(shopId, id);
+        const existing = await this.findOne(shopId, id);
 
         // Soft delete — preserves OrderItem FKs
         await this.db.product.update({
             where: { id },
             data: { isDeleted: true, isAvailable: false },
+        });
+        await this.audit.record(actor, 'PRODUCT_DELETED', 'Product', id, {
+            label: existing.name,
         });
     }
 }

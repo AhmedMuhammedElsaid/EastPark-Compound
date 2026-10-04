@@ -5,6 +5,7 @@ import {
 import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { ProductsService } from 'src/modules/products/products.service';
 import { ReviewsService } from 'src/modules/shops/reviews.service';
 import { SavedShopsService } from 'src/modules/shops/saved-shops.service';
@@ -12,6 +13,8 @@ import { SavedShopsService } from 'src/modules/shops/saved-shops.service';
 const fkViolation = { code: 'P2003' };
 const admin = { userId: 'admin-1', role: Role.ADMIN };
 const merchant = { userId: 'merchant-1', role: Role.MERCHANT };
+
+const audit = { record: jest.fn() } as unknown as AuditService;
 
 describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     const db = {
@@ -41,7 +44,7 @@ describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     it('admin creating a product in a missing shop', async () => {
         db.shop.findUnique.mockResolvedValue(null);
         await expect(
-            new ProductsService(asDb).create(
+            new ProductsService(asDb, audit).create(
                 'nope',
                 { name: 'x', nameAr: 'x', price: 1 },
                 admin
@@ -53,7 +56,7 @@ describe('unknown shop ids return 404 instead of a foreign-key 500', () => {
     it('merchant creating a product in someone else’s shop', async () => {
         db.shop.findUnique.mockResolvedValue({ merchantId: 'other' });
         await expect(
-            new ProductsService(asDb).create(
+            new ProductsService(asDb, audit).create(
                 'shop-1',
                 { name: 'x', nameAr: 'x', price: 1 },
                 merchant

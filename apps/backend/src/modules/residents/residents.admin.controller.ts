@@ -67,7 +67,10 @@ export class ResidentsAdminController {
     @AllowedRoles([Role.ADMIN])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Reject a resident lead [ADMIN]' })
-    reject(@Param('id') id: string): Promise<{ message: string }> {
-        return this.residentsService.reject(id);
+    reject(
+        @Param('id') id: string,
+        @AuthUser() actor: IAuthUser,
+    ): Promise<{ message: string }> {
+        return this.residentsService.reject(id, actor);
     }
 }

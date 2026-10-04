@@ -12,6 +12,7 @@ import {
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { PollCreateDto } from '../dtos/request/poll.create.dto';
 import { PollVoteDto } from '../dtos/request/poll.vote.dto';
@@ -23,9 +24,12 @@ import {
 
 @Injectable()
 export class PollsService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
-    async create(dto: PollCreateDto): Promise<PollResponseDto> {
+    async create(dto: PollCreateDto, actor?: IAuthUser): Promise<PollResponseDto> {
         const poll = await this.db.poll.create({
             data: {
                 question: dto.question,
@@ -34,6 +38,10 @@ export class PollsService {
                 options: { create: dto.options },
             },
             include: { options: true },
+        });
+
+        await this.audit.record(actor, 'POLL_CREATED', 'Poll', poll.id, {
+            label: poll.question,
         });
 
         return { ...poll, options: poll.options };

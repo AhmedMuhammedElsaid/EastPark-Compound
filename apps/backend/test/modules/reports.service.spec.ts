@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { ReportsService } from 'src/modules/reports/reports.service';
 
 const db = {
@@ -19,6 +20,7 @@ describe('ReportsService', () => {
             providers: [
                 ReportsService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } },
             ],
         }).compile();
 

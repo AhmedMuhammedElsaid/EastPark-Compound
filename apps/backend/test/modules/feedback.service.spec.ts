@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { FeedbackService } from 'src/modules/feedback/feedback.service';
 
 const row = {
@@ -40,6 +41,7 @@ describe('FeedbackService anonymous masking', () => {
             providers: [
                 FeedbackService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } },
                 { provide: ConfigService, useValue: config },
             ],
         }).compile();
@@ -73,6 +75,7 @@ describe('FeedbackService.create attachment URLs', () => {
             providers: [
                 FeedbackService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } },
                 { provide: ConfigService, useValue: config },
             ],
         }).compile();

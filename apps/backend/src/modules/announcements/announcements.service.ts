@@ -4,6 +4,7 @@ import { isAdminRole } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { AnnouncementCreateDto } from './dtos/request/announcement.create.dto';
 import { AnnouncementQueryDto } from './dtos/request/announcement.query.dto';
@@ -20,15 +21,29 @@ export const ANNOUNCEMENT_COMMENTS_LIMIT = 100;
 
 @Injectable()
 export class AnnouncementsService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
-    async create(dto: AnnouncementCreateDto): Promise<AnnouncementResponseDto> {
-        return this.db.announcement.create({
+    async create(
+        dto: AnnouncementCreateDto,
+        actor?: IAuthUser
+    ): Promise<AnnouncementResponseDto> {
+        const announcement = await this.db.announcement.create({
             data: {
                 ...dto,
                 publishedAt: dto.publishedAt ?? new Date(),
             },
         });
+        await this.audit.record(
+            actor,
+            'ANNOUNCEMENT_CREATED',
+            'Announcement',
+            announcement.id,
+            { label: announcement.title }
+        );
+        return announcement;
     }
 
     async findAll(
@@ -109,7 +124,7 @@ export class AnnouncementsService {
         if (!announcement)
             throw new NotFoundException('announcement.error.notFound');
 
-        return this.db.comment.create({
+        const comment = await this.db.comment.create({
             data: { body: dto.body, userId: actor.userId, announcementId: id },
             select: {
                 id: true,
@@ -118,6 +133,14 @@ export class AnnouncementsService {
                 createdAt: true,
                 user: { select: { id: true, name: true } },
             },
-        }) as Promise<CommentResponseDto>;
+        });
+        await this.audit.record(
+            actor,
+            'COMMENT_CREATED',
+            'Comment',
+            comment.id,
+            { label: announcement.title }
+        );
+        return comment as CommentResponseDto;
     }
 }

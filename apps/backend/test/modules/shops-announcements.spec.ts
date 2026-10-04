@@ -5,6 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import {
     ANNOUNCEMENT_COMMENTS_LIMIT,
     AnnouncementsService,
@@ -24,7 +25,8 @@ const db = {
 
 async function build<T>(token: new (...a: any[]) => T): Promise<T> {
     const m = await Test.createTestingModule({
-        providers: [token, { provide: DatabaseService, useValue: db }],
+        providers: [token, { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } }],
     }).compile();
     return m.get(token);
 }

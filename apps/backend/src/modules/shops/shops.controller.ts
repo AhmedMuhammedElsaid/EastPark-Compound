@@ -55,8 +55,11 @@ export class ShopsController {
     @AllowedRoles([Role.ADMIN])
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Create shop [ADMIN]' })
-    create(@Body() dto: ShopCreateDto): Promise<ShopResponseDto> {
-        return this.shopsService.create(dto);
+    create(
+        @Body() dto: ShopCreateDto,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ShopResponseDto> {
+        return this.shopsService.create(dto, actor);
     }
 
     @Delete(':id')
@@ -64,8 +67,11 @@ export class ShopsController {
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Delete shop [ADMIN]' })
-    remove(@Param('id') id: string): Promise<void> {
-        return this.shopsService.remove(id);
+    remove(
+        @Param('id') id: string,
+        @AuthUser() actor: IAuthUser
+    ): Promise<void> {
+        return this.shopsService.remove(id, actor);
     }
 
     // ── Merchant + Admin ──────────────────────────────────────────────────────

@@ -87,8 +87,9 @@ export class FeedbackController {
     @ApiOperation({ summary: 'Update feedback status [ADMIN]' })
     updateStatus(
         @Param('id') id: string,
-        @Body() dto: FeedbackUpdateStatusDto
+        @Body() dto: FeedbackUpdateStatusDto,
+        @AuthUser() actor: IAuthUser
     ): Promise<FeedbackResponseDto> {
-        return this.feedbackService.updateStatus(id, dto);
+        return this.feedbackService.updateStatus(id, dto, actor);
     }
 }

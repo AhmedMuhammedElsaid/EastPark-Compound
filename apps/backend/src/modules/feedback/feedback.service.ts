@@ -10,6 +10,7 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { assertStoragePublicUrls } from 'src/common/file/storage-url';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { FeedbackCreateDto } from './dtos/request/feedback.create.dto';
 import { FeedbackQueryDto } from './dtos/request/feedback.query.dto';
@@ -22,11 +23,19 @@ import {
     FeedbackResponseDto,
 } from './dtos/response/feedback.response.dto';
 
+/** Activity-log label: category plus the start of the body (feedback has no title). */
+function feedbackLabel(feedback: { category: string; body: string }): string {
+    const text = feedback.body.replace(/\s+/g, ' ').trim();
+    const excerpt = text.length > 60 ? `${text.slice(0, 60)}…` : text;
+    return `${feedback.category}: ${excerpt}`;
+}
+
 @Injectable()
 export class FeedbackService {
     constructor(
         private readonly db: DatabaseService,
-        private readonly config: ConfigService
+        private readonly config: ConfigService,
+        private readonly audit: AuditService
     ) {}
 
     private maskAnonymous(
@@ -123,22 +132,41 @@ export class FeedbackService {
         const feedback = await this.db.feedback.findUnique({ where: { id } });
         if (!feedback) throw new NotFoundException('feedback.error.notFound');
 
-        return this.db.feedbackReply.create({
+        const reply = await this.db.feedbackReply.create({
             data: { body: dto.body, feedbackId: id, authorId: actor.userId },
             select: { id: true, body: true, authorId: true, createdAt: true },
         });
+
+        await this.audit.record(actor, 'FEEDBACK_REPLIED', 'Feedback', id, {
+            label: feedbackLabel(feedback),
+        });
+
+        return reply;
     }
 
     async updateStatus(
         id: string,
-        dto: FeedbackUpdateStatusDto
+        dto: FeedbackUpdateStatusDto,
+        actor?: IAuthUser
     ): Promise<FeedbackResponseDto> {
         const feedback = await this.db.feedback.findUnique({ where: { id } });
         if (!feedback) throw new NotFoundException('feedback.error.notFound');
 
-        return this.db.feedback.update({
+        const updated = await this.db.feedback.update({
             where: { id },
             data: { status: dto.status },
         });
+
+        if (feedback.status !== updated.status) {
+            await this.audit.record(
+                actor,
+                'FEEDBACK_STATUS_CHANGED',
+                'Feedback',
+                id,
+                { label: feedbackLabel(feedback), status: updated.status }
+            );
+        }
+
+        return updated;
     }
 }

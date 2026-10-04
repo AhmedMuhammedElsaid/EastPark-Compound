@@ -3,7 +3,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { ResidentLeadStatus, Role } from '@prisma/client';
+import { ResidentLead, ResidentLeadStatus, Role } from '@prisma/client';
 
 import {
     isPrismaError,
@@ -12,6 +12,7 @@ import {
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
 
 import { ResidentLeadCreateDto } from './dtos/request/resident-lead.create.dto';
@@ -44,7 +45,8 @@ function isSameSubmission(
 export class ResidentsService {
     constructor(
         private readonly db: DatabaseService,
-        private readonly invitationsService: InvitationsService
+        private readonly invitationsService: InvitationsService,
+        private readonly audit: AuditService
     ) {}
 
     async create(dto: ResidentLeadCreateDto): Promise<ResidentLeadResponseDto> {
@@ -180,17 +182,22 @@ export class ResidentsService {
                 userId: existingUser.id,
                 status: ResidentLeadStatus.CONVERTED,
             });
+            await this.recordLead(actor, 'LEAD_APPROVED', lead);
             return { message: 'residentLead.success.alreadyRegistered' };
         }
 
+        // One approve click = one LEAD_APPROVED entry (no INVITATION_SENT).
         await this.invitationsService.create(
             { email: lead.email, role: Role.RESIDENT },
-            actor
+            actor,
+            { audit: false }
         );
 
         await this.updateLeadStatus(lead.id, {
             status: ResidentLeadStatus.INVITED,
         });
+
+        await this.recordLead(actor, 'LEAD_APPROVED', lead);
 
         return { message: 'residentLead.success.invited' };
     }
@@ -215,7 +222,7 @@ export class ResidentsService {
      * invitation, so the emailed link can no longer create the account.
      * Rejecting frees the unit for a new submission (partial unique index).
      */
-    async reject(id: string): Promise<{ message: string }> {
+    async reject(id: string, actor?: IAuthUser): Promise<{ message: string }> {
         const lead = await this.db.residentLead.findUnique({ where: { id } });
         if (!lead) throw new NotFoundException('residentLead.error.notFound');
         if (lead.status === ResidentLeadStatus.CONVERTED)
@@ -253,6 +260,23 @@ export class ResidentsService {
             });
         });
 
+        await this.recordLead(actor, 'LEAD_REJECTED', lead);
+
         return { message: 'residentLead.success.rejected' };
+    }
+
+    /** Label is name + unit and the email only: never national id, passport or phone. */
+    private recordLead(
+        actor: IAuthUser | undefined,
+        action: 'LEAD_APPROVED' | 'LEAD_REJECTED',
+        lead: Pick<
+            ResidentLead,
+            'id' | 'name' | 'email' | 'building' | 'floor' | 'flatNumber'
+        >
+    ): Promise<void> {
+        return this.audit.record(actor, action, 'ResidentLead', lead.id, {
+            label: `${lead.name} — ${lead.building}/${lead.floor}/${lead.flatNumber}`,
+            email: lead.email,
+        });
     }
 }

@@ -57,8 +57,11 @@ export class ElectionsController {
     @AllowedRoles([Role.ADMIN])
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Create election [ADMIN]' })
-    create(@Body() dto: ElectionCreateDto): Promise<ElectionResponseDto> {
-        return this.electionsService.create(dto);
+    create(
+        @Body() dto: ElectionCreateDto,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ElectionResponseDto> {
+        return this.electionsService.create(dto, actor);
     }
 
     @Post(':id/candidates')
@@ -68,9 +71,10 @@ export class ElectionsController {
     @ApiOperation({ summary: 'Add candidate to election [ADMIN]' })
     addCandidate(
         @Param('id') id: string,
-        @Body() dto: CandidateCreateDto
+        @Body() dto: CandidateCreateDto,
+        @AuthUser() actor: IAuthUser
     ): Promise<CandidateResponseDto> {
-        return this.electionsService.addCandidate(id, dto);
+        return this.electionsService.addCandidate(id, dto, actor);
     }
 
     @Patch(':id/results-open')

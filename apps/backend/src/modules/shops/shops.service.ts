@@ -9,6 +9,7 @@ import { Prisma, Role } from '@prisma/client';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { ShopCreateDto } from './dtos/request/shop.create.dto';
 import { ShopQueryDto } from './dtos/request/shop.query.dto';
@@ -27,9 +28,12 @@ function toJson(value: object | undefined): Prisma.InputJsonValue | undefined {
 
 @Injectable()
 export class ShopsService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
-    async create(dto: ShopCreateDto): Promise<ShopResponseDto> {
+    async create(dto: ShopCreateDto, actor?: IAuthUser): Promise<ShopResponseDto> {
         const shop = await this.db.shop.create({
             data: {
                 name: dto.name,
@@ -47,6 +51,9 @@ export class ShopsService {
                 photos: { orderBy: { order: 'asc' } },
                 _count: { select: { reviews: true } },
             },
+        });
+        await this.audit.record(actor, 'SHOP_CREATED', 'Shop', shop.id, {
+            label: shop.name,
         });
         return {
             ...shop,
@@ -176,6 +183,9 @@ export class ShopsService {
                 _avg: { rating: true },
             }),
         ]);
+        await this.audit.record(actor, 'SHOP_UPDATED', 'Shop', id, {
+            label: updated.name,
+        });
         return {
             ...updated,
             photos: updated.photos.map((photo, i) => ({ ...photo, isPrimary: i === 0 })),
@@ -184,10 +194,10 @@ export class ShopsService {
         };
     }
 
-    async remove(id: string): Promise<void> {
+    async remove(id: string, actor?: IAuthUser): Promise<void> {
         const shop = await this.db.shop.findUnique({
             where: { id },
-            select: { id: true },
+            select: { id: true, name: true },
         });
         if (!shop) throw new NotFoundException('shop.error.notFound');
 
@@ -207,6 +217,10 @@ export class ShopsService {
             this.db.review.deleteMany({ where: { shopId: id } }),
             this.db.shop.delete({ where: { id } }),
         ]);
+
+        await this.audit.record(actor, 'SHOP_DELETED', 'Shop', id, {
+            label: shop.name,
+        });
     }
 
     async addPhoto(
@@ -217,7 +231,7 @@ export class ShopsService {
     ): Promise<ShopResponseDto> {
         const shop = await this.db.shop.findUnique({
             where: { id: shopId },
-            select: { merchantId: true },
+            select: { merchantId: true, name: true },
         });
         if (!shop) throw new NotFoundException('shop.error.notFound');
         if (actor.role === Role.MERCHANT && shop.merchantId !== actor.userId) {
@@ -225,6 +239,9 @@ export class ShopsService {
         }
 
         await this.db.shopPhoto.create({ data: { shopId, url, order } });
+        await this.audit.record(actor, 'SHOP_PHOTO_ADDED', 'Shop', shopId, {
+            label: shop.name,
+        });
 
         return this.findOne(shopId);
     }
@@ -232,7 +249,7 @@ export class ShopsService {
     async removePhoto(shopId: string, photoId: string, actor: IAuthUser): Promise<void> {
         const photo = await this.db.shopPhoto.findUnique({
             where: { id: photoId },
-            include: { shop: { select: { merchantId: true } } },
+            include: { shop: { select: { merchantId: true, name: true } } },
         });
         if (!photo || photo.shopId !== shopId) {
             throw new NotFoundException('shop.error.photoNotFound');
@@ -241,5 +258,8 @@ export class ShopsService {
             throw new ForbiddenException('shop.error.forbidden');
         }
         await this.db.shopPhoto.delete({ where: { id: photoId } });
+        await this.audit.record(actor, 'SHOP_PHOTO_DELETED', 'Shop', shopId, {
+            label: photo.shop.name,
+        });
     }
 }

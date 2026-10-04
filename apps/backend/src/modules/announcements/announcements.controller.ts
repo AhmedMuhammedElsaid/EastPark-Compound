@@ -56,9 +56,10 @@ export class AnnouncementsController {
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Create announcement [ADMIN]' })
     create(
-        @Body() dto: AnnouncementCreateDto
+        @Body() dto: AnnouncementCreateDto,
+        @AuthUser() actor: IAuthUser
     ): Promise<AnnouncementResponseDto> {
-        return this.announcementsService.create(dto);
+        return this.announcementsService.create(dto, actor);
     }
 
     @Post(':id/comments')

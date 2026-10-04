@@ -15,6 +15,7 @@ import {
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { CandidateCreateDto } from '../dtos/request/candidate.create.dto';
 import { ElectionCreateDto } from '../dtos/request/election.create.dto';
@@ -30,7 +31,10 @@ import {
 export class ElectionsService {
     private readonly logger = new Logger(ElectionsService.name);
 
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
     /** Auto-open results every 5 minutes when expiresAt has passed */
     @Cron('*/5 * * * *')
@@ -51,7 +55,10 @@ export class ElectionsService {
         }
     }
 
-    async create(dto: ElectionCreateDto): Promise<ElectionResponseDto> {
+    async create(
+        dto: ElectionCreateDto,
+        actor?: IAuthUser
+    ): Promise<ElectionResponseDto> {
         const election = await this.db.election.create({
             data: {
                 title: dto.title,
@@ -64,21 +71,36 @@ export class ElectionsService {
             include: { candidates: true },
         });
 
+        await this.audit.record(actor, 'ELECTION_CREATED', 'Election', election.id, {
+            label: election.title,
+        });
+
         return this.buildElectionDto(election, null);
     }
 
     async addCandidate(
         electionId: string,
-        dto: CandidateCreateDto
+        dto: CandidateCreateDto,
+        actor?: IAuthUser
     ): Promise<CandidateResponseDto> {
         const election = await this.db.election.findUnique({
             where: { id: electionId },
         });
         if (!election) throw new NotFoundException('election.error.notFound');
 
-        return this.db.candidate.create({
+        const candidate = await this.db.candidate.create({
             data: { ...dto, electionId },
         });
+
+        await this.audit.record(
+            actor,
+            'ELECTION_CANDIDATE_ADDED',
+            'Election',
+            electionId,
+            { label: `${candidate.name} — ${election.title}` }
+        );
+
+        return candidate;
     }
 
     private buildElectionDto(
@@ -135,13 +157,9 @@ export class ElectionsService {
             },
         });
 
-        await this.db.auditLog.create({
-            data: {
-                userId: actor.userId,
-                action: 'OPEN_ELECTION_RESULTS',
-                entity: 'Election',
-                entityId: id,
-            },
+        // Historical rows keep the old 'OPEN_ELECTION_RESULTS' action name.
+        await this.audit.record(actor, 'ELECTION_RESULTS_OPENED', 'Election', id, {
+            label: election.title,
         });
 
         return this.buildElectionDto(election, null);

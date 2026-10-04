@@ -5,6 +5,7 @@ import { validate } from 'class-validator';
 import { MaritalStatus, ResidentLeadStatus, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
 import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
 import { ResidentsService } from 'src/modules/residents/residents.service';
@@ -74,6 +75,8 @@ const invitationsService = {
     create: jest.fn(),
 };
 
+const audit = { record: jest.fn() };
+
 // ─── Test suite ───────────────────────────────────────────────────────────────
 
 describe('ResidentsService', () => {
@@ -86,6 +89,7 @@ describe('ResidentsService', () => {
             providers: [
                 ResidentsService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: audit },
                 { provide: InvitationsService, useValue: invitationsService },
             ],
         }).compile();
@@ -296,14 +300,27 @@ describe('ResidentsService', () => {
 
             await service.invite('lead-1', adminActor);
 
+            // The lead approval is the audited action, not the invitation.
             expect(invitationsService.create).toHaveBeenCalledWith(
                 { email: lead.email, role: Role.RESIDENT },
-                adminActor
+                adminActor,
+                { audit: false }
             );
             expect(db.residentLead.update).toHaveBeenCalledWith({
                 where: { id: 'lead-1' },
                 data: { status: ResidentLeadStatus.INVITED },
             });
+            expect(audit.record).toHaveBeenCalledTimes(1);
+            expect(audit.record).toHaveBeenCalledWith(
+                adminActor,
+                'LEAD_APPROVED',
+                'ResidentLead',
+                'lead-1',
+                {
+                    label: 'Jane Doe — Building A/3/2',
+                    email: 'jane@example.com',
+                }
+            );
         });
 
         it('marks the lead invited after the invitation service resends an active invitation', async () => {
@@ -369,6 +386,25 @@ describe('ResidentsService', () => {
             const result = await service.reject('lead-1');
             expect(result.message).toBe('residentLead.success.rejected');
             expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('audits LEAD_REJECTED with name, unit and email only (no id, passport or phone)', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            await service.reject('lead-1', adminActor);
+            expect(audit.record).toHaveBeenCalledWith(
+                adminActor,
+                'LEAD_REJECTED',
+                'ResidentLead',
+                'lead-1',
+                {
+                    label: 'Jane Doe — Building A/3/2',
+                    email: 'jane@example.com',
+                }
+            );
+            const meta = JSON.stringify(audit.record.mock.calls[0][4]);
+            expect(meta).not.toContain('29801011234567');
+            expect(meta).not.toContain('A12345678');
+            expect(meta).not.toContain('01000400163');
         });
 
         it('rejects a PENDING lead without touching invitations', async () => {

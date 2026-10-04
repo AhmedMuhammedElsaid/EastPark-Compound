@@ -54,8 +54,11 @@ export class PollsController {
     @AllowedRoles([Role.ADMIN])
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Create poll with options [ADMIN]' })
-    create(@Body() dto: PollCreateDto): Promise<PollResponseDto> {
-        return this.pollsService.create(dto);
+    create(
+        @Body() dto: PollCreateDto,
+        @AuthUser() actor: IAuthUser
+    ): Promise<PollResponseDto> {
+        return this.pollsService.create(dto, actor);
     }
 
     @Post(':id/vote')

@@ -23,6 +23,7 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 
 import { OrderCreateDto } from './dtos/request/order.create.dto';
@@ -134,7 +135,8 @@ export class OrdersService {
         private readonly db: DatabaseService,
         private readonly gateway: OrdersGateway,
         private readonly notifications: NotificationsService,
-        config: ConfigService
+        config: ConfigService,
+        private readonly audit: AuditService
     ) {
         this.paymentsEnabled =
             config.get<boolean>('paymob.enabled') === true &&
@@ -328,6 +330,11 @@ export class OrdersService {
                 { orderId: id, status: dto.status }
             )
             .catch(() => undefined); // fire-and-forget — never block status update
+
+        await this.audit.record(actor, 'ORDER_STATUS_CHANGED', 'Order', id, {
+            label: `Order #${id.slice(-6).toUpperCase()}`,
+            status: dto.status,
+        });
 
         return toOrderResponse(updated);
     }

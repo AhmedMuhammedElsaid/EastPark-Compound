@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma, Role } from '@prisma/client';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { ElectionsService } from 'src/modules/governance/services/elections.service';
 
 const actor = { userId: 'u1', role: Role.RESIDENT };
@@ -26,6 +27,7 @@ const db = {
     electionVote: { findUnique: jest.fn(), create: jest.fn() },
     auditLog: { create: jest.fn() },
 };
+const audit = { record: jest.fn() };
 
 describe('ElectionsService', () => {
     let svc: ElectionsService;
@@ -35,6 +37,7 @@ describe('ElectionsService', () => {
             providers: [
                 ElectionsService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: audit },
             ],
         }).compile();
         svc = m.get(ElectionsService);
@@ -71,7 +74,15 @@ describe('ElectionsService', () => {
         expect(db.election.update).toHaveBeenCalledWith(
             expect.objectContaining({ data: { resultsOpen: true } })
         );
-        expect(db.auditLog.create).toHaveBeenCalled();
+        // Recorded through AuditService (after the update), not a raw write.
+        expect(db.auditLog.create).not.toHaveBeenCalled();
+        expect(audit.record).toHaveBeenCalledWith(
+            admin,
+            'ELECTION_RESULTS_OPENED',
+            'Election',
+            'e1',
+            { label: 't' }
+        );
     });
 
     it('maps vote P2002 to 409', async () => {

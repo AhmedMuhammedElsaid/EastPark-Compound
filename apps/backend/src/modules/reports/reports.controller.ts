@@ -4,6 +4,8 @@ import { Role } from '@prisma/client';
 
 import { PublicRoute } from 'src/common/request/decorators/request.public.decorator';
 import { AllowedRoles } from 'src/common/request/decorators/request.role.decorator';
+import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
+import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { ReportCreateDto } from './dtos/request/report.create.dto';
 import { ReportQueryDto } from './dtos/request/report.query.dto';
@@ -36,7 +38,10 @@ export class ReportsController {
     @AllowedRoles([Role.ADMIN])
     @ApiBearerAuth('accessToken')
     @ApiOperation({ summary: 'Create report [ADMIN]' })
-    create(@Body() dto: ReportCreateDto): Promise<ReportResponseDto> {
-        return this.reportsService.create(dto);
+    create(
+        @Body() dto: ReportCreateDto,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ReportResponseDto> {
+        return this.reportsService.create(dto, actor);
     }
 }

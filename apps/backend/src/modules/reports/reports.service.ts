@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
+import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 import { ReportCreateDto } from './dtos/request/report.create.dto';
 import { ReportQueryDto } from './dtos/request/report.query.dto';
@@ -12,15 +14,25 @@ import {
 
 @Injectable()
 export class ReportsService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly audit: AuditService
+    ) {}
 
-    async create(dto: ReportCreateDto): Promise<ReportResponseDto> {
-        return this.db.report.create({
+    async create(
+        dto: ReportCreateDto,
+        actor?: IAuthUser
+    ): Promise<ReportResponseDto> {
+        const report = await this.db.report.create({
             data: {
                 ...dto,
                 publishedAt: dto.publishedAt ?? new Date(),
             },
         });
+        await this.audit.record(actor, 'REPORT_CREATED', 'Report', report.id, {
+            label: report.title,
+        });
+        return report;
     }
 
     async findAll(query: ReportQueryDto): Promise<ReportListResponseDto> {

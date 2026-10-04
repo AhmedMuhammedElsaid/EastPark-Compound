@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { PollsService } from 'src/modules/governance/services/polls.service';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ describe('PollsService', () => {
             providers: [
                 PollsService,
                 { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } },
             ],
         }).compile();
 
@@ -204,7 +206,8 @@ describe('PollsService vote race', () => {
     it('maps P2002 to ConflictException', async () => {
         const { Prisma } = await import('@prisma/client');
         const m = await Test.createTestingModule({
-            providers: [PollsService, { provide: DatabaseService, useValue: db }],
+            providers: [PollsService, { provide: DatabaseService, useValue: db },
+                { provide: AuditService, useValue: { record: jest.fn() } }],
         }).compile();
         const svc = m.get(PollsService);
         db.poll.findUnique.mockResolvedValue({
