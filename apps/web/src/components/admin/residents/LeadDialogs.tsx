@@ -13,7 +13,7 @@ import { LeadStatusBadge } from './LeadStatusBadge';
  * Drives a native modal <dialog>: top layer, focus containment, Esc to close and inert background
  * come from the platform. Focus returns to the element that opened it.
  */
-function useModalDialog(open: boolean, onClose: () => void) {
+export function useModalDialog(open: boolean, onClose: () => void) {
   const ref = React.useRef<HTMLDialogElement>(null);
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const closeRef = React.useRef(onClose);
@@ -56,7 +56,7 @@ function useModalDialog(open: boolean, onClose: () => void) {
   return ref;
 }
 
-const BACKDROP = 'backdrop:bg-[rgb(13_12_11/0.72)] backdrop:backdrop-blur-[2px]';
+export const BACKDROP = 'backdrop:bg-[rgb(13_12_11/0.72)] backdrop:backdrop-blur-[2px]';
 
 export type ConfirmRequest = { lead: ResidentLead; action: LeadAction };
 
