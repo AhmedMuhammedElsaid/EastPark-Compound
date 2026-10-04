@@ -309,6 +309,52 @@
       "ORDER_STATUS_CHANGED": "updated the status of order"
     }
   },
+  "admin_trash": {
+    "nav_label": "Recycle bin",
+    "title": "Recycle bin",
+    "intro": "Deleted items stay here, hidden from everyone, until you restore them.",
+    "refresh": "Refresh",
+    "type_label": "Show deleted",
+    "types": {
+      "USER": "Users",
+      "SHOP": "Shops",
+      "SHOP_PHOTO": "Shop photos",
+      "PRODUCT": "Products",
+      "REVIEW": "Reviews"
+    },
+    "empty": {
+      "USER": "No deleted accounts.",
+      "SHOP": "No deleted shops.",
+      "SHOP_PHOTO": "No deleted shop photos.",
+      "PRODUCT": "No deleted products.",
+      "REVIEW": "No deleted reviews."
+    },
+    "deleted": "Deleted",
+    "deleted_by": "by",
+    "deleted_by_unknown": "Deleted by an unknown account",
+    "restore": "Restore",
+    "restore_for": "Restore {{label}}",
+    "restoring": "Restoring…",
+    "restore_title": "Restore {{label}}?",
+    "restore_body": {
+      "USER": "The account becomes active again and the person can sign in with their existing password. They were signed out when it was deleted.",
+      "SHOP": "The shop shows in the directory again with its photos, products and reviews.",
+      "SHOP_PHOTO": "The photo shows in the shop's gallery again.",
+      "PRODUCT": "The product shows on the shop's menu again.",
+      "REVIEW": "The review shows on the shop again and counts toward its rating."
+    },
+    "restore_confirm": "Restore",
+    "restore_success": "{{label}} was restored.",
+    "reasons": {
+      "not_restorable": "This account was anonymised before the recycle bin existed and can't be restored.",
+      "parent_deleted": "Its shop is deleted. Restore the shop first.",
+      "conflict": "This person already has a newer review for this shop.",
+      "generic": "This item can't be restored."
+    },
+    "load_more": "Load more",
+    "load_error": "We couldn't load the recycle bin.",
+    "retry": "Try again"
+  },
   "admin_ops": {
     "complaints_title": "Complaints and follow-up",
     "complaints_body": "Triage resident complaints, update progress, and send an official reply.",
