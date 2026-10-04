@@ -35,6 +35,13 @@ export const AUDIT_ACTIONS = [
     'PRODUCT_UPDATED',
     'PRODUCT_DELETED',
     'ORDER_STATUS_CHANGED',
+    'REVIEW_DELETED',
+    // Recycle bin (SUPER_ADMIN restores a soft-deleted record)
+    'USER_RESTORED',
+    'SHOP_RESTORED',
+    'SHOP_PHOTO_RESTORED',
+    'PRODUCT_RESTORED',
+    'REVIEW_RESTORED',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -50,7 +57,9 @@ export type AuditEntity =
     | 'Report'
     | 'Feedback'
     | 'Shop'
+    | 'ShopPhoto'
     | 'Product'
+    | 'Review'
     | 'Order';
 
 /**

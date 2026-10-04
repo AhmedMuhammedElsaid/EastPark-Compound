@@ -1,0 +1,7 @@
+{
+    "error": {
+        "notFound": "Nothing to restore: the record does not exist or is not deleted.",
+        "parentDeleted": "Restore its shop first.",
+        "conflict": "A live record already exists, so this one cannot be restored."
+    }
+}

@@ -17,6 +17,7 @@ import { ReportsModule } from 'src/modules/reports/reports.module';
 import { ResidentsModule } from 'src/modules/residents/residents.module';
 import { ShopsModule } from 'src/modules/shops/shops.module';
 import { SupportModule } from 'src/modules/support/support.module';
+import { TrashModule } from 'src/modules/trash/trash.module';
 import { UploadsModule } from 'src/modules/uploads/uploads.module';
 import { UserModule } from 'src/modules/user/user.module';
 
@@ -63,6 +64,9 @@ import { RootController } from './controllers/root.controller';
         InvitationsModule,
         ResidentsModule,
         SupportModule,
+
+        // Recycle bin: list + restore soft-deleted records [SUPER_ADMIN]
+        TrashModule,
     ],
     controllers: [RootController, HealthController],
 })
