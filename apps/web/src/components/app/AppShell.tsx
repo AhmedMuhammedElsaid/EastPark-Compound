@@ -12,6 +12,7 @@ import { SkipLink } from '@/components/SkipLink';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ComingSoonProvider, GatedLink } from '@/lib/access/ComingSoon';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { isAdminRole } from '@/lib/auth/roles';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
 
@@ -46,7 +47,7 @@ function AppShellContent({ children }: AppShellProps) {
       : null;
   const navItems: NavItem[] = [
     { href: '/home', label: t('home.tab_label'), mobileLabel: t('home.tab_label'), icon: Home },
-    ...(user?.role === 'ADMIN'
+    ...(isAdminRole(user?.role)
       ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.nav_label'), icon: ShieldCheck }]
       : []),
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
@@ -62,7 +63,7 @@ function AppShellContent({ children }: AppShellProps) {
     { href: accountHref, label: t('profile.account'), mobileLabel: t('profile.account'), icon: UserRound },
   ];
   const mobileNavItems = navItems.filter(({ href }) =>
-    (user?.role === 'ADMIN'
+    (isAdminRole(user?.role)
       ? ['/home', '/admin', '/announcements', '/governance', accountHref]
       : ['/home', '/directory', '/announcements', '/governance', accountHref]
     ).includes(href),

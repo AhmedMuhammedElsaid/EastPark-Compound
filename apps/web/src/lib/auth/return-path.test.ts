@@ -70,6 +70,7 @@ describe('postLoginPath', () => {
     expect(postLoginPath('RESIDENT', null)).toBe('/home');
     expect(postLoginPath('MERCHANT', undefined)).toBe('/home');
     expect(postLoginPath('ADMIN', 'https://evil.example')).toBe('/admin');
+    expect(postLoginPath('SUPER_ADMIN', null)).toBe('/admin');
   });
 
   it('never sends a signed-in user back to the login page', () => {

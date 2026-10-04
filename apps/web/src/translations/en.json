@@ -747,7 +747,8 @@
       "admin": "Compound admin",
       "guest": "Guest",
       "merchant": "Merchant",
-      "resident": "Resident"
+      "resident": "Resident",
+      "super_admin": "Super admin"
     },
     "save_changes": "Save changes",
     "save_error": "Your changes could not be saved. Please try again.",

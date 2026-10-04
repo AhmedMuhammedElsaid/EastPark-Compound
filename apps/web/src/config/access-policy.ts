@@ -6,7 +6,7 @@
  * decisions 2026-10-03: residents manage their own profile and may browse shops; ordering stays
  * locked): navigation to any other section shows a
  * "Coming soon" popup instead of navigating, and direct requests to other app
- * routes are redirected to /home by `src/proxy.ts`. ADMIN and MERCHANT accounts are never restricted
+ * routes are redirected to /home by `src/proxy.ts`. ADMIN, SUPER_ADMIN and MERCHANT accounts are never restricted
  * (owner decision, REV-45): merchants must reach /merchant/* and /api/merchant/*
  * to run their shops. Guests are not restricted either. Set the flag to false to
  * restore full access everywhere.
@@ -21,7 +21,7 @@ export const ACCESS_COOKIE_NAME = 'eastpark_access';
 export const REFRESH_COOKIE_NAME = 'eastpark_refresh';
 
 /** Roles that keep full access during the lockdown. */
-const UNRESTRICTED_ROLES = new Set(['ADMIN', 'MERCHANT']);
+const UNRESTRICTED_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'MERCHANT']);
 
 /** True when the signed-in role must stay on the home page. Guests, admins and merchants are not restricted. */
 export function isRestrictedRole(role: string | null | undefined): boolean {

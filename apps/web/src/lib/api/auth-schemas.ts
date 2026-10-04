@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import type { AuthResponse, AuthTokens, AuthUser } from '@/lib/api/contracts';
 
+import { ROLES } from '@/lib/auth/roles';
+
 const nullableString = z
   .string()
   .nullish()
@@ -14,7 +16,7 @@ export const authUserSchema: z.ZodType<AuthUser> = z.object({
   phone: nullableString,
   unitNumber: nullableString,
   avatarUrl: nullableString,
-  role: z.enum(['GUEST', 'RESIDENT', 'MERCHANT', 'ADMIN']),
+  role: z.enum(ROLES),
   isVerified: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),

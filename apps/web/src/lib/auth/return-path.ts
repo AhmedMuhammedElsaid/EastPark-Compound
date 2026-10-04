@@ -7,6 +7,8 @@
  * `/api/*` routes) falls back to a known in-app path.
  */
 
+import { isAdminRole } from './roles';
+
 const PLACEHOLDER_ORIGIN = 'https://eastpark.invalid';
 const MAX_RETURN_PATH_LENGTH = 2048;
 // Backslashes are treated as `/` by the WHATWG URL parser; tab/CR/LF (and other C0 controls) are
@@ -62,7 +64,7 @@ export function sessionRefreshPath(next: string, options: { optional?: boolean }
  * at an auth page would loop, so it falls back to the role default.
  */
 export function postLoginPath(role: string | null | undefined, next: string | null | undefined): string {
-  const fallback = role === 'ADMIN' ? '/admin' : DEFAULT_RETURN_PATH;
+  const fallback = isAdminRole(role) ? '/admin' : DEFAULT_RETURN_PATH;
   const path = safeReturnPath(next, fallback);
   return /^\/login(?:[/?#]|$)/.test(path) ? fallback : path;
 }

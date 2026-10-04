@@ -7,7 +7,7 @@ describe('isRestrictedRole (home-only lockdown)', () => {
     expect(isRestrictedRole('RESIDENT')).toBe(true);
   });
 
-  it.each(['ADMIN', 'MERCHANT'])('never restricts %s', (role) => {
+  it.each(['ADMIN', 'SUPER_ADMIN', 'MERCHANT'])('never restricts %s', (role) => {
     expect(isRestrictedRole(role)).toBe(false);
   });
 
