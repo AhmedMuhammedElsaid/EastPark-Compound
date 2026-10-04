@@ -50,8 +50,10 @@ const service = new TrashService(
 
 const liveShop = { name: 'Cafe', deletedAt: null };
 const deadShop = { name: 'Cafe', deletedAt: new Date() };
-const liveMerchant = { deletedAt: null };
-const deadMerchant = { deletedAt: new Date() };
+const liveMerchant = { deletedAt: null, role: Role.MERCHANT, shops: [] };
+const deadMerchant = { deletedAt: new Date(), role: Role.MERCHANT, shops: [] };
+const demotedOwner = { deletedAt: null, role: Role.RESIDENT, shops: [] };
+const busyMerchant = { deletedAt: null, role: Role.MERCHANT, shops: [{ id: 's2' }] };
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -303,6 +305,64 @@ describe('TrashService.restore', () => {
         );
         expect(db.shop.update).not.toHaveBeenCalled();
         expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('the shop select fetches the owner role and at most one other live shop', async () => {
+        db.shop.findMany.mockResolvedValue([]);
+        await service.list({ type: 'SHOP' });
+        expect(db.shop.findMany.mock.calls[0][0].select.merchant).toEqual({
+            select: {
+                deletedAt: true,
+                role: true,
+                shops: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+            },
+        });
+    });
+
+    it.each([
+        ['no longer a merchant', demotedOwner, 'trash.error.ownerNotMerchant'],
+        ['already running another live shop', busyMerchant, 'trash.error.ownerHasShop'],
+    ])('a shop whose owner is %s is listed as not restorable', async (_, merchant, reason) => {
+        db.shop.findMany.mockResolvedValue([
+            { id: 's1', name: 'Cafe', nameAr: 'مقهى', deletedAt, deletedBy: owner, merchant },
+        ]);
+        const page = await service.list({ type: 'SHOP' });
+        expect(page.items[0]).toEqual(
+            expect.objectContaining({ id: 's1', restorable: false, reason })
+        );
+    });
+
+    it.each([
+        ['no longer a merchant', demotedOwner, 'trash.error.ownerNotMerchant'],
+        ['already running another live shop', busyMerchant, 'trash.error.ownerHasShop'],
+    ])('restoring a shop whose owner is %s is 409, nothing written', async (_, merchant, reason) => {
+        db.shop.findUnique.mockResolvedValue({
+            id: 's1',
+            name: 'Cafe',
+            nameAr: 'مقهى',
+            deletedAt,
+            deletedBy: owner,
+            merchant,
+        });
+        await expect(service.restore('SHOP', 's1', superAdmin)).rejects.toThrow(
+            new ConflictException(reason)
+        );
+        expect(db.shop.update).not.toHaveBeenCalled();
+        expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('a deleted owner wins over the other shop reasons (parentDeleted)', async () => {
+        db.shop.findUnique.mockResolvedValue({
+            id: 's1',
+            name: 'Cafe',
+            nameAr: 'مقهى',
+            deletedAt,
+            deletedBy: owner,
+            merchant: { deletedAt: new Date(), role: Role.RESIDENT, shops: [{ id: 's2' }] },
+        });
+        await expect(service.restore('SHOP', 's1', superAdmin)).rejects.toThrow(
+            new ConflictException('trash.error.parentDeleted')
+        );
     });
 
     it('restores a shop (SHOP_RESTORED)', async () => {

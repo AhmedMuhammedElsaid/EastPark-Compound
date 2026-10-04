@@ -3,6 +3,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 import {
     isPrismaError,
@@ -22,6 +23,8 @@ export const TRASH_REASON = {
     notRestorable: 'user.error.notRestorable',
     parentDeleted: 'trash.error.parentDeleted',
     conflict: 'trash.error.conflict',
+    ownerNotMerchant: 'trash.error.ownerNotMerchant',
+    ownerHasShop: 'trash.error.ownerHasShop',
 } as const;
 
 const DELETED_BY = { select: { id: true, name: true } } as const;
@@ -43,7 +46,15 @@ const SHOP_SELECT = {
     nameAr: true,
     deletedAt: true,
     deletedBy: DELETED_BY,
-    merchant: { select: { deletedAt: true } },
+    merchant: {
+        select: {
+            deletedAt: true,
+            role: true,
+            // The shop being restored is itself deleted, so any live shop here
+            // is another one.
+            shops: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+        },
+    },
 } as const;
 const DELETED_FIRST = [{ deletedAt: 'desc' }, { id: 'desc' }] as const;
 
@@ -71,7 +82,11 @@ interface UserRow extends Deleted {
 interface ShopRow extends Deleted {
     name: string;
     nameAr: string;
-    merchant: { deletedAt: Date | null };
+    merchant: {
+        deletedAt: Date | null;
+        role: Role;
+        shops: { id: string }[];
+    };
 }
 interface PhotoRow extends Deleted {
     url: string;
@@ -125,9 +140,18 @@ const parentReason = (parent: { deletedAt: Date | null }): string | null =>
     parent.deletedAt ? TRASH_REASON.parentDeleted : null;
 
 // A shop's parent is its merchant: restoring a shop whose owner account is
-// soft-deleted would put a shop online that nobody can run.
+// soft-deleted would put a shop online that nobody can run. The owner must
+// also still be a MERCHANT (the merchant module only serves that role) and
+// own no other live shop (the merchant module resolves one shop per merchant).
+const shopReason = (merchant: ShopRow['merchant']): string | null => {
+    if (merchant.deletedAt) return TRASH_REASON.parentDeleted;
+    if (merchant.role !== Role.MERCHANT) return TRASH_REASON.ownerNotMerchant;
+    if (merchant.shops.length > 0) return TRASH_REASON.ownerHasShop;
+    return null;
+};
+
 const toShopItem = (r: ShopRow): TrashItemDto =>
-    item('SHOP', r, r.name, r.nameAr || null, parentReason(r.merchant));
+    item('SHOP', r, r.name, r.nameAr || null, shopReason(r.merchant));
 
 const toPhotoItem = (r: PhotoRow): TrashItemDto =>
     item('SHOP_PHOTO', r, `${r.shop.name} photo`, r.url, parentReason(r.shop));
@@ -153,7 +177,8 @@ const toReviewItem = (r: ReviewRow): TrashItemDto =>
 /**
  * Recycle bin (SUPER_ADMIN only). Lists soft-deleted records per type, newest
  * deletion first, and restores them. A restore is refused (409) when it would
- * resurrect a child of a deleted shop, a shop of a deleted merchant, a legacy
+ * resurrect a child of a deleted shop, a shop of a deleted merchant (or of an
+ * owner who is no longer a merchant or already runs another live shop), a legacy
  * anonymised account, or a second live review of the same user for the same
  * shop.
  */

@@ -2,6 +2,8 @@
     "error": {
         "notFound": "Nothing to restore: the record does not exist or is not deleted.",
         "parentDeleted": "Restore what it belongs to first: its shop, or for a shop, the owner's account.",
-        "conflict": "A live record already exists, so this one cannot be restored."
+        "conflict": "A live record already exists, so this one cannot be restored.",
+        "ownerNotMerchant": "The owner is no longer a merchant. Make them a merchant first.",
+        "ownerHasShop": "The owner already has another active shop."
     }
 }

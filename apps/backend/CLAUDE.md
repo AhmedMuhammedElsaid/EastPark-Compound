@@ -40,6 +40,8 @@ All reference files live in `Documentation/` — read these before exploring the
 - **Recycle bin** (`src/modules/trash`, SUPER_ADMIN only): `GET /v1/admin/trash?type=USER|SHOP|SHOP_PHOTO|
   PRODUCT|REVIEW` and `POST /v1/admin/trash/:type/:id/restore` (compare-and-set; 404 `trash.error.notFound`;
   409 `trash.error.parentDeleted` / `user.error.notRestorable` / `trash.error.conflict`; audit `<TYPE>_RESTORED`).
+  A shop restores only when its owner is live, still `MERCHANT` and owns no other live shop, else 409
+  `trash.error.parentDeleted` / `trash.error.ownerNotMerchant` / `trash.error.ownerHasShop` (same reason in the list).
 - **New reads must filter `deletedAt: null`** (or check the fetched row) on these five models.
 
 ### Storage URLs, JWT secrets, comment cap — 2026-10-03
