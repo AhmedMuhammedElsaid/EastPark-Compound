@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TerminusModule } from '@nestjs/terminus';
 
 import { CommonModule } from 'src/common/common.module';
+import { AuditModule } from 'src/modules/audit/audit.module';
 import { AnnouncementsModule } from 'src/modules/announcements/announcements.module';
 import { InvitationsModule } from 'src/modules/invitations/invitations.module';
 import { FeedbackModule } from 'src/modules/feedback/feedback.module';
@@ -26,6 +27,9 @@ import { RootController } from './controllers/root.controller';
     imports: [
         // Shared infrastructure (config, db, auth, cache, email, file, logger)
         CommonModule,
+
+        // Admin activity log (global: injected by every feature service)
+        AuditModule,
 
         // Health check endpoint
         TerminusModule,
