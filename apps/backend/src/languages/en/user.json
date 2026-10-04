@@ -10,6 +10,8 @@
         "userNotFound": "User not found in database",
         "exists": "User with provided email/username already exists",
         "userExists": "User with provided email/username already exists",
-        "merchantOwnsShop": "This account still owns a shop. Contact the administration to close the shop before deleting the account."
+        "merchantOwnsShop": "This account still owns a shop. Contact the administration to close the shop before deleting the account.",
+        "cannotChangeSuperAdmin": "The super admin account cannot be changed or deleted.",
+        "superAdminRequired": "Only the super admin can do this."
     }
 }
