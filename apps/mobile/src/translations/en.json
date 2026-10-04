@@ -12,6 +12,7 @@
     "expired": "Expired",
     "expires_at": "Expires at",
     "invitations": "Invitations",
+    "invite_forbidden": "Only the super admin can invite administrators",
     "invite_sent": "Invitation sent successfully",
     "new_announcement": "New Announcement",
     "new_election": "New Election",

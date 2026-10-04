@@ -12,6 +12,7 @@
     "expired": "منتهية",
     "expires_at": "تاريخ الانتهاء",
     "invitations": "الدعوات",
+    "invite_forbidden": "المسؤول الرئيسي فقط يمكنه دعوة المشرفين",
     "invite_sent": "تم إرسال الدعوة بنجاح",
     "new_announcement": "إعلان جديد",
     "new_election": "انتخابات جديدة",

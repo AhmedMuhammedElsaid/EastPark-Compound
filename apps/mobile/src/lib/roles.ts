@@ -9,3 +9,7 @@ export type UserRole = "RESIDENT" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
 export function isAdminRole(role: string | null | undefined): role is "ADMIN" | "SUPER_ADMIN" {
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
+
+export function isSuperAdminRole(role: string | null | undefined): role is "SUPER_ADMIN" {
+  return role === "SUPER_ADMIN";
+}

@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { ArrowLeft, Plus, X } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { useSelector } from "react-redux";
 
 import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
@@ -13,7 +14,9 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { isSuperAdminRole } from "@/lib/roles";
 import { adminApi } from "@/services/api/admin";
+import type { RootState } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -119,6 +122,9 @@ export default function InvitationsScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
+  const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const roleOptions: InvitationRole[] = isSuperAdminRole(userRole) ? ["MERCHANT", "ADMIN"] : ["MERCHANT"];
+
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState<InvitationRole>("MERCHANT");
   const [showForm, setShowForm] = React.useState(false);
@@ -144,8 +150,9 @@ export default function InvitationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-invitations"] });
       showMessage({ message: t("admin.invite_sent"), type: "success", backgroundColor: SEMANTIC.success });
     },
-    onError: () => {
-      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    onError: (err) => {
+      const status = (err as { response?: { status?: number } } | null)?.response?.status;
+      showMessage({ message: status === 403 ? t("admin.invite_forbidden") : t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 
@@ -198,7 +205,7 @@ export default function InvitationsScreen() {
 
             <Text style={[styles.formLabel, { marginTop: SPACING.sm }]}>{t("admin.role")}</Text>
             <View style={styles.roleRow}>
-              {(["MERCHANT", "ADMIN"] as InvitationRole[]).map(r => (
+              {roleOptions.map(r => (
                 <Pressable
                   key={r}
                   style={[styles.roleBtn, role === r && styles.roleBtnActive]}
