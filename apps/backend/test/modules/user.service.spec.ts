@@ -497,8 +497,22 @@ describe('UserService.changeRole', () => {
             }
         );
         expect(sessions.bump.mock.invocationCallOrder[0]).toBeLessThan(
+            db.user.update.mock.invocationCallOrder[0]
+        );
+        expect(db.user.update.mock.invocationCallOrder[0]).toBeLessThan(
             audit.record.mock.invocationCallOrder[0]
         );
+    });
+
+    it('a session-store failure aborts before the role is written', async () => {
+        db.user.findUnique.mockResolvedValue(resident);
+        sessions.bump.mockRejectedValue(new Error('redis down'));
+
+        await expect(
+            service.changeRole('u1', Role.ADMIN, superAdmin)
+        ).rejects.toThrow('redis down');
+        expect(db.user.update).not.toHaveBeenCalled();
+        expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('same role is a no-op: no update, no session bump, no audit', async () => {

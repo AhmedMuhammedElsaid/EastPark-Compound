@@ -265,13 +265,15 @@ export class UserService {
                 throw new ConflictException('user.error.merchantOwnsShop');
         }
 
+        // Revoke first: if Redis is down this throws before the role changes,
+        // so a retry is not a same-role no-op that skips the revoke and audit.
+        await this.sessions.bump(userId);
+
         const updated = await this.db.user.update({
             where: { id: userId },
             data: { role },
             select: ADMIN_USER_SELECT,
         });
-
-        await this.sessions.bump(userId);
 
         await this.audit.record(actor, 'USER_ROLE_CHANGED', 'User', userId, {
             label: userLabel(updated),
