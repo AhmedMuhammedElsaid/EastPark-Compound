@@ -48,6 +48,23 @@ export const acceptInvitationFormSchema = acceptInvitationSchema
     path: ['confirmPassword'],
   });
 
+/** Copy key for a failed accept-invitation BFF response (`{ error }` code). */
+export function acceptInvitationErrorKey(error: string | undefined): string {
+  switch (error) {
+    case 'invalid_invitation':
+      return 'auth.invitation_invalid';
+    case 'account_deleted':
+      // Never the "enter your current password" hint: no password helps a deleted account.
+      return 'auth.errors.invitation_account_deleted';
+    case 'account_exists':
+      return 'auth.errors.invitation_account_exists';
+    case 'rate_limited':
+      return 'auth.errors.rate_limited';
+    default:
+      return 'errors.server';
+  }
+}
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>;

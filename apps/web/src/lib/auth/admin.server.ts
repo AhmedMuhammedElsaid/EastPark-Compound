@@ -2,7 +2,7 @@ import type { AuthUser } from '@/lib/api/contracts';
 
 import { NextResponse } from 'next/server';
 
-import { PRIVATE_NO_STORE, relayBackendResponse } from '@/lib/api/bff-errors';
+import { knownBackendErrorCode, PRIVATE_NO_STORE, relayBackendResponse } from '@/lib/api/bff-errors';
 import { isAdminRole, isSuperAdminRole } from '@/lib/auth/roles';
 import { backendFetch, bearer, getProfile, requestClientIp } from '@/lib/auth/server';
 
@@ -62,8 +62,8 @@ export async function requireSuperAdmin(): Promise<AdminAuthResult> {
 }
 
 /**
- * Backend failure statuses a route turns into its own explicit error code. The backend translates
- * its message keys into prose, so routes map by endpoint + status instead of parsing messages.
+ * Backend failure statuses a route turns into its own explicit error code. Routes map by endpoint +
+ * status; the few backend codes a client must tell apart are allowlisted in `knownBackendCode`.
  */
 export type UpstreamErrorCodes = Partial<Record<number, string>>;
 
@@ -79,7 +79,8 @@ async function forwardWith(
     { ...init, headers: { ...init.headers, ...bearer(auth.token) } },
     { clientIp: await requestClientIp() },
   );
-  const code = response.ok ? undefined : errorCodes[response.status];
+  // A known backend code (e.g. `account_deleted`) wins over the route's per-status code.
+  const code = response.ok ? undefined : ((await knownBackendErrorCode(response)) ?? errorCodes[response.status]);
   if (code) return NextResponse.json({ error: code }, { status: response.status, headers: PRIVATE_NO_STORE });
   return relayBackendResponse(response);
 }

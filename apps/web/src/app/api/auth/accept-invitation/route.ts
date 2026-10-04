@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { readAuthResponse } from '@/lib/api/auth-schemas';
+import { knownBackendErrorCode } from '@/lib/api/bff-errors';
 import { backendFetch, clientIpFrom, setAuthCookies } from '@/lib/auth/server';
 import { acceptInvitationSchema } from '@/lib/validation/auth';
 
@@ -20,8 +21,14 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-      // 409: the email already has an account and the submitted password is not its current one.
-      if (response.status === 409) return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+      if (response.status === 409) {
+        // The email belongs to a soft-deleted account: no password helps, only the administration.
+        if ((await knownBackendErrorCode(response)) === 'account_deleted') {
+          return NextResponse.json({ error: 'account_deleted' }, { status: 409 });
+        }
+        // Otherwise the email already has an account and the password is not its current one.
+        return NextResponse.json({ error: 'account_exists' }, { status: 409 });
+      }
       if (response.status === 400 || response.status === 404) {
         return NextResponse.json({ error: 'invalid_invitation' }, { status: 400 });
       }

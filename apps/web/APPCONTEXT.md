@@ -100,8 +100,11 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
   and the row becomes CONVERTED. Counts are refetched after every action.
 - The details drawer is a native `<dialog>` that opens from inline-end. National ID and passport
   are masked (last 4 shown) with a per-field reveal, and they re-mask every time the drawer opens.
-- **409 copy (REV-22):** the BFF still reduces every 409 to `{ error: 'conflict' }`. The UI maps it
-  by action: invite → `residentLead.error.unitReserved` copy, reject → already-registered copy.
+- **409 copy (REV-22):** the BFF reduces a 409 to `{ error: 'conflict' }`, except allowlisted backend
+  codes (`knownBackendCode` in `src/lib/api/bff-errors.ts`, read from the backend's `code` field):
+  `user.error.accountDeleted` → `{ error: 'account_deleted' }` (invite, accept-invitation). The UI maps
+  by action: invite → deleted-account copy for `account_deleted`, else `residentLead.error.unitReserved`
+  copy; reject → already-registered copy.
   404, 429, 401, 403 and transport failures have their own messages
   (`leadErrorKey` in `src/lib/api/resident-leads.ts`).
 - BFF routes (ADMIN re-checked via `forwardAdminRequest`):

@@ -51,6 +51,33 @@ export function upstreamError(status: number): NextResponse<{ error: BffErrorCod
 }
 
 /**
+ * Backend error codes (untranslated message keys) that a client must tell apart from other errors
+ * with the same status, mapped to BFF codes. Only allowlisted keys are ever forwarded.
+ */
+const KNOWN_BACKEND_CODES: Record<string, string> = {
+  'user.error.accountDeleted': 'account_deleted',
+};
+
+/**
+ * The BFF code for a backend error body, or undefined. Reads the backend's stable `code`, falling
+ * back to `message` (backends before the `code` field returned the raw key there).
+ */
+export function knownBackendCode(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const { code, message } = body as { code?: unknown; message?: unknown };
+  for (const key of [code, message]) {
+    if (typeof key === 'string' && Object.hasOwn(KNOWN_BACKEND_CODES, key)) return KNOWN_BACKEND_CODES[key];
+  }
+  return undefined;
+}
+
+/** Reads a failed backend response's body (consuming it) and returns its known BFF code, if any. */
+export async function knownBackendErrorCode(response: Response): Promise<string | undefined> {
+  if (response.ok) return undefined;
+  return knownBackendCode(await response.json().catch(() => undefined));
+}
+
+/**
  * Relays a backend response: successful JSON envelopes pass through unchanged (clients parse them),
  * 204 stays empty, and failures are mapped to the shared error vocabulary.
  */

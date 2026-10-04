@@ -34,6 +34,7 @@ export type LeadPage = { items: ResidentLead[]; nextCursor?: string };
 export type LeadErrorKey =
   | 'unit_reserved'
   | 'already_registered'
+  | 'account_deleted'
   | 'not_found'
   | 'rate_limited'
   | 'session'
@@ -42,7 +43,11 @@ export type LeadErrorKey =
   | 'generic';
 
 export class LeadRequestError extends Error {
-  constructor(readonly status: number) {
+  /** `code` is the BFF `{ error }` code of a failed response, when it sent one. */
+  constructor(
+    readonly status: number,
+    readonly code?: string,
+  ) {
     super(`lead_request_${status}`);
   }
 }
@@ -62,10 +67,12 @@ export function leadActions(status: LeadStatus): { invite: 'send' | 'resend' | '
 }
 
 /**
- * Maps a failed action's HTTP status to copy. The BFF hides backend 409 detail, but each action has
- * exactly one conflict: invite → the unit has a newer active request; reject → already registered.
+ * Maps a failed action's HTTP status (and BFF code) to copy. Invite has two conflicts: the email
+ * belongs to a deleted account (`account_deleted`), otherwise the unit has a newer active request.
+ * Reject has one: the resident already registered.
  */
-export function leadErrorKey(action: LeadAction | 'load', status: number): LeadErrorKey {
+export function leadErrorKey(action: LeadAction | 'load', status: number, code?: string): LeadErrorKey {
+  if (status === 409 && code === 'account_deleted') return 'account_deleted';
   if (status === 409) return action === 'reject' ? 'already_registered' : 'unit_reserved';
   if (status === 404) return 'not_found';
   if (status === 429) return 'rate_limited';
@@ -123,7 +130,10 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 20_0
   } catch {
     throw new LeadRequestError(0);
   }
-  if (!response.ok) throw new LeadRequestError(response.status);
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    throw new LeadRequestError(response.status, typeof body?.error === 'string' ? body.error : undefined);
+  }
   const payload = (await response.json().catch(() => null)) as Envelope<T> | null;
   return payload?.data;
 }

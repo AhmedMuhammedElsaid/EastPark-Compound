@@ -14,7 +14,7 @@ import { Button } from '@/components/Button';
 import { PasswordVisibilityButton } from '@/components/auth/PasswordVisibilityButton';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
-import { acceptInvitationFormSchema, getPasswordRequirements } from '@/lib/validation/auth';
+import { acceptInvitationErrorKey, acceptInvitationFormSchema, getPasswordRequirements } from '@/lib/validation/auth';
 
 export function AcceptInvitationForm({ token }: { token: string | null }) {
   const router = useRouter();
@@ -40,12 +40,7 @@ export function AcceptInvitationForm({ token }: { token: string | null }) {
       });
       const result = (await response.json()) as { data?: { user: AuthUser }; error?: string };
       if (!response.ok || !result.data) {
-        const key = result.error === 'invalid_invitation'
-          ? 'auth.invitation_invalid'
-          : result.error === 'account_exists'
-            ? 'auth.errors.invitation_account_exists'
-            : result.error === 'rate_limited' ? 'auth.errors.rate_limited' : 'errors.server';
-        setSubmitError(t(key));
+        setSubmitError(t(acceptInvitationErrorKey(result.error)));
         return;
       }
       establishSession(result.data.user);

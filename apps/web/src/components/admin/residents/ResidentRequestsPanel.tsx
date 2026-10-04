@@ -170,9 +170,10 @@ export function ResidentRequestsPanel() {
       push('success', t(`admin_leads.toast.${toastKey}`, { name: lead.name }));
     } catch (error) {
       const status = error instanceof LeadRequestError ? error.status : 0;
+      const code = error instanceof LeadRequestError ? error.code : undefined;
       setRowStatus(lead.id, from);
       setStats((current) => shiftStats(current, optimistic, from));
-      push('error', t(`admin_leads.errors.${leadErrorKey(action, status)}`));
+      push('error', t(`admin_leads.errors.${leadErrorKey(action, status, code)}`));
       if (status === 404) {
         setRows((current) => current.filter((item) => item.id !== lead.id));
         setDetailsId((current) => (current === lead.id ? null : current));
