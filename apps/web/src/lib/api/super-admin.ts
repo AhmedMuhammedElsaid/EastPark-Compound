@@ -12,13 +12,18 @@ import {
   type ActivityItem,
   type AdminUserItem,
 } from '@/lib/validation/super-admin';
+import { trashItemSchema, type TrashItem, type TrashType } from '@/lib/validation/trash';
 
-export type { ActivityItem, AdminUserItem };
+export type { ActivityItem, AdminUserItem, TrashItem, TrashType };
 
 /** Error keys under `admin_team.errors.*`. */
 export type TeamErrorKey =
   | 'cannot_change_super_admin'
   | 'merchant_owns_shop'
+  | 'cannot_delete_super_admin'
+  | 'delete_merchant_owns_shop'
+  | 'trash_not_found'
+  | 'restore_conflict'
   | 'super_admin_required'
   | 'admin_invite_requires_super_admin'
   | 'not_found'
@@ -31,6 +36,10 @@ export type TeamErrorKey =
 const EXPLICIT_CODES = new Set<TeamErrorKey>([
   'cannot_change_super_admin',
   'merchant_owns_shop',
+  'cannot_delete_super_admin',
+  'delete_merchant_owns_shop',
+  'trash_not_found',
+  'restore_conflict',
   'super_admin_required',
   'admin_invite_requires_super_admin',
   'not_found',
@@ -98,6 +107,29 @@ export async function changeUserRole(id: string, role: AssignableRole): Promise<
     30_000,
   );
   const parsed = adminUserItemSchema.safeParse((payload as { data?: unknown } | null)?.data);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Soft-deletes an account (signed out + hidden; restorable from the recycle bin). No request body. */
+export async function deleteUser(id: string): Promise<void> {
+  await request(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }, 30_000);
+}
+
+export type TrashPage = { items: TrashItem[]; nextCursor?: string };
+
+export async function fetchTrash(options: { type: TrashType; cursor?: string }): Promise<TrashPage> {
+  const payload = await request(`/api/admin/trash${query({ type: options.type, cursor: options.cursor })}`);
+  return parsePage(payload, trashItemSchema);
+}
+
+/** Restores a soft-deleted item. Returns the restored item when the backend sends one. No request body. */
+export async function restoreTrashItem(type: TrashType, id: string): Promise<TrashItem | null> {
+  const payload = await request(
+    `/api/admin/trash/${type}/${encodeURIComponent(id)}/restore`,
+    { method: 'POST' },
+    30_000,
+  );
+  const parsed = trashItemSchema.safeParse((payload as { data?: unknown } | null)?.data);
   return parsed.success ? parsed.data : null;
 }
 

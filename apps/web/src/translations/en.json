@@ -235,6 +235,10 @@
     "errors": {
       "cannot_change_super_admin": "The super admin's role can't be changed.",
       "merchant_owns_shop": "This merchant still owns a shop. Close or reassign the shop before changing the role.",
+      "cannot_delete_super_admin": "The super admin's account can't be deleted.",
+      "delete_merchant_owns_shop": "This merchant still owns a shop. Delete or reassign the shop before deleting the account.",
+      "trash_not_found": "This item is no longer in the recycle bin. Refresh the list.",
+      "restore_conflict": "This item can't be restored right now. The list was refreshed to show why.",
       "super_admin_required": "Only the super admin can do this.",
       "admin_invite_requires_super_admin": "Only the super admin can invite an admin.",
       "not_found": "This account no longer exists. Refresh the list.",
