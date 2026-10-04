@@ -116,6 +116,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Soft delete (recycle bin): a deleted account cannot sign in and is hidden
+  // everywhere; only the SUPER_ADMIN can restore it.
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
   shops             Shop[]
   orders            Order[]
   reviews           Review[]
@@ -131,6 +137,13 @@ model User {
   invitations       Invitation[]             @relation("InvitedBy")
   residentLeads     ResidentLead[]           @relation("ResidentLeadUser")
 
+  deletedUsers      User[]                   @relation("UserDeletedBy")
+  deletedShops      Shop[]                   @relation("ShopDeletedBy")
+  deletedShopPhotos ShopPhoto[]              @relation("ShopPhotoDeletedBy")
+  deletedProducts   Product[]                @relation("ProductDeletedBy")
+  deletedReviews    Review[]                 @relation("ReviewDeletedBy")
+
+  @@index([deletedAt])
   @@map("users")
 }
 
@@ -207,6 +220,10 @@ model Shop {
   merchantId String
   merchant   User   @relation(fields: [merchantId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ShopDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
   photos   ShopPhoto[]
   products Product[]
   orders   Order[]
@@ -215,6 +232,7 @@ model Shop {
 
   @@index([merchantId])
   @@index([category, createdAt])
+  @@index([deletedAt])
   @@map("shops")
 }
 
@@ -227,7 +245,12 @@ model ShopPhoto {
   shopId String
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ShopPhotoDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
   @@index([shopId, order])
+  @@index([deletedAt])
   @@map("shop_photos")
 }
 
@@ -247,9 +270,15 @@ model Product {
   shopId String
   shop   Shop   @relation(fields: [shopId], references: [id])
 
+  // Kept in sync with isDeleted (which every product read filters on).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ProductDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
   orderItems OrderItem[]
 
   @@index([shopId, isDeleted, createdAt])
+  @@index([deletedAt])
   @@map("products")
 }
 
@@ -311,8 +340,13 @@ model Review {
   shopId String
   shop   Shop   @relation(fields: [shopId], references: [id])
 
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ReviewDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
   @@unique([userId, shopId])
   @@index([shopId, createdAt])
+  @@index([deletedAt])
   @@map("reviews")
 }
 
