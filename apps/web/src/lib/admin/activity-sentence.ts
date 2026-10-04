@@ -9,7 +9,7 @@ import { ROLES } from '@/lib/auth/roles';
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
-/** Every action in the shared contract. Anything else renders generically. */
+/** Every action in the shared contract (plus the backend's additions). Anything else renders generically. */
 export const KNOWN_ACTIONS = [
   'LEAD_APPROVED',
   'LEAD_REJECTED',
@@ -19,6 +19,7 @@ export const KNOWN_ACTIONS = [
   'ANNOUNCEMENT_CREATED',
   'ANNOUNCEMENT_UPDATED',
   'ANNOUNCEMENT_DELETED',
+  'COMMENT_CREATED',
   'COMMENT_DELETED',
   'POLL_CREATED',
   'POLL_UPDATED',
@@ -35,6 +36,8 @@ export const KNOWN_ACTIONS = [
   'SHOP_CREATED',
   'SHOP_UPDATED',
   'SHOP_DELETED',
+  'SHOP_PHOTO_ADDED',
+  'SHOP_PHOTO_DELETED',
   'PRODUCT_CREATED',
   'PRODUCT_UPDATED',
   'PRODUCT_DELETED',
@@ -78,7 +81,7 @@ export type ActivityParts = {
 
 export function activityParts(item: Pick<ActivityItem, 'action' | 'meta' | 'actor'>, t: Translate): ActivityParts {
   const meta = item.meta ?? {};
-  const actor = text(item.actor.name) ?? text(item.actor.email) ?? t('admin_activity.unknown_actor');
+  const actor = text(item.actor?.name) ?? text(item.actor?.email) ?? t('admin_activity.unknown_actor');
   const verb = isKnownAction(item.action)
     ? t(`admin_activity.actions.${item.action}`)
     : t('admin_activity.generic_action', { action: humaniseCode(item.action) });

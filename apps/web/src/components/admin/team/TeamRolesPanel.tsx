@@ -164,7 +164,7 @@ export function TeamRolesPanel() {
         </div>
       </div>
 
-      <div className="mt-5" aria-live="polite" aria-busy={listState === 'loading' || undefined}>
+      <div className="mt-5" aria-busy={listState === 'loading' || undefined}>
         {listState === 'loading' && <RowsSkeleton />}
         {listState === 'error' && (
           <ErrorState message={t('admin_team.load_error')} retryLabel={t('admin_team.retry')} onRetry={() => {
@@ -197,8 +197,8 @@ export function TeamRolesPanel() {
                           </span>
                         )}
                       </p>
-                      <p className="truncate text-[length:var(--text-body)] text-muted-foreground" dir="ltr" style={{ textAlign: 'start' }}>
-                        {person.email}
+                      <p className="truncate text-[length:var(--text-body)] text-muted-foreground">
+                        <bdi>{person.email}</bdi>
                       </p>
                       <p className="text-[length:var(--text-caption)] text-muted-foreground">
                         {person.unitNumber ? t('admin_team.unit', { unit: person.unitNumber }) : t('admin_team.no_unit')}

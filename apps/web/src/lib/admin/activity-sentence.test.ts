@@ -47,6 +47,10 @@ describe('activity sentences', () => {
     );
   });
 
+  it('tolerates a missing actor', () => {
+    expect(activityParts({ action: 'POLL_CREATED', meta: null, actor: null }, tAr).actor).toBe('أحد المشرفين');
+  });
+
   it('adds role and status details', () => {
     expect(
       activityParts({ action: 'USER_ROLE_CHANGED', meta: { label: 'M (m@x.com)', fromRole: 'RESIDENT', toRole: 'ADMIN' }, actor }, tEn)

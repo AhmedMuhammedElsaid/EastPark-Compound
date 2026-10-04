@@ -78,12 +78,17 @@ export const activityItemSchema = z.object({
   entityId: nullableString.catch(null),
   meta: z.record(z.string(), z.unknown()).nullish().transform((value) => value ?? null).catch(null),
   createdAt: z.string().catch(''),
-  actor: z.object({
-    id: z.string().catch(''),
-    name: z.string().catch(''),
-    email: z.string().catch(''),
-    role: z.string().catch(''),
-  }),
+  // Always present today (audit rows require a user); tolerated as null so an entry never vanishes.
+  actor: z
+    .object({
+      id: z.string().catch(''),
+      name: z.string().catch(''),
+      email: z.string().catch(''),
+      role: z.string().catch(''),
+    })
+    .nullish()
+    .transform((value) => value ?? null)
+    .catch(null),
 });
 export type ActivityItem = z.infer<typeof activityItemSchema>;
 

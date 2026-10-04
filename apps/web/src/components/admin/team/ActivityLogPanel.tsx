@@ -129,7 +129,7 @@ export function ActivityLogPanel() {
         </select>
       </div>
 
-      <div className="mt-5" aria-live="polite" aria-busy={listState === 'loading' || undefined}>
+      <div className="mt-5" aria-busy={listState === 'loading' || undefined}>
         {listState === 'loading' && <RowsSkeleton />}
         {listState === 'error' && (
           <ErrorState message={t('admin_activity.load_error')} retryLabel={t('admin_activity.retry')} onRetry={reload} />
@@ -165,7 +165,7 @@ export function ActivityLogPanel() {
                           {formatRelative(item.createdAt, lang)}
                         </time>
                       )}
-                      {item.actor.role && <RoleBadge role={item.actor.role} />}
+                      {item.actor?.role && <RoleBadge role={item.actor.role} />}
                     </div>
                   </div>
                 </li>
