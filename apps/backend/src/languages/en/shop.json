@@ -1,0 +1,5 @@
+{
+    "error": {
+        "merchantInvalid": "The owner must be an existing merchant account."
+    }
+}

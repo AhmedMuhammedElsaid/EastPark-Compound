@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 
@@ -139,6 +139,67 @@ describe('shops: soft-deleted shops, photos and reviews are hidden', () => {
             service.removePhoto('s1', 'p1', admin)
         ).rejects.toBeInstanceOf(NotFoundException);
         expect(db.shopPhoto.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('shops: create requires a live merchant owner', () => {
+    const db = {
+        user: { findUnique: jest.fn() },
+        shop: { create: jest.fn() },
+    };
+    const service = new ShopsService(db as unknown as DatabaseService, asAudit);
+    const dto = {
+        name: 'Cafe',
+        nameAr: 'مقهى',
+        category: 'CAFE_AND_FOOD',
+        merchantId: 'merchant-1',
+    } as never;
+
+    it.each([
+        ['an unknown user', null],
+        ['a deleted merchant', { role: Role.MERCHANT, deletedAt: new Date() }],
+        ['a resident', { role: Role.RESIDENT, deletedAt: null }],
+        ['an admin', { role: Role.ADMIN, deletedAt: null }],
+    ])('owner %s is a 400 merchantInvalid, nothing created', async (_, user) => {
+        db.user.findUnique.mockResolvedValue(user);
+        await expect(service.create(dto, admin)).rejects.toThrow(
+            new BadRequestException('shop.error.merchantInvalid')
+        );
+        expect(db.user.findUnique).toHaveBeenCalledWith({
+            where: { id: 'merchant-1' },
+            select: { role: true, deletedAt: true },
+        });
+        expect(db.shop.create).not.toHaveBeenCalled();
+        expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('a live merchant owner creates the shop', async () => {
+        db.user.findUnique.mockResolvedValue({ role: Role.MERCHANT, deletedAt: null });
+        db.shop.create.mockResolvedValue({
+            id: 's1',
+            name: 'Cafe',
+            photos: [],
+            _count: { reviews: 0 },
+        });
+        const shop = await service.create(dto, admin);
+        expect(db.shop.create.mock.calls[0][0].data.merchantId).toBe('merchant-1');
+        expect(shop.id).toBe('s1');
+        expect(audit.record).toHaveBeenCalledWith(admin, 'SHOP_CREATED', 'Shop', 's1', {
+            label: 'Cafe',
+        });
+    });
+
+    it('update never changes the owner, even when merchantId is sent', async () => {
+        const updateDb = {
+            shop: {
+                findUnique: jest.fn().mockResolvedValue({ merchantId: 'merchant-1', deletedAt: null }),
+                update: jest.fn().mockResolvedValue({ id: 's1', name: 'Cafe', photos: [], _count: { reviews: 0 } }),
+            },
+            review: { aggregate: jest.fn().mockResolvedValue({ _avg: { rating: null } }) },
+        };
+        const updater = new ShopsService(updateDb as unknown as DatabaseService, asAudit);
+        await updater.update('s1', { name: 'Cafe', merchantId: 'resident-1' } as never, admin);
+        expect(updateDb.shop.update.mock.calls[0][0].data).not.toHaveProperty('merchantId');
     });
 });
 

@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ForbiddenException,
     Injectable,
     NotFoundException,
@@ -42,6 +43,16 @@ export class ShopsService {
     ) {}
 
     async create(dto: ShopCreateDto, actor?: IAuthUser): Promise<ShopResponseDto> {
+        // The owner must be a live MERCHANT: the merchant module only serves
+        // that role, and a deleted or non-merchant owner leaves nobody able to
+        // run the shop.
+        const merchant = await this.db.user.findUnique({
+            where: { id: dto.merchantId },
+            select: { role: true, deletedAt: true },
+        });
+        if (!merchant || merchant.deletedAt || merchant.role !== Role.MERCHANT)
+            throw new BadRequestException('shop.error.merchantInvalid');
+
         const shop = await this.db.shop.create({
             data: {
                 name: dto.name,

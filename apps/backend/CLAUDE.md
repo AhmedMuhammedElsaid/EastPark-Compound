@@ -37,6 +37,8 @@ All reference files live in `Documentation/` — read these before exploring the
 - **Shop delete** no longer wipes reviews/bookmarks and no longer 409s on orders/products; children are
   hidden with the shop (directory, detail 404, photos, review counts/averages, products, saved shops,
   ordering, merchant module 404, every mutation 404). Re-reviewing revives the resident's deleted review row.
+- **Shop create** (`POST /v1/shops`): `merchantId` must be a live `MERCHANT` user, else 400 `shop.error.merchantInvalid`.
+  Shop update has no `merchantId` field, so the owner cannot be changed there.
 - **Recycle bin** (`src/modules/trash`, SUPER_ADMIN only): `GET /v1/admin/trash?type=USER|SHOP|SHOP_PHOTO|
   PRODUCT|REVIEW` and `POST /v1/admin/trash/:type/:id/restore` (compare-and-set; 404 `trash.error.notFound`;
   409 `trash.error.parentDeleted` / `user.error.notRestorable` / `trash.error.conflict`; audit `<TYPE>_RESTORED`).
