@@ -15,7 +15,7 @@ import { GoldButton } from "@/components/auth/gold-button";
 import { acceptInvitationErrorKey } from "@/lib/api-error";
 import { newPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { isAdminRole } from "@/lib/roles";
+import { roleLabelKey } from "@/lib/roles";
 import { authApi } from "@/services/api/auth";
 import { completeLogin } from "@/services/auth/session";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -36,6 +36,7 @@ function useStyles() {
     roleBadge: { backgroundColor: `${BRAND.gold}1f`, borderRadius: RADIUS.full, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.xs },
     roleBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
     form: { gap: SPACING.xs, marginBottom: SPACING.sm },
+    existingAccountHint: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, marginTop: SPACING.xs },
     bottomPad: { height: SPACING["2xl"] },
     errorCard: { flex: 1, justifyContent: "center" as const, paddingHorizontal: SPACING.base },
     errorBorder: { borderStartWidth: 4, borderRadius: RADIUS.md, backgroundColor: colors.card, padding: SPACING.lg, gap: SPACING.sm },
@@ -94,7 +95,7 @@ export default function AcceptInvitationScreen() {
       {confirmedRole != null && (
         <View style={styles.roleBadgeRow}>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{isAdminRole(confirmedRole) ? t("auth.role_admin") : t("auth.role_merchant")}</Text>
+            <Text style={styles.roleBadgeText}>{t(roleLabelKey(confirmedRole))}</Text>
           </View>
         </View>
       )}
@@ -119,6 +120,10 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
           <AuthInput label={t("auth.name")} value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name ? t(errors.name.message as string) : undefined} autoComplete="name" returnKeyType="next" />
         )}
       />
+      {/* The backend has no invitation lookup, so an existing account can't be
+          detected up front: tell its owner to use the CURRENT password (the
+          backend never changes an existing account's name or password). */}
+      <Text style={styles.existingAccountHint}>{t("auth.invitation_existing_account_hint")}</Text>
       <Controller
         control={control}
         name="password"

@@ -16,7 +16,7 @@ import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { isAdminRole } from "@/lib/roles";
+import { isAdminRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
 import { revokeRefreshToken } from "@/services/api/auth";
 import { usersApi } from "@/services/api/users";
@@ -275,16 +275,6 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 }
 
 // ─── Section sub-components ───────────────────────────────────────────────────
-
-function roleLabelKey(role: string): string {
-  if (role === "SUPER_ADMIN")
-    return "profile.role_super_admin";
-  if (role === "ADMIN")
-    return "auth.role_admin";
-  if (role === "MERCHANT")
-    return "auth.role_merchant";
-  return "profile.role_resident";
-}
 
 function UserAvatar({ name, unitNumber, email, role, styles }: { name: string; unitNumber?: string; email: string; role: string; styles: AppStyles }) {
   const { t } = useTranslation();

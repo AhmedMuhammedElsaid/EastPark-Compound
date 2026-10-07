@@ -13,3 +13,14 @@ export function isAdminRole(role: string | null | undefined): role is "ADMIN" | 
 export function isSuperAdminRole(role: string | null | undefined): role is "SUPER_ADMIN" {
   return role === "SUPER_ADMIN";
 }
+
+/** Translation key for a role's display name (badges). */
+export function roleLabelKey(role: string): string {
+  if (role === "SUPER_ADMIN")
+    return "profile.role_super_admin";
+  if (role === "ADMIN")
+    return "auth.role_admin";
+  if (role === "MERCHANT")
+    return "auth.role_merchant";
+  return "profile.role_resident";
+}

@@ -133,6 +133,7 @@
     "forgot_password_body": "Enter your email and we'll send you a link to reset your password",
     "hide_password": "Hide password",
     "invalid_reset_link": "Invalid or expired link",
+    "invitation_existing_account_hint": "Already have an EastPark account? Enter its current password in both password fields. Your existing name and password stay unchanged.",
     "invitation_invalid": "Invalid or expired invitation",
     "join_via_unit_registration": "New resident? Register your unit on the EastPark website. Once the administration approves it, you will receive an email invitation to set up your account.",
     "login": "Sign In",

@@ -1,4 +1,4 @@
-import { isAdminRole, isSuperAdminRole } from "./roles";
+import { isAdminRole, isSuperAdminRole, roleLabelKey } from "./roles";
 
 describe("isAdminRole", () => {
   it("accepts ADMIN and SUPER_ADMIN", () => {
@@ -23,5 +23,14 @@ describe("isSuperAdminRole", () => {
     expect(isSuperAdminRole("RESIDENT")).toBe(false);
     expect(isSuperAdminRole(undefined)).toBe(false);
     expect(isSuperAdminRole(null)).toBe(false);
+  });
+});
+
+describe("roleLabelKey", () => {
+  it("labels every role, residents included", () => {
+    expect(roleLabelKey("RESIDENT")).toBe("profile.role_resident");
+    expect(roleLabelKey("MERCHANT")).toBe("auth.role_merchant");
+    expect(roleLabelKey("ADMIN")).toBe("auth.role_admin");
+    expect(roleLabelKey("SUPER_ADMIN")).toBe("profile.role_super_admin");
   });
 });
