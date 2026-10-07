@@ -2,13 +2,12 @@ import type { ShopUpdatePayload, WorkingHoursDay } from "@/services/api/merchant
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ArrowLeft, Check } from "phosphor-react-native";
+import { Check } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  I18nManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
 import { DetailErrorScreen } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { toNullable } from "@/lib/utils";
@@ -61,29 +61,10 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     saveBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
@@ -92,22 +73,25 @@ function useStyles() {
     scroll: { padding: SPACING.base, gap: SPACING.md },
     section: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       gap: SPACING.sm,
     },
     sectionTitle: {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 14,
-      color: BRAND.gold,
+      lineHeight: 22,
+      color: "primaryText" in colors ? colors.primaryText : BRAND.gold,
       marginBottom: SPACING.xs,
     },
-    label: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, marginBottom: 2 },
+    label: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, marginBottom: 2 },
     input: {
-      height: 44,
-      backgroundColor: colors.elevated,
-      borderRadius: RADIUS.sm,
+      height: 48,
+      backgroundColor: colors.bg,
+      borderRadius: RADIUS.md,
       paddingHorizontal: SPACING.md,
       fontFamily: FONT.sans,
       fontSize: 14,
@@ -121,21 +105,21 @@ function useStyles() {
       textAlignVertical: "top" as const,
       paddingTop: SPACING.sm,
     },
-    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error, marginTop: 2 },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: SEMANTIC.error, marginTop: 2 },
     dayRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: SPACING.sm,
-      paddingVertical: SPACING.xs,
-      borderBottomWidth: 1,
+      minHeight: 52,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
-    dayLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.text, width: 36 },
+    dayLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.text, width: 64 },
     timeInput: {
       flex: 1,
-      height: 36,
-      backgroundColor: colors.elevated,
-      borderRadius: RADIUS.xs,
+      height: 44,
+      backgroundColor: colors.bg,
+      borderRadius: RADIUS.sm,
       paddingHorizontal: SPACING.sm,
       fontFamily: FONT.sans,
       fontSize: 13,
@@ -145,7 +129,8 @@ function useStyles() {
       textAlign: "center" as const,
     },
     timeSeparator: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    closedLabel: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, flex: 1 },
+    closedLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted, flex: 1 },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   }), [colors]);
 }
 
@@ -245,28 +230,28 @@ export default function MerchantShopProfileScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("merchant.shop_profile")}</Text>
-        <Pressable
-          style={[styles.saveBtn, (!isDirty || isPending) && styles.saveBtnDisabled]}
-          onPress={handleSubmit(onSubmit, onInvalid)}
-          disabled={!isDirty || isPending}
-          hitSlop={8}
-        >
-          {isPending
-            ? <ActivityIndicator size="small" color={colors.text} />
-            : <Check size={18} color={colors.text} weight="bold" />}
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={t("merchant.shop_profile")}
+        right={(
+          <Pressable
+            style={({ pressed }) => [styles.saveBtn, (!isDirty || isPending) && styles.saveBtnDisabled, pressed && styles.pressed]}
+            onPress={handleSubmit(onSubmit, onInvalid)}
+            disabled={!isDirty || isPending}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.save")}
+          >
+            {isPending
+              ? <ActivityIndicator size="small" color={BRAND.ink} />
+              : <Check size={20} color={BRAND.ink} weight="bold" />}
+          </Pressable>
+        )}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {/* Basic Info */}
@@ -397,6 +382,7 @@ function FormField({
             multiline={multiline}
             numberOfLines={multiline ? 3 : 1}
             keyboardType={keyboardType}
+            accessibilityLabel={label}
             placeholderTextColor={colors.textMuted}
           />
         )}
@@ -431,7 +417,7 @@ function WorkingHoursRow({
           <>
             {value
               ? (
-                  <Text style={styles.closedLabel}>—</Text>
+                  <Text style={styles.closedLabel}>{t("common.closed")}</Text>
                 )
               : (
                   <>
@@ -473,6 +459,7 @@ function WorkingHoursRow({
               onValueChange={v => onChange(v)}
               trackColor={{ true: SEMANTIC.error, false: SEMANTIC.success }}
               thumbColor={colors.text}
+              accessibilityLabel={`${t(`merchant.days.${day}`)} - ${t("common.closed")}`}
             />
           </>
         )}
@@ -486,7 +473,7 @@ function WorkingHoursRow({
 function ShopProfileSkeleton({ insets, styles, colors }: { insets: { top: number }; styles: any; colors: any }) {
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top + 60, backgroundColor: colors.card }} />
+      <View style={{ height: insets.top + 60, backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }} />
       <View style={{ padding: SPACING.base, gap: SPACING.md }}>
         <Skeleton width="100%" height={180} borderRadius={RADIUS.md} />
         <Skeleton width="100%" height={120} borderRadius={RADIUS.md} />

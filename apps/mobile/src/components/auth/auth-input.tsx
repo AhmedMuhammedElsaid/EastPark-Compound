@@ -1,6 +1,8 @@
 import type { TextInputProps } from "react-native";
+import { Eye, EyeSlash } from "phosphor-react-native";
 import * as React from "react";
-import { I18nManager, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { I18nManager, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -47,7 +49,7 @@ export function AuthInput({ ref, label, error, rightSlot, ...props }: Props & { 
         />
         {rightSlot && <View style={styles.rightSlot}>{rightSlot}</View>}
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text>}
     </View>
   );
 }
@@ -61,18 +63,19 @@ function useStyles(colors: ReturnType<typeof useAppColors>, hasRightSlot: boolea
           fontFamily: FONT.sans,
           fontWeight: "500",
           fontSize: 14,
+          lineHeight: 22,
           color: colors.textMuted,
           marginBottom: SPACING.xs,
         },
         inputRow: { position: "relative" },
         input: {
-          height: 52,
+          height: 48,
           backgroundColor: colors.card,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: RADIUS.md,
           paddingHorizontal: SPACING.base,
-          paddingRight: hasRightSlot ? SPACING["4xl"] : SPACING.base,
+          paddingEnd: hasRightSlot ? SPACING["4xl"] : SPACING.base,
           fontFamily: FONT.sans,
           fontSize: 15,
           color: colors.text,
@@ -88,15 +91,16 @@ function useStyles(colors: ReturnType<typeof useAppColors>, hasRightSlot: boolea
         },
         rightSlot: {
           position: "absolute",
-          right: SPACING.base,
-          top: 0,
-          bottom: 0,
+          end: SPACING.xs,
+          top: 2,
+          bottom: 2,
           justifyContent: "center",
           alignItems: "center",
         },
         error: {
           fontFamily: FONT.sans,
           fontSize: 12,
+          lineHeight: 18,
           color: SEMANTIC.error,
           marginTop: SPACING.xs,
         },
@@ -104,3 +108,27 @@ function useStyles(colors: ReturnType<typeof useAppColors>, hasRightSlot: boolea
     [colors, hasRightSlot],
   );
 }
+
+/**
+ * Show/hide control for password fields: 44x44 target, localized label.
+ * Pass as `rightSlot` of AuthInput.
+ */
+export function PasswordToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  const colors = useAppColors();
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={({ pressed }) => [passwordToggleStyles.btn, pressed && { opacity: 0.6 }]}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={visible ? t("auth.hide_password") : t("auth.show_password")}
+    >
+      {visible ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
+    </Pressable>
+  );
+}
+
+const passwordToggleStyles = StyleSheet.create({
+  btn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+});

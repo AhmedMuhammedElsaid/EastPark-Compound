@@ -1,52 +1,33 @@
 import type { AxiosResponse } from "axios";
 import type { Invitation, InvitationRole } from "@/services/api/admin";
+import type { RootState } from "@/store";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { ArrowLeft, Plus, X } from "phosphor-react-native";
+import { Plus, X } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useSelector } from "react-redux";
 
-import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSelector } from "react-redux";
 import { ErrorState } from "@/components/ui/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScreenHeader } from "@/components/ui/screen-header";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { sendInvitationErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { isSuperAdminRole } from "@/lib/roles";
 import { adminApi } from "@/services/api/admin";
-import type { RootState } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     newBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
@@ -55,16 +36,20 @@ function useStyles() {
     scroll: { padding: SPACING.base, gap: SPACING.sm },
     form: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       gap: SPACING.xs,
       marginBottom: SPACING.md,
     },
-    formLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.textMuted },
+    formLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.textMuted },
     input: {
       height: 48,
-      backgroundColor: colors.elevated,
-      borderRadius: RADIUS.sm,
+      backgroundColor: colors.bg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
       paddingHorizontal: SPACING.md,
       fontFamily: FONT.sans,
       fontSize: 14,
@@ -74,17 +59,17 @@ function useStyles() {
     roleRow: { flexDirection: "row" as const, gap: SPACING.sm, marginTop: 4 },
     roleBtn: {
       flex: 1,
-      height: 40,
-      borderRadius: RADIUS.sm,
-      backgroundColor: colors.elevated,
+      height: 44,
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.bg,
       justifyContent: "center" as const,
       alignItems: "center" as const,
       borderWidth: 1,
-      borderColor: "transparent",
+      borderColor: colors.border,
     },
-    roleBtnActive: { borderColor: BRAND.gold },
-    roleBtnText: { fontFamily: FONT.sans, fontWeight: "500", fontSize: 13, color: colors.textMuted },
-    roleBtnTextActive: { color: BRAND.gold, fontWeight: "700" },
+    roleBtnActive: { borderColor: BRAND.gold, backgroundColor: BRAND.gold },
+    roleBtnText: { fontFamily: FONT.sans, fontWeight: "500", fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    roleBtnTextActive: { color: BRAND.ink, fontWeight: "700" },
     sendBtn: {
       height: 48,
       borderRadius: RADIUS.md,
@@ -94,25 +79,28 @@ function useStyles() {
       marginTop: SPACING.sm,
     },
     sendBtnDisabled: { opacity: 0.4 },
-    sendBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.bg },
+    sendBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 22, color: BRAND.ink },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     row: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: SPACING.sm,
     },
     rowMain: { flex: 1, gap: 4 },
-    rowEmail: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    rowDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
+    rowEmail: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    rowDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
     rowRight: { gap: SPACING.xs, alignItems: "flex-end" as const },
-    rolePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full },
-    rolePillText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    statusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full },
-    statusPillText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    loadMoreBtn: { alignItems: "center" as const, paddingVertical: SPACING.md },
-    loadMoreText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: BRAND.gold },
+    rolePill: { paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: RADIUS.full, backgroundColor: `${BRAND.gold}1f` },
+    rolePillText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
+    statusPill: { paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: RADIUS.full },
+    statusPillText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: colors.text },
+    loadMoreBtn: { alignItems: "center" as const, justifyContent: "center" as const, minHeight: 48 },
+    loadMoreText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
   }), [colors]);
 }
 
@@ -172,22 +160,25 @@ export default function InvitationsScreen() {
   const invitations = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("admin.invitations")}</Text>
-        <Pressable
-          style={[styles.newBtn, showForm && styles.newBtnActive]}
-          onPress={() => setShowForm(v => !v)}
-        >
-          {showForm ? <X size={18} color={colors.text} /> : <Plus size={18} color={colors.bg} />}
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={t("admin.invitations")}
+        right={(
+          <Pressable
+            style={({ pressed }) => [styles.newBtn, showForm && styles.newBtnActive, pressed && styles.pressed]}
+            onPress={() => setShowForm(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={t("admin.send_invite")}
+          >
+            {showForm ? <X size={20} color={colors.text} /> : <Plus size={20} color={BRAND.ink} />}
+          </Pressable>
+        )}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {showForm && (
@@ -201,6 +192,8 @@ export default function InvitationsScreen() {
               placeholderTextColor={colors.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel={t("admin.email")}
             />
 
             <Text style={[styles.formLabel, { marginTop: SPACING.sm }]}>{t("admin.role")}</Text>
@@ -210,6 +203,8 @@ export default function InvitationsScreen() {
                   key={r}
                   style={[styles.roleBtn, role === r && styles.roleBtnActive]}
                   onPress={() => setRole(r)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: role === r }}
                 >
                   <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
                     {t(`auth.role_${r.toLowerCase() as "merchant" | "admin"}`)}
@@ -219,7 +214,8 @@ export default function InvitationsScreen() {
             </View>
 
             <Pressable
-              style={[styles.sendBtn, (!email.trim() || isPending) && styles.sendBtnDisabled]}
+              style={({ pressed }) => [styles.sendBtn, (!email.trim() || isPending) && styles.sendBtnDisabled, pressed && styles.pressed]}
+              accessibilityRole="button"
               onPress={handleSend}
               disabled={!email.trim() || isPending}
             >
@@ -234,11 +230,12 @@ export default function InvitationsScreen() {
             ? Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={`inv-sk-${i}`} width="100%" height={72} borderRadius={RADIUS.md} style={{ marginBottom: SPACING.sm }} />
               ))
-            : invitations.map(inv => <InvitationRow key={inv.id} invitation={inv} styles={styles} colors={colors} />)}
+            : invitations.map(inv => <InvitationRow key={inv.id} invitation={inv} styles={styles} />)}
 
         {hasNextPage && (
           <Pressable
             style={styles.loadMoreBtn}
+            accessibilityRole="button"
             onPress={() => {
               if (!isFetchingNextPage)
                 fetchNextPage();
@@ -253,7 +250,7 @@ export default function InvitationsScreen() {
   );
 }
 
-function InvitationRow({ invitation, styles, colors }: { invitation: Invitation; styles: any; colors: any }) {
+function InvitationRow({ invitation, styles }: { invitation: Invitation; styles: any }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const isUsed = !!invitation.usedAt;
@@ -274,12 +271,12 @@ function InvitationRow({ invitation, styles, colors }: { invitation: Invitation;
         <Text style={styles.rowDate}>{date}</Text>
       </View>
       <View style={styles.rowRight}>
-        <View style={[styles.rolePill, { backgroundColor: colors.elevated }]}>
+        <View style={styles.rolePill}>
           <Text style={styles.rolePillText}>
             {t(`auth.role_${invitation.role.toLowerCase() as "merchant" | "admin"}`)}
           </Text>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: statusColor }]}>
+        <View style={[styles.statusPill, { backgroundColor: `${statusColor}33` }]}>
           <Text style={styles.statusPillText}>{t(statusKey)}</Text>
         </View>
       </View>

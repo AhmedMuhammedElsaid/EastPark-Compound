@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
@@ -12,47 +13,29 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      justifyContent: "space-between" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 20, color: colors.text },
-    headerBadge: {
-      fontFamily: FONT.sans,
-      fontWeight: "700",
-      fontSize: 11,
-      color: BRAND.goldText,
-      backgroundColor: BRAND.goldTint,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      borderRadius: RADIUS.full,
-    },
     scroll: { padding: SPACING.base, gap: SPACING.sm },
     sectionLabel: {
       fontFamily: FONT.sans,
       fontWeight: "700",
-      fontSize: 12,
+      fontSize: 13,
+      lineHeight: 20,
       color: colors.textMuted,
-      textTransform: "uppercase" as const,
-      letterSpacing: 1,
       marginBottom: SPACING.xs,
     },
     actionRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
+      minHeight: 64,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: SPACING.md,
       gap: SPACING.md,
     },
-    actionIcon: { width: 28, alignItems: "center" as const, justifyContent: "center" as const },
-    actionLabel: { flex: 1, fontFamily: FONT.sans, fontWeight: "500", fontSize: 15, color: colors.text },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+    actionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    actionLabel: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, lineHeight: 24, color: colors.text },
   }), [colors]);
 }
 
@@ -62,19 +45,17 @@ export default function AdminDashboard() {
   const styles = useStyles();
   const colors = useAppColors();
 
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   const QUICK_ACTIONS = [
-    { labelKey: "admin.invitations", icon: <EnvelopeSimple size={20} color={BRAND.gold} />, route: "/(admin)/invitations" },
-    { labelKey: "admin.new_announcement", icon: <Megaphone size={20} color={BRAND.gold} />, route: "/(admin)/announcements/new" },
-    { labelKey: "admin.new_poll", icon: <ChartBar size={20} color={BRAND.gold} />, route: "/(admin)/polls/new" },
-    { labelKey: "admin.new_election", icon: <Trophy size={20} color={BRAND.gold} />, route: "/(admin)/elections/new" },
+    { labelKey: "admin.invitations", icon: <EnvelopeSimple size={20} color={gold} />, route: "/(admin)/invitations" },
+    { labelKey: "admin.new_announcement", icon: <Megaphone size={20} color={gold} />, route: "/(admin)/announcements/new" },
+    { labelKey: "admin.new_poll", icon: <ChartBar size={20} color={gold} />, route: "/(admin)/polls/new" },
+    { labelKey: "admin.new_election", icon: <Trophy size={20} color={gold} />, route: "/(admin)/elections/new" },
   ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t("admin.title")}</Text>
-        <Text style={styles.headerBadge}>{t("auth.role_admin")}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={t("admin.title")} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -84,8 +65,10 @@ export default function AdminDashboard() {
         {QUICK_ACTIONS.map(action => (
           <Pressable
             key={action.route}
-            style={styles.actionRow}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
             onPress={() => router.push(action.route)}
+            accessibilityRole="button"
+            accessibilityLabel={t(action.labelKey)}
           >
             <View style={styles.actionIcon}>{action.icon}</View>
             <Text style={styles.actionLabel}>{t(action.labelKey)}</Text>

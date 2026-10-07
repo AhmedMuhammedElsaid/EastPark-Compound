@@ -16,7 +16,7 @@ import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { authApi } from "@/services/api/auth";
 
-import { BRAND, FONT, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z.object({
   email: z.string().email("auth.errors.invalid_email"),
@@ -36,6 +36,7 @@ function useStyles() {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 24,
+      lineHeight: 36,
       color: colors.text,
       textAlign: "center" as const,
       marginBottom: SPACING.xs,
@@ -50,7 +51,7 @@ function useStyles() {
     },
     form: { marginBottom: SPACING.sm },
     footer: { alignItems: "center" as const, marginTop: SPACING.lg },
-    backLinkRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.xs },
+    backLinkRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.xs, minHeight: 44 },
     backLink: {
       fontFamily: FONT.sans,
       fontSize: 14,
@@ -63,10 +64,12 @@ function useStyles() {
       gap: SPACING.md,
       paddingHorizontal: SPACING.lg,
     },
+    successIcon: { width: 80, height: 80, borderRadius: RADIUS.full, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
     successTitle: {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 22,
+      lineHeight: 34,
       color: colors.text,
       textAlign: "center" as const,
     },
@@ -126,7 +129,7 @@ export default function ForgotPasswordScreen() {
         </View>
 
         <View style={styles.successCard}>
-          <EnvelopeSimple size={56} color={BRAND.gold} />
+          <View style={styles.successIcon}><EnvelopeSimple size={36} color={BRAND.gold} /></View>
           <Text style={styles.successTitle}>{t("auth.reset_link_sent")}</Text>
           <Text style={styles.successBody}>
             {t("auth.reset_link_body", { email: sentEmail })}
@@ -147,7 +150,7 @@ export default function ForgotPasswordScreen() {
             setSent(false);
           }}
           hitSlop={8}
-          style={{ alignItems: "center", marginTop: SPACING.sm }}
+          style={{ alignItems: "center", justifyContent: "center", minHeight: 44, marginTop: SPACING.sm }}
         >
           <Text style={styles.tryDifferentEmail}>{t("auth.forgot.tryDifferentEmail")}</Text>
         </Pressable>

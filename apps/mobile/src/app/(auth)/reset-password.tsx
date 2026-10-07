@@ -1,14 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { router, useLocalSearchParams } from "expo-router";
-import { Eye, EyeSlash } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { z } from "zod";
 
-import { AuthInput } from "@/components/auth/auth-input";
+import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
@@ -41,6 +40,7 @@ function useStyles() {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 24,
+      lineHeight: 36,
       color: colors.text,
       textAlign: "center" as const,
       marginBottom: SPACING.xs,
@@ -51,6 +51,7 @@ function useStyles() {
       color: colors.textMuted,
       textAlign: "center" as const,
       marginBottom: SPACING.xl,
+      lineHeight: 22,
     },
     form: { gap: SPACING.xs, marginBottom: SPACING.sm },
     errorCard: {
@@ -64,12 +65,14 @@ function useStyles() {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 20,
+      lineHeight: 30,
       color: colors.text,
       textAlign: "center" as const,
     },
     errorBody: {
       fontFamily: FONT.sans,
       fontSize: 14,
+      lineHeight: 22,
       color: colors.textMuted,
       textAlign: "center" as const,
     },
@@ -80,7 +83,6 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string }>();
   const styles = useStyles();
-  const colors = useAppColors();
   const [showPwd, setShowPwd] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
 
@@ -157,9 +159,7 @@ export default function ResetPasswordScreen() {
               autoComplete="new-password"
               returnKeyType="next"
               rightSlot={(
-                <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showPwd ? t("auth.hide_password") : t("auth.show_password")}>
-                  {showPwd ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
-                </Pressable>
+                <PasswordToggle visible={showPwd} onToggle={() => setShowPwd(v => !v)} />
               )}
             />
           )}
@@ -178,9 +178,7 @@ export default function ResetPasswordScreen() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit(onSubmit)}
               rightSlot={(
-                <Pressable onPress={() => setShowConfirm(v => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel={showConfirm ? t("auth.hide_password") : t("auth.show_password")}>
-                  {showConfirm ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
-                </Pressable>
+                <PasswordToggle visible={showConfirm} onToggle={() => setShowConfirm(v => !v)} />
               )}
             />
           )}

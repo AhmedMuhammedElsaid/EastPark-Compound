@@ -1,14 +1,15 @@
 import type { Product } from "@/services/api/merchant";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ArrowLeft, ForkKnife, Pencil, Plus, Trash } from "phosphor-react-native";
+import { ForkKnife, Pencil, Plus, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, I18nManager, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -20,52 +21,39 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     addBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
     loadingPad: { padding: SPACING.base },
     listContent: { padding: SPACING.base, gap: SPACING.sm },
-    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md },
-    emptyText: { fontFamily: FONT.sans, fontSize: 15, color: colors.textMuted },
+    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
+    emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 17, lineHeight: 26, color: colors.text, textAlign: "center" as const },
+    emptyText: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted, textAlign: "center" as const },
+    emptyBtn: { minHeight: 48, paddingHorizontal: SPACING.xl, borderRadius: RADIUS.md, backgroundColor: BRAND.gold, alignItems: "center" as const, justifyContent: "center" as const, marginTop: SPACING.sm },
+    emptyBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 22, color: BRAND.ink },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     row: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: SPACING.md,
       gap: SPACING.md,
     },
     rowUnavailable: { opacity: 0.6 },
-    rowInfo: { flex: 1, gap: 4 },
-    rowName: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    rowPrice: { fontFamily: FONT.sans, fontSize: 13, color: BRAND.gold },
-    rowActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
-    editBtn: { width: 32, height: 32, justifyContent: "center" as const, alignItems: "center" as const },
-    deleteBtn: { width: 32, height: 32, justifyContent: "center" as const, alignItems: "center" as const },
+    rowInfo: { flex: 1, gap: 2 },
+    rowName: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    rowPrice: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
+    rowActions: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.xs },
+    iconBtn: { width: 44, height: 44, justifyContent: "center" as const, alignItems: "center" as const },
   }), [colors]);
 }
 
@@ -108,16 +96,20 @@ export default function MerchantMenuScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("merchant.menu")}</Text>
-        <Pressable style={styles.addBtn} onPress={() => router.push("/(merchant)/menu/new")}>
-          <Plus size={20} color={colors.bg} />
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={t("merchant.menu")}
+        right={(
+          <Pressable
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+            onPress={() => router.push("/(merchant)/menu/new")}
+            accessibilityRole="button"
+            accessibilityLabel={t("merchant.new_product")}
+          >
+            <Plus size={20} color={BRAND.ink} />
+          </Pressable>
+        )}
+      />
 
       {isError && !data
         ? <ErrorState onRetry={() => refetch()} />
@@ -137,8 +129,12 @@ export default function MerchantMenuScreen() {
               >
                 {products.length === 0 && (
                   <View style={styles.empty}>
-                    <ForkKnife size={48} color={colors.textMuted} />
+                    <View style={styles.emptyIcon}><ForkKnife size={36} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} /></View>
+                    <Text style={styles.emptyTitle}>{t("merchant.menu")}</Text>
                     <Text style={styles.emptyText}>{t("common.no_results")}</Text>
+                    <Pressable style={({ pressed }) => [styles.emptyBtn, pressed && styles.pressed]} onPress={() => router.push("/(merchant)/menu/new")} accessibilityRole="button">
+                      <Text style={styles.emptyBtnText}>{t("merchant.new_product")}</Text>
+                    </Pressable>
                   </View>
                 )}
                 {products.map(product => (
@@ -176,6 +172,7 @@ function ProductRow({
   styles: any;
   colors: any;
 }) {
+  const { t } = useTranslation();
   const name = isAr ? product.nameAr : product.name;
 
   return (
@@ -188,14 +185,15 @@ function ProductRow({
         <Switch
           value={product.isAvailable}
           onValueChange={onToggle}
+          accessibilityLabel={name}
           trackColor={{ true: SEMANTIC.success, false: colors.elevated }}
           thumbColor={colors.text}
         />
-        <Pressable style={styles.editBtn} onPress={onEdit} hitSlop={8}>
-          <Pencil size={18} color={colors.textMuted} />
+        <Pressable style={styles.iconBtn} onPress={onEdit} accessibilityRole="button" accessibilityLabel={t("merchant.edit_product")}>
+          <Pencil size={20} color={colors.textMuted} />
         </Pressable>
-        <Pressable style={styles.deleteBtn} onPress={onDelete} hitSlop={8}>
-          <Trash size={18} color={SEMANTIC.error} />
+        <Pressable style={styles.iconBtn} onPress={onDelete} accessibilityRole="button" accessibilityLabel={t("common.delete")}>
+          <Trash size={20} color={SEMANTIC.error} />
         </Pressable>
       </View>
     </View>

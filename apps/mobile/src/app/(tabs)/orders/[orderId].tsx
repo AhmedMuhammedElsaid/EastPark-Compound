@@ -1,129 +1,110 @@
 import type { Order, OrderStatus } from "@/services/api/orders";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
+import { useLocalSearchParams } from "expo-router";
+import { Check, MapPin, NoteBlank, XCircle } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, I18nManager, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { showMessage } from "react-native-flash-message";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GoldButton } from "@/components/auth/gold-button";
 import { DetailErrorScreen } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CANCEL_ORDER_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { getOrderStatusAccent } from "@/lib/order-status-style";
+import { formatOrderNumber } from "@/lib/whatsapp";
 import { getOrderItemTotal, getOrderPollInterval, ordersApi } from "@/services/api/orders";
 import { getOrdersSocket, joinOrderRoom, leaveOrderRoom, ORDER_STATUS_UPDATE_EVENT } from "@/services/socket/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const STATUS_STEPS: OrderStatus[] = ["PLACED", "CONFIRMED", "PREPARING", "READY", "ON_THE_WAY", "DELIVERED"];
 
-const STATUS_COLOR: Record<string, string> = {
-  PLACED: SEMANTIC.info,
-  CONFIRMED: SEMANTIC.info,
-  PREPARING: SEMANTIC.warning,
-  READY: SEMANTIC.warning,
-  ON_THE_WAY: BRAND.gold,
-  DELIVERED: SEMANTIC.success,
-};
+function buildStyles(colors: ReturnType<typeof useAppColors>) {
+  const goldText = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    scroll: { padding: SPACING.base, gap: SPACING.md },
+    statusHead: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: SPACING.sm },
+    pill: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: RADIUS.full,
+    },
+    pillDot: { width: 8, height: 8, borderRadius: 4 },
+    pillText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.text },
+    dateText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
+      gap: SPACING.md,
+    },
+    cardTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 24, color: colors.text },
+    stepRow: { flexDirection: "row" as const, alignItems: "stretch" as const, gap: SPACING.md, minHeight: 40 },
+    stepRail: { width: 24, alignItems: "center" as const },
+    stepDot: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.elevated,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    stepDotDone: { backgroundColor: BRAND.gold, borderColor: BRAND.gold },
+    stepDotActive: { borderColor: BRAND.gold, borderWidth: 3 },
+    stepLine: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 2 },
+    stepLineDone: { backgroundColor: BRAND.gold },
+    stepLabel: { flex: 1, fontFamily: FONT.sans, fontSize: 14, lineHeight: 24, color: colors.textMuted, paddingBottom: SPACING.md },
+    stepLabelDone: { color: colors.text },
+    stepLabelActive: { fontWeight: "700", color: goldText },
+    cancelledCard: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: SPACING.md,
+      backgroundColor: `${SEMANTIC.error}1f`,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: `${SEMANTIC.error}55`,
+      padding: SPACING.base,
+    },
+    cancelledText: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    itemRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
+    itemQty: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, lineHeight: 22, color: goldText, minWidth: 32 },
+    itemName: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.text, flex: 1 },
+    itemPrice: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    infoRow: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: SPACING.sm },
+    infoText: { flex: 1, fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.text },
+    summaryRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+    summaryLabel: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted },
+    summaryValue: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    totalRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: SPACING.md },
+    totalLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: colors.text },
+    totalValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 28, color: goldText },
+  });
+}
 
 function useStyles() {
   const colors = useAppColors();
-  return React.useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      gap: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navInfo: { flex: 1, flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: SPACING.sm },
-    navShop: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text, flex: 1 },
-    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
-    statusText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    scroll: { padding: SPACING.base, gap: SPACING.md },
-    timeline: {
-      flexDirection: "row" as const,
-      alignItems: "flex-start" as const,
-      backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
-      overflow: "hidden" as const,
-    },
-    timelineItem: { flex: 1, alignItems: "center" as const, gap: 6 },
-    timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.elevated, borderWidth: 2, borderColor: colors.border },
-    timelineDotDone: { backgroundColor: BRAND.gold, borderColor: BRAND.gold },
-    timelineDotActive: { width: 16, height: 16, borderRadius: 8 },
-    timelineLine: {
-      position: "absolute" as const,
-      top: 6,
-      left: "50%",
-      right: -40,
-      height: 2,
-      backgroundColor: colors.border,
-      zIndex: -1,
-    },
-    timelineLineDone: { backgroundColor: BRAND.gold },
-    timelineLabel: { fontFamily: FONT.sans, fontSize: 9, color: colors.textMuted, textAlign: "center" as const },
-    timelineLabelDone: { color: BRAND.gold },
-    section: {
-      backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
-      gap: SPACING.sm,
-    },
-    summarySection: { gap: SPACING.md },
-    itemRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
-    itemQty: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: BRAND.gold, minWidth: 28 },
-    itemName: { fontFamily: FONT.sans, fontSize: 14, color: colors.text, flex: 1 },
-    itemPrice: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    summaryRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
-    summaryLabel: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted },
-    summaryValue: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    totalRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: SPACING.md, marginTop: SPACING.xs },
-    totalLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text },
-    totalValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: BRAND.gold },
-    cancelBtn: {
-      height: 48,
-      borderRadius: RADIUS.md,
-      borderWidth: 1,
-      borderColor: SEMANTIC.error,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    payBtn: {
-      height: 48,
-      borderRadius: RADIUS.md,
-      backgroundColor: BRAND.gold,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    payBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: colors.bg },
-    cancelBtnDisabled: { opacity: 0.5 },
-    cancelBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: SEMANTIC.error },
-  }), [colors]);
+  return React.useMemo(() => ({ styles: buildStyles(colors), colors }), [colors]);
 }
+
+type Styles = ReturnType<typeof buildStyles>;
 
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { t, i18n } = useTranslation();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const colors = useAppColors();
-  const styles = useStyles();
+  const { styles } = useStyles();
   const isAr = i18n.language === "ar";
 
   const [socketConnected, setSocketConnected] = React.useState(() => getOrdersSocket().connected);
@@ -209,39 +190,75 @@ export default function OrderDetailScreen() {
   if (isError && !order)
     return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !order)
-    return <OrderDetailSkeleton insets={insets} />;
+    return <OrderDetailSkeleton />;
+
+  const shopName = (isAr ? order.shop?.nameAr : order.shop?.name) ?? t("orders.unknown_shop");
+  const accent = getOrderStatusAccent(order.status);
+  const date = new Date(order.createdAt).toLocaleString(isAr ? "ar-EG" : "en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const deliveryUnit = order.deliveryUnit?.trim();
+  const notes = order.notes?.trim();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <OrderNav order={order} isAr={isAr} colors={colors} styles={styles} />
+    <View style={styles.container}>
+      <ScreenHeader title={shopName} />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: SPACING.xl }]}
       >
-        {order.status !== "CANCELLED" && (
-          <StatusTimeline currentStatus={order.status} styles={styles} />
-        )}
+        <View style={styles.statusHead}>
+          <View style={[styles.pill, { backgroundColor: `${accent}2e` }]}>
+            <View style={[styles.pillDot, { backgroundColor: accent }]} />
+            <Text style={styles.pillText}>{t(`orders.${order.status}`)}</Text>
+          </View>
+          <Text style={styles.dateText}>{`${formatOrderNumber(order.id)} · ${date}`}</Text>
+        </View>
+
+        {order.status === "CANCELLED"
+          ? (
+              <View style={styles.cancelledCard}>
+                <XCircle size={28} color={SEMANTIC.error} weight="fill" />
+                <Text style={styles.cancelledText}>{t("orders.CANCELLED")}</Text>
+              </View>
+            )
+          : <StatusTimeline currentStatus={order.status} styles={styles} />}
+
         <OrderItems order={order} isAr={isAr} styles={styles} />
+
+        {(deliveryUnit || notes)
+          ? (
+              <View style={styles.card}>
+                {deliveryUnit
+                  ? (
+                      <View style={styles.infoRow}>
+                        <MapPin size={20} color={BRAND.gold} />
+                        <Text style={styles.infoText}>{t("checkout.unit", { number: deliveryUnit })}</Text>
+                      </View>
+                    )
+                  : null}
+                {notes
+                  ? (
+                      <View style={styles.infoRow}>
+                        <NoteBlank size={20} color={BRAND.gold} />
+                        <Text style={styles.infoText}>{notes}</Text>
+                      </View>
+                    )
+                  : null}
+              </View>
+            )
+          : null}
+
         <OrderSummary order={order} styles={styles} />
+
         {order.paymentMethod === "PAYMOB" && !order.isPaid && order.status !== "CANCELLED" && (
-          <Pressable
-            style={[styles.payBtn, paying && styles.cancelBtnDisabled]}
-            onPress={() => payNow()}
-            disabled={paying}
-            accessibilityRole="button"
-            accessibilityLabel={t("orders.pay_now")}
-          >
-            <Text style={styles.payBtnText}>{t("orders.pay_now")}</Text>
-          </Pressable>
+          <GoldButton label={t("orders.pay_now")} onPress={() => payNow()} loading={paying} />
         )}
         {order.status === "PLACED" && !order.isPaid && (
-          <Pressable
-            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
-            onPress={handleCancel}
-            disabled={cancelling}
-          >
-            <Text style={styles.cancelBtnText}>{t("orders.cancel_order")}</Text>
-          </Pressable>
+          <GoldButton label={t("orders.cancel_order")} variant="outline" onPress={handleCancel} disabled={cancelling} />
         )}
       </ScrollView>
     </View>
@@ -250,42 +267,25 @@ export default function OrderDetailScreen() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function OrderNav({ order, isAr, colors, styles }: { order: Order; isAr: boolean; colors: any; styles: any }) {
-  const { t } = useTranslation();
-  const shopName = isAr ? order.shop?.nameAr : order.shop?.name;
-  const statusColor = order.status === "CANCELLED" ? colors.elevated : (STATUS_COLOR[order.status] ?? colors.elevated);
-
-  return (
-    <View style={styles.nav}>
-      <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-        <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-      </Pressable>
-      <View style={styles.navInfo}>
-        <Text style={styles.navShop} numberOfLines={1}>{shopName ?? t("orders.unknown_shop")}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-          <Text style={styles.statusText}>{t(`orders.${order.status}`)}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function StatusTimeline({ currentStatus, styles }: { currentStatus: OrderStatus; styles: any }) {
+function StatusTimeline({ currentStatus, styles }: { currentStatus: OrderStatus; styles: Styles }) {
   const { t } = useTranslation();
   const currentIdx = STATUS_STEPS.indexOf(currentStatus);
 
   return (
-    <View style={styles.timeline}>
+    <View style={styles.card}>
       {STATUS_STEPS.map((step, idx) => {
         const done = idx <= currentIdx;
         const active = idx === currentIdx;
+        const last = idx === STATUS_STEPS.length - 1;
         return (
-          <View key={step} style={styles.timelineItem}>
-            <View style={[styles.timelineDot, done && styles.timelineDotDone, active && styles.timelineDotActive]} />
-            {idx < STATUS_STEPS.length - 1 && (
-              <View style={[styles.timelineLine, done && styles.timelineLineDone]} />
-            )}
-            <Text style={[styles.timelineLabel, done && styles.timelineLabelDone]}>
+          <View key={step} style={[styles.stepRow, last && { minHeight: 24 }]}>
+            <View style={styles.stepRail}>
+              <View style={[styles.stepDot, done && styles.stepDotDone, active && styles.stepDotActive]}>
+                {done && !active ? <Check size={13} color={BRAND.ink} weight="bold" /> : null}
+              </View>
+              {!last && <View style={[styles.stepLine, idx < currentIdx && styles.stepLineDone]} />}
+            </View>
+            <Text style={[styles.stepLabel, done && styles.stepLabelDone, active && styles.stepLabelActive, last && { paddingBottom: 0 }]}>
               {t(`orders.${step}`)}
             </Text>
           </View>
@@ -295,16 +295,17 @@ function StatusTimeline({ currentStatus, styles }: { currentStatus: OrderStatus;
   );
 }
 
-function OrderItems({ order, isAr, styles }: { order: Order; isAr: boolean; styles: any }) {
+function OrderItems({ order, isAr, styles }: { order: Order; isAr: boolean; styles: Styles }) {
+  const locale = isAr ? "ar-EG" : "en-GB";
   return (
-    <View style={styles.section}>
+    <View style={styles.card}>
       {(order.items ?? []).map(item => (
         <View key={item.id} style={styles.itemRow}>
           <Text style={styles.itemQty}>
-            {item.quantity}
+            {item.quantity.toLocaleString(locale)}
             ×
           </Text>
-          <Text style={styles.itemName} numberOfLines={1}>
+          <Text style={styles.itemName} numberOfLines={2}>
             {isAr ? item.productNameArSnapshot : item.productNameSnapshot}
           </Text>
           <Text style={styles.itemPrice}>
@@ -316,10 +317,10 @@ function OrderItems({ order, isAr, styles }: { order: Order; isAr: boolean; styl
   );
 }
 
-function OrderSummary({ order, styles }: { order: Order; styles: any }) {
+function OrderSummary({ order, styles }: { order: Order; styles: Styles }) {
   const { t } = useTranslation();
   return (
-    <View style={[styles.section, styles.summarySection]}>
+    <View style={styles.card}>
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>{t("checkout.payment")}</Text>
         <Text style={styles.summaryValue}>
@@ -328,7 +329,7 @@ function OrderSummary({ order, styles }: { order: Order; styles: any }) {
       </View>
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>{t("orders.paid")}</Text>
-        <Text style={[styles.summaryValue, { color: order.isPaid ? SEMANTIC.success : SEMANTIC.error }]}>
+        <Text style={[styles.summaryValue, { color: order.isPaid ? SEMANTIC.success : SEMANTIC.warning }]}>
           {order.isPaid ? t("orders.paid") : t("orders.unpaid")}
         </Text>
       </View>
@@ -342,16 +343,16 @@ function OrderSummary({ order, styles }: { order: Order; styles: any }) {
   );
 }
 
-function OrderDetailSkeleton({ insets }: { insets: { top: number } }) {
-  const colors = useAppColors();
-  const styles = useStyles();
+function OrderDetailSkeleton() {
+  const { styles } = useStyles();
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top + 56, backgroundColor: colors.card }} />
+      <ScreenHeader title="" />
       <View style={{ padding: SPACING.base, gap: SPACING.md }}>
-        <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
-        <Skeleton width="100%" height={120} borderRadius={RADIUS.md} />
-        <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
+        <Skeleton width="100%" height={32} borderRadius={RADIUS.full} />
+        <Skeleton width="100%" height={220} borderRadius={RADIUS.lg} />
+        <Skeleton width="100%" height={120} borderRadius={RADIUS.lg} />
+        <Skeleton width="100%" height={100} borderRadius={RADIUS.lg} />
       </View>
     </View>
   );

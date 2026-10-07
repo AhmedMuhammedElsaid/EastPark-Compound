@@ -1,20 +1,19 @@
 import type { FeedbackReply, FeedbackStatus } from "@/services/api/community";
 import { useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
+import { useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { DetailErrorScreen } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  SUBMITTED: "", // filled at runtime with colors.elevated
+  SUBMITTED: BRAND.gold,
   ACKNOWLEDGED: SEMANTIC.info,
   IN_PROGRESS: SEMANTIC.warning,
   RESOLVED: SEMANTIC.success,
@@ -22,70 +21,53 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 
 function useStyles() {
   const colors = useAppColors();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      gap: SPACING.sm,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
-    scroll: { padding: SPACING.base },
+    scroll: { padding: SPACING.base, paddingBottom: SPACING.xl },
     metaSection: { gap: SPACING.sm, marginBottom: SPACING.md },
     badges: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.sm },
-    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
-    badgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 12, color: colors.text },
-    fbTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 20, color: colors.text, lineHeight: 28 },
-    fbBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 24 },
-    fbDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
+    badge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full },
+    badgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: colors.text },
+    fbBody: { fontFamily: FONT.sans, fontSize: 15, color: colors.text, lineHeight: 26 },
+    fbDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: SPACING.lg },
     sectionTitle: {
       fontFamily: FONT.sans,
       fontWeight: "700",
       fontSize: 16,
+      lineHeight: 24,
       color: colors.text,
       marginBottom: SPACING.md,
     },
     replyCard: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.base,
       gap: SPACING.sm,
-      borderLeftWidth: 3,
-      borderLeftColor: BRAND.gold,
+      borderStartWidth: 3,
+      borderStartColor: BRAND.gold,
       marginBottom: SPACING.md,
     },
     replyHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
     adminBadge: {
-      backgroundColor: BRAND.goldTint,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
+      backgroundColor: `${BRAND.gold}1f`,
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: 3,
       borderRadius: RADIUS.full,
     },
-    adminBadgeText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 11, color: BRAND.goldText },
+    adminBadgeText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 11, lineHeight: 18, color: gold },
     replySpacer: { flex: 1 },
-    replyDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
-    replyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 22 },
-  }), [colors]);
+    replyDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    replyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 24 },
+  }), [colors, gold]);
 }
 
 export default function FeedbackDetailScreen() {
   const { feedbackId } = useLocalSearchParams<{ feedbackId: string }>();
   const { t, i18n } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isAr = i18n.language === "ar";
   const styles = useStyles();
   const colors = useAppColors();
@@ -101,7 +83,7 @@ export default function FeedbackDetailScreen() {
   if (isError && !fb)
     return <DetailErrorScreen onRetry={() => refetch()} />;
   if (isLoading || !fb)
-    return <FeedbackDetailSkeleton insets={insets} />;
+    return <FeedbackDetailSkeleton />;
 
   const date = new Date(fb.createdAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
     year: "numeric",
@@ -110,17 +92,12 @@ export default function FeedbackDetailScreen() {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("feedback.title")}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={t("feedback.title")} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
+        contentContainerStyle={styles.scroll}
       >
         <FeedbackMeta feedback={fb} date={date} styles={styles} colors={colors} />
         <View style={styles.divider} />
@@ -142,9 +119,7 @@ export default function FeedbackDetailScreen() {
 
 function FeedbackMeta({ feedback, date, styles, colors }: { feedback: any; date: string; styles: any; colors: any }) {
   const { t } = useTranslation();
-  const statusColor = feedback.status === "SUBMITTED"
-    ? colors.elevated
-    : (STATUS_COLOR[feedback.status as FeedbackStatus] ?? colors.elevated);
+  const tint = STATUS_COLOR[feedback.status as FeedbackStatus] ?? BRAND.gold;
 
   return (
     <View style={styles.metaSection}>
@@ -152,7 +127,7 @@ function FeedbackMeta({ feedback, date, styles, colors }: { feedback: any; date:
         <View style={[styles.badge, { backgroundColor: colors.elevated }]}>
           <Text style={styles.badgeText}>{t(`feedback.${feedback.category}`)}</Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: statusColor }]}>
+        <View style={[styles.badge, { backgroundColor: `${tint}33` }]}>
           <Text style={styles.badgeText}>{t(`feedback.${feedback.status}`)}</Text>
         </View>
         {feedback.isAnonymous && (
@@ -191,12 +166,12 @@ function ReplyCard({ reply, styles }: { reply: FeedbackReply; styles: any }) {
   );
 }
 
-function FeedbackDetailSkeleton({ insets }: { insets: { top: number } }) {
-  const colors = useAppColors();
+function FeedbackDetailSkeleton() {
+  const { t } = useTranslation();
   const styles = useStyles();
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top + 56, backgroundColor: colors.card }} />
+      <ScreenHeader title={t("feedback.title")} />
       <View style={{ padding: SPACING.base, gap: SPACING.md }}>
         <Skeleton width="40%" height={20} />
         <Skeleton width="80%" height={24} />

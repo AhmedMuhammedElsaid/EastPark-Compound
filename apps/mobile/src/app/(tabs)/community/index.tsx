@@ -3,13 +3,14 @@ import type { Announcement, AnnouncementCategory } from "@/services/api/communit
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ChatCircle, CheckSquare, FilePdf, MegaphoneSimple } from "phosphor-react-native";
+import { ChatCircle, CheckSquare, FilePdf, MegaphoneSimple, PushPin } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppHeader } from "@/components/ui/app-header";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -17,7 +18,7 @@ import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { openDocument } from "@/lib/utils";
 
 import { communityApi } from "@/services/api/community";
-import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 type Filter = AnnouncementCategory | "ALL";
 
@@ -30,56 +31,63 @@ const FILTERS: { key: Filter; i18nKey: string }[] = [
   { key: "PROMOTION", i18nKey: "community.PROMOTION" },
 ];
 
-const CATEGORY_COLOR: Record<string, string> = {
-  NEWS: SEMANTIC.info,
-  EVENT: BRAND.gold,
-  MAINTENANCE: SEMANTIC.warning,
-  PROMOTION: SEMANTIC.success,
-};
-
 function useStyles() {
   const colors = useAppColors();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, color: colors.text, marginBottom: SPACING.md },
+    header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.base, paddingBottom: SPACING.xs },
+    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, lineHeight: 36, color: colors.text, marginBottom: SPACING.md },
     quickLinks: { flexDirection: "row" as const, gap: SPACING.sm },
     quickLink: {
       flex: 1,
+      minHeight: 76,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      paddingVertical: SPACING.md,
+      paddingHorizontal: SPACING.sm,
       alignItems: "center" as const,
+      justifyContent: "center" as const,
       gap: SPACING.xs,
     },
-    quickLinkLabel: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, textAlign: "center" as const, fontWeight: "500" },
-    chips: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.sm, gap: SPACING.sm },
-    chip: { height: 34, paddingHorizontal: SPACING.md, borderRadius: RADIUS.full, justifyContent: "center" as const },
+    quickLinkLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.text, textAlign: "center" as const, fontWeight: "600" },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+    chipsScroll: { flexGrow: 0 },
+    chips: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.md, gap: SPACING.sm },
+    chip: { minHeight: 44, paddingHorizontal: SPACING.base, borderRadius: RADIUS.full, justifyContent: "center" as const },
     chipActive: { backgroundColor: BRAND.gold },
-    chipInactive: { borderWidth: 1, borderColor: colors.border },
-    chipLabel: { fontFamily: FONT.sans, fontWeight: "500", fontSize: 13 },
-    chipLabelActive: { color: colors.bg },
+    chipInactive: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+    chipLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20 },
+    chipLabelActive: { color: BRAND.ink },
     chipLabelInactive: { color: colors.textMuted },
     loadingPad: { padding: SPACING.base },
-    listContent: { padding: SPACING.base },
-    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md },
-    emptyTitle: { fontFamily: FONT.sans, fontSize: 16, color: colors.textMuted, fontWeight: "600" },
+    listContent: { paddingHorizontal: SPACING.base, paddingTop: SPACING.xs, paddingBottom: SPACING.xl },
+    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
+    emptyTitle: { fontFamily: FONT.sans, fontSize: 16, lineHeight: 24, color: colors.textMuted, fontWeight: "600", textAlign: "center" as const },
     card: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.base,
       marginBottom: SPACING.md,
-      gap: SPACING.xs,
+      gap: SPACING.sm,
     },
-    cardPinned: { borderWidth: 1, borderColor: BRAND.gold },
-    cardTop: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginBottom: SPACING.xs },
-    catBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
-    catBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    pinLabel: { fontFamily: FONT.sans, fontSize: 11, color: BRAND.gold, fontWeight: "600" },
-    cardTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.text, lineHeight: 22 },
-    cardBody: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, lineHeight: 20 },
-    pdfLink: { fontFamily: FONT.sans, fontSize: 12, color: BRAND.gold, fontWeight: "600", marginTop: SPACING.xs },
-  }), [colors]);
+    cardPinned: { borderColor: BRAND.gold },
+    cardTop: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, gap: SPACING.sm },
+    cardTopStart: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm, flexShrink: 1 },
+    catBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: `${BRAND.gold}1f` },
+    catBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: gold },
+    dateText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    pinWrap: { flexDirection: "row" as const, alignItems: "center" as const, gap: 4 },
+    pinLabel: { fontFamily: FONT.sans, fontSize: 11, lineHeight: 18, color: gold, fontWeight: "600" },
+    cardTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text, lineHeight: 26 },
+    cardBody: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, lineHeight: 22 },
+    pdfLink: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.xs, minHeight: 44, alignSelf: "flex-start" as const },
+    pdfLinkText: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: gold, fontWeight: "600" },
+  }), [colors, gold]);
 }
 
 export default function CommunityScreen() {
@@ -111,6 +119,7 @@ export default function CommunityScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <AppHeader />
       <CommunityHeader
         onGovernance={() => router.push("/(tabs)/community/governance")}
         onReports={() => router.push("/(tabs)/community/reports")}
@@ -151,15 +160,15 @@ function CommunityHeader({
     <View style={styles.header}>
       <Text style={styles.headerTitle}>{t("community.title")}</Text>
       <View style={styles.quickLinks}>
-        <Pressable style={styles.quickLink} onPress={onGovernance}>
+        <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onGovernance} accessibilityRole="button">
           <CheckSquare size={22} color={BRAND.gold} />
           <Text style={styles.quickLinkLabel}>{t("community.governance")}</Text>
         </Pressable>
-        <Pressable style={styles.quickLink} onPress={onReports}>
+        <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onReports} accessibilityRole="button">
           <FilePdf size={22} color={BRAND.gold} />
           <Text style={styles.quickLinkLabel}>{t("community.reports")}</Text>
         </Pressable>
-        <Pressable style={styles.quickLink} onPress={onFeedback}>
+        <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onFeedback} accessibilityRole="button">
           <ChatCircle size={22} color={BRAND.gold} />
           <Text style={styles.quickLinkLabel}>{t("community.feedback")}</Text>
         </Pressable>
@@ -174,6 +183,7 @@ function FilterChips({ selected, onSelect, styles }: { selected: Filter; onSelec
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.chipsScroll}
       contentContainerStyle={styles.chips}
     >
       {FILTERS.map(({ key, i18nKey }) => {
@@ -183,6 +193,8 @@ function FilterChips({ selected, onSelect, styles }: { selected: Filter; onSelec
             key={key}
             onPress={() => onSelect(key)}
             style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.chipLabel, active ? styles.chipLabelActive : styles.chipLabelInactive]}>
               {t(i18nKey)}
@@ -216,7 +228,7 @@ function AnnouncementList({ announcements, isError, isLoading, isFetchingNextPag
     return (
       <View style={styles.loadingPad}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={`ann-sk-${i}`} width="100%" height={120} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+          <Skeleton key={`ann-sk-${i}`} width="100%" height={120} borderRadius={RADIUS.lg} style={{ marginBottom: 12 }} />
         ))}
       </View>
     );
@@ -243,7 +255,7 @@ function AnnouncementList({ announcements, isError, isLoading, isFetchingNextPag
         )}
         ListFooterComponent={
           isFetchingNextPage
-            ? <Skeleton width="100%" height={120} borderRadius={RADIUS.md} />
+            ? <Skeleton width="100%" height={120} borderRadius={RADIUS.lg} />
             : null
         }
       />
@@ -256,26 +268,44 @@ function AnnouncementCard({ announcement, styles, colors }: { announcement: Anno
   const isAr = i18n.language === "ar";
   const title = isAr ? announcement.titleAr : announcement.title;
   const body = isAr ? announcement.bodyAr : announcement.body;
-  const catColor = CATEGORY_COLOR[announcement.category] ?? colors.elevated;
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  const date = new Date(announcement.publishedAt ?? announcement.createdAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
   return (
     <Pressable
-      style={[styles.card, announcement.isPinned && styles.cardPinned]}
+      style={({ pressed }) => [styles.card, announcement.isPinned && styles.cardPinned, pressed && styles.pressed]}
       onPress={() => router.push(`/(tabs)/community/${announcement.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={title}
     >
       <View style={styles.cardTop}>
-        <View style={[styles.catBadge, { backgroundColor: catColor }]}>
-          <Text style={styles.catBadgeText}>{t(`community.${announcement.category}`)}</Text>
+        <View style={styles.cardTopStart}>
+          <View style={styles.catBadge}>
+            <Text style={styles.catBadgeText}>{t(`community.${announcement.category}`)}</Text>
+          </View>
+          <Text style={styles.dateText} numberOfLines={1}>{date}</Text>
         </View>
         {announcement.isPinned && (
-          <Text style={styles.pinLabel}>{t("community.pinned")}</Text>
+          <View style={styles.pinWrap}>
+            <PushPin size={14} weight="fill" color={gold} />
+            <Text style={styles.pinLabel}>{t("community.pinned")}</Text>
+          </View>
         )}
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
       <Text style={styles.cardBody} numberOfLines={3}>{body}</Text>
       {announcement.pdfUrl && (
-        <Pressable onPress={() => openDocument(announcement.pdfUrl!, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))}>
-          <Text style={styles.pdfLink}>{t("community.view_pdf")}</Text>
+        <Pressable
+          style={styles.pdfLink}
+          onPress={() => openDocument(announcement.pdfUrl!, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))}
+          accessibilityRole="button"
+        >
+          <FilePdf size={18} color={gold} />
+          <Text style={styles.pdfLinkText}>{t("community.view_pdf")}</Text>
         </Pressable>
       )}
     </Pressable>

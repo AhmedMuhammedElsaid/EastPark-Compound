@@ -1,16 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { z } from "zod";
 
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -29,21 +29,19 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: { flexDirection: "row" as const, alignItems: "center" as const, paddingHorizontal: SPACING.base, paddingVertical: SPACING.md, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, gap: SPACING.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.elevated, justifyContent: "center" as const, alignItems: "center" as const },
-    navTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     scroll: { padding: SPACING.base, gap: SPACING.sm },
-    label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.textMuted, marginTop: SPACING.md, marginBottom: SPACING.xs },
-    input: { backgroundColor: colors.card, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, fontFamily: FONT.sans, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border },
+    label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.textMuted, marginTop: SPACING.md, marginBottom: SPACING.xs },
+    input: { backgroundColor: colors.card, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, minHeight: 48, paddingVertical: SPACING.sm, fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.text, borderWidth: 1, borderColor: colors.border },
     inputError: { borderColor: SEMANTIC.error },
-    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error, marginTop: SPACING.xs },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: SEMANTIC.error, marginTop: SPACING.xs },
     optionRow: { gap: SPACING.xs, marginBottom: SPACING.sm },
     optionInput: { flex: 1 },
-    addOptionBtn: { alignItems: "center" as const, paddingVertical: SPACING.sm },
-    addOptionText: { fontFamily: FONT.sans, fontSize: 14, color: BRAND.gold, fontWeight: "600" },
+    addOptionBtn: { alignItems: "center" as const, justifyContent: "center" as const, minHeight: 44 },
+    addOptionText: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: "primaryText" in colors ? colors.primaryText : BRAND.gold, fontWeight: "600" },
     submitBtn: { height: 52, borderRadius: RADIUS.md, backgroundColor: BRAND.gold, justifyContent: "center" as const, alignItems: "center" as const, marginTop: SPACING.xl },
     submitBtnDisabled: { opacity: 0.5 },
-    submitBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.bg },
+    submitBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: BRAND.ink },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   }), [colors]);
 }
 
@@ -78,14 +76,9 @@ export default function NewPollScreen() {
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("admin.new_poll")}</Text>
-      </View>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}>
+    <View style={styles.container}>
+      <ScreenHeader title={t("admin.new_poll")} />
+      <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}>
         <Text style={styles.label}>{t("admin.question_en")}</Text>
         <Controller
           control={control}
@@ -138,14 +131,11 @@ export default function NewPollScreen() {
         ))}
         {optionCount < 6 && (
           <Pressable style={styles.addOptionBtn} onPress={() => setOptionCount(c => c + 1)}>
-            <Text style={styles.addOptionText}>
-              +
-              {t("admin.add_option")}
-            </Text>
+            <Text style={styles.addOptionText}>{`+ ${t("admin.add_option")}`}</Text>
           </Pressable>
         )}
 
-        <Pressable style={[styles.submitBtn, isPending && styles.submitBtnDisabled]} onPress={handleSubmit(d => mutate(d))} disabled={isPending}>
+        <Pressable style={({ pressed }) => [styles.submitBtn, isPending && styles.submitBtnDisabled, pressed && styles.pressed]} onPress={handleSubmit(d => mutate(d))} disabled={isPending} accessibilityRole="button">
           <Text style={styles.submitBtnText}>{isPending ? t("common.loading") : t("common.submit")}</Text>
         </Pressable>
       </ScrollView>

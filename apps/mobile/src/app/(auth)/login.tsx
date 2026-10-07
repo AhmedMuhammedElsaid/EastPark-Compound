@@ -2,14 +2,14 @@ import type { Control, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { Eye, EyeSlash, FaceMask, Fingerprint, LockKey } from "phosphor-react-native";
+import { FaceMask, Fingerprint, LockKey } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { z } from "zod";
-import { AuthInput } from "@/components/auth/auth-input";
+import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
 
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
@@ -35,33 +35,33 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     header: { alignItems: "center" as const, marginTop: SPACING.xl, marginBottom: SPACING["2xl"] },
-    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, color: colors.text, textAlign: "center" as const, marginBottom: SPACING.xs },
-    subtitle: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, marginBottom: SPACING.xl },
+    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, lineHeight: 40, color: colors.text, textAlign: "center" as const, marginBottom: SPACING.xs },
+    subtitle: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted, textAlign: "center" as const, marginBottom: SPACING.xl },
     form: { gap: SPACING.xs },
-    forgotRow: { alignSelf: "flex-end" as const, marginTop: SPACING.xs, marginBottom: SPACING.sm },
-    forgotText: { fontFamily: FONT.sans, fontSize: 13, color: BRAND.gold, fontWeight: "500" },
+    forgotRow: { alignSelf: "flex-end" as const, minHeight: 44, justifyContent: "center" as const },
+    forgotText: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: "primaryText" in colors ? colors.primaryText : BRAND.gold, fontWeight: "600" },
     footer: { alignItems: "center" as const, marginTop: SPACING.lg },
-    footerText: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const },
+    footerText: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted, textAlign: "center" as const },
     bottomPad: { height: SPACING["2xl"] },
-    wakingText: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, textAlign: "center" as const, marginTop: SPACING.sm },
+    wakingText: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, textAlign: "center" as const, marginTop: SPACING.sm },
     biometricBtn: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       justifyContent: "center" as const,
       gap: SPACING.sm,
-      height: 52,
+      height: 48,
       borderRadius: RADIUS.md,
       borderWidth: 1,
       borderColor: BRAND.gold,
-      backgroundColor: `${BRAND.gold}11`,
+      backgroundColor: `${BRAND.gold}1f`,
       marginBottom: SPACING.md,
     },
     biometricBtnLoading: { opacity: 0.6 },
-    biometricBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, color: BRAND.gold },
-    biometricEmail: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, textAlign: "center" as const, marginBottom: SPACING.md },
+    biometricBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, lineHeight: 22, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
+    biometricEmail: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted, textAlign: "center" as const, marginBottom: SPACING.md },
     divider: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm, marginBottom: SPACING.md },
     dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-    dividerText: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, textTransform: "uppercase" as const, letterSpacing: 1 },
+    dividerText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
   }), [colors]);
 }
 
@@ -260,7 +260,6 @@ type LoginFormProps = {
 function LoginForm({ control, errors, showPassword, onTogglePassword, onSubmitEditing }: LoginFormProps) {
   const { t } = useTranslation();
   const styles = useStyles();
-  const colors = useAppColors();
   return (
     <View style={styles.form}>
       <Controller
@@ -284,7 +283,7 @@ function LoginForm({ control, errors, showPassword, onTogglePassword, onSubmitEd
             secureTextEntry={!showPassword}
             returnKeyType="done"
             onSubmitEditing={onSubmitEditing}
-            rightSlot={<Pressable onPress={onTogglePassword} hitSlop={12} accessibilityRole="button" accessibilityLabel={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}</Pressable>}
+            rightSlot={<PasswordToggle visible={showPassword} onToggle={onTogglePassword} />}
           />
         )}
       />

@@ -3,15 +3,15 @@ import type { Product } from "@/services/api/merchant";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { useController, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { I18nManager, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
 import { invalidateProductQueries } from "@/services/query/client";
@@ -33,28 +33,9 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingBottom: SPACING.sm,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     scroll: { padding: SPACING.base, gap: SPACING.md },
     section: { gap: SPACING.xs },
-    label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: colors.text },
+    label: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.text },
     input: {
       backgroundColor: colors.card,
       borderRadius: RADIUS.md,
@@ -70,7 +51,8 @@ function useStyles() {
     inputMultiline: { height: 80, textAlignVertical: "top" as const, paddingTop: SPACING.sm },
     inputFocused: { borderColor: BRAND.gold },
     inputError: { borderColor: SEMANTIC.error },
-    errorText: { fontFamily: FONT.sans, fontSize: 12, color: SEMANTIC.error },
+    errorText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: SEMANTIC.error },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     saveBtn: {
       height: 52,
       borderRadius: RADIUS.md,
@@ -80,7 +62,7 @@ function useStyles() {
       marginTop: SPACING.md,
     },
     saveBtnDisabled: { opacity: 0.5 },
-    saveBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.bg },
+    saveBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: BRAND.ink },
   }), [colors]);
 }
 
@@ -151,12 +133,7 @@ export default function ProductFormScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={[styles.nav, { paddingTop: insets.top + SPACING.sm }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{isNew ? t("merchant.new_product") : t("merchant.edit_product")}</Text>
-      </View>
+      <ScreenHeader title={isNew ? t("merchant.new_product") : t("merchant.edit_product")} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -166,7 +143,8 @@ export default function ProductFormScreen() {
         <ProductFields control={control} errors={errors} styles={styles} colors={colors} />
 
         <Pressable
-          style={[styles.saveBtn, isPending && styles.saveBtnDisabled]}
+          style={({ pressed }) => [styles.saveBtn, isPending && styles.saveBtnDisabled, pressed && styles.pressed]}
+          accessibilityRole="button"
           onPress={handleSubmit((d: FormData) => mutate(d))}
           disabled={isPending}
         >
@@ -231,7 +209,8 @@ function PField({
         onFocus={() => setIsFocused(true)}
         multiline={multiline}
         keyboardType={keyboardType}
-        textAlign={rtl ? "right" : "left"}
+        textAlign={rtl ? "right" : undefined}
+        accessibilityLabel={label}
         placeholderTextColor={colors.textMuted}
         style={[
           styles.input,

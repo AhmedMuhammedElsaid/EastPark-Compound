@@ -1,26 +1,24 @@
 import type { Control, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as Haptics from "expo-haptics";
 import { useLocalSearchParams } from "expo-router";
-import { Eye, EyeSlash } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { z } from "zod";
-import { AuthInput } from "@/components/auth/auth-input";
+import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
 
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { acceptInvitationErrorKey } from "@/lib/api-error";
 import { newPasswordSchema } from "@/lib/auth/password";
-import { isAdminRole } from "@/lib/roles";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { isAdminRole } from "@/lib/roles";
 import { authApi } from "@/services/api/auth";
 import { completeLogin } from "@/services/auth/session";
-import { BRAND, FONT, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z.object({
   name: z.string().min(2, "auth.errors.name_too_short"),
@@ -33,14 +31,14 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     header: { alignItems: "center" as const, marginTop: SPACING.xl, marginBottom: SPACING.xl },
-    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, color: colors.text, textAlign: "center" as const, marginBottom: SPACING.md },
+    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, lineHeight: 36, color: colors.text, textAlign: "center" as const, marginBottom: SPACING.md },
     roleBadgeRow: { alignItems: "center" as const, marginBottom: SPACING.xl },
-    roleBadge: { borderWidth: 1.5, borderColor: BRAND.gold, borderRadius: 9999, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.xs },
-    roleBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, color: BRAND.gold, letterSpacing: 1 },
+    roleBadge: { backgroundColor: `${BRAND.gold}1f`, borderRadius: RADIUS.full, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.xs },
+    roleBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
     form: { gap: SPACING.xs, marginBottom: SPACING.sm },
     bottomPad: { height: SPACING["2xl"] },
     errorCard: { flex: 1, justifyContent: "center" as const, paddingHorizontal: SPACING.base },
-    errorBorder: { borderLeftWidth: 4, borderRadius: 8, backgroundColor: colors.card, padding: SPACING.lg, gap: SPACING.sm },
+    errorBorder: { borderStartWidth: 4, borderRadius: RADIUS.md, backgroundColor: colors.card, padding: SPACING.lg, gap: SPACING.sm },
     errorTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     errorBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 22 },
   }), [colors]);
@@ -80,7 +78,7 @@ export default function AcceptInvitationScreen() {
       <AuthScreenWrapper scrollable={false}>
         <View style={styles.header}><BrandMark size="md" /></View>
         <View style={styles.errorCard}>
-          <View style={[styles.errorBorder, { borderLeftColor: SEMANTIC.error }]}>
+          <View style={[styles.errorBorder, { borderStartColor: SEMANTIC.error }]}>
             <Text style={styles.errorTitle}>{t("auth.invitation_invalid")}</Text>
             <Text style={styles.errorBody}>{t("auth.contact_administrator")}</Text>
           </View>
@@ -110,7 +108,6 @@ export default function AcceptInvitationScreen() {
 function InvitationForm({ control, errors, onSubmitEditing }: { control: Control<FormData>; errors: FieldErrors<FormData>; onSubmitEditing: () => void }) {
   const { t } = useTranslation();
   const styles = useStyles();
-  const colors = useAppColors();
   const [showPwd, setShowPwd] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
   return (
@@ -135,9 +132,7 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
             secureTextEntry={!showPwd}
             returnKeyType="next"
             rightSlot={(
-              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowPwd(v => !v); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={showPwd ? t("auth.hide_password") : t("auth.show_password")}>
-                {showPwd ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
-              </Pressable>
+              <PasswordToggle visible={showPwd} onToggle={() => setShowPwd(v => !v)} />
             )}
           />
         )}
@@ -156,9 +151,7 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
             returnKeyType="done"
             onSubmitEditing={onSubmitEditing}
             rightSlot={(
-              <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowConfirm(v => !v); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={showConfirm ? t("auth.hide_password") : t("auth.show_password")}>
-                {showConfirm ? <EyeSlash size={20} color={colors.textMuted} /> : <Eye size={20} color={colors.textMuted} />}
-              </Pressable>
+              <PasswordToggle visible={showConfirm} onToggle={() => setShowConfirm(v => !v)} />
             )}
           />
         )}

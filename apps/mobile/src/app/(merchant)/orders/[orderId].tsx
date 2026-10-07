@@ -1,19 +1,20 @@
 import type { MerchantOrder } from "@/services/api/merchant";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DetailErrorScreen } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorStatus } from "@/lib/api-error";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
+import { formatOrderNumber } from "@/lib/whatsapp";
 import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
 import { getOrderItemTotal } from "@/services/api/orders";
 import { canCancelOrder, getNextOrderStatus, isTerminalOrderStatus } from "@/services/orders/status-transitions";
@@ -23,69 +24,53 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.md,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navInfo: { flex: 1 },
-    navUnit: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: BRAND.gold },
-    navName: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    navTime: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
     scroll: { padding: SPACING.base, gap: SPACING.md },
     statusCard: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
-      borderLeftWidth: 4,
-      borderLeftColor: BRAND.gold,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
+      borderStartWidth: 4,
+      borderStartColor: BRAND.gold,
     },
     statusLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text },
     itemsCard: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       gap: SPACING.sm,
     },
     itemRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
-    itemQty: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: BRAND.gold, minWidth: 28 },
-    itemName: { flex: 1, fontFamily: FONT.sans, fontSize: 14, color: colors.text },
+    itemQty: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: "primaryText" in colors ? colors.primaryText : BRAND.gold, minWidth: 28 },
+    itemName: { flex: 1, fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.text },
     itemPrice: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
     totalRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: SPACING.sm, marginTop: SPACING.xs },
     totalLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, color: colors.text },
-    totalValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: BRAND.gold },
+    totalValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
     metaCard: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       gap: SPACING.sm,
     },
     metaRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, gap: SPACING.sm },
-    metaLabel: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    metaValue: { fontFamily: FONT.sans, fontSize: 13, color: colors.text, fontWeight: "500", flex: 1, textAlign: "right" as const },
+    metaLabel: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    metaValue: { fontFamily: FONT.sans, fontSize: 13, color: colors.text, fontWeight: "500", flex: 1, textAlign: "right" as const, lineHeight: 20 },
     actions: { flexDirection: "row" as const, gap: SPACING.md },
     acceptBtn: {
       flex: 1,
       height: 52,
       borderRadius: RADIUS.md,
-      backgroundColor: SEMANTIC.success,
+      backgroundColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
-    acceptBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.text },
+    acceptBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 22, color: BRAND.ink, textAlign: "center" as const },
     rejectBtn: {
       flex: 1,
       height: 52,
@@ -95,8 +80,12 @@ function useStyles() {
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
-    rejectBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, color: SEMANTIC.error },
+    rejectBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, lineHeight: 22, color: SEMANTIC.error, textAlign: "center" as const },
     btnDisabled: { opacity: 0.5 },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+    headerInfo: { gap: 0 },
+    headerName: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    headerTime: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, paddingHorizontal: SPACING.sm },
   }), [colors]);
 }
 
@@ -167,23 +156,17 @@ export default function MerchantOrderDetailScreen() {
   const time = new Date(order.createdAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <View style={styles.navInfo}>
-          <Text style={styles.navUnit}>{t("checkout.unit", { number: getOrderUnit(order) })}</Text>
-          {getOrderResidentName(order) ? <Text style={styles.navName}>{getOrderResidentName(order)}</Text> : null}
-        </View>
-        <Text style={styles.navTime}>{time}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={t("checkout.unit", { number: getOrderUnit(order) })}
+        right={<Text style={styles.headerTime}>{`${formatOrderNumber(order.id)} · ${time}`}</Text>}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
-        <OrderStatusBadge status={order.status} styles={styles} colors={colors} />
+        <OrderStatusBadge status={order.status} name={getOrderResidentName(order) ?? undefined} styles={styles} colors={colors} />
         <OrderItemsList order={order} styles={styles} />
         <OrderMeta order={order} styles={styles} />
 
@@ -209,7 +192,7 @@ export default function MerchantOrderDetailScreen() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function OrderStatusBadge({ status, styles, colors }: { status: string; styles: any; colors: any }) {
+function OrderStatusBadge({ status, name, styles, colors }: { status: string; name?: string; styles: any; colors: any }) {
   const { t } = useTranslation();
   const statusColors: Record<string, string> = {
     PLACED: SEMANTIC.info,
@@ -217,12 +200,13 @@ function OrderStatusBadge({ status, styles, colors }: { status: string; styles: 
     PREPARING: SEMANTIC.warning,
     READY: SEMANTIC.success,
     ON_THE_WAY: BRAND.gold,
-    DELIVERED: colors.elevated,
+    DELIVERED: colors.textMuted,
     CANCELLED: SEMANTIC.error,
   };
   return (
-    <View style={[styles.statusCard, { borderLeftColor: statusColors[status] ?? colors.border }]}>
+    <View style={[styles.statusCard, { borderStartColor: statusColors[status] ?? colors.border }]}>
       <Text style={styles.statusLabel}>{t(`orders.${status}`)}</Text>
+      {name ? <Text style={styles.headerName}>{name}</Text> : null}
     </View>
   );
 }
@@ -291,7 +275,8 @@ function ActionButtons({
     <View style={styles.actions}>
       {canCancel && (
         <Pressable
-          style={[styles.rejectBtn, isRejecting && styles.btnDisabled]}
+          style={({ pressed }) => [styles.rejectBtn, isRejecting && styles.btnDisabled, pressed && styles.pressed]}
+          accessibilityRole="button"
           onPress={onReject}
           disabled={isRejecting}
         >
@@ -300,7 +285,8 @@ function ActionButtons({
       )}
       {nextStatus && (
         <Pressable
-          style={[styles.acceptBtn, isPending && styles.btnDisabled]}
+          style={({ pressed }) => [styles.acceptBtn, isPending && styles.btnDisabled, pressed && styles.pressed]}
+          accessibilityRole="button"
           onPress={onAdvance}
           disabled={isPending}
         >
@@ -318,7 +304,7 @@ function OrderDetailSkeleton({ insets }: { insets: { top: number } }) {
   const styles = useStyles();
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top + 56, backgroundColor: colors.card }} />
+      <View style={{ height: insets.top + 60, backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }} />
       <View style={{ padding: SPACING.base, gap: SPACING.md }}>
         <Skeleton width="100%" height={60} borderRadius={RADIUS.md} />
         <Skeleton width="100%" height={140} borderRadius={RADIUS.md} />

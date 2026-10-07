@@ -1,26 +1,28 @@
 import type { ColorSchemeType } from "@/lib/hooks/use-selected-theme";
-import type { DARK, LIGHT } from "@/theme/tokens";
+import type { LIGHT } from "@/theme/tokens";
 import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { BookmarkSimple, CaretRight, ChatCircle, FaceMask, Fingerprint, LockKey, Package, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { BookmarkSimple, CaretRight, ChatCircle, FaceMask, Fingerprint, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppHeader } from "@/components/ui/app-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
+import { isAdminRole } from "@/lib/roles";
 import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
 import { revokeRefreshToken } from "@/services/api/auth";
 import { usersApi } from "@/services/api/users";
 import { teardownSession } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
-import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,23 +31,25 @@ type AppStyles = ReturnType<typeof buildStyles>;
 
 // ─── Style factory (pure — no hook calls) ─────────────────────────────────────
 
+// eslint-disable-next-line max-lines-per-function -- one flat style sheet
 function buildStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.md },
-    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, color: colors.text },
-    scroll: { padding: SPACING.base, gap: SPACING.md },
+    scroll: { padding: SPACING.base, gap: SPACING.md, paddingBottom: SPACING["2xl"] },
     guestCard: {
       backgroundColor: colors.card,
       borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: SPACING.xl,
       alignItems: "center" as const,
       gap: SPACING.sm,
     },
-    guestPrompt: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text, textAlign: "center" as const },
+    guestIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    guestPrompt: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 28, color: colors.text, textAlign: "center" as const },
     guestSubtitle: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
     signInBtn: {
-      height: 48,
+      minHeight: 48,
       paddingHorizontal: SPACING.xl,
       borderRadius: RADIUS.md,
       backgroundColor: BRAND.gold,
@@ -53,81 +57,100 @@ function buildStyles(colors: AppColors) {
       alignItems: "center" as const,
       marginTop: SPACING.sm,
     },
-    signInBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.bg },
+    signInBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 22, color: BRAND.ink },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     avatarCard: {
       flexDirection: "row" as const,
       backgroundColor: colors.card,
       borderRadius: RADIUS.lg,
-      padding: SPACING.md,
-      gap: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
+      gap: SPACING.base,
       alignItems: "center" as const,
     },
     avatar: {
       width: 64,
       height: 64,
       borderRadius: 32,
-      backgroundColor: colors.elevated,
+      backgroundColor: `${BRAND.gold}1f`,
       borderWidth: 2,
       borderColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
-    avatarInitial: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, color: BRAND.gold },
-    avatarInfo: { flex: 1, gap: 4 },
-    userName: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
-    userEmail: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    userUnit: { fontFamily: FONT.sans, fontSize: 13, color: BRAND.gold, fontWeight: "600" },
-    section: { backgroundColor: colors.card, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
-    sectionTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 13, color: colors.textMuted, textTransform: "uppercase" as const, letterSpacing: 1 },
+    avatarInitial: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, lineHeight: 40, color: gold(colors) },
+    avatarInfo: { flex: 1, gap: 2 },
+    userName: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 28, color: colors.text },
+    userEmail: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    badgeRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.xs, marginTop: SPACING.xs },
+    badge: { backgroundColor: `${BRAND.gold}1f`, paddingHorizontal: SPACING.md, paddingVertical: 2, borderRadius: RADIUS.full },
+    badgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 12, lineHeight: 18, color: gold(colors) },
+    userUnit: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: gold(colors), fontWeight: "600" },
+    section: {
+      backgroundColor: colors.card,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
+      gap: SPACING.xs,
+    },
+    sectionTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 13, lineHeight: 20, color: colors.textMuted, marginBottom: SPACING.xs },
     row: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
-      paddingVertical: SPACING.sm,
+      minHeight: 52,
       gap: SPACING.md,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
     },
     unitRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
-      minHeight: 44,
+      minHeight: 48,
       gap: SPACING.md,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
     },
-    rowDanger: {},
-    rowIconWrap: { width: 28, alignItems: "center" as const },
-    rowLabel: { flex: 1, fontFamily: FONT.sans, fontSize: 15, color: colors.text, fontWeight: "500" },
-    rowLabelDanger: { flex: 1, fontFamily: FONT.sans, fontSize: 15, color: SEMANTIC.error, fontWeight: "500" },
+    rowIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    rowIconWrapDanger: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${SEMANTIC.error}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    rowLabel: { flex: 1, fontFamily: FONT.sans, fontSize: 15, lineHeight: 24, color: colors.text, fontWeight: "500" },
+    rowLabelDanger: { flex: 1, fontFamily: FONT.sans, fontSize: 15, lineHeight: 24, color: colors.textMuted, fontWeight: "500" },
     segmentRow: {
       flexDirection: "row" as const,
-      backgroundColor: colors.elevated,
+      backgroundColor: colors.bg,
       borderRadius: RADIUS.md,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: 3,
       gap: 3,
     },
     segment: {
       flex: 1,
-      height: 36,
+      height: 44,
       borderRadius: RADIUS.sm,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
-    segmentActive: { backgroundColor: colors.card },
-    segmentText: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, fontWeight: "500" },
-    segmentTextActive: { color: colors.text, fontWeight: "600" },
+    segmentActive: { backgroundColor: BRAND.gold },
+    segmentText: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, fontWeight: "500" },
+    segmentTextActive: { color: BRAND.ink, fontWeight: "700" },
     securityRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
-      paddingVertical: SPACING.sm,
+      minHeight: 56,
       gap: SPACING.md,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
     },
     securityCol: { flex: 1 },
-    securityLabel: { fontFamily: FONT.sans, fontSize: 15, color: colors.text, fontWeight: "500" },
-    securitySubtitle: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    securityLabel: { fontFamily: FONT.sans, fontSize: 15, lineHeight: 24, color: colors.text, fontWeight: "500" },
+    securitySubtitle: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
   });
+}
+
+function gold(colors: AppColors): string {
+  return "primaryText" in colors ? colors.primaryText : BRAND.gold;
 }
 
 // ─── Single hook — called once at the top level ───────────────────────────────
@@ -149,12 +172,10 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t("profile.title")}</Text>
-      </View>
+      <AppHeader title={t("profile.title")} />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
+        contentContainerStyle={styles.scroll}
       >
         {isAuthenticated && user
           ? <AuthenticatedProfile user={user} styles={styles} colors={colors} />
@@ -171,11 +192,11 @@ function GuestProfile({ styles, colors }: { styles: AppStyles; colors: AppColors
   return (
     <>
       <View style={styles.guestCard}>
-        <User size={32} color={colors.textMuted} />
+        <View style={styles.guestIcon}><User size={30} color={gold(colors)} weight="duotone" /></View>
         <Text style={styles.guestPrompt}>{t("profile.guest_prompt")}</Text>
         <Text style={styles.guestSubtitle}>{t("profile.guest_subtitle")}</Text>
         <Pressable
-          style={styles.signInBtn}
+          style={({ pressed }) => [styles.signInBtn, pressed && styles.pressed]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             router.push("/(auth)/login");
@@ -235,9 +256,10 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 
   return (
     <>
-      <UserAvatar name={user.name} unitNumber={getPrimaryUnit(user)} email={user.email} styles={styles} />
+      <UserAvatar name={user.name} unitNumber={getPrimaryUnit(user)} email={user.email} role={user.role} styles={styles} />
       <UnitsSection units={getUnitLabels(user)} primary={getPrimaryUnit(user)} styles={styles} />
-      <AccountSection role={user.role} styles={styles} colors={colors} />
+      <ManagementSection role={user.role} styles={styles} colors={colors} />
+      <AccountSection styles={styles} colors={colors} />
       {biometric.ready && biometric.isAvailable && (
         <SecuritySection
           biometric={biometric}
@@ -254,18 +276,39 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 
 // ─── Section sub-components ───────────────────────────────────────────────────
 
-function UserAvatar({ name, unitNumber, email, styles }: { name: string; unitNumber?: string; email: string; styles: AppStyles }) {
+function roleLabelKey(role: string): string {
+  if (role === "SUPER_ADMIN")
+    return "profile.role_super_admin";
+  if (role === "ADMIN")
+    return "auth.role_admin";
+  if (role === "MERCHANT")
+    return "auth.role_merchant";
+  return "profile.role_resident";
+}
+
+function UserAvatar({ name, unitNumber, email, role, styles }: { name: string; unitNumber?: string; email: string; role: string; styles: AppStyles }) {
   const { t } = useTranslation();
-  const initial = name.charAt(0).toUpperCase();
+  const initial = (name.trim().charAt(0) || "?").toUpperCase();
   return (
     <View style={styles.avatarCard}>
       <View style={styles.avatar}>
         <Text style={styles.avatarInitial}>{initial}</Text>
       </View>
       <View style={styles.avatarInfo}>
-        <Text style={styles.userName}>{name}</Text>
-        <Text style={styles.userEmail}>{email}</Text>
-        {unitNumber ? <Text style={styles.userUnit}>{t("checkout.unit", { number: unitNumber })}</Text> : null}
+        <Text style={styles.userName} numberOfLines={1}>{name}</Text>
+        <Text style={styles.userEmail} numberOfLines={1}>{email}</Text>
+        <View style={styles.badgeRow}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{t(roleLabelKey(role))}</Text>
+          </View>
+          {unitNumber
+            ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{t("checkout.unit", { number: unitNumber })}</Text>
+                </View>
+              )
+            : null}
+        </View>
       </View>
     </View>
   );
@@ -288,17 +331,34 @@ function UnitsSection({ units, primary, styles }: { units: string[]; primary: st
   );
 }
 
-function AccountSection({ role, styles, colors }: { role: string; styles: AppStyles; colors: AppColors }) {
+function ManagementSection({ role, styles, colors }: { role: string; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
+  const admin = isAdminRole(role);
+  if (!admin && role !== "MERCHANT")
+    return null;
+  const g = gold(colors);
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{t("profile.management")}</Text>
+      {admin && (
+        <ProfileRow icon={<ShieldCheck size={20} color={g} />} label={t("profile.admin_dashboard")} onPress={() => router.push("/(admin)")} styles={styles} colors={colors} />
+      )}
+      {role === "MERCHANT" && (
+        <ProfileRow icon={<Storefront size={20} color={g} />} label={t("profile.merchant_dashboard")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />
+      )}
+    </View>
+  );
+}
+
+function AccountSection({ styles, colors }: { styles: AppStyles; colors: AppColors }) {
+  const { t } = useTranslation();
+  const g = gold(colors);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
-      {role === "MERCHANT" && (
-        <ProfileRow icon={<Storefront size={20} color={colors.text} />} label={t("profile.manage_shop")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />
-      )}
-      <ProfileRow icon={<Package size={20} color={colors.text} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
-      <ProfileRow icon={<ChatCircle size={20} color={colors.text} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback")} styles={styles} colors={colors} />
-      <ProfileRow icon={<BookmarkSimple size={20} color={colors.text} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/directory")} styles={styles} colors={colors} />
+      <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
+      <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback")} styles={styles} colors={colors} />
+      <ProfileRow icon={<BookmarkSimple size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/directory")} styles={styles} colors={colors} />
     </View>
   );
 }
@@ -321,7 +381,7 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
         {(["en", "ar"] as const).map(lang => (
           <Pressable
             key={lang}
-            style={[styles.segment, language === lang && styles.segmentActive]}
+            style={({ pressed }) => [styles.segment, language === lang && styles.segmentActive, pressed && { opacity: 0.85 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setLanguage(lang);
@@ -342,7 +402,7 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
         {themes.map(({ value, label }) => (
           <Pressable
             key={value}
-            style={[styles.segment, selectedTheme === value && styles.segmentActive]}
+            style={({ pressed }) => [styles.segment, selectedTheme === value && styles.segmentActive, pressed && { opacity: 0.85 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setSelectedTheme(value);
@@ -366,7 +426,7 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
   return (
     <View style={styles.section}>
       <Pressable
-        style={[styles.row, styles.rowDanger]}
+        style={({ pressed }) => [styles.row, { borderTopWidth: 0 }, pressed && styles.pressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onLogout();
@@ -374,11 +434,11 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
         accessibilityRole="button"
         accessibilityLabel={t("auth.logout")}
       >
-        <SignOut size={20} color={SEMANTIC.error} />
+        <View style={styles.rowIconWrapDanger}><SignOut size={20} color={SEMANTIC.error} /></View>
         <Text style={styles.rowLabelDanger}>{t("auth.logout")}</Text>
       </Pressable>
       <Pressable
-        style={[styles.row, styles.rowDanger]}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onDeleteAccount();
@@ -386,7 +446,7 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
         accessibilityRole="button"
         accessibilityLabel={t("profile.delete_account")}
       >
-        <WarningOctagon size={20} color={SEMANTIC.error} />
+        <View style={styles.rowIconWrapDanger}><WarningOctagon size={20} color={SEMANTIC.error} /></View>
         <Text style={styles.rowLabelDanger}>{t("profile.delete_account")}</Text>
       </Pressable>
     </View>
@@ -396,7 +456,7 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
 function ProfileRow({ icon, label, onPress, styles, colors }: { icon: React.ReactNode; label: string; onPress: () => void; styles: AppStyles; colors: AppColors }) {
   return (
     <Pressable
-      style={styles.row}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -453,7 +513,7 @@ function SecuritySection({
       <Text style={styles.sectionTitle}>{t("profile.security")}</Text>
       <View style={styles.securityRow}>
         <View style={styles.rowIconWrap}>
-          <Icon size={20} color={colors.text} weight="duotone" />
+          <Icon size={20} color={gold(colors)} weight="duotone" />
         </View>
         <View style={styles.securityCol}>
           <Text style={styles.securityLabel}>
@@ -469,7 +529,7 @@ function SecuritySection({
           value={biometric.enabled}
           onValueChange={handleToggle}
           trackColor={{ false: colors.border, true: BRAND.gold }}
-          thumbColor={colors.bg}
+          thumbColor={biometric.enabled ? DARK.text : colors.textMuted}
           accessibilityLabel={t("profile.biometric_login", { kind: t(labelKey) })}
         />
       </View>

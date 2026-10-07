@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -13,16 +14,17 @@ import { BRAND, FONT, OVERLAY, RADIUS, SPACING } from "@/theme/tokens";
  * Connected to Redux cartSlice.showConflictSheet.
  */
 export function CartConflictSheet() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const { showConflictSheet, pendingShopName, shopName } = useAppSelector(s => s.cart);
+  const { showConflictSheet, shopName, shopNameAr } = useAppSelector(s => s.cart);
   const colors = useAppColors();
   const styles = useStyles(colors);
 
   if (!showConflictSheet)
     return null;
 
-  const conflictingShop = shopName ?? pendingShopName ?? "";
+  // The body names the shop already in the cart (the one that would be cleared).
+  const conflictingShop = (i18n.language === "ar" ? shopNameAr || shopName : shopName) ?? "";
 
   return (
     <Modal
@@ -34,21 +36,26 @@ export function CartConflictSheet() {
     >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>{t("cart.shop_conflict_title")}</Text>
+          <Text style={styles.title} accessibilityRole="header">{t("cart.shop_conflict_title")}</Text>
           <Text style={styles.body}>
             {t("cart.shop_conflict_body", { shopName: conflictingShop })}
           </Text>
 
           <View style={styles.actions}>
             <Pressable
-              style={[styles.btn, styles.btnOutline]}
+              style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.pressed]}
               onPress={() => dispatch(dismissConflict())}
+              accessibilityRole="button"
             >
               <Text style={styles.btnOutlineText}>{t("common.cancel")}</Text>
             </Pressable>
             <Pressable
-              style={[styles.btn, styles.btnGold]}
-              onPress={() => dispatch(clearAndAdd())}
+              style={({ pressed }) => [styles.btn, styles.btnGold, pressed && styles.pressed]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                dispatch(clearAndAdd());
+              }}
+              accessibilityRole="button"
             >
               <Text style={styles.btnGoldText}>{t("cart.clear_and_add")}</Text>
             </Pressable>
@@ -72,25 +79,30 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
         },
         sheet: {
           backgroundColor: colors.elevated,
+          borderWidth: 1,
+          borderColor: colors.border,
           borderRadius: RADIUS.lg,
           padding: SPACING.xl,
           width: "100%",
           gap: SPACING.md,
         },
-        title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
+        title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 27, color: colors.text },
         body: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, lineHeight: 22 },
         actions: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
         btn: {
           flex: 1,
           height: 48,
-          borderRadius: RADIUS.md,
+          borderRadius: RADIUS.full,
+          paddingHorizontal: SPACING.md,
           justifyContent: "center",
           alignItems: "center",
         },
         btnOutline: { borderWidth: 1, borderColor: colors.border },
-        btnOutlineText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.textMuted },
+        btnOutlineText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 21, color: colors.text },
         btnGold: { backgroundColor: BRAND.gold },
-        btnGoldText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: colors.bg },
+        // Ink on gold passes AA in both themes; colors.bg (off-white in light) does not.
+        btnGoldText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, lineHeight: 21, color: BRAND.ink },
+        pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
       }),
     [colors],
   );

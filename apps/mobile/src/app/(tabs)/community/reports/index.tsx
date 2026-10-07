@@ -2,15 +2,14 @@ import type { AxiosResponse } from "axios";
 import type { Report } from "@/services/api/community";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { ArrowLeft, ClipboardText, FilePdf } from "phosphor-react-native";
+import { ClipboardText, FilePdf } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { openDocument } from "@/lib/utils";
@@ -19,58 +18,43 @@ import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      gap: SPACING.sm,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     loadingPad: { padding: SPACING.base },
-    listContent: { padding: SPACING.base },
-    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md },
-    emptyText: { fontFamily: FONT.sans, fontSize: 15, color: colors.textMuted },
+    listContent: { padding: SPACING.base, paddingBottom: SPACING.xl },
+    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
+    emptyText: { fontFamily: FONT.sans, fontSize: 15, lineHeight: 24, color: colors.textMuted, textAlign: "center" as const },
     row: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
+      minHeight: 72,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.base,
       marginBottom: SPACING.md,
       gap: SPACING.md,
     },
+    rowPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     rowIcon: {
       width: 44,
       height: 44,
-      borderRadius: RADIUS.sm,
-      backgroundColor: colors.elevated,
+      borderRadius: RADIUS.md,
+      backgroundColor: `${BRAND.gold}1f`,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
-    rowContent: { flex: 1, gap: 4 },
-    rowTitle: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text, lineHeight: 20 },
-    rowDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
-    viewLabel: { fontFamily: FONT.sans, fontSize: 12, color: BRAND.gold, fontWeight: "600" },
-  }), [colors]);
+    rowContent: { flex: 1, gap: 2 },
+    rowTitle: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text, lineHeight: 22 },
+    rowDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    viewLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: gold, fontWeight: "600" },
+  }), [colors, gold]);
 }
 
 export default function ReportsScreen() {
   const { t, i18n } = useTranslation();
-  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const colors = useAppColors();
   const isAr = i18n.language === "ar";
@@ -92,13 +76,8 @@ export default function ReportsScreen() {
   const reports = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.title}>{t("community.reports")}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={t("community.reports")} />
 
       {isError && !data
         ? <ErrorState onRetry={() => refetch()} />
@@ -106,7 +85,7 @@ export default function ReportsScreen() {
           ? (
               <View style={styles.loadingPad}>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={`report-sk-${i}`} width="100%" height={80} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                  <Skeleton key={`report-sk-${i}`} width="100%" height={80} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.md }} />
                 ))}
               </View>
             )
@@ -131,7 +110,7 @@ export default function ReportsScreen() {
                 )}
                 ListFooterComponent={
                   isFetchingNextPage
-                    ? <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
+                    ? <Skeleton width="100%" height={80} borderRadius={RADIUS.lg} />
                     : null
                 }
               />
@@ -150,9 +129,14 @@ function ReportRow({ report, isAr, styles }: { report: Report; isAr: boolean; st
   });
 
   return (
-    <Pressable style={styles.row} onPress={() => openDocument(report.pdfUrl, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))} accessibilityRole="button" accessibilityLabel={title}>
+    <Pressable
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      onPress={() => openDocument(report.pdfUrl, () => showMessage({ message: t("community.pdf_open_failed"), type: "danger" }))}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <View style={styles.rowIcon}>
-        <FilePdf size={24} color={BRAND.gold} />
+        <FilePdf size={24} color={styles.viewLabel.color} />
       </View>
       <View style={styles.rowContent}>
         <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>

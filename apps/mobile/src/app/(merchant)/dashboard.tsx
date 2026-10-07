@@ -7,62 +7,60 @@ import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } fr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DetailErrorScreen } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
-import { FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      flexDirection: "row" as const,
-      justifyContent: "space-between" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    greeting: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    shopName: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 20, color: colors.text },
     openRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.sm },
-    openLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13 },
+    openLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20 },
     scroll: { padding: SPACING.base, gap: SPACING.md },
     alertBanner: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       backgroundColor: `${SEMANTIC.warning}22`,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.lg,
+      minHeight: 52,
       padding: SPACING.md,
       borderWidth: 1,
       borderColor: SEMANTIC.warning,
       gap: SPACING.sm,
     },
-    alertText: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
+    alertText: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
     quickActions: { flexDirection: "row" as const, gap: SPACING.md },
     quickCard: {
       flex: 1,
+      minHeight: 104,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: SPACING.md,
       alignItems: "center" as const,
+      justifyContent: "center" as const,
       gap: SPACING.sm,
     },
-    quickLabel: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, textAlign: "center" as const, fontWeight: "500" },
+    quickIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    quickLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.text, textAlign: "center" as const, fontWeight: "600" },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     statsRow: { flexDirection: "row" as const, gap: SPACING.md },
     statCard: {
       flex: 1,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       alignItems: "center" as const,
       gap: SPACING.xs,
     },
-    statValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 22 },
-    statLabel: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
+    statValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 22, lineHeight: 34 },
+    statLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
   }), [colors]);
 }
 
@@ -103,32 +101,32 @@ export default function MerchantDashboard() {
   const shopName = isAr ? shop.nameAr : shop.name;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{t("merchant.dashboard")}</Text>
-          <Text style={styles.shopName} numberOfLines={1}>{shopName}</Text>
-        </View>
-        <View style={styles.openRow}>
-          <Text style={[styles.openLabel, { color: shop.isOpen ? SEMANTIC.success : colors.textMuted }]}>
-            {shop.isOpen ? t("common.open") : t("common.closed")}
-          </Text>
-          <Switch
-            value={shop.isOpen}
-            onValueChange={v => toggleOpen(v)}
-            trackColor={{ true: SEMANTIC.success, false: colors.elevated }}
-            thumbColor={colors.text}
-          />
-        </View>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={shopName}
+        right={(
+          <View style={styles.openRow}>
+            <Text style={[styles.openLabel, { color: shop.isOpen ? colors.text : colors.textMuted }]}>
+              {shop.isOpen ? t("common.open") : t("common.closed")}
+            </Text>
+            <Switch
+              value={shop.isOpen}
+              onValueChange={v => toggleOpen(v)}
+              trackColor={{ true: SEMANTIC.success, false: colors.elevated }}
+              thumbColor={colors.text}
+              accessibilityLabel={t("merchant.status_open")}
+            />
+          </View>
+        )}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {pendingCount > 0 && (
-          <Pressable style={styles.alertBanner} onPress={() => router.push("/(merchant)/orders")}>
-            <Bell size={20} color={SEMANTIC.warning} />
+          <Pressable style={({ pressed }) => [styles.alertBanner, pressed && styles.pressed]} onPress={() => router.push("/(merchant)/orders")} accessibilityRole="button">
+            <Bell size={20} color={SEMANTIC.warning} weight="fill" />
             <Text style={styles.alertText}>
               {t("merchant.pending_count_waiting", { count: pendingCount })}
             </Text>
@@ -138,19 +136,19 @@ export default function MerchantDashboard() {
 
         <View style={styles.quickActions}>
           <QuickActionCard
-            icon={<Package size={28} color={colors.textMuted} />}
+            icon={<Package size={24} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} />}
             label={t("merchant.orders")}
             onPress={() => router.push("/(merchant)/orders")}
             styles={styles}
           />
           <QuickActionCard
-            icon={<ForkKnife size={28} color={colors.textMuted} />}
+            icon={<ForkKnife size={24} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} />}
             label={t("merchant.menu")}
             onPress={() => router.push("/(merchant)/menu")}
             styles={styles}
           />
           <QuickActionCard
-            icon={<Storefront size={28} color={colors.textMuted} />}
+            icon={<Storefront size={24} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} />}
             label={t("merchant.shop_profile")}
             onPress={() => router.push("/(merchant)/shop-profile")}
             styles={styles}
@@ -170,9 +168,9 @@ export default function MerchantDashboard() {
 
 function QuickActionCard({ icon, label, onPress, styles }: { icon: React.ReactNode; label: string; onPress: () => void; styles: any }) {
   return (
-    <Pressable style={styles.quickCard} onPress={onPress}>
-      {icon}
-      <Text style={styles.quickLabel}>{label}</Text>
+    <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      <View style={styles.quickIcon}>{icon}</View>
+      <Text style={styles.quickLabel} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
 }
@@ -191,13 +189,13 @@ function DashboardSkeleton({ insets }: { insets: { top: number } }) {
   const styles = useStyles();
   return (
     <View style={styles.container}>
-      <View style={{ height: insets.top + 80, backgroundColor: colors.card }} />
+      <View style={{ height: insets.top + 60, backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }} />
       <View style={{ padding: SPACING.base, gap: SPACING.md }}>
         <Skeleton width="100%" height={80} borderRadius={RADIUS.md} />
         <View style={{ flexDirection: "row", gap: SPACING.md }}>
-          <Skeleton width="30%" height={100} borderRadius={RADIUS.md} />
-          <Skeleton width="30%" height={100} borderRadius={RADIUS.md} />
-          <Skeleton width="30%" height={100} borderRadius={RADIUS.md} />
+          <Skeleton width="30%" height={104} borderRadius={RADIUS.lg} />
+          <Skeleton width="30%" height={104} borderRadius={RADIUS.lg} />
+          <Skeleton width="30%" height={104} borderRadius={RADIUS.lg} />
         </View>
       </View>
     </View>

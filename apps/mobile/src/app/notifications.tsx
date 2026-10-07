@@ -5,13 +5,14 @@ import type { AppNotification, NotificationPage } from "@/services/api/notificat
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Redirect, router } from "expo-router";
-import { ArrowLeft, BellSlash } from "phosphor-react-native";
+import { BellSlash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { notificationsApi } from "@/services/api/notifications";
@@ -23,68 +24,44 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    headerCenter: { flex: 1, flexDirection: "row" as const, alignItems: "center" as const, gap: SPACING.xs },
-    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
-    unreadBadge: {
-      backgroundColor: BRAND.gold,
-      borderRadius: RADIUS.full,
-      paddingHorizontal: 7,
-      paddingVertical: 2,
-    },
-    unreadBadgeText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 11, color: colors.bg },
-    markAllBtn: { paddingHorizontal: SPACING.sm, paddingVertical: 6 },
+    markAllBtn: { minHeight: 44, paddingHorizontal: SPACING.md, justifyContent: "center" as const },
     markAllBtnDisabled: { opacity: 0.4 },
-    markAllText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 12, color: BRAND.gold },
+    markAllText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
     listContent: { padding: SPACING.base },
     card: {
       flexDirection: "row" as const,
       alignItems: "flex-start" as const,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       marginBottom: SPACING.sm,
       gap: SPACING.sm,
     },
-    cardUnread: { backgroundColor: colors.elevated },
+    cardUnread: { backgroundColor: colors.elevated, borderColor: `${BRAND.gold}55` },
     typeDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
-      marginTop: 5,
+      marginTop: 8,
       flexShrink: 0,
     },
     cardContent: { flex: 1, gap: 4 },
     cardTop: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, gap: SPACING.sm },
-    cardTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    cardTime: { fontFamily: FONT.sans, fontSize: 11, color: colors.textMuted, flexShrink: 0 },
-    cardBody: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, lineHeight: 18 },
+    cardTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    cardTime: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, flexShrink: 0 },
+    cardBody: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted, lineHeight: 21 },
     unreadDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
       backgroundColor: BRAND.gold,
-      marginTop: 5,
+      marginTop: 8,
       flexShrink: 0,
     },
-    empty: { alignItems: "center" as const, paddingTop: 100, gap: SPACING.md, paddingHorizontal: SPACING.xl },
+    emptyIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
     emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text, textAlign: "center" as const },
     emptySubtitle: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
     skeletonPad: { padding: SPACING.base },
@@ -148,30 +125,23 @@ export default function NotificationsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{t("notifications.title")}</Text>
-          {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        {unreadCount > 0 && (
-          <Pressable
-            style={[styles.markAllBtn, markingAll && styles.markAllBtnDisabled]}
-            onPress={() => markAllRead()}
-            disabled={markingAll}
-            accessibilityRole="button"
-            accessibilityLabel={t("notifications.mark_all_read")}
-          >
-            <Text style={styles.markAllText}>{t("notifications.mark_all_read")}</Text>
-          </Pressable>
-        )}
-      </View>
+      <ScreenHeader
+        title={t("notifications.title")}
+        safeTop={false}
+        right={unreadCount > 0
+          ? (
+              <Pressable
+                style={[styles.markAllBtn, markingAll && styles.markAllBtnDisabled]}
+                onPress={() => markAllRead()}
+                disabled={markingAll}
+                accessibilityRole="button"
+                accessibilityLabel={t("notifications.mark_all_read")}
+              >
+                <Text style={styles.markAllText}>{t("notifications.mark_all_read")}</Text>
+              </Pressable>
+            )
+          : undefined}
+      />
 
       {isError && !data
         ? <ErrorState onRetry={() => refetch()} />
@@ -192,8 +162,8 @@ export default function NotificationsScreen() {
                 onEndReachedThreshold={0.5}
                 onRefresh={refetch}
                 refreshing={isRefetching}
-                contentContainerStyle={styles.listContent}
-                ListEmptyComponent={<EmptyState styles={styles} colors={colors} />}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + SPACING.xl }]}
+                ListEmptyComponent={<EmptyState styles={styles} />}
                 ListFooterComponent={
                   isFetchingNextPage
                     ? <Skeleton width="100%" height={72} borderRadius={RADIUS.md} style={{ marginTop: SPACING.sm }} />
@@ -245,11 +215,13 @@ function NotificationItem({
   );
 }
 
-function EmptyState({ styles, colors }: { styles: any; colors: any }) {
+function EmptyState({ styles }: { styles: any }) {
   const { t } = useTranslation();
   return (
     <View style={styles.empty}>
-      <BellSlash size={48} color={colors.textMuted} />
+      <View style={styles.emptyIcon}>
+        <BellSlash size={44} color={BRAND.gold} weight="duotone" />
+      </View>
       <Text style={styles.emptyTitle}>{t("notifications.empty")}</Text>
       <Text style={styles.emptySubtitle}>{t("notifications.empty_subtitle")}</Text>
     </View>
@@ -279,6 +251,7 @@ function useMarkNotificationRead() {
         old => old && markNotificationRead(old, id),
       );
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications", "unread"] }),
     onError: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
   return mutate;

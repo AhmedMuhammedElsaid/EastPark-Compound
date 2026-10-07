@@ -3,17 +3,19 @@ import type { MerchantOrder } from "@/services/api/merchant";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ArrowLeft, Tray } from "phosphor-react-native";
+import { Tray } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
+import { formatOrderNumber } from "@/lib/whatsapp";
 import { getOrderResidentName, getOrderUnit, merchantApi } from "@/services/api/merchant";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -26,33 +28,14 @@ const STATUS_COLOR: Record<string, string> = {
   PREPARING: SEMANTIC.warning,
   READY: SEMANTIC.success,
   ON_THE_WAY: BRAND.gold,
-  DELIVERED: "", // overridden at render with colors.elevated
-  CANCELLED: "", // overridden at render with colors.elevated
+  DELIVERED: "", // falls back to the muted text color at render
+  CANCELLED: SEMANTIC.error,
 };
 
 function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     filterBar: {
       backgroundColor: colors.bg,
       borderBottomWidth: 1,
@@ -65,36 +48,41 @@ function useStyles() {
       gap: SPACING.sm,
     },
     filterChip: {
-      paddingHorizontal: SPACING.md,
-      paddingVertical: 6,
+      minHeight: 44,
+      justifyContent: "center" as const,
+      paddingHorizontal: SPACING.base,
       borderRadius: RADIUS.full,
       borderWidth: 1,
       borderColor: colors.border,
     },
     filterChipActive: { backgroundColor: BRAND.gold, borderColor: BRAND.gold },
-    filterChipText: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted, fontWeight: "500" },
-    filterChipTextActive: { color: colors.bg },
+    filterChipText: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, fontWeight: "500" },
+    filterChipTextActive: { color: BRAND.ink, fontWeight: "700" },
     loadingPad: { padding: SPACING.base },
     listContent: { padding: SPACING.base },
-    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md },
-    emptyText: { fontFamily: FONT.sans, fontSize: 15, color: colors.textMuted },
+    empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
+    emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${BRAND.gold}1f`, alignItems: "center" as const, justifyContent: "center" as const },
+    emptyText: { fontFamily: FONT.sans, fontSize: 15, lineHeight: 24, color: colors.textMuted, textAlign: "center" as const },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     card: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       marginBottom: SPACING.md,
       gap: SPACING.xs,
     },
-    cardTop: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-start" as const },
-    cardLeft: { gap: 2 },
+    cardTop: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-start" as const, gap: SPACING.sm },
+    cardLeft: { flex: 1, gap: 2 },
     cardRight: { alignItems: "flex-end" as const, gap: 4 },
-    unitLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, color: BRAND.gold },
-    customerName: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
-    statusText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    time: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
-    items: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
-    total: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, color: colors.text },
+    unitLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, lineHeight: 22, color: "primaryText" in colors ? colors.primaryText : BRAND.gold },
+    customerName: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    statusBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: RADIUS.full },
+    statusText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: colors.text },
+    time: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    items: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    total: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 24, color: colors.text },
   }), [colors]);
 }
 
@@ -128,13 +116,8 @@ export default function MerchantOrdersScreen() {
   const orders = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("merchant.orders")}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={t("merchant.orders")} />
 
       <StatusFilterBar filter={filter} onSelect={setFilter} styles={styles} />
 
@@ -158,12 +141,12 @@ export default function MerchantOrdersScreen() {
                     fetchNextPage();
                 }}
                 onEndReachedThreshold={0.5}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={{ ...styles.listContent, paddingBottom: insets.bottom + SPACING.xl }}
                 onRefresh={refetch}
                 refreshing={false}
                 ListEmptyComponent={(
                   <View style={styles.empty}>
-                    <Tray size={48} color={colors.textMuted} />
+                    <View style={styles.emptyIcon}><Tray size={36} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} /></View>
                     <Text style={styles.emptyText}>{t("common.no_results")}</Text>
                   </View>
                 )}
@@ -195,6 +178,8 @@ function StatusFilterBar({ filter, onSelect, styles }: { filter: StatusFilter; o
             key={key}
             style={[styles.filterChip, active && styles.filterChipActive]}
             onPress={() => onSelect(key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
           </Pressable>
@@ -206,16 +191,15 @@ function StatusFilterBar({ filter, onSelect, styles }: { filter: StatusFilter; o
 
 function MerchantOrderCard({ order, styles, colors }: { order: MerchantOrder; styles: any; colors: any }) {
   const { t } = useTranslation();
-  const statusColor = (order.status === "DELIVERED" || order.status === "CANCELLED")
-    ? colors.elevated
-    : (STATUS_COLOR[order.status] ?? colors.elevated);
+  const statusColor = STATUS_COLOR[order.status] || colors.textMuted;
   const locale = i18n.language === "ar" ? "ar-EG" : "en-GB";
   const time = new Date(order.createdAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <Pressable
-      style={styles.card}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       onPress={() => router.push(`/(merchant)/orders/${order.id}`)}
+      accessibilityRole="button"
     >
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
@@ -223,10 +207,10 @@ function MerchantOrderCard({ order, styles, colors }: { order: MerchantOrder; st
           {getOrderResidentName(order) ? <Text style={styles.customerName}>{getOrderResidentName(order)}</Text> : null}
         </View>
         <View style={styles.cardRight}>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+          <View style={[styles.statusBadge, { backgroundColor: `${statusColor}33` }]}>
             <Text style={styles.statusText}>{t(`orders.${order.status}`)}</Text>
           </View>
-          <Text style={styles.time}>{time}</Text>
+          <Text style={styles.time}>{`${formatOrderNumber(order.id)} · ${time}`}</Text>
         </View>
       </View>
       <Text style={styles.items} numberOfLines={1}>

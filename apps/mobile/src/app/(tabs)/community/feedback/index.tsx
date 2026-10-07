@@ -2,22 +2,24 @@ import type { AxiosResponse } from "axios";
 import type { Feedback, FeedbackStatus } from "@/services/api/community";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { ArrowLeft, ChatCircle, Plus } from "phosphor-react-native";
+import { ChatCircle, Plus } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
+// Status chips: tinted fill + same-hue text, never solid white-on-color on dark cards.
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  SUBMITTED: "", // will be filled at runtime with colors.elevated
+  SUBMITTED: BRAND.gold,
   ACKNOWLEDGED: SEMANTIC.info,
   IN_PROGRESS: SEMANTIC.warning,
   RESOLVED: SEMANTIC.success,
@@ -25,63 +27,59 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 
 function useStyles() {
   const colors = useAppColors();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { flex: 1, fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
     newBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
     },
     loadingPad: { padding: SPACING.base },
-    listContent: { padding: SPACING.base },
+    listContent: { padding: SPACING.base, paddingBottom: SPACING.xl },
     row: {
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.base,
       marginBottom: SPACING.md,
-      gap: SPACING.xs,
+      gap: SPACING.sm,
     },
-    rowTop: { flexDirection: "row" as const, gap: SPACING.sm, marginBottom: SPACING.xs },
-    catBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
-    catBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
-    statusBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, color: colors.text },
-    rowTitle: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, color: colors.text },
-    rowMeta: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginTop: 2 },
-    rowDate: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
-    replyBadge: { flexDirection: "row" as const, alignItems: "center" as const, gap: 3 },
-    replyBadgeText: { fontFamily: FONT.sans, fontSize: 12, color: colors.textMuted },
+    rowPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+    rowTop: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.sm },
+    catBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full, backgroundColor: colors.elevated },
+    catBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: colors.text },
+    statusBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full },
+    statusBadgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18 },
+    rowTitle: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 22, color: colors.text },
+    rowMeta: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const },
+    rowDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    replyBadge: { flexDirection: "row" as const, alignItems: "center" as const, gap: 4 },
+    replyBadgeText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
     empty: { alignItems: "center" as const, paddingTop: 80, gap: SPACING.md, paddingHorizontal: SPACING.xl },
-    emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text, textAlign: "center" as const },
+    emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: colors.text, textAlign: "center" as const },
     emptyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
-  }), [colors]);
+    emptyCta: {
+      minHeight: 48,
+      paddingHorizontal: SPACING.xl,
+      borderRadius: RADIUS.md,
+      backgroundColor: BRAND.gold,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      flexDirection: "row" as const,
+      gap: SPACING.sm,
+      marginTop: SPACING.sm,
+    },
+    emptyCtaText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 24, color: BRAND.ink },
+  }), [colors, gold]);
 }
 
 export default function FeedbackListScreen() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const colors = useAppColors();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
@@ -104,16 +102,23 @@ export default function FeedbackListScreen() {
   const items = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("feedback.title")}</Text>
-        <Pressable style={styles.newBtn} onPress={() => router.push("/(tabs)/community/feedback/new")} accessibilityRole="button" accessibilityLabel={t("feedback.new")}>
-          <Plus size={22} color={colors.bg} />
-        </Pressable>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title={t("feedback.title")}
+        right={(
+          <Pressable
+            style={({ pressed }) => [styles.newBtn, pressed && styles.rowPressed]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/(tabs)/community/feedback/new");
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("feedback.new")}
+          >
+            <Plus size={22} color={BRAND.ink} />
+          </Pressable>
+        )}
+      />
 
       {isError && !data
         ? <ErrorState onRetry={() => refetch()} />
@@ -121,7 +126,7 @@ export default function FeedbackListScreen() {
           ? (
               <View style={styles.loadingPad}>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={`fb-sk-${i}`} width="100%" height={88} borderRadius={RADIUS.md} style={{ marginBottom: 12 }} />
+                  <Skeleton key={`fb-sk-${i}`} width="100%" height={88} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.md }} />
                 ))}
               </View>
             )
@@ -141,7 +146,7 @@ export default function FeedbackListScreen() {
                 ListEmptyComponent={<FeedbackEmpty styles={styles} colors={colors} />}
                 ListFooterComponent={
                   isFetchingNextPage
-                    ? <Skeleton width="100%" height={88} borderRadius={RADIUS.md} />
+                    ? <Skeleton width="100%" height={88} borderRadius={RADIUS.lg} />
                     : null
                 }
               />
@@ -153,31 +158,36 @@ export default function FeedbackListScreen() {
 function FeedbackRow({ feedback, styles, colors }: { feedback: Feedback; styles: any; colors: any }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const statusColor = feedback.status === "SUBMITTED" ? colors.elevated : (STATUS_COLOR[feedback.status] ?? colors.elevated);
-  const date = new Date(feedback.createdAt).toLocaleDateString(isAr ? "ar-EG" : "en-GB", { month: "short", day: "numeric" });
+  const locale = isAr ? "ar-EG" : "en-GB";
+  const tint = STATUS_COLOR[feedback.status] ?? BRAND.gold;
+  const statusText = feedback.status === "SUBMITTED"
+    ? ("primaryText" in colors ? colors.primaryText : BRAND.gold)
+    : colors.text;
+  const date = new Date(feedback.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const replies = feedback.replies?.length ?? 0;
 
   return (
     <Pressable
-      style={styles.row}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={() => router.push(`/(tabs)/community/feedback/${feedback.id}`)}
       accessibilityRole="button"
       accessibilityLabel={feedback.body}
     >
       <View style={styles.rowTop}>
-        <View style={[styles.catBadge, { backgroundColor: colors.elevated }]}>
+        <View style={styles.catBadge}>
           <Text style={styles.catBadgeText}>{t(`feedback.${feedback.category}`)}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-          <Text style={styles.statusBadgeText}>{t(`feedback.${feedback.status}`)}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: `${tint}33` }]}>
+          <Text style={[styles.statusBadgeText, { color: statusText }]}>{t(`feedback.${feedback.status}`)}</Text>
         </View>
       </View>
       <Text style={styles.rowTitle} numberOfLines={2}>{feedback.body}</Text>
       <View style={styles.rowMeta}>
         <Text style={styles.rowDate}>{date}</Text>
-        {(feedback.replies?.length ?? 0) > 0 && (
+        {replies > 0 && (
           <View style={styles.replyBadge}>
             <ChatCircle size={14} color={colors.textMuted} />
-            <Text style={styles.replyBadgeText}>{feedback.replies?.length ?? 0}</Text>
+            <Text style={styles.replyBadgeText}>{replies.toLocaleString(locale)}</Text>
           </View>
         )}
       </View>
@@ -192,6 +202,14 @@ function FeedbackEmpty({ styles, colors }: { styles: any; colors: any }) {
       <ChatCircle size={48} color={colors.textMuted} />
       <Text style={styles.emptyTitle}>{t("feedback.empty")}</Text>
       <Text style={styles.emptyBody}>{t("feedback.empty_subtitle")}</Text>
+      <Pressable
+        style={({ pressed }) => [styles.emptyCta, pressed && styles.rowPressed]}
+        onPress={() => router.push("/(tabs)/community/feedback/new")}
+        accessibilityRole="button"
+      >
+        <Plus size={20} color={BRAND.ink} />
+        <Text style={styles.emptyCtaText}>{t("feedback.new")}</Text>
+      </Pressable>
     </View>
   );
 }

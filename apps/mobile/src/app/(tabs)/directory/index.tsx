@@ -9,12 +9,12 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryChips } from "@/components/directory/category-chips";
-import { ShopCard } from "@/components/directory/shop-card";
+import { ShopCard, ShopCardSkeleton } from "@/components/directory/shop-card";
+import { AppHeader } from "@/components/ui/app-header";
 import { ErrorState } from "@/components/ui/error-state";
-import { ShopCardSkeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { shopsApi } from "@/services/api/shops";
-import { FONT, RADIUS, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 type Category = ShopCategory | "ALL";
 
@@ -24,16 +24,21 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
+    titleBlock: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md },
+    title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, lineHeight: 36, color: colors.text },
     searchBar: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
       borderRadius: RADIUS.full,
       marginHorizontal: SPACING.base,
       marginTop: SPACING.sm,
       marginBottom: SPACING.xs,
-      paddingHorizontal: SPACING.md,
-      height: 48,
+      paddingStart: SPACING.base,
+      paddingEnd: SPACING.xs,
+      minHeight: 48,
       gap: SPACING.sm,
     },
     searchInput: {
@@ -41,18 +46,45 @@ function useStyles() {
       fontFamily: FONT.sans,
       fontSize: 15,
       color: colors.text,
-      height: "100%",
+      paddingVertical: SPACING.sm,
     },
+    clearBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: RADIUS.full,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    pressed: { opacity: 0.7 },
     listPad: { paddingHorizontal: SPACING.base, paddingTop: SPACING.sm },
-    listContent: { paddingHorizontal: SPACING.base, paddingTop: SPACING.sm },
+    // Inside (tabs): the tab bar already clears the system navigation — fixed padding only.
+    listContent: { paddingHorizontal: SPACING.base, paddingTop: SPACING.sm, paddingBottom: SPACING["2xl"] },
     empty: {
       alignItems: "center" as const,
       justifyContent: "center" as const,
-      paddingTop: 80,
+      paddingTop: 64,
       gap: SPACING.md,
       paddingHorizontal: SPACING.xl,
     },
-    emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text, textAlign: "center" as const },
+    emptyIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: RADIUS.full,
+      backgroundColor: `${BRAND.gold}1f`,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    clearFilters: {
+      minHeight: 44,
+      paddingHorizontal: SPACING.xl,
+      borderRadius: RADIUS.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    clearFiltersText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 14, lineHeight: 21 },
+    emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 27, color: colors.text, textAlign: "center" as const },
     emptyBody: { fontFamily: FONT.sans, fontSize: 14, color: colors.textMuted, textAlign: "center" as const, lineHeight: 22 },
   }), [colors]);
 }
@@ -60,7 +92,6 @@ function useStyles() {
 export default function DirectoryScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const colors = useAppColors();
   const styles = useStyles();
 
   const [search, setSearch] = React.useState("");
@@ -69,7 +100,7 @@ export default function DirectoryScreen() {
 
   // 300ms debounce for search
   React.useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    const timer = setTimeout(setDebouncedSearch, 300, search);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -97,41 +128,25 @@ export default function DirectoryScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Search bar */}
-      <View style={styles.searchBar}>
-        <MagnifyingGlass size={18} color={colors.textMuted} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t("directory.search_placeholder")}
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-        {search.length > 0 && (
-          <Pressable
-            onPress={() => setSearch("")}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t("common.clear")}
-          >
-            <X size={16} color={colors.textMuted} />
-          </Pressable>
-        )}
+      <AppHeader />
+
+      <View style={styles.titleBlock}>
+        <Text style={styles.title} accessibilityRole="header">{t("directory.title")}</Text>
       </View>
+
+      <SearchBar value={search} onChange={setSearch} />
 
       {/* Category chips */}
       <CategoryChips selected={category} onSelect={setCategory} />
 
       {/* Shop list */}
-      {isError
+      {isError && !data
         ? <ErrorState onRetry={refetch} />
         : isLoading
           ? (
               <View style={styles.listPad}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <ShopCardSkeleton key={`card-skeleton-${i}`} />
+                {["a", "b", "c", "d"].map(k => (
+                  <ShopCardSkeleton key={`card-skeleton-${k}`} />
                 ))}
               </View>
             )
@@ -148,7 +163,17 @@ export default function DirectoryScreen() {
                 contentContainerStyle={styles.listContent}
                 onRefresh={refetch}
                 refreshing={isRefetching}
-                ListEmptyComponent={<EmptyState search={debouncedSearch} />}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                ListEmptyComponent={(
+                  <EmptyState
+                    filtered={!!debouncedSearch || category !== "ALL"}
+                    onClear={() => {
+                      setSearch("");
+                      setCategory("ALL");
+                    }}
+                  />
+                )}
                 ListFooterComponent={isFetchingNextPage ? <ShopCardSkeleton /> : null}
               />
             )}
@@ -156,21 +181,63 @@ export default function DirectoryScreen() {
   );
 }
 
-function EmptyState({ search }: { search: string }) {
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
   const colors = useAppColors();
   const styles = useStyles();
   return (
+    <View style={styles.searchBar}>
+      <MagnifyingGlass size={20} color={colors.textMuted} />
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder={t("directory.search_placeholder")}
+        placeholderTextColor={colors.textMuted}
+        style={styles.searchInput}
+        returnKeyType="search"
+        autoCorrect={false}
+        accessibilityLabel={t("directory.search_placeholder")}
+      />
+      {value.length > 0 && (
+        <Pressable
+          onPress={() => onChange("")}
+          hitSlop={4}
+          style={({ pressed }) => [styles.clearBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.clear")}
+        >
+          <X size={18} color={colors.textMuted} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function EmptyState({ filtered, onClear }: { filtered: boolean; onClear: () => void }) {
+  const { t } = useTranslation();
+  const colors = useAppColors();
+  const styles = useStyles();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  return (
     <View style={styles.empty}>
-      <View style={{ alignItems: "center" }}>
-        <Storefront size={48} color={colors.textMuted} />
+      <View style={styles.emptyIcon}>
+        <Storefront size={32} color={gold} />
       </View>
       <Text style={styles.emptyTitle}>
-        {search ? t("common.no_results") : t("directory.no_shops")}
+        {filtered ? t("common.no_results") : t("directory.no_shops")}
       </Text>
-      <Text style={styles.emptyBody}>
-        {t("directory.no_shops_subtitle")}
-      </Text>
+      {filtered && (
+        <>
+          <Text style={styles.emptyBody}>{t("directory.no_shops_subtitle")}</Text>
+          <Pressable
+            onPress={onClear}
+            style={({ pressed }) => [styles.clearFilters, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.clearFiltersText, { color: gold }]}>{t("common.clear")}</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }

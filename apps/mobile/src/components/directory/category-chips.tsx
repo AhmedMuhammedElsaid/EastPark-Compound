@@ -24,8 +24,7 @@ const CATEGORIES: { key: Category; labelKey: string }[] = [
 
 /**
  * Horizontal scroll category chip bar.
- * Active: filled gold pill. Inactive: outlined pill.
- * Sticky below search bar on scroll (parent handles positioning).
+ * Active: filled gold pill. Inactive: outlined card pill. 44px touch targets.
  */
 export function CategoryChips({ selected, onSelect }: Props) {
   const { t } = useTranslation();
@@ -45,7 +44,7 @@ export function CategoryChips({ selected, onSelect }: Props) {
             <Pressable
               key={key}
               onPress={() => onSelect(key)}
-              style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+              style={({ pressed }) => [styles.chip, active ? styles.chipActive : styles.chipInactive, pressed && styles.pressed]}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
@@ -66,7 +65,8 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
       StyleSheet.create({
         wrapper: {
           backgroundColor: colors.bg,
-          paddingVertical: SPACING.sm,
+          paddingTop: SPACING.xs,
+          paddingBottom: SPACING.sm,
         },
         scroll: {
           paddingHorizontal: SPACING.base,
@@ -75,26 +75,32 @@ function useStyles(colors: ReturnType<typeof useAppColors>) {
           alignItems: "center",
         },
         chip: {
-          height: 36,
-          paddingHorizontal: SPACING.md,
+          minHeight: 44,
+          paddingHorizontal: SPACING.base,
           borderRadius: RADIUS.full,
           justifyContent: "center",
           alignItems: "center",
         },
         chipActive: {
           backgroundColor: BRAND.gold,
+          borderWidth: 1,
+          borderColor: BRAND.gold,
         },
         chipInactive: {
           borderWidth: 1,
           borderColor: colors.border,
-          backgroundColor: "transparent",
+          backgroundColor: colors.card,
         },
+        pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
         label: {
           fontFamily: FONT.sans,
-          fontWeight: "500",
+          fontWeight: "600",
           fontSize: 13,
+          lineHeight: 20,
+          includeFontPadding: false,
         },
-        labelActive: { color: colors.bg },
+        // Ink on gold passes AA in both themes; colors.bg (off-white) on gold does not.
+        labelActive: { color: BRAND.ink },
         labelInactive: { color: colors.textMuted },
       }),
     [colors],
