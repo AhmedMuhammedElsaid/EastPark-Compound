@@ -4,3 +4,10 @@
  * off. Flip this (with the backend flag and Paymob credentials) to bring the card option back.
  */
 export const CARD_PAYMENTS_ENABLED = false;
+
+/**
+ * Release behaviour: after the order is saved, open WhatsApp to the shop's number with the order
+ * pre-filled (the shop confirms by chat; tracking and the merchant dashboard are unchanged).
+ * Set to false to place orders silently, exactly as before.
+ */
+export const WHATSAPP_ORDER_HANDOFF = true;

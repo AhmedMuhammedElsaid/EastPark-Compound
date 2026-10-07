@@ -3,12 +3,15 @@ import { router, useLocalSearchParams } from "expo-router";
 import LottieView from "lottie-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Linking, StyleSheet, Text, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
-import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
+import { buildWhatsAppUrl, getOrderHandoff } from "@/lib/whatsapp";
+import { FONT, SPACING } from "@/theme/tokens";
 
 function useStyles() {
   const colors = useAppColors();
@@ -32,24 +35,7 @@ function useStyles() {
     textWrap: { alignItems: "center" as const, gap: SPACING.sm },
     title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, color: colors.text, textAlign: "center" as const },
     subtitle: { fontFamily: FONT.sans, fontSize: 15, color: colors.textMuted, textAlign: "center" as const, lineHeight: 24 },
-    actions: { gap: SPACING.md },
-    viewOrderBtn: {
-      height: 52,
-      borderRadius: RADIUS.md,
-      backgroundColor: BRAND.gold,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    viewOrderBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.bg },
-    continueBtn: {
-      height: 48,
-      borderRadius: RADIUS.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    continueBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, color: colors.textMuted },
+    actions: { gap: SPACING.xs },
   }), [colors]);
 }
 
@@ -58,6 +44,7 @@ export default function ConfirmationScreen() {
   const insets = useSafeAreaInsets();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const styles = useStyles();
+  const handoff = getOrderHandoff(orderId);
 
   // Entry animations
   const scale = React.useRef(new Animated.Value(0)).current;
@@ -106,26 +93,37 @@ export default function ConfirmationScreen() {
       </View>
 
       <Animated.View style={[styles.actions, contentStyle]}>
-        <Pressable
-          style={styles.viewOrderBtn}
+        <GoldButton
+          label={t("home.my_orders")}
           onPress={() => {
             if (orderId)
               router.replace(`/(tabs)/orders/${orderId}`);
           }}
-          accessibilityRole="button"
-          accessibilityLabel={t("home.my_orders")}
-        >
-          <Text style={styles.viewOrderBtnText}>{t("home.my_orders")}</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.continueBtn}
-          onPress={() => router.replace("/(tabs)/directory")}
-          accessibilityRole="button"
-          accessibilityLabel={t("directory.title")}
-        >
-          <Text style={styles.continueBtnText}>{t("directory.title")}</Text>
-        </Pressable>
+        />
+        {handoff?.whatsappDigits
+          ? (
+              <GoldButton
+                label={t("orders.send_whatsapp")}
+                variant="outline"
+                onPress={() => {
+                  Linking.openURL(buildWhatsAppUrl(handoff.whatsappDigits as string, handoff.message)).catch(() => {
+                    showMessage({ message: t("checkout.whatsapp_failed"), type: "warning" });
+                  });
+                }}
+              />
+            )
+          : handoff?.shopPhone
+            ? (
+                <GoldButton
+                  label={t("orders.call_shop")}
+                  variant="outline"
+                  onPress={() => {
+                    Linking.openURL(`tel:${handoff.shopPhone}`).catch(() => {});
+                  }}
+                />
+              )
+            : null}
+        <GoldButton label={t("orders.browse_shops")} variant="ghost" onPress={() => router.replace("/(tabs)/directory")} />
       </Animated.View>
     </View>
   );

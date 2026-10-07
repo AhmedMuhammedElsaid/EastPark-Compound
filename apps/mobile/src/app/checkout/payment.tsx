@@ -1,21 +1,24 @@
-import type { PaymentMethod } from "@/services/api/orders";
+import type { Order, PaymentMethod } from "@/services/api/orders";
 import type { CartItem } from "@/store/slices/cart-slice";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, CreditCard, Money } from "phosphor-react-native";
+import { CreditCard, Money } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GoldButton } from "@/components/auth/gold-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { getErrorCode, isNoResponseError } from "@/lib/api-error";
-import { CARD_PAYMENTS_ENABLED } from "@/lib/features";
+import { CARD_PAYMENTS_ENABLED, WHATSAPP_ORDER_HANDOFF } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { resolveDeliveryUnit } from "@/lib/units";
-import { buildPlaceOrderPayload, ordersApi } from "@/services/api/orders";
+import { buildOrderMessage, buildWhatsAppUrl, setOrderHandoff, toWhatsAppDigits } from "@/lib/whatsapp";
+import { buildPlaceOrderPayload, getOrderItemTotal, ordersApi } from "@/services/api/orders";
+import { shopsApi } from "@/services/api/shops";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearCart } from "@/store/slices/cart-slice";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -24,33 +27,15 @@ function useStyles() {
   const colors = useAppColors();
   return React.useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    nav: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      paddingHorizontal: SPACING.base,
-      paddingVertical: SPACING.md,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: SPACING.sm,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.elevated,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-    },
-    navTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: colors.text },
-    content: { padding: SPACING.base, gap: SPACING.md },
+    content: { flex: 1, padding: SPACING.base, gap: SPACING.md },
     sectionLabel: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.text },
     option: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      padding: SPACING.base,
+      minHeight: 56,
       gap: SPACING.md,
       borderWidth: 1,
       borderColor: colors.border,
@@ -75,32 +60,30 @@ function useStyles() {
       justifyContent: "space-between" as const,
       alignItems: "center" as const,
       backgroundColor: colors.card,
-      borderRadius: RADIUS.md,
-      padding: SPACING.md,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: SPACING.base,
       marginTop: SPACING.md,
     },
     summaryLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 15, color: colors.text },
     summaryValue: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, color: BRAND.gold },
-    placeBtn: {
-      height: 52,
-      borderRadius: RADIUS.md,
-      backgroundColor: BRAND.gold,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-      marginTop: SPACING.sm,
-    },
-    placeBtnDisabled: { opacity: 0.5 },
     unitMissing: { fontFamily: FONT.sans, fontSize: 13, color: SEMANTIC.error, textAlign: "center" as const },
-    placeBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, color: colors.bg },
+    footer: { padding: SPACING.base, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border },
   }), [colors]);
 }
 
+// eslint-disable-next-line max-lines-per-function
 export default function PaymentScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const { notes, deliveryUnit: chosenUnit } = useLocalSearchParams<{ notes?: string; deliveryUnit?: string }>();
   const items = useAppSelector(s => s.cart.items);
+  const cartShopId = useAppSelector(s => s.cart.shopId);
+  const cartShopName = useAppSelector(s => s.cart.shopName);
+  const cartShopNameAr = useAppSelector(s => s.cart.shopNameAr);
   // Backend OrderCreateDto requires deliveryUnit: the flat picked on the
   // address step, else the primary flat (legacy accounts: unitNumber).
   const authUser = useAppSelector(s => s.auth.user);
@@ -119,6 +102,41 @@ export default function PaymentScreen() {
   // Synchronous guard: state updates are async, so a fast double-tap could fire twice.
   const inFlight = React.useRef(false);
 
+  /** Builds the shop WhatsApp link + stores the hand-off for the confirmation screen. Never throws. */
+  async function prepareWhatsAppHandoff(placed: Order): Promise<string | null> {
+    try {
+      const shop = cartShopId
+        ? (await queryClient.fetchQuery({
+            queryKey: ["shop", cartShopId],
+            queryFn: () => shopsApi.getShop(cartShopId),
+            staleTime: 5 * 60_000,
+          })).data.data
+        : null;
+      const digits = toWhatsAppDigits(shop?.whatsapp);
+      const shopName = (isAr ? (shop?.nameAr ?? cartShopNameAr ?? cartShopName) : (shop?.name ?? cartShopName)) ?? "";
+      const lines = placed.items?.length
+        ? placed.items.map(i => ({ quantity: i.quantity, name: isAr ? i.productNameArSnapshot : i.productNameSnapshot, lineTotal: formatCurrency(getOrderItemTotal(i)) }))
+        : items.map((i: CartItem) => ({ quantity: i.quantity, name: isAr ? i.nameAr : i.name, lineTotal: formatCurrency(i.price * i.quantity) }));
+      const message = buildOrderMessage({
+        isAr,
+        orderId: placed.id,
+        shopName,
+        items: lines,
+        total: formatCurrency(Number(placed.totalAmount ?? total)),
+        paymentLabel: paymentMethod === "PAYMOB" ? t("checkout.card") : t("checkout.cash"),
+        customerName: authUser?.name,
+        phone: authUser?.phone,
+        deliveryLabel: t("checkout.unit", { number: deliveryUnit }),
+        notes,
+      });
+      setOrderHandoff({ orderId: placed.id, whatsappDigits: digits, shopPhone: shop?.phone ?? null, message });
+      return digits ? buildWhatsAppUrl(digits, message) : null;
+    }
+    catch {
+      return null;
+    }
+  }
+
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
       ordersApi.placeOrder(buildPlaceOrderPayload({
@@ -128,11 +146,13 @@ export default function PaymentScreen() {
         notes,
       })),
     onSuccess: async (res) => {
-      const orderId = res.data.data.id;
+      const placed = res.data.data;
+      const orderId = placed.id;
       // The order exists server-side from here on: the cart must never be
       // left intact, otherwise a retap would create a duplicate order.
       dispatch(clearCart());
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      const whatsappUrl = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
       if (paymentMethod === "PAYMOB") {
         try {
           const payRes = await ordersApi.initiatePaymobPayment(orderId);
@@ -146,6 +166,11 @@ export default function PaymentScreen() {
         }
       }
       router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
+      if (whatsappUrl) {
+        Linking.openURL(whatsappUrl).catch(() => {
+          showMessage({ message: t("checkout.whatsapp_failed"), type: "warning" });
+        });
+      }
     },
     onError: async (error) => {
       if (!isNoResponseError(error)) {
@@ -179,13 +204,8 @@ export default function PaymentScreen() {
   const busy = isPending || verifying;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.nav}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("common.back")}>
-          <ArrowLeft mirrored={I18nManager.isRTL} size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>{t("checkout.payment")}</Text>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title={t("checkout.payment")} />
 
       <View style={styles.content}>
         <Text style={styles.sectionLabel}>{t("checkout.payment")}</Text>
@@ -217,24 +237,20 @@ export default function PaymentScreen() {
         {!deliveryUnit
           ? <Text style={styles.unitMissing}>{t("checkout.unit_missing")}</Text>
           : null}
+      </View>
 
-        <Pressable
-          style={[styles.placeBtn, (busy || !canPlaceOrder) && styles.placeBtnDisabled]}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}>
+        <GoldButton
+          label={t("checkout.place_order")}
+          loading={busy}
+          disabled={!canPlaceOrder}
           onPress={() => {
             if (busy || inFlight.current)
               return;
             inFlight.current = true;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             mutate();
           }}
-          disabled={busy || !canPlaceOrder}
-          accessibilityRole="button"
-          accessibilityLabel={t("checkout.place_order")}
-        >
-          <Text style={styles.placeBtnText}>
-            {busy ? t("common.loading") : t("checkout.place_order")}
-          </Text>
-        </Pressable>
+        />
       </View>
     </View>
   );

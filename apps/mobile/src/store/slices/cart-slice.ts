@@ -17,10 +17,13 @@ type CartState = {
   items: CartItem[];
   shopId: string | null;
   shopName: string | null;
+  /** Arabic shop name; absent for carts persisted before this field existed. */
+  shopNameAr?: string | null;
   // Pending item waiting for multi-shop conflict resolution
   pendingItem: CartItem | null;
   pendingShopId: string | null;
   pendingShopName: string | null;
+  pendingShopNameAr?: string | null;
   showConflictSheet: boolean;
   // Account the cart belongs to; a different account signing in empties it.
   ownerId: string | null;
@@ -51,21 +54,24 @@ export const cartSlice = createSlice({
         item: CartItem;
         shopId: string;
         shopName: string;
+        shopNameAr?: string;
       }>,
     ) {
-      const { item, shopId, shopName } = action.payload;
+      const { item, shopId, shopName, shopNameAr } = action.payload;
 
       // Multi-shop conflict guard
       if (state.shopId && state.shopId !== shopId && state.items.length > 0) {
         state.pendingItem = item;
         state.pendingShopId = shopId;
         state.pendingShopName = shopName;
+        state.pendingShopNameAr = shopNameAr ?? null;
         state.showConflictSheet = true;
         return;
       }
 
       state.shopId = shopId;
       state.shopName = shopName;
+      state.shopNameAr = shopNameAr ?? null;
 
       const existing = state.items.find(i => i.productId === item.productId);
       if (existing) {
@@ -82,9 +88,11 @@ export const cartSlice = createSlice({
       state.items = [state.pendingItem];
       state.shopId = state.pendingShopId;
       state.shopName = state.pendingShopName;
+      state.shopNameAr = state.pendingShopNameAr ?? null;
       state.pendingItem = null;
       state.pendingShopId = null;
       state.pendingShopName = null;
+      state.pendingShopNameAr = null;
       state.showConflictSheet = false;
     },
     /** User chose "Cancel" in conflict sheet */
@@ -92,6 +100,7 @@ export const cartSlice = createSlice({
       state.pendingItem = null;
       state.pendingShopId = null;
       state.pendingShopName = null;
+      state.pendingShopNameAr = null;
       state.showConflictSheet = false;
     },
     removeItem(state, action: PayloadAction<string>) {
@@ -99,6 +108,7 @@ export const cartSlice = createSlice({
       if (state.items.length === 0) {
         state.shopId = null;
         state.shopName = null;
+        state.shopNameAr = null;
       }
     },
     updateQuantity(
@@ -116,6 +126,8 @@ export const cartSlice = createSlice({
           if (state.items.length === 0) {
             state.shopId = null;
             state.shopName = null;
+            state.shopNameAr = null;
+            state.shopNameAr = null;
           }
         }
         else {
@@ -127,9 +139,11 @@ export const cartSlice = createSlice({
       state.items = [];
       state.shopId = null;
       state.shopName = null;
+      state.shopNameAr = null;
       state.pendingItem = null;
       state.pendingShopId = null;
       state.pendingShopName = null;
+      state.pendingShopNameAr = null;
       state.showConflictSheet = false;
     },
   },
