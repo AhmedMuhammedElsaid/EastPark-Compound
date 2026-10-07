@@ -66,9 +66,9 @@ export default function AcceptInvitationScreen() {
       await completeLogin({ user, accessToken, refreshToken });
     }
     catch (err) {
-      // 409 accountDeleted: the email belongs to a deleted account (contact the
-      // administration). Any other 409: the invited email already has an
-      // account and the password field must contain its CURRENT password.
+      // 409 accountDeleted / unit alreadyOwned: contact the administration.
+      // 409 without a code: the invited email already has an account and the
+      // password field must contain its CURRENT password.
       showMessage({ message: t(acceptInvitationErrorKey(err)), type: "danger", backgroundColor: SEMANTIC.error });
     }
   }

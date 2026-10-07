@@ -49,6 +49,12 @@ describe("deleted-account 409 mapping", () => {
     expect(acceptInvitationErrorKey({})).toBe("common.error");
   });
 
+  it("accept-invitation: a flat owned by another account is not a password problem", () => {
+    const unitOwned = { response: { status: 409, data: { statusCode: 409, code: "unit.error.alreadyOwned", message: "This flat already belongs to another account" } } };
+    expect(acceptInvitationErrorKey(unitOwned)).toBe("auth.errors.invitation_unit_owned");
+    expect(acceptInvitationErrorKey({ response: { status: 409, data: { code: "order.error.other" } } })).toBe("common.error");
+  });
+
   it("admin invitations: deleted account, forbidden, fallback", () => {
     expect(sendInvitationErrorKey(deleted)).toBe("admin.invite_account_deleted");
     expect(sendInvitationErrorKey({ response: { status: 403 } })).toBe("admin.invite_forbidden");
@@ -59,6 +65,7 @@ describe("deleted-account 409 mapping", () => {
     for (const json of [en, ar]) {
       expect(json.admin.invite_account_deleted).toEqual(expect.any(String));
       expect(json.auth.errors.invitation_account_deleted).toEqual(expect.any(String));
+      expect(json.auth.errors.invitation_unit_owned).toEqual(expect.any(String));
     }
   });
 });

@@ -28,14 +28,27 @@ export function isAccountDeletedError(error: unknown): boolean {
   return getErrorStatus(error) === 409 && getErrorCode(error) === ACCOUNT_DELETED_CODE;
 }
 
+/** 409 when an invited flat is already owned by another account. */
+export const UNIT_ALREADY_OWNED_CODE = "unit.error.alreadyOwned";
+
 /**
- * Toast copy for a failed accept-invitation. A deleted account must never get
- * the "enter your current password" hint: no password helps there.
+ * Toast copy for a failed accept-invitation. The backend's 409s:
+ * - `user.error.accountDeleted`: the email belongs to a deleted account.
+ * - `unit.error.alreadyOwned`: the invited flat belongs to another account.
+ * - no code (prose message): the email already has an account and the
+ *   password field must hold its CURRENT password.
+ * Only the last one may show the "enter your current password" hint: no
+ * password helps with the other two.
  */
 export function acceptInvitationErrorKey(error: unknown): string {
-  if (isAccountDeletedError(error))
+  if (getErrorStatus(error) !== 409)
+    return "common.error";
+  const code = getErrorCode(error);
+  if (code === ACCOUNT_DELETED_CODE)
     return "auth.errors.invitation_account_deleted";
-  return getErrorStatus(error) === 409 ? "auth.errors.invitation_existing_account" : "common.error";
+  if (code === UNIT_ALREADY_OWNED_CODE)
+    return "auth.errors.invitation_unit_owned";
+  return code === undefined ? "auth.errors.invitation_existing_account" : "common.error";
 }
 
 /** Toast copy for a failed admin invitation send. */
