@@ -10,7 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { z } from "zod";
 
+import { DateTimeField } from "@/components/ui/date-time-field";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { expirySchema } from "@/lib/expiry-date";
+import { buildPollPayload } from "@/lib/governance-payload";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -21,7 +24,7 @@ const schema = z.object({
   question: z.string().trim().min(5, "validation.min_5"),
   questionAr: z.string().trim().min(5, "validation.min_5"),
   options: z.array(optionSchema).min(2, "validation.min_options"),
-  expiresAt: z.string().trim().min(1, "validation.required"),
+  expiresAt: expirySchema,
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -59,12 +62,11 @@ export default function NewPollScreen() {
       question: "",
       questionAr: "",
       options: [{ label: "", labelAr: "" }, { label: "", labelAr: "" }],
-      expiresAt: "",
     },
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (data: FormValues) => governanceApi.createPoll(data),
+    mutationFn: (data: FormValues) => governanceApi.createPoll(buildPollPayload(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polls"] });
       showMessage({ message: t("admin.poll_created"), type: "success", backgroundColor: SEMANTIC.success });
@@ -104,7 +106,7 @@ export default function NewPollScreen() {
           control={control}
           name="expiresAt"
           render={({ field }) => (
-            <TextInput style={[styles.input, errors.expiresAt && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder="YYYY-MM-DD" />
+            <DateTimeField value={field.value} onChange={field.onChange} label={t("admin.expires_at")} hasError={!!errors.expiresAt} />
           )}
         />
         {errors.expiresAt?.message ? <Text style={styles.errorText}>{t(errors.expiresAt.message as any)}</Text> : null}

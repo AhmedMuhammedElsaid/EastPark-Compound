@@ -21,6 +21,8 @@
     "option": "Option",
     "options": "Options",
     "pending": "Pending",
+    "pick_date_time": "Choose date and time",
+    "pick_date_time_hint": "Opens the date picker, then the time picker",
     "poll_created": "Poll created",
     "question_ar": "Question (Arabic)",
     "question_en": "Question (English)",
@@ -491,6 +493,7 @@
     "title": "Profile"
   },
   "validation": {
+    "expiry_future": "Choose a date and time in the future",
     "invalid_date": "Enter the date as YYYY-MM-DD",
     "invalid_phone": "Enter a phone number such as +20 10 1234 5678 or 01012345678",
     "invalid_price": "Enter a price greater than zero",
