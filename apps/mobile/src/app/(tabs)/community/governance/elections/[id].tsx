@@ -161,9 +161,12 @@ export default function ElectionScreen() {
         {description ? <Text style={styles.description}>{description}</Text> : null}
         {hint ? <Text style={styles.hint}>{hint}</Text> : <View style={{ height: SPACING.md }} />}
 
-        {election.myVoteCandidateId && !showVotes && (
+        {/* Everyone without counts (voters, non-voters, admins) gets the reason. */}
+        {!showVotes && (
           <View style={styles.sealedBanner}>
-            <Text style={styles.sealedText}>{t("governance.sealed")}</Text>
+            <Text style={styles.sealedText}>
+              {t(election.visibilityMode === "ADMIN_CONTROLLED" ? "governance.sealed_admin" : "governance.sealed")}
+            </Text>
           </View>
         )}
 

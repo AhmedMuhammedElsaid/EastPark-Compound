@@ -394,6 +394,7 @@
     "residents_only": "Voting is available to verified resident accounts only.",
     "results": "Results",
     "sealed": "Results will be revealed after the deadline",
+    "sealed_admin": "Results will be published by the compound administration.",
     "title": "Governance",
     "vote": "Vote",
     "vote_confirm": "Are you sure you want to vote for \"{{option}}\"? This cannot be undone.",
