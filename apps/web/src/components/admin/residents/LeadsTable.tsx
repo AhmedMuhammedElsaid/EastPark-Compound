@@ -8,7 +8,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Mail, PanelRightOpen, RotateCcw, Send, UserX } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, HousePlus, Mail, PanelRightOpen, RotateCcw, Send, UserX } from 'lucide-react';
 import * as React from 'react';
 
 import { leadActions, unitLabel, type LeadAction, type LeadStatus, type ResidentLead } from '@/lib/api/resident-leads';
@@ -74,9 +74,10 @@ export function LeadRowActions({
   const { t } = useTranslation();
   // While a request is in flight the row already shows the optimistic status; keep the original
   // buttons in place so nothing jumps under the pointer.
-  const available = leadActions(pending ? pending.from : lead.status);
+  const available = leadActions(pending ? pending.from : lead.status, lead.hasAccount);
   const busy = Boolean(pending);
-  const InviteIcon = available.invite === 'reinvite' ? RotateCcw : available.invite === 'resend' ? Send : Mail;
+  const InviteIcon =
+    available.invite === 'attach' ? HousePlus : available.invite === 'reinvite' ? RotateCcw : available.invite === 'resend' ? Send : Mail;
   const size = variant === 'table' ? 'min-h-11 px-3' : 'min-h-12 px-4';
 
   return (
@@ -90,7 +91,9 @@ export function LeadRowActions({
           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[length:var(--text-button)] font-semibold transition-colors disabled:cursor-not-allowed ${size} ${FOCUS} ${variant === 'card' ? 'min-w-32 flex-1' : ''} ${variant === 'drawer' ? 'bg-primary text-primary-foreground hover:bg-gold-600 disabled:opacity-70' : 'border border-primary/55 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-80'} ${pending?.action === 'invite' ? 'lead-pending' : ''}`}
         >
           <InviteIcon aria-hidden="true" className="size-4 shrink-0 rtl:-scale-x-100" />
-          {pending?.action === 'invite' ? t('admin_leads.pending.invite') : t(`admin_leads.actions.${available.invite}`)}
+          {pending?.action === 'invite'
+            ? t(available.invite === 'attach' ? 'admin_leads.pending.attach' : 'admin_leads.pending.invite')
+            : t(`admin_leads.actions.${available.invite}`)}
         </button>
       )}
       {available.reject && (

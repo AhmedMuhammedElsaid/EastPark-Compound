@@ -23,6 +23,8 @@ export type ResidentLead = {
   nationalId?: string | null;
   passportNumber?: string | null;
   status: LeadStatus;
+  /** A live account already uses this email: approving adds the flat to it, no invitation is sent. */
+  hasAccount?: boolean;
   createdAt: string;
 };
 
@@ -53,8 +55,14 @@ export class LeadRequestError extends Error {
   }
 }
 
-/** Which actions a lead in `status` offers. Mirrors the backend rules in ResidentsService. */
-export function leadActions(status: LeadStatus): { invite: 'send' | 'resend' | 'reinvite' | null; reject: boolean } {
+export type InviteKind = 'send' | 'resend' | 'reinvite' | 'attach';
+
+/**
+ * Which actions a lead in `status` offers. Mirrors the backend rules in ResidentsService: when the
+ * email already has an account, approving adds the flat to it (`attach`) instead of inviting.
+ */
+export function leadActions(status: LeadStatus, hasAccount = false): { invite: InviteKind | null; reject: boolean } {
+  if (hasAccount && status !== 'CONVERTED') return { invite: 'attach', reject: status !== 'REJECTED' };
   switch (status) {
     case 'PENDING':
       return { invite: 'send', reject: true };

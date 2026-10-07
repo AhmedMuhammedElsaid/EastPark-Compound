@@ -14,6 +14,7 @@ import {
   LeadRequestError,
   rejectLead,
   shiftStats,
+  unitLabel,
   type LeadAction,
   type LeadFilter,
   type LeadStats,
@@ -151,7 +152,8 @@ export function ResidentRequestsPanel() {
   async function runAction({ lead, action }: ConfirmRequest) {
     if (pending[lead.id]) return;
     const from = lead.status;
-    const optimistic: LeadStatus = action === 'invite' ? 'INVITED' : 'REJECTED';
+    // An existing account gets the flat directly (CONVERTED), never an invitation.
+    const optimistic: LeadStatus = action === 'invite' ? (lead.hasAccount ? 'CONVERTED' : 'INVITED') : 'REJECTED';
     setPending((current) => ({ ...current, [lead.id]: { action, from } }));
     setRowStatus(lead.id, optimistic);
     setStats((current) => shiftStats(current, from, optimistic));
@@ -167,7 +169,7 @@ export function ResidentRequestsPanel() {
       }
       const toastKey =
         result === 'CONVERTED' ? 'already_registered' : action === 'reject' ? 'rejected' : from === 'INVITED' ? 'resent' : 'invited';
-      push('success', t(`admin_leads.toast.${toastKey}`, { name: lead.name }));
+      push('success', t(`admin_leads.toast.${toastKey}`, { name: lead.name, unit: unitLabel(lead) }));
     } catch (error) {
       const status = error instanceof LeadRequestError ? error.status : 0;
       const code = error instanceof LeadRequestError ? error.code : undefined;

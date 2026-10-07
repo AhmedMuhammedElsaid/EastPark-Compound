@@ -123,6 +123,7 @@
       "send": "Invite",
       "resend": "Resend",
       "reinvite": "Re-invite",
+      "attach": "Add to account",
       "reject": "Reject",
       "details": "Details",
       "details_for": "View details for {{name}}",
@@ -130,6 +131,7 @@
     },
     "pending": {
       "invite": "Sending…",
+      "attach": "Adding…",
       "reject": "Rejecting…"
     },
     "load_more": "Load more",
@@ -150,6 +152,8 @@
       "resend_body": "A fresh copy of the invitation email will be sent to {{email}}.",
       "reinvite_title": "Re-invite this resident?",
       "reinvite_body": "The request moves out of Rejected and {{name}} receives an invitation email at {{email}}.",
+      "attach_title": "Add this flat to the existing account?",
+      "attach_body": "{{email}} already has an account. {{unit}} will be added to it as another flat and {{name}} gets a “flat added” email. No new invitation is sent.",
       "reject_title": "Reject this request?",
       "reject_body": "{{name}}’s request for {{unit}} will be declined and the unit becomes available again.",
       "reject_invited_note": "Their pending invitation link will stop working.",
@@ -157,12 +161,13 @@
       "confirm_invite": "Send invitation",
       "confirm_resend": "Resend invitation",
       "confirm_reinvite": "Re-invite",
+      "confirm_attach": "Add flat",
       "confirm_reject": "Reject request"
     },
     "toast": {
       "invited": "Invitation sent to {{name}}.",
       "resent": "Invitation re-sent to {{name}}.",
-      "already_registered": "{{name}} already has an account, so the request is marked as joined.",
+      "already_registered": "{{unit}} was added to {{name}}’s account.",
       "rejected": "{{name}}’s request was rejected.",
       "dismiss": "Dismiss",
       "region": "Notifications"

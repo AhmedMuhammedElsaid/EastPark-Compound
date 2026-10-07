@@ -78,7 +78,7 @@ export function ConfirmLeadDialog({
   const titleId = React.useId();
   const bodyId = React.useId();
   const lead = shown?.lead;
-  const kind = shown ? (shown.action === 'reject' ? 'reject' : (leadActions(shown.lead.status).invite ?? 'send')) : 'send';
+  const kind = shown ? (shown.action === 'reject' ? 'reject' : (leadActions(shown.lead.status, shown.lead.hasAccount).invite ?? 'send')) : 'send';
   const copyKey = kind === 'send' ? 'invite' : kind;
   const danger = kind === 'reject';
   const vars: Record<string, string> = lead ?{ name: lead.name, email: lead.email, unit: unitLabel(lead) } : {};

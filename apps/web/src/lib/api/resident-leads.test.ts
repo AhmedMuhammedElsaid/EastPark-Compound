@@ -33,6 +33,13 @@ describe('leadActions', () => {
     expect(leadActions('REJECTED')).toEqual({ invite: 'reinvite', reject: false });
     expect(leadActions('CONVERTED')).toEqual({ invite: null, reject: false });
   });
+
+  it('offers "add to account" instead of an invitation when the email already has an account', () => {
+    expect(leadActions('PENDING', true)).toEqual({ invite: 'attach', reject: true });
+    expect(leadActions('INVITED', true)).toEqual({ invite: 'attach', reject: true });
+    expect(leadActions('REJECTED', true)).toEqual({ invite: 'attach', reject: false });
+    expect(leadActions('CONVERTED', true)).toEqual({ invite: null, reject: false });
+  });
 });
 
 describe('leadErrorKey', () => {
