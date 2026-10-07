@@ -11,6 +11,7 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Platform } from "react-native";
 
 import {
   deleteSecureItem,
@@ -42,6 +43,11 @@ const initialState: BiometricState = {
 };
 
 function pickKind(types: LocalAuthentication.AuthenticationType[]): BiometricKind {
+  // Android phones with both sensors (e.g. Samsung) report face first, but the
+  // fingerprint is what BiometricPrompt actually uses for app sign-in there.
+  if (Platform.OS === "android" && types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+    return "fingerprint";
+  }
   if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
     return "face";
   }

@@ -8,32 +8,38 @@ import {
 } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { BRAND } from "@/theme/tokens";
+import { BRAND, FONT } from "@/theme/tokens";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   const colors = useAppColors();
+  // Edge-to-edge: the tab bar must clear the Android navigation buttons /
+  // gesture area itself — a fixed height would draw it underneath them.
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: colors.bg,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
+          elevation: 0,
+          height: 68 + bottom,
+          paddingBottom: 8 + bottom,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: BRAND.gold,
+        // gold-500 fails AA on the light background; LIGHT.primaryText is gold-700.
+        tabBarActiveTintColor: "primaryText" in colors ? colors.primaryText : BRAND.gold,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: {
-          fontFamily: "Cairo",
-          fontSize: 11,
-          fontWeight: "500",
+          fontFamily: FONT.sans,
+          fontSize: 12,
+          fontWeight: "600",
           marginTop: 2,
         },
       }}
@@ -42,8 +48,8 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t("home.tab_label", "Home"),
-          tabBarIcon: ({ color, size }) => (
-            <House color={color} size={size ?? 24} weight="fill" />
+          tabBarIcon: ({ color, focused }) => (
+            <House color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
         }}
       />
@@ -51,8 +57,8 @@ export default function TabsLayout() {
         name="directory"
         options={{
           title: t("directory.title"),
-          tabBarIcon: ({ color, size }) => (
-            <Compass color={color} size={size ?? 24} weight="fill" />
+          tabBarIcon: ({ color, focused }) => (
+            <Compass color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
         }}
       />
@@ -60,8 +66,8 @@ export default function TabsLayout() {
         name="orders"
         options={{
           title: t("orders.title"),
-          tabBarIcon: ({ color, size }) => (
-            <ShoppingBag color={color} size={size ?? 24} weight="fill" />
+          tabBarIcon: ({ color, focused }) => (
+            <ShoppingBag color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
         }}
       />
@@ -69,8 +75,8 @@ export default function TabsLayout() {
         name="community"
         options={{
           title: t("community.title"),
-          tabBarIcon: ({ color, size }) => (
-            <Users color={color} size={size ?? 24} weight="fill" />
+          tabBarIcon: ({ color, focused }) => (
+            <Users color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
         }}
       />
@@ -78,8 +84,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: t("profile.title"),
-          tabBarIcon: ({ color, size }) => (
-            <User color={color} size={size ?? 24} weight="fill" />
+          tabBarIcon: ({ color, focused }) => (
+            <User color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
         }}
       />

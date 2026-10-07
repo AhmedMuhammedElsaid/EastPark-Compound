@@ -12,7 +12,9 @@ import Env from "./env";
 const EAS_PROJECT_ID = "062399ed-48df-4d4f-ba1a-a0801a86b1bc";
 
 const appIconBadgeConfig: AppIconBadgeConfig = {
-  enabled: Env.EXPO_PUBLIC_APP_ENV !== "production",
+  // Only local development builds get the env/version ribbon; preview APKs
+  // installed by the owner show the real brand icon.
+  enabled: Env.EXPO_PUBLIC_APP_ENV === "development",
   badges: [
     {
       text: Env.EXPO_PUBLIC_APP_ENV,
@@ -80,7 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // EastPark brand dark background
         backgroundColor: "#0d0c0b",
         image: "./assets/splash-icon.png",
-        imageWidth: 200,
+        imageWidth: 240,
       },
     ],
     [
@@ -88,11 +90,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         ios: {
           fonts: [
-            // Cairo — primary UI font
-            "node_modules/@expo-google-fonts/cairo/400Regular/Cairo_400Regular.ttf",
-            "node_modules/@expo-google-fonts/cairo/500Medium/Cairo_500Medium.ttf",
-            "node_modules/@expo-google-fonts/cairo/600SemiBold/Cairo_600SemiBold.ttf",
-            "node_modules/@expo-google-fonts/cairo/700Bold/Cairo_700Bold.ttf",
+            // Alexandria — primary UI font (same as the web app), vendored in assets/fonts
+            "./assets/fonts/Alexandria_400Regular.ttf",
+            "./assets/fonts/Alexandria_500Medium.ttf",
+            "./assets/fonts/Alexandria_600SemiBold.ttf",
+            "./assets/fonts/Alexandria_700Bold.ttf",
             // Cormorant Garamond — display/hero only, English only
             "node_modules/@expo-google-fonts/cormorant-garamond/400Regular/CormorantGaramond_400Regular.ttf",
             "node_modules/@expo-google-fonts/cormorant-garamond/600SemiBold/CormorantGaramond_600SemiBold.ttf",
@@ -102,22 +104,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         android: {
           fonts: [
             {
-              fontFamily: "Cairo",
+              fontFamily: "Alexandria",
               fontDefinitions: [
                 {
-                  path: "node_modules/@expo-google-fonts/cairo/400Regular/Cairo_400Regular.ttf",
+                  path: "./assets/fonts/Alexandria_400Regular.ttf",
                   weight: 400,
                 },
                 {
-                  path: "node_modules/@expo-google-fonts/cairo/500Medium/Cairo_500Medium.ttf",
+                  path: "./assets/fonts/Alexandria_500Medium.ttf",
                   weight: 500,
                 },
                 {
-                  path: "node_modules/@expo-google-fonts/cairo/600SemiBold/Cairo_600SemiBold.ttf",
+                  path: "./assets/fonts/Alexandria_600SemiBold.ttf",
                   weight: 600,
                 },
                 {
-                  path: "node_modules/@expo-google-fonts/cairo/700Bold/Cairo_700Bold.ttf",
+                  path: "./assets/fonts/Alexandria_700Bold.ttf",
                   weight: 700,
                 },
               ],
@@ -153,7 +155,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     ["app-icon-badge", appIconBadgeConfig],
-    ["react-native-edge-to-edge"],
+    // Fully transparent button-navigation bar: the tab bar paints its own
+    // background under it instead of Android's light contrast scrim.
+    ["react-native-edge-to-edge", { android: { enforceNavigationBarContrast: false } }],
   ],
   extra: {
     eas: {

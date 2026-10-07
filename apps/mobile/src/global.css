@@ -4,7 +4,7 @@
 
 @theme {
   /* ─── Typography ───────────────────────────────────────────────── */
-  --font-family-sans:    'Cairo', ui-sans-serif, system-ui, sans-serif;
+  --font-family-sans:    'Alexandria', ui-sans-serif, system-ui, sans-serif;
   --font-family-display: 'CormorantGaramond', Georgia, serif;
 
   /* ─── Gold palette (derived from eastpark.jpg brand logo) ──────── */

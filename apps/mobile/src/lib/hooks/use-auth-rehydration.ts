@@ -11,7 +11,8 @@ import { login, logout } from "@/store/slices/auth-slice";
  * Reads persisted tokens from SecureStore on cold launch.
  * If valid tokens are found, fetches the user profile and rehydrates Redux auth state;
  * if they are missing, clears a stale persisted "signed in" state.
- * Always calls SplashScreen.hideAsync() in the finally block so the splash is dismissed.
+ * The splash is hidden as soon as the tokens are read: the persisted user already renders
+ * the signed-in UI, so a cold backend (Render free tier: up to ~60 s) never blocks launch.
  */
 export function useAuthRehydration(): void {
   const dispatch = useAppDispatch();
@@ -21,6 +22,7 @@ export function useAuthRehydration(): void {
       try {
         const accessToken = await getSecureItem(SECURE_KEY_ACCESS);
         const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+        SplashScreen.hideAsync();
         if (accessToken && refreshToken) {
           const { data } = await usersApi.getProfile();
           dispatch(login({ user: data.data, accessToken, refreshToken }));

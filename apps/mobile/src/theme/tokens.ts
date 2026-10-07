@@ -75,7 +75,7 @@ export const RADIUS = {
 } as const;
 
 export const FONT = {
-	sans: "Cairo",
+	sans: "Alexandria",
 	display: "CormorantGaramond",
 } as const;
 
