@@ -20,6 +20,31 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Multi-flat owners — 2026-10-07
+
+- One account can own many flats; voting is unchanged (one account = one vote). New model `ResidentUnit`
+  (`resident_units`: `userId` FK RESTRICT, `addedById` SET NULL, `leadId @unique` SET NULL,
+  `@@unique([building, floor, flatNumber])` = at most one owner per flat). Removing a flat HARD-deletes the
+  row (audit keeps history; not in the recycle bin). Label everywhere = `${building}-${floor}-${flatNumber}`
+  (`src/common/helper/utils/unit-label.ts`). `User.unitNumber` stays the PRIMARY flat (old mobile builds).
+- Migration `20261007100000_resident_units`: table + RLS + backfill from CONVERTED leads (`id = 'ru_' || lead.id`),
+  then recreates `resident_leads_active_unit_key` as `WHERE status IN ('PENDING','INVITED')`. Reservation is now
+  split: active application = PENDING/INVITED lead (partial index); owned flat = `resident_units` row.
+  Every unit-reservation lookup uses `status: { in: ACTIVE_LEAD_STATUSES }` plus an ownership check.
+- API: `GET /v1/user/profile` and `GET /v1/admin/user` items add `units: ResidentUnitDto[]` (oldest first,
+  `{ id, building, floor, flatNumber, label, createdAt }`). `POST /v1/admin/user/:id/units` [SUPER_ADMIN]
+  (body = lead DTO's building/floor/flatNumber validators via `PickType`) → 201 unit; 404 `user.error.notFound`,
+  409 `unit.error.alreadyOwned` / `residentLead.error.unitReserved`; audit `UNIT_ADDED`; "flat added" email
+  (best-effort). `DELETE /v1/admin/user/:id/units/:unitId` [SUPER_ADMIN] → `unit.success.removed`; 404
+  `unit.error.notFound`; works for a soft-deleted account; primary reassigned to the oldest remaining flat or
+  null; audit `UNIT_REMOVED`. `POST /v1/orders` `deliveryUnit` (trimmed) must be an owned label or the
+  caller's `unitNumber`, else 400 `order.error.deliveryUnitInvalid`.
+- Lead flow: public lead on an owned flat → 409 `residentLead.error.unitReserved`; invite → 409
+  `unit.error.alreadyOwned` when another account owns the flat (web `leadErrorKey` maps every invite 409 to
+  `unit_reserved` unless it reads `code`); invite of an existing account adds the flat + emails (idempotent);
+  accept-invitation creates the flat in its transaction (flat P2002 → 409 `unit.error.alreadyOwned`).
+  Service: `src/modules/units/resident-units.service.ts`; tests `test/modules/resident-units.spec.ts`.
+
 ### RLS lockdown — 2026-10-07
 
 - Migration `20261007000000_enable_rls_lockdown` enables RLS (no policies) on every `public` table the
