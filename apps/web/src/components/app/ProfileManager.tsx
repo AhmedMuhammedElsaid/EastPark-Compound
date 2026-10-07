@@ -3,7 +3,7 @@
 import type { ProfileFormInput } from '@/lib/validation/profile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Globe2, LogOut, Moon, ShieldCheck, Sun, Trash2, Upload, UserRound } from 'lucide-react';
+import { Check, Globe2, House, LogOut, Moon, ShieldCheck, Sun, Trash2, Upload, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -14,6 +14,7 @@ import { parseUploadResult } from '@/lib/api/feedback';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
+import { unitChoices, unitsOf } from '@/lib/units';
 import { profileFormSchema } from '@/lib/validation/profile';
 
 const fieldClass =
@@ -28,6 +29,7 @@ export function ProfileManager() {
   const { lang, setLang, t } = useTranslation();
   const { setTheme, theme } = useTheme();
   const [submitState, setSubmitState] = React.useState<'idle' | 'success' | 'error'>('idle');
+  const [saveErrorKey, setSaveErrorKey] = React.useState('profile.save_error');
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteValue, setDeleteValue] = React.useState('');
   const [deleteError, setDeleteError] = React.useState(false);
@@ -89,7 +91,10 @@ export function ProfileManager() {
         body: JSON.stringify({ ...values, avatarUrl }),
         signal: AbortSignal.timeout(10_000),
       });
-      if (!response.ok) throw new Error('Profile update failed');
+      if (!response.ok) {
+        const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        throw new Error(failure?.error === 'unit_not_owned' ? 'unit_not_owned' : 'Profile update failed');
+      }
       const updated = await refreshUser();
       if (!updated) throw new Error('Profile refresh failed');
       reset({
@@ -106,7 +111,10 @@ export function ProfileManager() {
       if (error instanceof Error && error.message === 'avatar_upload') {
         setAvatarError(t('profile.avatar_upload_error'));
       } else {
+        // The chosen primary flat is no longer one of the account's flats (e.g. just removed).
+        setSaveErrorKey(error instanceof Error && error.message === 'unit_not_owned' ? 'profile.errors.unit_not_owned' : 'profile.save_error');
         setSubmitState('error');
+        if (error instanceof Error && error.message === 'unit_not_owned') void refreshUser();
       }
     }
   });
@@ -182,6 +190,9 @@ export function ProfileManager() {
     .join('')
     .toUpperCase();
   const displayedAvatar = avatarPreview ?? savedAvatarUrl;
+  const flatChoices = unitChoices(user);
+  // Choosing the primary flat only makes sense with real flats (not the legacy single value).
+  const canChoosePrimary = unitsOf(user).length > 1;
 
   return (
     <Container className="py-8 sm:py-12">
@@ -220,9 +231,24 @@ export function ProfileManager() {
               <ProfileField id="profile-phone" label={t('auth.phone')} error={errors.phone?.message && t(errors.phone.message)}>
                 <input id="profile-phone" type="tel" inputMode="tel" autoComplete="tel" dir="ltr" className={fieldClass} aria-invalid={Boolean(errors.phone)} placeholder="+201234567890" {...register('phone')} />
               </ProfileField>
-              <ProfileField id="profile-unit" label={t('auth.unit_number')} error={errors.unitNumber?.message && t(errors.unitNumber.message)}>
-                <input id="profile-unit" autoComplete="off" className={fieldClass} aria-invalid={Boolean(errors.unitNumber)} {...register('unitNumber')} />
-              </ProfileField>
+              <div className="sm:col-span-2">
+                <FlatsList title={t('profile.flats_title')} empty={t('profile.flats_empty')} primaryLabel={t('profile.primary_badge')} choices={flatChoices} primary={user.unitNumber} />
+                {canChoosePrimary ? (
+                  <div className="mt-4 sm:max-w-sm">
+                    <ProfileField id="profile-unit" label={t('profile.primary_flat')} hint={t('profile.primary_flat_hint')} error={errors.unitNumber?.message && t(errors.unitNumber.message)}>
+                      <select id="profile-unit" dir="ltr" className={fieldClass} aria-invalid={Boolean(errors.unitNumber)} aria-describedby="profile-unit-hint" {...register('unitNumber')}>
+                        {!flatChoices.includes(user.unitNumber ?? '') && <option value={user.unitNumber ?? ''} disabled>{user.unitNumber || '—'}</option>}
+                        {flatChoices.map((label) => <option key={label} value={label}>{label}</option>)}
+                      </select>
+                    </ProfileField>
+                  </div>
+                ) : (
+                  // One flat (or a legacy account): read-only. The current value is still sent so
+                  // the backend sees it unchanged.
+                  <input type="hidden" {...register('unitNumber')} />
+                )}
+                <p className="mt-3 text-[length:var(--text-caption)] text-muted-foreground">{t('profile.flats_note')}</p>
+              </div>
               <div className="sm:col-span-2">
                 <ProfileField id="profile-avatar" label={t('profile.avatar')} hint={t('profile.avatar_hint')} error={avatarError ?? (errors.avatarUrl?.message && t(errors.avatarUrl.message))}>
                   <input type="hidden" {...register('avatarUrl')} />
@@ -264,7 +290,7 @@ export function ProfileManager() {
                   {isSubmitting ? t('common.loading') : t('profile.save_changes')}
                 </Button>
                 {submitState === 'success' && <p role="status" className="flex items-center gap-2 text-[length:var(--text-body)] text-success"><Check aria-hidden="true" className="size-4" />{t('profile.saved')}</p>}
-                {submitState === 'error' && <p role="alert" className="text-[length:var(--text-body)] text-error">{t('profile.save_error')}</p>}
+                {submitState === 'error' && <p role="alert" className="text-[length:var(--text-body)] text-error">{t(saveErrorKey)}</p>}
               </div>
             </form>
           </section>
@@ -321,6 +347,29 @@ export function ProfileManager() {
         </section>
       </div>
     </Container>
+  );
+}
+
+function FlatsList({ choices, empty, primary, primaryLabel, title }: { choices: string[]; empty: string; primary: string | null; primaryLabel: string; title: string }) {
+  return (
+    <div>
+      <p className="mb-2 block text-[length:var(--text-label)] font-semibold text-foreground">{title}</p>
+      {choices.length === 0 ? (
+        <p className="text-[length:var(--text-body)] text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {choices.map((label) => (
+            <li key={label} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-muted/35 px-3 text-[length:var(--text-body)] font-semibold text-foreground">
+              <House aria-hidden="true" className="size-4 text-primary" />
+              <bdi dir="ltr">{label}</bdi>
+              {choices.length > 1 && label === primary && (
+                <span className="rounded-sm bg-primary/12 px-1.5 text-[length:var(--text-caption)] font-bold text-primary">{primaryLabel}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

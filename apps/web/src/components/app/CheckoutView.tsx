@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { cartTotal } from '@/lib/cart/cart';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
+import { defaultUnitChoice, unitChoices } from '@/lib/units';
 
 export function CheckoutView() {
   const router = useRouter();
@@ -47,7 +48,12 @@ function CheckoutForm({ user }: { user: AuthUser }) {
   const router = useRouter();
   const { state, dispatch } = useCart();
   const { lang, t } = useTranslation();
-  const [deliveryUnit, setDeliveryUnit] = React.useState(user.unitNumber ?? '');
+  const { refreshUser } = useAuth();
+  // Delivery goes to one of the account's flats (labels), or the legacy single unit number.
+  const flatChoices = unitChoices(user);
+  const [pickedUnit, setPickedUnit] = React.useState(() => defaultUnitChoice(user));
+  // The flats can change underneath (profile refresh): never send a value that is no longer offered.
+  const deliveryUnit = flatChoices.includes(pickedUnit) ? pickedUnit : defaultUnitChoice(user);
   const [notes, setNotes] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>('CASH');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -91,6 +97,12 @@ function CheckoutForm({ user }: { user: AuthUser }) {
         router.replace('/login?next=%2Fcheckout');
         return;
       }
+      if (reason instanceof OrderRequestError && reason.message === 'delivery_unit_invalid') {
+        // The chosen flat is no longer the caller's: reload the flats so the picker is current.
+        setError(t('checkout.delivery_unit_invalid'));
+        void refreshUser();
+        return;
+      }
       setError(t('checkout.order_error'));
     } finally {
       setIsSubmitting(false);
@@ -105,11 +117,7 @@ function CheckoutForm({ user }: { user: AuthUser }) {
           <h1 className="mt-2 text-[length:var(--text-h1)] font-bold">{t('checkout.title')}</h1>
 
           <fieldset disabled={Boolean(createdOrder) || !residentOrderingEnabled} className="mt-8 space-y-7 disabled:opacity-65">
-            <div>
-              <label htmlFor="delivery-unit" className="mb-2 block font-bold">{t('checkout.address')}</label>
-              <input id="delivery-unit" value={deliveryUnit} onChange={(event) => setDeliveryUnit(event.target.value)} required maxLength={100} autoComplete="street-address" className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" />
-              <p className="mt-2 text-[length:var(--text-caption)] text-muted-foreground">{t('checkout.address_hint')}</p>
-            </div>
+            <DeliveryFlat choices={flatChoices} value={deliveryUnit} onChange={setPickedUnit} />
             <div>
               <label htmlFor="delivery-notes" className="mb-2 block font-bold">{t('checkout.notes')} <span className="font-normal text-muted-foreground">({t('common.optional')})</span></label>
               <textarea id="delivery-notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} rows={4} placeholder={t('checkout.notes_placeholder')} className="w-full rounded-md border border-input bg-background px-4 py-3 text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" />
@@ -141,6 +149,38 @@ function CheckoutForm({ user }: { user: AuthUser }) {
         </aside>
       </form>
     </Container>
+  );
+}
+
+function DeliveryFlat({ choices, value, onChange }: { choices: string[]; value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
+  if (choices.length === 0) {
+    return (
+      <div>
+        <p className="mb-2 font-bold">{t('checkout.delivery_flat')}</p>
+        <p role="status" className="rounded-sm bg-warning/12 p-3 text-[length:var(--text-body)] font-semibold text-foreground">{t('checkout.no_flat')}</p>
+      </div>
+    );
+  }
+  if (choices.length === 1) {
+    return (
+      <div>
+        <p className="mb-2 font-bold">{t('checkout.delivery_flat')}</p>
+        <p className="flex min-h-12 items-center rounded-md border border-border bg-muted/35 px-4 font-semibold text-foreground">
+          <bdi dir="ltr">{choices[0]}</bdi>
+        </p>
+        <p className="mt-2 text-[length:var(--text-caption)] text-muted-foreground">{t('checkout.delivery_flat_single')}</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <label htmlFor="delivery-unit" className="mb-2 block font-bold">{t('checkout.delivery_flat')}</label>
+      <select id="delivery-unit" value={value} onChange={(event) => onChange(event.target.value)} required dir="ltr" aria-describedby="delivery-unit-hint" className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25">
+        {choices.map((label) => <option key={label} value={label}>{label}</option>)}
+      </select>
+      <p id="delivery-unit-hint" className="mt-2 text-[length:var(--text-caption)] text-muted-foreground">{t('checkout.delivery_flat_hint')}</p>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { authUserEnvelopeSchema } from '@/lib/api/auth-schemas';
-import { rateLimitedResponse } from '@/lib/api/bff-errors';
+import { knownBackendErrorCode, rateLimitedResponse } from '@/lib/api/bff-errors';
 import { authenticatedBackendFetch, clearAuthCookies } from '@/lib/auth/server';
 import { profileFormSchema, toProfileUpdate } from '@/lib/validation/profile';
 
@@ -23,6 +23,10 @@ async function proxy(path: string, init?: RequestInit): Promise<NextResponse> {
     }
 
     if (response.status === 204) return new NextResponse(null, { status: 204 });
+    if (response.status === 400 && (await knownBackendErrorCode(response)) === 'unit_not_owned') {
+      // The chosen primary flat is not one of the account's flats.
+      return NextResponse.json({ error: 'unit_not_owned' }, { status: 400 });
+    }
     if (!response.ok) return upstreamError(response.status);
 
     const parsed = authUserEnvelopeSchema.safeParse(await response.json().catch(() => null));

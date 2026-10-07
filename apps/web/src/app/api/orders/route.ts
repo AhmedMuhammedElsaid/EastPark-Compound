@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { bffErrorResponse, relayBackendResponse } from '@/lib/api/bff-errors';
+import { bffErrorResponse, knownBackendErrorCode, PRIVATE_NO_STORE, relayBackendResponse } from '@/lib/api/bff-errors';
 import { createOrderSchema, isOrderStatus } from '@/lib/api/orders';
 import { authenticatedBackendFetch } from '@/lib/auth/server';
 import { residentOrderingEnabled } from '@/config/features';
@@ -53,6 +53,11 @@ export async function POST(request: Request) {
       ROUTE_SESSION,
     );
     if (!response) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    // The delivery flat is not one of the caller's flats: its own copy, not a generic failure.
+    if (response.status === 400) {
+      const code = await knownBackendErrorCode(response);
+      return NextResponse.json({ error: code === 'delivery_unit_invalid' ? code : 'request_failed' }, { status: 400, headers: PRIVATE_NO_STORE });
+    }
     return relayBackendResponse(response);
   } catch (error) {
     return bffErrorResponse(error, 'Order creation proxy failed', { error: 'network', status: 502 });
