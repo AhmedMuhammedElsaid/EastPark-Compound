@@ -7,6 +7,7 @@ import { MaritalStatus, ResidentLeadStatus, Role } from '@prisma/client';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
+import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
 import { ResidentsService } from 'src/modules/residents/residents.service';
 
@@ -64,11 +65,20 @@ const db = {
     },
     user: {
         findUnique: jest.fn(),
+        updateMany: jest.fn(),
+    },
+    residentUnit: {
+        create: jest.fn(),
     },
     invitation: {
         updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
+};
+
+const residentUnits = {
+    findOwner: jest.fn(),
+    notifyAdded: jest.fn(),
 };
 
 const invitationsService = {
@@ -84,6 +94,12 @@ describe('ResidentsService', () => {
 
     beforeEach(async () => {
         jest.clearAllMocks();
+        // Defaults: the flat has no owner; interactive transactions run on the mocks.
+        residentUnits.findOwner.mockResolvedValue(null);
+        residentUnits.notifyAdded.mockResolvedValue(undefined);
+        db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+            fn(db)
+        );
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -91,6 +107,7 @@ describe('ResidentsService', () => {
                 { provide: DatabaseService, useValue: db },
                 { provide: AuditService, useValue: audit },
                 { provide: InvitationsService, useValue: invitationsService },
+                { provide: ResidentUnitsService, useValue: residentUnits },
             ],
         }).compile();
 
@@ -158,7 +175,7 @@ describe('ResidentsService', () => {
             expect(createCall?.data?.passportNumber).toBe('A12345678');
         });
 
-        it('rejects a submission when the unit already has a non-REJECTED lead', async () => {
+        it('rejects a submission when the unit already has a PENDING or INVITED lead', async () => {
             const existing = mockLead({
                 id: 'lead-existing',
                 email: 'different@example.com',
@@ -176,7 +193,12 @@ describe('ResidentsService', () => {
                     building: 'Building A',
                     floor: '3',
                     flatNumber: '2',
-                    status: { not: ResidentLeadStatus.REJECTED },
+                    status: {
+                        in: [
+                            ResidentLeadStatus.PENDING,
+                            ResidentLeadStatus.INVITED,
+                        ],
+                    },
                 },
             });
         });
@@ -192,7 +214,7 @@ describe('ResidentsService', () => {
             expect(db.residentLead.create).not.toHaveBeenCalled();
         });
 
-        it('excludes REJECTED leads from the dedupe match (status: { not: REJECTED } in where)', async () => {
+        it('matches only active (PENDING/INVITED) leads: REJECTED and CONVERTED are history', async () => {
             db.residentLead.findFirst.mockResolvedValue(null);
             db.residentLead.create.mockResolvedValue(mockLead());
 
@@ -200,10 +222,34 @@ describe('ResidentsService', () => {
 
             const findFirstCall = db.residentLead.findFirst.mock.calls[0]?.[0];
             expect(findFirstCall?.where?.status).toEqual({
-                not: ResidentLeadStatus.REJECTED,
+                in: [ResidentLeadStatus.PENDING, ResidentLeadStatus.INVITED],
             });
             // A fresh lead is created since findFirst (correctly scoped) found nothing
             expect(db.residentLead.create).toHaveBeenCalledTimes(1);
+        });
+
+        it('409 unitReserved (no ownership leak) when the flat is already owned', async () => {
+            db.residentLead.findFirst.mockResolvedValue(null);
+            residentUnits.findOwner.mockResolvedValue({
+                id: 'unit-1',
+                userId: 'someone',
+            });
+
+            const attempt = service.create(
+                validCreateDto() as ResidentLeadCreateDto
+            );
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow(
+                'residentLead.error.unitReserved'
+            );
+            expect(residentUnits.findOwner).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    building: 'Building A',
+                    floor: '3',
+                    flatNumber: '2',
+                })
+            );
+            expect(db.residentLead.create).not.toHaveBeenCalled();
         });
 
         it('maps a concurrent unit reservation to the same conflict', async () => {
@@ -239,13 +285,11 @@ describe('ResidentsService', () => {
             ).rejects.toBeInstanceOf(NotFoundException);
         });
 
-        it('when a User already exists: links userId, sets CONVERTED, does not create invitation or modify user', async () => {
+        it('when a User already exists: adds the flat, sets unitNumber if null, marks CONVERTED, mails "flat added", no invitation', async () => {
             const lead = mockLead();
             db.residentLead.findUnique.mockResolvedValue(lead);
-            db.user.findUnique.mockResolvedValue({
-                id: 'user-1',
-                email: lead.email,
-            });
+            const user = { id: 'user-1', name: 'Jane', email: lead.email };
+            db.user.findUnique.mockResolvedValue(user);
             db.residentLead.update.mockResolvedValue(
                 mockLead({
                     userId: 'user-1',
@@ -253,9 +297,25 @@ describe('ResidentsService', () => {
                 })
             );
 
-            await service.invite('lead-1', adminActor);
+            await expect(service.invite('lead-1', adminActor)).resolves.toEqual(
+                { message: 'residentLead.success.alreadyRegistered' }
+            );
 
             expect(invitationsService.create).not.toHaveBeenCalled();
+            expect(db.residentUnit.create).toHaveBeenCalledWith({
+                data: {
+                    userId: 'user-1',
+                    building: 'Building A',
+                    floor: '3',
+                    flatNumber: '2',
+                    leadId: 'lead-1',
+                    addedById: 'admin-1',
+                },
+            });
+            expect(db.user.updateMany).toHaveBeenCalledWith({
+                where: { id: 'user-1', unitNumber: null },
+                data: { unitNumber: 'Building A-3-2' },
+            });
             expect(db.residentLead.update).toHaveBeenCalledWith({
                 where: { id: 'lead-1' },
                 data: {
@@ -263,6 +323,120 @@ describe('ResidentsService', () => {
                     status: ResidentLeadStatus.CONVERTED,
                 },
             });
+            expect(residentUnits.notifyAdded).toHaveBeenCalledWith(
+                user,
+                'Building A-3-2'
+            );
+        });
+
+        it('existing account that already owns the flat: idempotent (no new unit row, no email), lead CONVERTED', async () => {
+            const lead = mockLead();
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({
+                id: 'user-1',
+                name: 'Jane',
+                email: lead.email,
+            });
+            residentUnits.findOwner.mockResolvedValue({
+                id: 'unit-1',
+                userId: 'user-1',
+            });
+
+            await expect(service.invite('lead-1', adminActor)).resolves.toEqual(
+                { message: 'residentLead.success.alreadyRegistered' }
+            );
+
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+            expect(db.user.updateMany).not.toHaveBeenCalled();
+            expect(residentUnits.notifyAdded).not.toHaveBeenCalled();
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-1' },
+                data: {
+                    userId: 'user-1',
+                    status: ResidentLeadStatus.CONVERTED,
+                },
+            });
+        });
+
+        it('409 alreadyOwned when another account owns the flat: checked before any invitation email', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            db.user.findUnique.mockResolvedValue(null);
+            residentUnits.findOwner.mockResolvedValue({
+                id: 'unit-1',
+                userId: 'other-user',
+            });
+
+            const attempt = service.invite('lead-1', adminActor);
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow('unit.error.alreadyOwned');
+            expect(invitationsService.create).not.toHaveBeenCalled();
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+
+        it('409 alreadyOwned for an existing account when ANOTHER account owns the flat', async () => {
+            const lead = mockLead();
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({
+                id: 'user-1',
+                name: 'Jane',
+                email: lead.email,
+            });
+            residentUnits.findOwner.mockResolvedValue({
+                id: 'unit-1',
+                userId: 'other-user',
+            });
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('maps a lost ownership race on the existing-account path to 409 alreadyOwned (no email)', async () => {
+            const lead = mockLead();
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({
+                id: 'user-1',
+                name: 'Jane',
+                email: lead.email,
+            });
+            db.residentUnit.create.mockRejectedValueOnce({ code: 'P2002' });
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(residentUnits.notifyAdded).not.toHaveBeenCalled();
+        });
+
+        it('re-inviting a REJECTED lead whose flat is owned: 409 alreadyOwned', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.REJECTED })
+            );
+            db.residentLead.findFirst.mockResolvedValue(null);
+            db.user.findUnique.mockResolvedValue(null);
+            residentUnits.findOwner.mockResolvedValue({
+                id: 'unit-1',
+                userId: 'other-user',
+            });
+
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(db.residentLead.findFirst).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        status: {
+                            in: [
+                                ResidentLeadStatus.PENDING,
+                                ResidentLeadStatus.INVITED,
+                            ],
+                        },
+                    }),
+                })
+            );
+            expect(invitationsService.create).not.toHaveBeenCalled();
         });
 
         it('409 accountDeleted when the email belongs to a soft-deleted account: lead untouched, no invitation', async () => {

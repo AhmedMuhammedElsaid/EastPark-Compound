@@ -141,6 +141,17 @@ export class EmailService {
         });
     }
 
+    /** "Flat <label> was added to your account" (existing account only). */
+    sendUnitAdded(to: string, name: string, label: string): Promise<void> {
+        return this.send({
+            to,
+            subject: `تمت إضافة الشقة ${label} إلى حسابك في إيست بارك`,
+            template: 'unit-added',
+            context: { name, label, appName: 'EastPark' },
+            text: `مرحباً ${name}، تمت إضافة الشقة ${label} إلى حسابك في إيست بارك.\n\nستظهر الشقة في ملفك الشخصي، ويمكنك اختيارها عنواناً للتوصيل عند الطلب. يظل لحسابك صوت واحد في الاستطلاعات والانتخابات.\n\nإذا لم تكن تتوقع هذا التغيير، يرجى التواصل مع إدارة إيست بارك.`,
+        });
+    }
+
     sendSupportIssue(issue: {
         name: string;
         email: string;

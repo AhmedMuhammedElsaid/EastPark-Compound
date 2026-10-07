@@ -42,6 +42,9 @@ export const AUDIT_ACTIONS = [
     'SHOP_PHOTO_RESTORED',
     'PRODUCT_RESTORED',
     'REVIEW_RESTORED',
+    // Multi-flat owners (SUPER_ADMIN adds / removes a flat on an account)
+    'UNIT_ADDED',
+    'UNIT_REMOVED',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -60,7 +63,8 @@ export type AuditEntity =
     | 'ShopPhoto'
     | 'Product'
     | 'Review'
-    | 'Order';
+    | 'Order'
+    | 'ResidentUnit';
 
 /**
  * `label` is always a short, human-readable target ("Pool closed Friday",

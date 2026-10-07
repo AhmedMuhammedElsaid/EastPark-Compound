@@ -1,0 +1,10 @@
+{
+    "success": {
+        "added": "The flat was added to the account",
+        "removed": "The flat was removed from the account"
+    },
+    "error": {
+        "alreadyOwned": "This flat already belongs to an account",
+        "notFound": "Flat not found on this account"
+    }
+}

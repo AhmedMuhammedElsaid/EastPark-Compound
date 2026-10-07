@@ -14,11 +14,16 @@ import { ConfigService } from '@nestjs/config';
 import { ResidentLead, ResidentLeadStatus, Role, User } from '@prisma/client';
 
 import { CacheService } from '../../cache/services/cache.service';
+import {
+    isPrismaError,
+    PRISMA_UNIQUE_VIOLATION,
+} from '../../database/prisma-errors';
 import { DatabaseService } from '../../database/services/database.service';
 import { EmailService } from '../../email/email.service';
 import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interface';
 import { HelperEncryptionService } from '../../helper/services/helper.encryption.service';
 import { normalizeEmail } from '../../helper/transforms/normalize-email.transform';
+import { formatUnitLabel } from '../../helper/utils/unit-label';
 import { IAuthUser } from '../../request/interfaces/request.interface';
 import {
     AcceptInvitationDto,
@@ -54,7 +59,7 @@ const ROLE_RANK: Record<Role, number> = {
 export function formatLeadUnit(
     lead: Pick<ResidentLead, 'building' | 'floor' | 'flatNumber'>
 ): string {
-    return `${lead.building}-${lead.floor}-${lead.flatNumber}`;
+    return formatUnitLabel(lead);
 }
 
 @Injectable()
@@ -274,7 +279,9 @@ export class AuthService {
      * The caller must prove account ownership with the CURRENT password; the
      * role is then upgraded to the invited role, never downgraded.
      * RESIDENT invitations also copy phone/unit from the matching resident
-     * lead and mark that lead CONVERTED.
+     * lead, record the flat as owned by the account (`resident_units`, 409
+     * `unit.error.alreadyOwned` if someone else owns it) and mark that lead
+     * CONVERTED.
      */
     async acceptInvitation(dto: AcceptInvitationDto): Promise<AuthResponseDto> {
         const invitation = await this.db.invitation.findUnique({
@@ -371,6 +378,25 @@ export class AuthService {
                   });
 
             if (lead) {
+                // The flat becomes owned by this account. Another owner
+                // (unique flat key) rolls the whole claim back: the invitation
+                // stays unused.
+                try {
+                    await tx.residentUnit.create({
+                        data: {
+                            userId: saved.id,
+                            building: lead.building,
+                            floor: lead.floor,
+                            flatNumber: lead.flatNumber,
+                            leadId: lead.id,
+                        },
+                    });
+                } catch (error) {
+                    if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                        throw new ConflictException('unit.error.alreadyOwned');
+                    throw error;
+                }
+
                 await tx.residentLead.update({
                     where: { id: lead.id },
                     data: {

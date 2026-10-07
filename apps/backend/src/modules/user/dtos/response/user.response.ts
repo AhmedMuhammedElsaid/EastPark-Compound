@@ -1,6 +1,6 @@
 import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { $Enums, User } from '@prisma/client';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
 import {
     IsBoolean,
     IsDate,
@@ -9,6 +9,8 @@ import {
     IsOptional,
     IsString,
 } from 'class-validator';
+
+import { ResidentUnitDto } from 'src/modules/units/dtos/resident-unit.dto';
 
 export class UserResponseDto implements Partial<User> {
     @ApiProperty({ example: 'clx1234567890' })
@@ -79,5 +81,14 @@ export class UserResponseDto implements Partial<User> {
     pushToken?: string | null;
 }
 
-export class UserGetProfileResponseDto extends UserResponseDto {}
+export class UserGetProfileResponseDto extends UserResponseDto {
+    @ApiProperty({
+        type: [ResidentUnitDto],
+        description:
+            'Every flat the account owns, oldest first. `unitNumber` is the primary flat label.',
+    })
+    @Expose()
+    @Type(() => ResidentUnitDto)
+    units: ResidentUnitDto[];
+}
 export class UserUpdateProfileResponseDto extends UserResponseDto {}

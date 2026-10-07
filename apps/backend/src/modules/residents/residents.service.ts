@@ -11,9 +11,14 @@ import {
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
+import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
+import {
+    ACTIVE_LEAD_STATUSES,
+    ResidentUnitsService,
+} from 'src/modules/units/resident-units.service';
 
 import { ResidentLeadCreateDto } from './dtos/request/resident-lead.create.dto';
 import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
@@ -46,7 +51,8 @@ export class ResidentsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly invitationsService: InvitationsService,
-        private readonly audit: AuditService
+        private readonly audit: AuditService,
+        private readonly residentUnits: ResidentUnitsService
     ) {}
 
     async create(dto: ResidentLeadCreateDto): Promise<ResidentLeadResponseDto> {
@@ -58,7 +64,7 @@ export class ResidentsService {
                 building: dto.building,
                 floor: dto.floor,
                 flatNumber: dto.flatNumber,
-                status: { not: ResidentLeadStatus.REJECTED },
+                status: { in: ACTIVE_LEAD_STATUSES },
             },
         });
 
@@ -66,6 +72,10 @@ export class ResidentsService {
             if (isSameSubmission(existing, dto, name, email)) return existing;
             throw new ConflictException('residentLead.error.unitReserved');
         }
+
+        // An owned flat is reserved too: same message, ownership never leaks.
+        if (await this.residentUnits.findOwner(dto))
+            throw new ConflictException('residentLead.error.unitReserved');
 
         try {
             return await this.db.residentLead.create({
@@ -91,7 +101,7 @@ export class ResidentsService {
                         building: dto.building,
                         floor: dto.floor,
                         flatNumber: dto.flatNumber,
-                        status: { not: ResidentLeadStatus.REJECTED },
+                        status: { in: ACTIVE_LEAD_STATUSES },
                     },
                 });
 
@@ -148,8 +158,11 @@ export class ResidentsService {
 
     /**
      * Invite a lead to register. If a User already exists for the lead's
-     * email, we just link + mark CONVERTED — we never create a second
-     * invitation or touch the existing account.
+     * email, no invitation is sent: the flat is added to that account
+     * (`resident_units`, unitNumber set if null), the lead is marked CONVERTED
+     * and the owner gets the "flat added" email. Idempotent when the account
+     * already owns the flat. A flat owned by ANOTHER account is a 409
+     * `unit.error.alreadyOwned`, checked before any email goes out.
      */
     async invite(id: string, actor: IAuthUser): Promise<{ message: string }> {
         const lead = await this.db.residentLead.findUnique({ where: { id } });
@@ -164,7 +177,7 @@ export class ResidentsService {
                     building: lead.building,
                     floor: lead.floor,
                     flatNumber: lead.flatNumber,
-                    status: { not: ResidentLeadStatus.REJECTED },
+                    status: { in: ACTIVE_LEAD_STATUSES },
                     id: { not: lead.id },
                 },
                 select: { id: true },
@@ -181,12 +194,23 @@ export class ResidentsService {
         if (existingUser?.deletedAt)
             throw new ConflictException('user.error.accountDeleted');
 
+        const owner = await this.residentUnits.findOwner(lead);
+        if (owner && owner.userId !== existingUser?.id)
+            throw new ConflictException('unit.error.alreadyOwned');
+
         if (existingUser) {
-            await this.updateLeadStatus(lead.id, {
-                userId: existingUser.id,
-                status: ResidentLeadStatus.CONVERTED,
-            });
+            const added = await this.convertForExistingAccount(
+                lead,
+                existingUser.id,
+                !owner,
+                actor
+            );
             await this.recordLead(actor, 'LEAD_APPROVED', lead);
+            if (added)
+                await this.residentUnits.notifyAdded(
+                    existingUser,
+                    formatUnitLabel(lead)
+                );
             return { message: 'residentLead.success.alreadyRegistered' };
         }
 
@@ -204,6 +228,48 @@ export class ResidentsService {
         await this.recordLead(actor, 'LEAD_APPROVED', lead);
 
         return { message: 'residentLead.success.invited' };
+    }
+
+    /**
+     * Existing account: adds the flat (unless it already owns it), sets the
+     * primary unitNumber when empty and marks the lead CONVERTED, atomically.
+     * Returns whether a flat row was created. A lost ownership race is a 409.
+     */
+    private async convertForExistingAccount(
+        lead: ResidentLead,
+        userId: string,
+        createUnit: boolean,
+        actor: IAuthUser
+    ): Promise<boolean> {
+        try {
+            await this.db.$transaction(async tx => {
+                if (createUnit) {
+                    await tx.residentUnit.create({
+                        data: {
+                            userId,
+                            building: lead.building,
+                            floor: lead.floor,
+                            flatNumber: lead.flatNumber,
+                            leadId: lead.id,
+                            addedById: actor.userId,
+                        },
+                    });
+                    await tx.user.updateMany({
+                        where: { id: userId, unitNumber: null },
+                        data: { unitNumber: formatUnitLabel(lead) },
+                    });
+                }
+                await tx.residentLead.update({
+                    where: { id: lead.id },
+                    data: { userId, status: ResidentLeadStatus.CONVERTED },
+                });
+            });
+        } catch (error) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('unit.error.alreadyOwned');
+            throw error;
+        }
+        return createUnit;
     }
 
     /** Lead status update; a lost unit-reservation race is a 409, not a 500. */
@@ -224,7 +290,8 @@ export class ResidentsService {
      * Reject a lead. A CONVERTED lead already has an account and cannot be
      * rejected. Rejecting an INVITED lead also expires its pending RESIDENT
      * invitation, so the emailed link can no longer create the account.
-     * Rejecting frees the unit for a new submission (partial unique index).
+     * Rejecting frees the unit for a new submission (partial unique index on
+     * PENDING/INVITED leads), unless the flat is owned (`resident_units`).
      */
     async reject(id: string, actor?: IAuthUser): Promise<{ message: string }> {
         const lead = await this.db.residentLead.findUnique({ where: { id } });

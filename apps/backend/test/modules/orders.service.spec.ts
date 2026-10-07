@@ -48,6 +48,7 @@ const mockOrder = (overrides: Record<string, unknown> = {}) => ({
 
 const db = {
     product: { findMany: jest.fn() },
+    user: { findUnique: jest.fn() },
     shop: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -79,6 +80,11 @@ describe('OrdersService', () => {
 
     beforeEach(async () => {
         jest.clearAllMocks();
+        // The caller's primary flat matches the default fixture's deliveryUnit.
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: 'A1',
+            residentUnits: [],
+        });
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [

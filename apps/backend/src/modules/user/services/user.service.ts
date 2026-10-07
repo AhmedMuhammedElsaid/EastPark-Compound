@@ -15,6 +15,11 @@ import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
 import { AuditService } from 'src/modules/audit/audit.service';
+import {
+    RESIDENT_UNIT_ORDER,
+    RESIDENT_UNIT_SELECT,
+    toResidentUnitDto,
+} from 'src/modules/units/dtos/resident-unit.dto';
 
 import {
     AdminUserQueryDto,
@@ -54,6 +59,14 @@ const ADMIN_USER_SELECT = {
     createdAt: true,
 } satisfies Prisma.UserSelect;
 
+/** Owned flats, oldest first (`ResidentUnitDto` after mapping). */
+const UNITS_SELECT = {
+    residentUnits: {
+        select: RESIDENT_UNIT_SELECT,
+        orderBy: RESIDENT_UNIT_ORDER,
+    },
+} satisfies Prisma.UserSelect;
+
 const userLabel = (user: { name: string; email: string }): string =>
     `${user.name} (${user.email})`;
 
@@ -67,9 +80,13 @@ export class UserService {
     ) {}
 
     async getProfile(userId: string): Promise<UserGetProfileResponseDto> {
-        const user = await this.db.user.findUnique({ where: { id: userId } });
+        const user = await this.db.user.findUnique({
+            where: { id: userId },
+            include: UNITS_SELECT,
+        });
         if (!user || user.deletedAt) throw new NotFoundException('User not found');
-        return user;
+        const { residentUnits, ...profile } = user;
+        return { ...profile, units: residentUnits.map(toResidentUnitDto) };
     }
 
     async updateUser(
@@ -191,9 +208,16 @@ export class UserService {
             take: limit + 1,
             ...cursorArgs(query.cursor),
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-            select: ADMIN_USER_SELECT,
+            select: { ...ADMIN_USER_SELECT, ...UNITS_SELECT },
         });
-        return toCursorPage(rows, limit);
+        const { items, nextCursor } = toCursorPage(rows, limit);
+        return {
+            items: items.map(({ residentUnits, ...user }) => ({
+                ...user,
+                units: residentUnits.map(toResidentUnitDto),
+            })),
+            nextCursor,
+        };
     }
 
     /**

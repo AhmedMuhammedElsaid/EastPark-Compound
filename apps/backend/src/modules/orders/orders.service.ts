@@ -22,6 +22,7 @@ import { isAdminRole } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { toDecimal, toMoneyNumber } from 'src/common/helper/money';
+import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
@@ -216,13 +217,18 @@ export class OrdersService {
             };
         });
 
+        const deliveryUnit = await this.assertDeliveryUnit(
+            actor.userId,
+            dto.deliveryUnit
+        );
+
         const order = await this.db.order.create({
             data: {
                 residentId: actor.userId,
                 shopId,
                 totalAmount,
                 notes: dto.notes,
-                deliveryUnit: dto.deliveryUnit,
+                deliveryUnit,
                 paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH,
                 items: { create: orderItems },
             },
@@ -230,6 +236,35 @@ export class OrdersService {
         });
 
         return toOrderResponse(order);
+    }
+
+    /**
+     * `deliveryUnit` (trimmed) must be one of the caller's flat labels or equal
+     * to their `unitNumber` — always allowed: old mobile builds send exactly
+     * it, and legacy accounts have a unitNumber but no flat rows. Otherwise
+     * 400 `order.error.deliveryUnitInvalid`. Returns the trimmed value.
+     */
+    private async assertDeliveryUnit(
+        userId: string,
+        requested: string
+    ): Promise<string> {
+        const deliveryUnit = requested.trim();
+        const user = await this.db.user.findUnique({
+            where: { id: userId },
+            select: {
+                unitNumber: true,
+                residentUnits: {
+                    select: { building: true, floor: true, flatNumber: true },
+                },
+            },
+        });
+        const allowed = new Set<string>(
+            (user?.residentUnits ?? []).map(formatUnitLabel)
+        );
+        if (user?.unitNumber) allowed.add(user.unitNumber.trim());
+        if (!deliveryUnit || !allowed.has(deliveryUnit))
+            throw new BadRequestException('order.error.deliveryUnitInvalid');
+        return deliveryUnit;
     }
 
     async findAll(

@@ -450,7 +450,10 @@ describe('UserService.listUsers', () => {
     beforeEach(() => jest.clearAllMocks());
 
     it('searches name/email case-insensitively, filters role, hides tombstones and private fields', async () => {
-        db.user.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+        db.user.findMany.mockResolvedValue([
+            { id: 'a', residentUnits: [] },
+            { id: 'b', residentUnits: [] },
+        ]);
         const page = await service.listUsers({
             q: 'sar',
             role: Role.RESIDENT,
@@ -475,7 +478,20 @@ describe('UserService.listUsers', () => {
             role: true,
             unitNumber: true,
             createdAt: true,
+            residentUnits: {
+                select: {
+                    id: true,
+                    building: true,
+                    floor: true,
+                    flatNumber: true,
+                    createdAt: true,
+                },
+                orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            },
         });
-        expect(page).toEqual({ items: [{ id: 'a' }], nextCursor: 'a' });
+        expect(page).toEqual({
+            items: [{ id: 'a', units: [] }],
+            nextCursor: 'a',
+        });
     });
 });

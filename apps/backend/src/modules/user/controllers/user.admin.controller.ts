@@ -7,16 +7,23 @@ import {
     HttpStatus,
     Param,
     Patch,
+    Post,
     Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
 import { DocGenericResponse } from 'src/common/doc/decorators/doc.generic.decorator';
+import { DocResponse } from 'src/common/doc/decorators/doc.response.decorator';
 import { AllowedRoles } from 'src/common/request/decorators/request.role.decorator';
 import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
+import {
+    ResidentUnitCreateDto,
+    ResidentUnitDto,
+} from 'src/modules/units/dtos/resident-unit.dto';
+import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 
 import {
     AdminUserQueryDto,
@@ -34,7 +41,10 @@ import { UserService } from '../services/user.service';
     version: '1',
 })
 export class UserAdminController {
-    constructor(private readonly userService: UserService) {}
+    constructor(
+        private readonly userService: UserService,
+        private readonly residentUnits: ResidentUnitsService
+    ) {}
 
     @Get()
     @AllowedRoles([Role.SUPER_ADMIN])
@@ -76,5 +86,45 @@ export class UserAdminController {
         @AuthUser() actor: IAuthUser
     ): Promise<ApiGenericResponseDto> {
         return this.userService.deleteUser(userId, actor);
+    }
+
+    @Post(':id/units')
+    @AllowedRoles([Role.SUPER_ADMIN])
+    @HttpCode(HttpStatus.CREATED)
+    @ApiBearerAuth('accessToken')
+    @ApiOperation({
+        summary:
+            'Add a flat to an existing account [SUPER_ADMIN] (409 if owned or in an active application)',
+    })
+    @DocResponse({
+        serialization: ResidentUnitDto,
+        httpStatus: HttpStatus.CREATED,
+        messageKey: 'unit.success.added',
+    })
+    public addUnit(
+        @Param('id') userId: string,
+        @Body() dto: ResidentUnitCreateDto,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ResidentUnitDto> {
+        return this.residentUnits.addToUser(userId, dto, actor);
+    }
+
+    @Delete(':id/units/:unitId')
+    @AllowedRoles([Role.SUPER_ADMIN])
+    @ApiBearerAuth('accessToken')
+    @ApiOperation({
+        summary:
+            'Remove a flat from an account [SUPER_ADMIN] (sale / transfer; works for a deleted account too)',
+    })
+    @DocGenericResponse({
+        httpStatus: HttpStatus.OK,
+        messageKey: 'unit.success.removed',
+    })
+    public removeUnit(
+        @Param('id') userId: string,
+        @Param('unitId') unitId: string,
+        @AuthUser() actor: IAuthUser
+    ): Promise<ApiGenericResponseDto> {
+        return this.residentUnits.removeFromUser(userId, unitId, actor);
     }
 }
