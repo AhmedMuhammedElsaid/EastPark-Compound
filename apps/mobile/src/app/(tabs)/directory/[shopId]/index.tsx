@@ -393,9 +393,6 @@ export default function ShopDetailScreen() {
     <>
       <ShopHero
         shop={shop}
-        saved={saved}
-        canSave={canSave}
-        onSave={handleSave}
         topInset={insets.top}
         styles={styles}
         colors={colors}
@@ -434,6 +431,8 @@ export default function ShopDetailScreen() {
           paddingBottom: cartVisible ? CART_BAR_HEIGHT + SPACING.base * 2 + SPACING.sm : SPACING["2xl"],
         }}
       />
+      <StatusScrim topInset={insets.top} />
+      <HeroNav saved={saved} canSave={canSave} onSave={handleSave} topInset={insets.top} styles={styles} />
       <CartBar shopId={shopId} styles={styles} />
     </View>
   );
@@ -449,39 +448,79 @@ function openWhatsApp(raw: string | null) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+/** Height of the soft fade under the status bar, over the hero photo. */
+const SCRIM_FADE_HEIGHT = 96;
+const SCRIM_STEP = 2;
+const SCRIM_TOP_ALPHA = 0.6;
+
 /**
- * Stepped ink bands — a cheap top gradient (expo-linear-gradient is not installed)
- * so the status bar and the floating buttons stay legible over bright photos.
+ * Fine ink bands (expo-linear-gradient is not installed): 2px steps with an
+ * eased alpha are smooth enough that no stripes show, even over light photos.
+ * Starts below the status bar, where the fixed StatusScrim ends, so the two
+ * join without a seam.
  */
 function HeroScrim({ topInset, styles }: { topInset: number; styles: Styles }) {
-  const bands = [
-    { h: topInset, a: "99" },
-    { h: 18, a: "80" },
-    { h: 18, a: "5c" },
-    { h: 18, a: "38" },
-    { h: 18, a: "14" },
-  ] as const;
+  const steps = SCRIM_FADE_HEIGHT / SCRIM_STEP;
   return (
-    <View style={styles.scrim} pointerEvents="none">
-      {bands.map(b => (
-        <View key={`scrim-${b.a}`} style={{ height: b.h, backgroundColor: `${BRAND.ink}${b.a}` }} />
-      ))}
+    <View style={[styles.scrim, { top: topInset }]} pointerEvents="none">
+      {Array.from({ length: steps }, (_, i) => {
+        const alpha = SCRIM_TOP_ALPHA * (1 - i / steps) ** 2;
+        const hex = Math.round(alpha * 255).toString(16).padStart(2, "0");
+        return <View key={`scrim-${i}`} style={{ height: SCRIM_STEP, backgroundColor: `${BRAND.ink}${hex}` }} />;
+      })}
+    </View>
+  );
+}
+
+/** Fixed band behind the status bar so its icons stay readable at any scroll position. */
+function StatusScrim({ topInset }: { topInset: number }) {
+  const hex = Math.round(SCRIM_TOP_ALPHA * 255).toString(16).padStart(2, "0");
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: "absolute", top: 0, start: 0, end: 0, height: topInset, backgroundColor: `${BRAND.ink}${hex}` }}
+    />
+  );
+}
+
+/** Back and save buttons, fixed on the screen (not inside the scrolling list) so Back is always reachable. */
+function HeroNav({ saved, canSave, onSave, topInset, styles }: { saved: boolean; canSave: boolean; onSave: () => void; topInset: number; styles: Styles }) {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.heroNav, { top: topInset + SPACING.sm }]} pointerEvents="box-none">
+      <Pressable
+        style={({ pressed }) => [styles.navBtn, pressed && styles.pressed]}
+        onPress={goBack}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.back")}
+      >
+        <ArrowLeft mirrored={I18nManager.isRTL} size={22} color={DARK.text} />
+      </Pressable>
+      {canSave && (
+        <Pressable
+          style={({ pressed }) => [styles.navBtn, pressed && styles.pressed]}
+          onPress={onSave}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? t("directory.saved") : t("directory.save")}
+          accessibilityState={{ selected: saved }}
+        >
+          {saved
+            ? <Heart size={22} color={BRAND.gold} weight="fill" />
+            : <HeartStraight size={22} color={DARK.text} />}
+        </Pressable>
+      )}
     </View>
   );
 }
 
 type ShopHeroProps = {
   shop: Shop;
-  saved: boolean;
-  canSave: boolean;
-  onSave: () => void;
   topInset: number;
   styles: Styles;
   colors: Colors;
 };
 
-function ShopHero({ shop, saved, canSave, onSave, topInset, styles, colors }: ShopHeroProps) {
-  const { t } = useTranslation();
+function ShopHero({ shop, topInset, styles, colors }: ShopHeroProps) {
   const coverPhoto = shop.photos?.find(p => p.isPrimary) ?? shop.photos?.[0];
   return (
     <View style={[styles.hero, { height: HERO_HEIGHT + topInset }]}>
@@ -493,29 +532,6 @@ function ShopHero({ shop, saved, canSave, onSave, topInset, styles, colors }: Sh
             </View>
           )}
       <HeroScrim topInset={topInset} styles={styles} />
-      <View style={[styles.heroNav, { top: topInset + SPACING.sm }]}>
-        <Pressable
-          style={({ pressed }) => [styles.navBtn, pressed && styles.pressed]}
-          onPress={goBack}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.back")}
-        >
-          <ArrowLeft mirrored={I18nManager.isRTL} size={22} color={DARK.text} />
-        </Pressable>
-        {canSave && (
-          <Pressable
-            style={({ pressed }) => [styles.navBtn, pressed && styles.pressed]}
-            onPress={onSave}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? t("directory.saved") : t("directory.save")}
-            accessibilityState={{ selected: saved }}
-          >
-            {saved
-              ? <Heart size={22} color={BRAND.gold} weight="fill" />
-              : <HeartStraight size={22} color={DARK.text} />}
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 }
