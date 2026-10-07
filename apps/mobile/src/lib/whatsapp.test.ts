@@ -45,4 +45,16 @@ describe("buildWhatsAppUrl", () => {
   it("encodes the text", () => {
     expect(buildWhatsAppUrl("2010", "a b\nc")).toBe("https://wa.me/2010?text=a%20b%0Ac");
   });
+  it("keeps the order number left-to-right in Arabic", () => {
+    const msg = buildOrderMessage({
+      isAr: true,
+      orderId: "abcd1234-ef56-7890-abcd-123456abcdef",
+      shopName: "جزارة",
+      items: [{ quantity: 1, name: "لحم", lineTotal: "١٠٠ ج.م." }],
+      total: "١٠٠ ج.م.",
+      paymentLabel: "الدفع عند الاستلام",
+      deliveryLabel: "وحدة 1-2-3",
+    });
+    expect(msg).toContain("رقم الطلب: ‎#ABCDEF");
+  });
 });

@@ -44,7 +44,8 @@ export function buildOrderMessage(input: OrderMessageInput): string {
   const lines = [
     l.title,
     "",
-    `${l.order}: ${formatOrderNumber(input.orderId)}`,
+    // LRM keeps "#" attached to the start of the number inside right-to-left Arabic text.
+    `${l.order}: ${input.isAr ? "‎" : ""}${formatOrderNumber(input.orderId)}`,
     `${l.shop}: ${input.shopName}`,
     "",
     `${l.items}:`,
