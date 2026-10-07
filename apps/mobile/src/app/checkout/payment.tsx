@@ -101,10 +101,10 @@ export default function PaymentScreen() {
   // timeout, that the server did not already commit the order.
   const [verifying, setVerifying] = React.useState(false);
   // Synchronous guard: state updates are async, so a fast double-tap could fire twice.
-  const inFlight = React.useRef(false);
+  const inFlightRef = React.useRef(false);
   // Set once the order exists: the cart is then cleared on purpose.
-  const orderPlaced = React.useRef(false);
-  useEmptyCartGuard(orderPlaced);
+  const orderPlacedRef = React.useRef(false);
+  useEmptyCartGuard(orderPlacedRef);
 
   /** Builds the shop WhatsApp link + stores the hand-off for the confirmation screen. Never throws. */
   async function prepareWhatsAppHandoff(placed: Order): Promise<string | null> {
@@ -154,7 +154,7 @@ export default function PaymentScreen() {
       const orderId = placed.id;
       // The order exists server-side from here on: the cart must never be
       // left intact, otherwise a retap would create a duplicate order.
-      orderPlaced.current = true;
+      orderPlacedRef.current = true;
       dispatch(clearCart());
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       const whatsappUrl = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
@@ -183,7 +183,7 @@ export default function PaymentScreen() {
     },
     onError: async (error) => {
       if (!isNoResponseError(error)) {
-        inFlight.current = false;
+        inFlightRef.current = false;
         const invalidUnit = getErrorCode(error) === "order.error.deliveryUnitInvalid";
         showMessage({ message: t(invalidUnit ? "checkout.unit_invalid" : "checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
         return;
@@ -198,7 +198,7 @@ export default function PaymentScreen() {
         // Offline — still tell the user to verify before retrying.
       }
       setVerifying(false);
-      inFlight.current = false;
+      inFlightRef.current = false;
       Alert.alert(
         t("checkout.order_uncertain_title"),
         t("checkout.order_uncertain_body"),
@@ -254,9 +254,9 @@ export default function PaymentScreen() {
           loading={busy}
           disabled={!canPlaceOrder}
           onPress={() => {
-            if (busy || inFlight.current)
+            if (busy || inFlightRef.current)
               return;
-            inFlight.current = true;
+            inFlightRef.current = true;
             mutate();
           }}
         />
