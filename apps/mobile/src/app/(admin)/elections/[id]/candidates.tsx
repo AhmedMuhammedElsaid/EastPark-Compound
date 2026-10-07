@@ -9,7 +9,7 @@ import { ImageSquare, UserCircle, X } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { z } from "zod";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { canOpenResults, resultsStatusKey } from "@/lib/election-results";
 import { formatExpiry } from "@/lib/expiry-date";
 import { uploadErrorKey, validateAsset } from "@/lib/feedback-attachments";
 import { formatNumber } from "@/lib/format-number";
@@ -77,19 +78,46 @@ function buildStyles(colors: Colors) {
     removeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     submitBtn: { height: 52, borderRadius: RADIUS.md, backgroundColor: BRAND.gold, justifyContent: "center", alignItems: "center", marginTop: SPACING.xl },
     submitBtnDisabled: { opacity: 0.5 },
+    resultsBtn: { minHeight: 48, marginTop: SPACING.md, borderRadius: RADIUS.md, borderWidth: 1, borderColor: BRAND.gold, justifyContent: "center", alignItems: "center", paddingHorizontal: SPACING.base },
+    resultsBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 24, color: gold },
     submitBtnText: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: BRAND.ink },
     pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   });
 }
 
-function resultsStatusKey(election: Election): string {
-  if (election.resultsOpen)
-    return "admin.results_published";
-  if (election.visibilityMode === "LIVE_COUNT")
-    return "admin.results_live";
-  if (election.visibilityMode === "SEALED_UNTIL_DEADLINE")
-    return "admin.results_at_deadline";
-  return "admin.results_sealed_admin";
+function OpenResultsButton({ electionId, styles }: { electionId: string; styles: Styles }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => governanceApi.openElectionResults(electionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["election", electionId] });
+      queryClient.invalidateQueries({ queryKey: ["elections"] });
+      showMessage({ message: t("admin.results_opened"), type: "success", backgroundColor: SEMANTIC.success });
+    },
+    onError: () => {
+      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    },
+  });
+
+  const confirm = () => {
+    Alert.alert(t("admin.open_results"), t("admin.open_results_confirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("admin.open_results"), onPress: () => mutate() },
+    ]);
+  };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.resultsBtn, isPending && styles.submitBtnDisabled, pressed && styles.pressed]}
+      onPress={confirm}
+      disabled={isPending}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isPending, busy: isPending }}
+    >
+      <Text style={styles.resultsBtnText}>{isPending ? t("common.loading") : t("admin.open_results")}</Text>
+    </Pressable>
+  );
 }
 
 function ElectionSummary({ election, styles }: { election: Election; styles: Styles }) {
@@ -103,6 +131,7 @@ function ElectionSummary({ election, styles }: { election: Election; styles: Sty
       <Text style={styles.meta}>{`${t("admin.visibility_mode")}: ${t(`admin.visibility_${election.visibilityMode.toLowerCase()}` as any)}`}</Text>
       <Text style={styles.meta}>{t(resultsStatusKey(election) as any)}</Text>
       <Text style={styles.meta}>{t("admin.candidates_count", { count, total: formatNumber(count, i18n.language) })}</Text>
+      {canOpenResults(election) ? <OpenResultsButton electionId={election.id} styles={styles} /> : null}
     </View>
   );
 }

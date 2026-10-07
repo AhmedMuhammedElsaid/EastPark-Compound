@@ -201,4 +201,8 @@ export const governanceApi = {
 
   addCandidate: (electionId: string, data: CandidateCreatePayload) =>
     client.post<{ data: CandidateResponse }>(`/elections/${encodeURIComponent(electionId)}/candidates`, data),
+
+  /** Publishes results now; the admin UI offers it for ADMIN_CONTROLLED elections only. */
+  openElectionResults: (electionId: string) =>
+    client.patch<{ data: ElectionResponse }>(`/elections/${encodeURIComponent(electionId)}/results-open`),
 };
