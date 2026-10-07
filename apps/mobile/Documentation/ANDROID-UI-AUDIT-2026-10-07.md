@@ -740,3 +740,26 @@ Home, Directory, shop detail, My Orders (empty — no cancelled order exists), C
 NOT PLACED. Cart (1x دجاجة كاملة, 210 EGP, Al-Rayan butcher) -> address (unit A1-1-3, note 'TEST order - will be cancelled') -> payment (Cash preselected, only option) -> تأكيد الطلب failed twice with a generic error (DEV-19: account is SUPER_ADMIN, backend accepts orders from RESIDENT only). No order number, so confirmation / WhatsApp hand-off / Back-to-Home (RES-2) / order detail (RES-1) / cancel could not be tested. Needs a resident test account.
 
 #### Not reached
+
+#### Fixed after the device walk (not yet re-verified on a device)
+
+- DEV-19 -> ed5cb22 (403 from POST /orders shows "only residents can place orders"; checkout stays open to non-residents by owner decision)
+- DEV-6 -> 7f1525f (new Profile > Saved shops screen on GET /users/me/saved-shops, row hidden unless RESIDENT)
+- DEV-1 -> 1440393, 94a6fa0 (tab label key `profile.tab_label`: حسابي / Profile)
+- DEV-2 -> 39fda63 (`?from=home|profile` + `useOriginBack`: header and hardware Back return to the launching tab)
+- DEV-3, DEV-24 -> 8f73d64 (fixed status scrim, fixed back/save buttons, 2px-step scrim)
+- DEV-4 -> 9ce8afd (weekly hours with today highlighted; open-now = manual switch AND schedule, also on shop cards)
+- DEV-5 -> 6d7dab8
+- DEV-10, DEV-22 -> d6f871a (Governance for polls/elections; "Admin dashboard" / لوحة الإدارة for row and screen title)
+- DEV-11 -> bca4ce2 (chip counts use locale digits). The bottom inset was already applied (`insets.bottom + SPACING.xl` on both lists); the screenshot was mid-scroll, so no change was made there. Re-check on device.
+- DEV-12, DEV-13 -> d76118a (no repeated placeholders, app-language field first, labelled option fields, Plus icon)
+- DEV-14 -> 4b60beb. Android's native date/time dialogs follow the DEVICE locale (the picker API has no locale option) and take their accent from the native theme, so the calendar/clock text cannot follow the app language. The app now sets the dialog button labels (app language) and tints them gold. A full fix needs a native theme/config plugin (out of scope here).
+- DEV-15 -> 2c6acef (`useDiscardGuard` on the announcement, poll and election create forms)
+- DEV-16 -> 010c528. Root cause: Hermes has no `Intl.PluralRules`, so i18next always used `_other`. Added a cardinal fallback for ar/en (`src/lib/i18n/plural-rules.ts`); this also fixes the existing plural keys elsewhere (candidates, merchant pending orders). Review counts now have plural keys. Election list add button is the filled gold circle.
+- DEV-17 -> 788e9fe
+- DEV-18 -> 65a04b8
+- DEV-20 -> 556b71f
+- DEV-21 -> 963c4fe (confirm prompt; post-restart landing on Profile via a one-shot AsyncStorage flag)
+- DEV-23 -> 5ea73ca
+- DEV-25 -> e8f9b0b
+- Not done: DEV-7 (new Profile screens, out of scope), DEV-8 (withdrawn), DEV-9 (unverified).
