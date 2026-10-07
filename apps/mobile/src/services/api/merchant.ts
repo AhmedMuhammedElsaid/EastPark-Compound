@@ -108,10 +108,11 @@ export const merchantApi = {
   updateProduct: (productId: string, data: Partial<{
     name: string;
     nameAr: string;
-    description: string;
-    descriptionAr: string;
+    // null clears an optional field; undefined leaves it unchanged.
+    description: string | null;
+    descriptionAr: string | null;
     price: number;
-    imageUrl: string;
+    imageUrl: string | null;
     isAvailable: boolean;
   }>) => client.patch<{ data: Product }>(`/merchant/products/${productId}`, data),
 

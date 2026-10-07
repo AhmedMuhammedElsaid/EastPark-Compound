@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { buildProductCreatePayload, buildProductUpdatePayload } from "@/lib/product-payload";
 import { merchantApi } from "@/services/api/merchant";
 import { invalidateProductQueries } from "@/services/query/client";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -112,17 +113,9 @@ export default function ProductFormScreen() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (values: FormData) => {
-      const payload = {
-        name: values.name,
-        nameAr: values.nameAr,
-        description: values.description || undefined,
-        descriptionAr: values.descriptionAr || undefined,
-        price: values.price,
-        imageUrl: values.imageUrl || undefined,
-      };
       return isNew
-        ? merchantApi.createProduct(payload)
-        : merchantApi.updateProduct(productId, payload);
+        ? merchantApi.createProduct(buildProductCreatePayload(values))
+        : merchantApi.updateProduct(productId, buildProductUpdatePayload(values));
     },
     onSuccess: () => {
       invalidateProductQueries();
