@@ -20,6 +20,15 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### RLS lockdown — 2026-10-07
+
+- Migration `20261007000000_enable_rls_lockdown` enables RLS (no policies) on every `public` table the
+  migrating role owns and revokes `anon`/`authenticated` grants (plus their default privileges), closing
+  the Supabase Data API (PostgREST) path flagged by the advisors (`rls_disabled_in_public`,
+  `sensitive_columns_exposed`). Prisma connects as the table owner, so the app is unaffected.
+- **Every new-table migration must add `ALTER TABLE "<t>" ENABLE ROW LEVEL SECURITY;`**, or the advisor
+  flags it again.
+
 ### Soft delete + recycle bin — 2026-10-05 (supersedes the 2026-10-03 anonymising deletion)
 
 - **Every delete is soft** (migration `20261005000000_soft_delete`): `User`, `Shop`, `ShopPhoto`, `Review`
