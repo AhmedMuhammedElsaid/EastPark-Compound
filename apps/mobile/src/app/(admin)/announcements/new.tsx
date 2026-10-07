@@ -13,6 +13,7 @@ import { z } from "zod";
 import { BilingualFields } from "@/components/admin/bilingual-fields";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useDiscardGuard } from "@/lib/hooks/use-discard-guard";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -56,16 +57,21 @@ export default function NewAnnouncementScreen() {
   const queryClient = useQueryClient();
   const styles = useStyles();
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  // Set right before leaving after a successful submit so the guard stays quiet.
+  const allowLeaveRef = React.useRef(false);
+  const { control, handleSubmit, formState: { errors, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { title: "", titleAr: "", body: "", bodyAr: "", category: "GENERAL" },
   });
+
+  useDiscardGuard(isDirty, allowLeaveRef);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: FormValues) => communityApi.createAnnouncement(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       queryClient.invalidateQueries({ queryKey: ["home-announcements"] });
+      allowLeaveRef.current = true;
       showMessage({ message: t("admin.announcement_created"), type: "success", backgroundColor: SEMANTIC.success });
       router.back();
     },

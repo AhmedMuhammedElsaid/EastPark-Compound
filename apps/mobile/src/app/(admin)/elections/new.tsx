@@ -16,6 +16,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { expirySchema } from "@/lib/expiry-date";
 import { buildElectionPayload } from "@/lib/governance-payload";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useDiscardGuard } from "@/lib/hooks/use-discard-guard";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -60,15 +61,20 @@ export default function NewElectionScreen() {
   const queryClient = useQueryClient();
   const styles = useStyles();
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  // Set right before leaving after a successful submit so the guard stays quiet.
+  const allowLeaveRef = React.useRef(false);
+  const { control, handleSubmit, formState: { errors, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { title: "", titleAr: "", description: "", descriptionAr: "", visibilityMode: "SEALED_UNTIL_DEADLINE" },
   });
+
+  useDiscardGuard(isDirty, allowLeaveRef);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: FormValues) => governanceApi.createElection(buildElectionPayload(data)),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["elections"] });
+      allowLeaveRef.current = true;
       showMessage({ message: t("admin.election_created"), type: "success", backgroundColor: SEMANTIC.success });
       // Residents see the election straight away, so go straight on to its candidates.
       const id = res.data.data?.id;

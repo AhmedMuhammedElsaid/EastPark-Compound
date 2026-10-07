@@ -18,6 +18,7 @@ import { expirySchema } from "@/lib/expiry-date";
 import { formatNumber } from "@/lib/format-number";
 import { buildPollPayload } from "@/lib/governance-payload";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useDiscardGuard } from "@/lib/hooks/use-discard-guard";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -59,7 +60,9 @@ export default function NewPollScreen() {
   const styles = useStyles();
   const colors = useAppColors();
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  // Set right before leaving after a successful submit so the guard stays quiet.
+  const allowLeaveRef = React.useRef(false);
+  const { control, handleSubmit, formState: { errors, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       question: "",
@@ -68,10 +71,13 @@ export default function NewPollScreen() {
     },
   });
 
+  useDiscardGuard(isDirty, allowLeaveRef);
+
   const { mutate, isPending } = useMutation({
     mutationFn: (data: FormValues) => governanceApi.createPoll(buildPollPayload(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polls"] });
+      allowLeaveRef.current = true;
       showMessage({ message: t("admin.poll_created"), type: "success", backgroundColor: SEMANTIC.success });
       router.back();
     },
