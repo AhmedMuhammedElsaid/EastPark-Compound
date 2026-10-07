@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { Control, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Haptics from "expo-haptics";
@@ -65,79 +66,9 @@ function useStyles() {
   }), [colors]);
 }
 
-export default function LoginScreen() {
+function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
   const { t } = useTranslation();
-  const styles = useStyles();
-  const biometric = useBiometric();
-  const [showPassword, setShowPassword] = React.useState(false);
   const [biometricSubmitting, setBiometricSubmitting] = React.useState(false);
-  const [serverWaking, setServerWaking] = React.useState(false);
-  const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  function maybePromptEnableBiometric(email: string) {
-    if (!biometric.ready || !biometric.isAvailable || biometric.enabled)
-      return;
-    const kindLabel = t(`auth.biometric.kind.${biometric.kind}`);
-    Alert.alert(
-      t("auth.biometric.enable_prompt_title"),
-      t("auth.biometric.enable_prompt_body", { kind: kindLabel }),
-      [
-        { text: t("auth.biometric.not_now"), style: "cancel" },
-        {
-          text: t("auth.biometric.enable_button"),
-          onPress: async () => {
-            const ok = await biometric.enable(email);
-            if (ok) {
-              showMessage({
-                message: t("auth.biometric.enabled_success"),
-                type: "success",
-                backgroundColor: SEMANTIC.success,
-              });
-            }
-          },
-        },
-      ],
-    );
-  }
-
-  async function onSubmit({ email, password }: LoginFormData) {
-    // Render cold starts take 25-50 s: explain the wait instead of looking stuck.
-    const wakingTimer = setTimeout(setServerWaking, SERVER_WAKING_HINT_MS, true);
-    try {
-      const res = await authApi.login({ email, password });
-      const { user, accessToken, refreshToken } = res.data.data;
-      await completeLogin({ user, accessToken, refreshToken });
-      // Post-login: offer biometric enrollment (does not block navigation).
-      maybePromptEnableBiometric(email);
-    }
-    catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 403) {
-        // Unverified account. Self-registration (and its email code) is gone:
-        // every account is created through an admin invitation, so this is a
-        // guard for legacy accounts only.
-        showMessage({
-          message: t("auth.errors.account_not_activated"),
-          type: "warning",
-          backgroundColor: SEMANTIC.warning,
-        });
-        return;
-      }
-      const message = status === undefined
-        ? t("auth.errors.server_unreachable")
-        : status === 429
-          ? t("errors.rate_limited")
-          : t("auth.errors.login_failed");
-      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
-    }
-    finally {
-      clearTimeout(wakingTimer);
-      setServerWaking(false);
-    }
-  }
 
   async function onBiometricSignIn() {
     if (biometricSubmitting)
@@ -185,7 +116,18 @@ export default function LoginScreen() {
     }
   }
 
-  const showBiometric = biometric.ready && biometric.isAvailable && biometric.enabled;
+  return { biometricSubmitting, onBiometricSignIn };
+}
+
+type BiometricSignInProps = {
+  biometric: ReturnType<typeof useBiometric>;
+  submitting: boolean;
+  onPress: () => void;
+  styles: ReturnType<typeof useStyles>;
+};
+
+function BiometricSignIn({ biometric, submitting: biometricSubmitting, onPress: onBiometricSignIn, styles }: BiometricSignInProps) {
+  const { t } = useTranslation();
   const BiometricIcon
     = biometric.kind === "face"
       ? FaceMask
@@ -194,36 +136,122 @@ export default function LoginScreen() {
         : LockKey;
 
   return (
+    <>
+      <Pressable
+        style={[styles.biometricBtn, biometricSubmitting && styles.biometricBtnLoading]}
+        onPress={onBiometricSignIn}
+        disabled={biometricSubmitting}
+        accessibilityRole="button"
+        accessibilityLabel={t(`auth.biometric.sign_in_with.${biometric.kind}`)}
+      >
+        <BiometricIcon size={22} color={BRAND.gold} weight="duotone" />
+        <Text style={styles.biometricBtnText}>
+          {t(`auth.biometric.sign_in_with.${biometric.kind}`)}
+        </Text>
+      </Pressable>
+      {biometric.email
+        ? (
+            <Text style={styles.biometricEmail}>{biometric.email}</Text>
+          )
+        : null}
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>{t("common.or")}</Text>
+        <View style={styles.dividerLine} />
+      </View>
+    </>
+  );
+}
+
+function maybePromptEnableBiometric(biometric: ReturnType<typeof useBiometric>, t: TFunction, email: string) {
+  if (!biometric.ready || !biometric.isAvailable || biometric.enabled)
+    return;
+  const kindLabel = t(`auth.biometric.kind.${biometric.kind}`);
+  Alert.alert(
+    t("auth.biometric.enable_prompt_title"),
+    t("auth.biometric.enable_prompt_body", { kind: kindLabel }),
+    [
+      { text: t("auth.biometric.not_now"), style: "cancel" },
+      {
+        text: t("auth.biometric.enable_button"),
+        onPress: async () => {
+          const ok = await biometric.enable(email);
+          if (ok) {
+            showMessage({
+              message: t("auth.biometric.enabled_success"),
+              type: "success",
+              backgroundColor: SEMANTIC.success,
+            });
+          }
+        },
+      },
+    ],
+  );
+}
+
+export default function LoginScreen() {
+  const { t } = useTranslation();
+  const styles = useStyles();
+  const biometric = useBiometric();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const { biometricSubmitting, onBiometricSignIn } = useBiometricSignIn(biometric);
+  const [serverWaking, setServerWaking] = React.useState(false);
+  const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  async function onSubmit({ email, password }: LoginFormData) {
+    // Render cold starts take 25-50 s: explain the wait instead of looking stuck.
+    const wakingTimer = setTimeout(setServerWaking, SERVER_WAKING_HINT_MS, true);
+    try {
+      const res = await authApi.login({ email, password });
+      const { user, accessToken, refreshToken } = res.data.data;
+      await completeLogin({ user, accessToken, refreshToken });
+      // Post-login: offer biometric enrollment (does not block navigation).
+      maybePromptEnableBiometric(biometric, t, email);
+    }
+    catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        // Unverified account. Self-registration (and its email code) is gone:
+        // every account is created through an admin invitation, so this is a
+        // guard for legacy accounts only.
+        showMessage({
+          message: t("auth.errors.account_not_activated"),
+          type: "warning",
+          backgroundColor: SEMANTIC.warning,
+        });
+        return;
+      }
+      const message = status === undefined
+        ? t("auth.errors.server_unreachable")
+        : status === 429
+          ? t("errors.rate_limited")
+          : t("auth.errors.login_failed");
+      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
+    }
+    finally {
+      clearTimeout(wakingTimer);
+      setServerWaking(false);
+    }
+  }
+
+  const showBiometric = biometric.ready && biometric.isAvailable && biometric.enabled;
+
+  return (
     <AuthScreenWrapper>
       <View style={styles.header}><BrandMark size="md" /></View>
       <Text style={styles.title}>{t("auth.login")}</Text>
       <Text style={styles.subtitle}>{t("auth.welcome_back")}</Text>
 
       {showBiometric && (
-        <>
-          <Pressable
-            style={[styles.biometricBtn, biometricSubmitting && styles.biometricBtnLoading]}
-            onPress={onBiometricSignIn}
-            disabled={biometricSubmitting}
-            accessibilityRole="button"
-            accessibilityLabel={t(`auth.biometric.sign_in_with.${biometric.kind}`)}
-          >
-            <BiometricIcon size={22} color={BRAND.gold} weight="duotone" />
-            <Text style={styles.biometricBtnText}>
-              {t(`auth.biometric.sign_in_with.${biometric.kind}`)}
-            </Text>
-          </Pressable>
-          {biometric.email
-            ? (
-                <Text style={styles.biometricEmail}>{biometric.email}</Text>
-              )
-            : null}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{t("common.or")}</Text>
-            <View style={styles.dividerLine} />
-          </View>
-        </>
+        <BiometricSignIn
+          biometric={biometric}
+          submitting={biometricSubmitting}
+          onPress={onBiometricSignIn}
+          styles={styles}
+        />
       )}
 
       <LoginForm control={control} errors={errors} showPassword={showPassword} onTogglePassword={() => setShowPassword(v => !v)} onSubmitEditing={handleSubmit(onSubmit)} />

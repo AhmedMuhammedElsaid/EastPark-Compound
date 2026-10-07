@@ -90,6 +90,51 @@ function useStyles() {
   }), [colors]);
 }
 
+type ForgotSentViewProps = {
+  email: string;
+  onTryAgain: () => void;
+  styles: ReturnType<typeof useStyles>;
+};
+
+function ForgotSentView({ email, onTryAgain, styles }: ForgotSentViewProps) {
+  const { t } = useTranslation();
+
+  return (
+    <AuthScreenWrapper scrollable={false}>
+      <View style={styles.header}>
+        <BrandMark size="sm" />
+      </View>
+
+      <View style={styles.successCard}>
+        <View style={styles.successIcon}><EnvelopeSimple size={36} color={BRAND.gold} /></View>
+        <Text style={styles.successTitle}>{t("auth.reset_link_sent")}</Text>
+        <Text style={styles.successBody}>
+          {t("auth.reset_link_body", { email })}
+        </Text>
+      </View>
+
+      <GoldButton
+        variant="outline"
+        label={t("auth.back_to_login")}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.replace("/(auth)/login");
+        }}
+      />
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onTryAgain();
+        }}
+        hitSlop={8}
+        style={{ alignItems: "center", justifyContent: "center", minHeight: 44, marginTop: SPACING.sm }}
+      >
+        <Text style={styles.tryDifferentEmail}>{t("auth.forgot.tryDifferentEmail")}</Text>
+      </Pressable>
+    </AuthScreenWrapper>
+  );
+}
+
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
   const colors = useAppColors();
@@ -121,42 +166,8 @@ export default function ForgotPasswordScreen() {
     }
   }
 
-  if (sent) {
-    return (
-      <AuthScreenWrapper scrollable={false}>
-        <View style={styles.header}>
-          <BrandMark size="sm" />
-        </View>
-
-        <View style={styles.successCard}>
-          <View style={styles.successIcon}><EnvelopeSimple size={36} color={BRAND.gold} /></View>
-          <Text style={styles.successTitle}>{t("auth.reset_link_sent")}</Text>
-          <Text style={styles.successBody}>
-            {t("auth.reset_link_body", { email: sentEmail })}
-          </Text>
-        </View>
-
-        <GoldButton
-          variant="outline"
-          label={t("auth.back_to_login")}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.replace("/(auth)/login");
-          }}
-        />
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSent(false);
-          }}
-          hitSlop={8}
-          style={{ alignItems: "center", justifyContent: "center", minHeight: 44, marginTop: SPACING.sm }}
-        >
-          <Text style={styles.tryDifferentEmail}>{t("auth.forgot.tryDifferentEmail")}</Text>
-        </Pressable>
-      </AuthScreenWrapper>
-    );
-  }
+  if (sent)
+    return <ForgotSentView email={sentEmail} onTryAgain={() => setSent(false)} styles={styles} />;
 
   return (
     <AuthScreenWrapper>

@@ -104,6 +104,80 @@ function useStyles() {
   }), [colors]);
 }
 
+type InviteFormProps = {
+  email: string;
+  onEmailChange: (value: string) => void;
+  role: InvitationRole;
+  onRoleChange: (role: InvitationRole) => void;
+  roleOptions: InvitationRole[];
+  isPending: boolean;
+  onSend: () => void;
+  styles: ReturnType<typeof useStyles>;
+};
+
+function InviteForm({ email, onEmailChange, role, onRoleChange, roleOptions, isPending, onSend, styles }: InviteFormProps) {
+  const { t } = useTranslation();
+  const colors = useAppColors();
+
+  return (
+    <View style={styles.form}>
+      <Text style={styles.formLabel}>{t("admin.email")}</Text>
+      <TextInput
+        style={styles.input}
+        value={email}
+        onChangeText={onEmailChange}
+        placeholder={t("auth.email")}
+        placeholderTextColor={colors.textMuted}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel={t("admin.email")}
+      />
+
+      <Text style={[styles.formLabel, { marginTop: SPACING.sm }]}>{t("admin.role")}</Text>
+      <View style={styles.roleRow}>
+        {roleOptions.map(r => (
+          <Pressable
+            key={r}
+            style={[styles.roleBtn, role === r && styles.roleBtnActive]}
+            onPress={() => onRoleChange(r)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: role === r }}
+          >
+            <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
+              {t(`auth.role_${r.toLowerCase() as "merchant" | "admin"}`)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.sendBtn, (!email.trim() || isPending) && styles.sendBtnDisabled, pressed && styles.pressed]}
+        accessibilityRole="button"
+        onPress={onSend}
+        disabled={!email.trim() || isPending}
+      >
+        <Text style={styles.sendBtnText}>{t("admin.send_invite")}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function useInvitationsQuery() {
+  return useInfiniteQuery<
+    AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>,
+    Error,
+    { pages: AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>[] },
+    string[],
+    string | undefined
+  >({
+    queryKey: ["admin-invitations"],
+    queryFn: ({ pageParam }) => adminApi.getInvitations({ cursor: pageParam, limit: 20 }),
+    getNextPageParam: last => last.data.data.nextCursor ?? undefined,
+    initialPageParam: undefined,
+  });
+}
+
 export default function InvitationsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -118,18 +192,7 @@ export default function InvitationsScreen() {
   const [role, setRole] = React.useState<InvitationRole>("MERCHANT");
   const [showForm, setShowForm] = React.useState(false);
 
-  const { data, isError, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = useInfiniteQuery<
-    AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>,
-    Error,
-    { pages: AxiosResponse<{ data: { items: Invitation[]; nextCursor: string | null } }>[] },
-    string[],
-    string | undefined
-  >({
-    queryKey: ["admin-invitations"],
-    queryFn: ({ pageParam }) => adminApi.getInvitations({ cursor: pageParam, limit: 20 }),
-    getNextPageParam: last => last.data.data.nextCursor ?? undefined,
-    initialPageParam: undefined,
-  });
+  const { data, isError, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = useInvitationsQuery();
 
   const { mutate: sendInvite, isPending } = useMutation({
     mutationFn: () => adminApi.sendInvitation(email.trim().toLowerCase(), role),
@@ -182,46 +245,16 @@ export default function InvitationsScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
         {showForm && (
-          <View style={styles.form}>
-            <Text style={styles.formLabel}>{t("admin.email")}</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder={t("auth.email")}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel={t("admin.email")}
-            />
-
-            <Text style={[styles.formLabel, { marginTop: SPACING.sm }]}>{t("admin.role")}</Text>
-            <View style={styles.roleRow}>
-              {roleOptions.map(r => (
-                <Pressable
-                  key={r}
-                  style={[styles.roleBtn, role === r && styles.roleBtnActive]}
-                  onPress={() => setRole(r)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: role === r }}
-                >
-                  <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
-                    {t(`auth.role_${r.toLowerCase() as "merchant" | "admin"}`)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [styles.sendBtn, (!email.trim() || isPending) && styles.sendBtnDisabled, pressed && styles.pressed]}
-              accessibilityRole="button"
-              onPress={handleSend}
-              disabled={!email.trim() || isPending}
-            >
-              <Text style={styles.sendBtnText}>{t("admin.send_invite")}</Text>
-            </Pressable>
-          </View>
+          <InviteForm
+            email={email}
+            onEmailChange={setEmail}
+            role={role}
+            onRoleChange={setRole}
+            roleOptions={roleOptions}
+            isPending={isPending}
+            onSend={handleSend}
+            styles={styles}
+          />
         )}
 
         {isError && !data

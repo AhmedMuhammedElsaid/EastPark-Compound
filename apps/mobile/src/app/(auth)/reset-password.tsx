@@ -79,6 +79,27 @@ function useStyles() {
   }), [colors]);
 }
 
+function InvalidResetLink({ styles }: { styles: ReturnType<typeof useStyles> }) {
+  const { t } = useTranslation();
+
+  return (
+    <AuthScreenWrapper scrollable={false}>
+      <View style={styles.header}>
+        <BrandMark size="sm" />
+      </View>
+      <View style={styles.errorCard}>
+        <Text style={styles.errorTitle}>{t("auth.invalid_reset_link")}</Text>
+        <Text style={styles.errorBody}>{t("auth.contact_administrator")}</Text>
+      </View>
+      <GoldButton
+        variant="outline"
+        label={t("auth.back_to_login")}
+        onPress={() => router.replace("/(auth)/login")}
+      />
+    </AuthScreenWrapper>
+  );
+}
+
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -116,24 +137,8 @@ export default function ResetPasswordScreen() {
     }
   }
 
-  if (!token) {
-    return (
-      <AuthScreenWrapper scrollable={false}>
-        <View style={styles.header}>
-          <BrandMark size="sm" />
-        </View>
-        <View style={styles.errorCard}>
-          <Text style={styles.errorTitle}>{t("auth.invalid_reset_link")}</Text>
-          <Text style={styles.errorBody}>{t("auth.contact_administrator")}</Text>
-        </View>
-        <GoldButton
-          variant="outline"
-          label={t("auth.back_to_login")}
-          onPress={() => router.replace("/(auth)/login")}
-        />
-      </AuthScreenWrapper>
-    );
-  }
+  if (!token)
+    return <InvalidResetLink styles={styles} />;
 
   return (
     <AuthScreenWrapper>
