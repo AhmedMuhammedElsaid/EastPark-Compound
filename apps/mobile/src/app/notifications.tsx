@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { notificationsApi } from "@/services/api/notifications";
 import { getNotificationHref } from "@/services/notifications/routing";
@@ -192,7 +193,7 @@ function NotificationItem({
   const isAr = i18n.language === "ar";
   const title = (isAr ? notification.titleAr : notification.title) || notification.title;
   const body = (isAr ? notification.bodyAr : notification.body) || notification.body;
-  const timeAgo = formatRelativeTime(notification.createdAt, (key, opts) => String(t(key as any, opts as any)));
+  const timeAgo = formatRelativeTime(notification.createdAt, (key, opts) => String(t(key as any, opts as any)), i18n.language);
   const typeColor = TYPE_COLOR[notification.type] ?? colors.textMuted;
 
   return (
@@ -273,16 +274,16 @@ function markNotificationRead(
   };
 }
 
-function formatRelativeTime(iso: string, t: (key: string, opts?: object) => string): string {
+function formatRelativeTime(iso: string, t: (key: string, opts?: object) => string, language: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1)
     return t("notifications.time_now");
   if (mins < 60)
-    return t("notifications.time_minutes", { count: mins });
+    return t("notifications.time_minutes", { count: formatNumber(mins, language) });
   const hrs = Math.floor(mins / 60);
   if (hrs < 24)
-    return t("notifications.time_hours", { count: hrs });
+    return t("notifications.time_hours", { count: formatNumber(hrs, language) });
   const days = Math.floor(hrs / 24);
-  return t("notifications.time_days", { count: days });
+  return t("notifications.time_days", { count: formatNumber(days, language) });
 }

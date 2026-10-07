@@ -8,6 +8,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { notificationsApi } from "@/services/api/notifications";
@@ -22,7 +23,7 @@ const MARK = require("../../../assets/brand/mark.png");
  * The caller handles the top safe-area inset.
  */
 export function AppHeader({ title }: { title?: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const colors = useAppColors();
   const styles = React.useMemo(() => buildStyles(colors), [colors]);
   const { requireAuthNavigation } = useAuthGuard();
@@ -63,7 +64,7 @@ export function AppHeader({ title }: { title?: string }) {
           <ShoppingBag size={22} color={colors.text} />
           {cartCount > 0 && (
             <View style={styles.count}>
-              <Text style={styles.countText}>{cartCount > 9 ? "9+" : cartCount}</Text>
+              <Text style={styles.countText}>{cartCount > 9 ? `${formatNumber(9, i18n.language)}+` : formatNumber(cartCount, i18n.language)}</Text>
             </View>
           )}
         </Pressable>
