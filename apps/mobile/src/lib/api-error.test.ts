@@ -3,6 +3,7 @@ import {
   getErrorCode,
   getErrorStatus,
   isAccountDeletedError,
+  isInvalidInvitationError,
   isNoResponseError,
   loginErrorKey,
   pickErrorKey,
@@ -59,14 +60,29 @@ describe("deleted-account 409 mapping", () => {
     expect(acceptInvitationErrorKey(deleted)).toBe("auth.errors.invitation_account_deleted");
     expect(acceptInvitationErrorKey(legacyDeleted)).toBe("auth.errors.invitation_account_deleted");
     expect(acceptInvitationErrorKey(wrongPassword)).toBe("auth.errors.invitation_existing_account");
-    expect(acceptInvitationErrorKey({ response: { status: 500 } })).toBe("common.error");
-    expect(acceptInvitationErrorKey({})).toBe("common.error");
+    expect(acceptInvitationErrorKey({ response: { status: 500 } })).toBe("errors.server");
+    expect(acceptInvitationErrorKey({})).toBe("errors.unreachable");
   });
 
   it("accept-invitation: a flat owned by another account is not a password problem", () => {
     const unitOwned = { response: { status: 409, data: { statusCode: 409, code: "unit.error.alreadyOwned", message: "This flat already belongs to another account" } } };
     expect(acceptInvitationErrorKey(unitOwned)).toBe("auth.errors.invitation_unit_owned");
     expect(acceptInvitationErrorKey({ response: { status: 409, data: { code: "order.error.other" } } })).toBe("common.error");
+  });
+
+  it("accept-invitation: used, expired or unknown invitations need a new invitation", () => {
+    const used = { response: { status: 400, data: { statusCode: 400, message: "Invitation already used" } } };
+    const expired = { response: { status: 400, data: { statusCode: 400, message: "Invitation expired", error: "BadRequestException: Invitation expired (stack)" } } };
+    const unknown = { response: { status: 404, data: { statusCode: 404, message: "Invitation not found" } } };
+    const validation = { response: { status: 400, data: { statusCode: 400, message: "Bad Request", error: ["password must match"] } } };
+    for (const err of [used, expired, unknown]) {
+      expect(isInvalidInvitationError(err)).toBe(true);
+      expect(acceptInvitationErrorKey(err)).toBe("auth.invitation_invalid");
+    }
+    expect(isInvalidInvitationError(validation)).toBe(false);
+    expect(acceptInvitationErrorKey(validation)).toBe("auth.errors.password_requirements");
+    expect(acceptInvitationErrorKey({ response: { status: 429 } })).toBe("errors.rate_limited");
+    expect(isInvalidInvitationError({ response: { status: 409 } })).toBe(false);
   });
 
   it("admin invitations: deleted account, forbidden, fallback", () => {

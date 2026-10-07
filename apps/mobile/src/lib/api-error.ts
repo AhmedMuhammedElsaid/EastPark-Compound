@@ -32,6 +32,20 @@ export function isAccountDeletedError(error: unknown): boolean {
 export const UNIT_ALREADY_OWNED_CODE = "unit.error.alreadyOwned";
 
 /**
+ * The invitation itself is unusable: 404 "Invitation not found", or a 400
+ * "Invitation already used" / "Invitation expired". Those 400s carry prose
+ * and no code; a DTO validation 400 is told apart by its `error` array (the
+ * per-field messages). Retrying never helps: a new invitation is needed.
+ */
+export function isInvalidInvitationError(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status === 404)
+    return true;
+  const data = (error as { response?: { data?: { error?: unknown } } } | null | undefined)?.response?.data;
+  return status === 400 && !Array.isArray(data?.error);
+}
+
+/**
  * Toast copy for a failed accept-invitation. The backend's 409s:
  * - `user.error.accountDeleted`: the email belongs to a deleted account.
  * - `unit.error.alreadyOwned`: the invited flat belongs to another account.
@@ -41,7 +55,18 @@ export const UNIT_ALREADY_OWNED_CODE = "unit.error.alreadyOwned";
  * password helps with the other two.
  */
 export function acceptInvitationErrorKey(error: unknown): string {
-  if (getErrorStatus(error) !== 409)
+  const status = getErrorStatus(error);
+  if (status === undefined)
+    return "errors.unreachable";
+  if (isInvalidInvitationError(error))
+    return "auth.invitation_invalid";
+  if (status === 400)
+    return "auth.errors.password_requirements"; // AcceptInvitationDto validation
+  if (status === 429)
+    return "errors.rate_limited";
+  if (status >= 500)
+    return "errors.server";
+  if (status !== 409)
     return "common.error";
   const code = getErrorCode(error);
   if (code === ACCOUNT_DELETED_CODE)

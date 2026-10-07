@@ -12,7 +12,7 @@ import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
-import { acceptInvitationErrorKey } from "@/lib/api-error";
+import { acceptInvitationErrorKey, isInvalidInvitationError } from "@/lib/api-error";
 import { newPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { roleLabelKey } from "@/lib/roles";
@@ -51,6 +51,8 @@ export default function AcceptInvitationScreen() {
   const styles = useStyles();
   // confirmedRole is set from the API response, not from the URL param, to reflect what the backend actually assigned
   const [confirmedRole, setConfirmedRole] = React.useState<string | null>(null);
+  // Used, expired or unknown invitation: no retry helps, so the form is replaced.
+  const [invitationInvalid, setInvitationInvalid] = React.useState(false);
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { name: "", password: "", confirmPassword: "" },
@@ -67,6 +69,10 @@ export default function AcceptInvitationScreen() {
       await completeLogin({ user, accessToken, refreshToken });
     }
     catch (err) {
+      if (isInvalidInvitationError(err)) {
+        setInvitationInvalid(true);
+        return;
+      }
       // 409 accountDeleted / unit alreadyOwned: contact the administration.
       // 409 without a code: the invited email already has an account and the
       // password field must contain its CURRENT password.
@@ -74,7 +80,7 @@ export default function AcceptInvitationScreen() {
     }
   }
 
-  if (!token) {
+  if (!token || invitationInvalid) {
     return (
       <AuthScreenWrapper scrollable={false}>
         <View style={styles.header}><BrandMark size="md" /></View>
