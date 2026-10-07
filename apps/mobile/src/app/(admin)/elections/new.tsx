@@ -4,12 +4,13 @@ import { router } from "expo-router";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { z } from "zod";
 
+import { BilingualFields } from "@/components/admin/bilingual-fields";
 import { DateTimeField } from "@/components/ui/date-time-field";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { expirySchema } from "@/lib/expiry-date";
@@ -58,7 +59,6 @@ export default function NewElectionScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const styles = useStyles();
-  const colors = useAppColors();
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -86,43 +86,9 @@ export default function NewElectionScreen() {
     <View style={styles.container}>
       <ScreenHeader title={t("admin.new_election")} />
       <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}>
-        <Text style={styles.label}>{t("admin.title_en")}</Text>
-        <Controller
-          control={control}
-          name="title"
-          render={({ field }) => (
-            <TextInput style={[styles.input, errors.title && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_en")} />
-          )}
-        />
-        {errors.title?.message ? <Text style={styles.errorText}>{t(errors.title.message as any)}</Text> : null}
+        <BilingualFields control={control} enName="title" arName="titleAr" enLabel={t("admin.title_en")} arLabel={t("admin.title_ar")} enError={errors.title?.message} arError={errors.titleAr?.message} styles={styles} />
 
-        <Text style={styles.label}>{t("admin.title_ar")}</Text>
-        <Controller
-          control={control}
-          name="titleAr"
-          render={({ field }) => (
-            <TextInput style={[styles.input, errors.titleAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_ar")} textAlign="right" />
-          )}
-        />
-        {errors.titleAr?.message ? <Text style={styles.errorText}>{t(errors.titleAr.message as any)}</Text> : null}
-
-        <Text style={styles.label}>{t("admin.description_en")}</Text>
-        <Controller
-          control={control}
-          name="description"
-          render={({ field }) => (
-            <TextInput style={[styles.input, styles.textarea]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.description_en")} multiline />
-          )}
-        />
-
-        <Text style={styles.label}>{t("admin.description_ar")}</Text>
-        <Controller
-          control={control}
-          name="descriptionAr"
-          render={({ field }) => (
-            <TextInput style={[styles.input, styles.textarea]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.description_ar")} multiline textAlign="right" />
-          )}
-        />
+        <BilingualFields control={control} enName="description" arName="descriptionAr" enLabel={t("admin.description_en")} arLabel={t("admin.description_ar")} multiline styles={styles} />
 
         <Text style={styles.label}>{t("admin.expires_at")}</Text>
         <Controller

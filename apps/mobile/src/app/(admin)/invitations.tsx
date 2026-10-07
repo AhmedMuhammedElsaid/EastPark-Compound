@@ -117,7 +117,6 @@ type InviteFormProps = {
 
 function InviteForm({ email, onEmailChange, role, onRoleChange, roleOptions, isPending, onSend, styles }: InviteFormProps) {
   const { t } = useTranslation();
-  const colors = useAppColors();
 
   return (
     <View style={styles.form}>
@@ -126,8 +125,6 @@ function InviteForm({ email, onEmailChange, role, onRoleChange, roleOptions, isP
         style={styles.input}
         value={email}
         onChangeText={onEmailChange}
-        placeholder={t("auth.email")}
-        placeholderTextColor={colors.textMuted}
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}

@@ -4,12 +4,13 @@ import { router } from "expo-router";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { z } from "zod";
 
+import { BilingualFields } from "@/components/admin/bilingual-fields";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
@@ -54,7 +55,6 @@ export default function NewAnnouncementScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const styles = useStyles();
-  const colors = useAppColors();
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -78,45 +78,9 @@ export default function NewAnnouncementScreen() {
     <View style={styles.container}>
       <ScreenHeader title={t("admin.new_announcement")} />
       <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}>
-        <Text style={styles.label}>{t("admin.title_en")}</Text>
-        <Controller
-          control={control}
-          name="title"
-          render={({ field }) => (
-            <TextInput style={[styles.input, errors.title && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_en")} />
-          )}
-        />
-        {errors.title?.message ? <Text style={styles.errorText}>{t(errors.title.message as any)}</Text> : null}
+        <BilingualFields control={control} enName="title" arName="titleAr" enLabel={t("admin.title_en")} arLabel={t("admin.title_ar")} enError={errors.title?.message} arError={errors.titleAr?.message} styles={styles} />
 
-        <Text style={styles.label}>{t("admin.title_ar")}</Text>
-        <Controller
-          control={control}
-          name="titleAr"
-          render={({ field }) => (
-            <TextInput style={[styles.input, errors.titleAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.title_ar")} textAlign="right" />
-          )}
-        />
-        {errors.titleAr?.message ? <Text style={styles.errorText}>{t(errors.titleAr.message as any)}</Text> : null}
-
-        <Text style={styles.label}>{t("admin.body_en")}</Text>
-        <Controller
-          control={control}
-          name="body"
-          render={({ field }) => (
-            <TextInput style={[styles.input, styles.textarea, errors.body && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.body_en")} multiline />
-          )}
-        />
-        {errors.body?.message ? <Text style={styles.errorText}>{t(errors.body.message as any)}</Text> : null}
-
-        <Text style={styles.label}>{t("admin.body_ar")}</Text>
-        <Controller
-          control={control}
-          name="bodyAr"
-          render={({ field }) => (
-            <TextInput style={[styles.input, styles.textarea, errors.bodyAr && styles.inputError]} value={field.value} onChangeText={field.onChange} placeholderTextColor={colors.textMuted} placeholder={t("admin.body_ar")} multiline textAlign="right" />
-          )}
-        />
-        {errors.bodyAr?.message ? <Text style={styles.errorText}>{t(errors.bodyAr.message as any)}</Text> : null}
+        <BilingualFields control={control} enName="body" arName="bodyAr" enLabel={t("admin.body_en")} arLabel={t("admin.body_ar")} enError={errors.body?.message} arError={errors.bodyAr?.message} multiline styles={styles} />
 
         <Text style={styles.label}>{t("admin.category")}</Text>
         <Controller

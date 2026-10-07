@@ -7,13 +7,14 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
 import { ImageSquare, UserCircle, X } from "phosphor-react-native";
 import * as React from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { BilingualFields } from "@/components/admin/bilingual-fields";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -247,51 +248,12 @@ function AddCandidateForm({ electionId, styles, colors }: AddCandidateFormProps)
     },
   });
 
-  const fieldError = (message?: string) => (message ? <Text style={styles.errorText}>{t(message as any)}</Text> : null);
-
   return (
     <View style={styles.form}>
       <Text style={styles.sectionLabel}>{t("admin.add_candidate")}</Text>
 
-      <Text style={styles.label}>{t("admin.name_ar")}</Text>
-      <Controller
-        control={control}
-        name="nameAr"
-        render={({ field }) => (
-          <TextInput style={[styles.input, errors.nameAr && styles.inputError]} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} placeholderTextColor={colors.textMuted} placeholder={t("admin.name_ar")} accessibilityLabel={t("admin.name_ar")} textAlign="right" />
-        )}
-      />
-      {fieldError(errors.nameAr?.message)}
-
-      <Text style={styles.label}>{t("admin.name_en")}</Text>
-      <Controller
-        control={control}
-        name="name"
-        render={({ field }) => (
-          <TextInput style={[styles.input, errors.name && styles.inputError]} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} placeholderTextColor={colors.textMuted} placeholder={t("admin.name_en")} accessibilityLabel={t("admin.name_en")} />
-        )}
-      />
-      {fieldError(errors.name?.message)}
-
-      <Text style={styles.label}>{t("admin.statement_ar")}</Text>
-      <Controller
-        control={control}
-        name="statementAr"
-        render={({ field }) => (
-          <TextInput style={[styles.input, styles.textarea, errors.statementAr && styles.inputError]} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} placeholderTextColor={colors.textMuted} placeholder={t("admin.statement_ar")} accessibilityLabel={t("admin.statement_ar")} multiline textAlign="right" />
-        )}
-      />
-      {fieldError(errors.statementAr?.message)}
-
-      <Text style={styles.label}>{t("admin.statement_en")}</Text>
-      <Controller
-        control={control}
-        name="statement"
-        render={({ field }) => (
-          <TextInput style={[styles.input, styles.textarea, errors.statement && styles.inputError]} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} placeholderTextColor={colors.textMuted} placeholder={t("admin.statement_en")} accessibilityLabel={t("admin.statement_en")} multiline />
-        )}
-      />
-      {fieldError(errors.statement?.message)}
+      <BilingualFields control={control} enName="name" arName="nameAr" enLabel={t("admin.name_en")} arLabel={t("admin.name_ar")} enError={errors.name?.message} arError={errors.nameAr?.message} styles={styles} />
+      <BilingualFields control={control} enName="statement" arName="statementAr" enLabel={t("admin.statement_en")} arLabel={t("admin.statement_ar")} enError={errors.statement?.message} arError={errors.statementAr?.message} multiline styles={styles} />
 
       <Text style={styles.label}>{t("admin.candidate_photo")}</Text>
       <CandidatePhotoField photo={photo} onChange={setPhoto} styles={styles} colors={colors} />

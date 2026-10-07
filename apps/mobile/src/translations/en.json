@@ -39,6 +39,8 @@
     "open_results": "Publish results",
     "open_results_confirm": "Residents will see the vote count for every candidate. This cannot be undone.",
     "option": "Option",
+    "option_ar": "Option {{number}} (Arabic)",
+    "option_en": "Option {{number}} (English)",
     "options": "Options",
     "pending": "Pending",
     "pick_date_time": "Choose date and time",

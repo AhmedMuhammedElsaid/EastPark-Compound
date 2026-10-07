@@ -39,6 +39,8 @@
     "open_results": "نشر النتائج",
     "open_results_confirm": "سيرى السكان عدد الأصوات لكل مرشح. لا يمكن التراجع عن ذلك.",
     "option": "خيار",
+    "option_ar": "الخيار {{number}} (عربي)",
+    "option_en": "الخيار {{number}} (إنجليزي)",
     "options": "الخيارات",
     "pending": "معلقة",
     "pick_date_time": "اختر التاريخ والوقت",
