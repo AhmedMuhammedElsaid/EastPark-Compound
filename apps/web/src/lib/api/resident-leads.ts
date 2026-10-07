@@ -33,6 +33,7 @@ export type LeadPage = { items: ResidentLead[]; nextCursor?: string };
 /** Error keys under `admin_leads.errors.*`. */
 export type LeadErrorKey =
   | 'unit_reserved'
+  | 'unit_owned'
   | 'already_registered'
   | 'account_deleted'
   | 'not_found'
@@ -67,12 +68,15 @@ export function leadActions(status: LeadStatus): { invite: 'send' | 'resend' | '
 }
 
 /**
- * Maps a failed action's HTTP status (and BFF code) to copy. Invite has two conflicts: the email
- * belongs to a deleted account (`account_deleted`), otherwise the unit has a newer active request.
+ * Maps a failed action's HTTP status (and BFF code) to copy. Invite has three conflicts: the email
+ * belongs to a deleted account (`account_deleted`), the flat already belongs to another account
+ * (`unit_already_owned`), otherwise the unit has a newer active request.
  * Reject has one: the resident already registered.
  */
 export function leadErrorKey(action: LeadAction | 'load', status: number, code?: string): LeadErrorKey {
   if (status === 409 && code === 'account_deleted') return 'account_deleted';
+  // The flat already belongs to another account (backend `unit.error.alreadyOwned`).
+  if (status === 409 && action === 'invite' && code === 'unit_already_owned') return 'unit_owned';
   if (status === 409) return action === 'reject' ? 'already_registered' : 'unit_reserved';
   if (status === 404) return 'not_found';
   if (status === 429) return 'rate_limited';

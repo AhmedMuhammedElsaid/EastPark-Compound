@@ -7,6 +7,7 @@ import * as React from 'react';
 import { signOut } from '@/lib/auth/logout';
 import { readSessionCheck, shareInFlight, type SessionCheck } from '@/lib/auth/session-check';
 import { useSessionInterceptor } from '@/lib/auth/useSessionInterceptor';
+import { keepUnits } from '@/lib/units';
 
 export type LoginError = 'invalid_credentials' | 'network' | 'rate_limited' | 'server' | 'unverified' | 'validation';
 type LoginResult = { ok: true; user: AuthUser } | { ok: false; error: LoginError };
@@ -105,12 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: 'error' in result ? result.error : 'server' };
       }
 
-      setUser(result.data.user);
+      // Login responses carry no `units`; keep any already known and load them from the profile.
+      setUser((previous) => keepUnits(previous, result.data.user));
+      void refreshUser();
       return { ok: true, user: result.data.user };
     } catch {
       return { ok: false, error: 'network' };
     }
-  }, []);
+  }, [refreshUser]);
 
   const login = React.useCallback(
     (payload: LoginPayload) => authenticate('/api/auth/login', payload),
@@ -136,9 +139,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('pageshow', onPageShow);
   }, [refreshUser]);
 
+  // Accept-invitation responses carry no `units`: keep any already known, then load the profile.
   const establishSession = React.useCallback((sessionUser: AuthUser) => {
-    setUser(sessionUser);
-  }, []);
+    setUser((previous) => keepUnits(previous, sessionUser));
+    void refreshUser();
+  }, [refreshUser]);
 
   const value = React.useMemo(
     () => ({ user, isLoading, login, establishSession, logout, refreshUser }),

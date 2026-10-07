@@ -56,6 +56,12 @@ export function upstreamError(status: number): NextResponse<{ error: BffErrorCod
  */
 const KNOWN_BACKEND_CODES: Record<string, string> = {
   'user.error.accountDeleted': 'account_deleted',
+  // Multi-flat owners: the flat belongs to another account (lead invite, admin add flat,
+  // accept-invitation), a primary flat that is not owned (PUT /user), a delivery flat that is not
+  // one of the caller's (POST /orders).
+  'unit.error.alreadyOwned': 'unit_already_owned',
+  'user.error.unitNotOwned': 'unit_not_owned',
+  'order.error.deliveryUnitInvalid': 'delivery_unit_invalid',
 };
 
 /**

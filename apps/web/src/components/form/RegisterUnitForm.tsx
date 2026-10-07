@@ -3,16 +3,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { useController, useForm, useWatch } from 'react-hook-form';
 
 import { Button } from '@/components/Button';
-import { FLAT_OPTIONS, getBuildingsByPhase, getFloorOptions } from '@/config/compound';
 import { submitLead, type LeadError } from '@/lib/api/leads';
 import { useTranslation } from '@/lib/i18n';
 import { registerUnitSchema, type RegisterUnitValues } from '@/lib/schemas/registerUnit';
 
-import { Combobox } from './Combobox';
 import { CONTROL_CLASS, Field, controlBorder } from './Field';
+import { UnitFields } from './UnitFields';
 
 const ERROR_KEYS: Record<LeadError, string> = {
   network: 'register.submit_error.network',
@@ -24,7 +23,7 @@ const ERROR_KEYS: Record<LeadError, string> = {
 };
 
 export function RegisterUnitForm() {
-  const { t, lang } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const [submitError, setSubmitError] = React.useState<LeadError | null>(null);
   const errorRef = React.useRef<HTMLDivElement>(null);
@@ -33,7 +32,6 @@ export function RegisterUnitForm() {
     control,
     handleSubmit,
     register,
-    setValue,
     setFocus,
     formState: { errors, isSubmitting },
   } = useForm<RegisterUnitValues>({
@@ -53,24 +51,12 @@ export function RegisterUnitForm() {
     },
   });
 
-  const [building, floor] = useWatch({ control, name: ['building', 'floor'] });
-  const floorOptions = React.useMemo(() => getFloorOptions(building), [building]);
+  const building = useWatch({ control, name: 'building' });
+  const { field: floorField } = useController({ control, name: 'floor' });
 
   React.useEffect(() => {
     void fetch('/api/resident-leads', { cache: 'no-store' }).catch(() => undefined);
   }, []);
-
-  // Floors are per-building: phases 2 and 3 have a ground floor, 1 and 4 do
-  // not. If the chosen floor no longer exists in the newly-chosen building
-  // (pick A2 -> "G", then switch to A1), clear it rather than submitting a
-  // unit that cannot exist. The API would accept "G" for A1 — this is the
-  // only guard.
-  React.useEffect(() => {
-    if (!floor) return;
-    if (!floorOptions.some((option) => option.value === floor)) {
-      setValue('floor', '', { shouldValidate: false });
-    }
-  }, [floorOptions, floor, setValue]);
 
   // Move focus to the banner so a screen reader reaches the failure reason.
   React.useEffect(() => {
@@ -108,9 +94,6 @@ export function RegisterUnitForm() {
     // Values are deliberately left untouched so nothing typed is lost.
     setSubmitError(result.error);
   }
-
-  const buildingGroups = getBuildingsByPhase();
-  const labelKey = lang === 'ar' ? 'labelAr' : 'labelEn';
 
   return (
     <form
@@ -242,88 +225,17 @@ export function RegisterUnitForm() {
           {t('register.section_unit')}
         </legend>
 
-        <div className="grid gap-5 md:grid-cols-3">
-          <Field
-            id="building"
-            label={t('register.fields.building')}
-            required
-            error={errorText(errors.building?.message)}
-          >
-            {(props) => (
-              <select
-                {...props}
-                {...register('building')}
-                className={`${CONTROL_CLASS} ${controlBorder(Boolean(errors.building))}`}
-              >
-                <option value="">{t('register.fields.building_placeholder')}</option>
-                {buildingGroups.map(({ phase, buildings }) => (
-                  <optgroup key={phase.id} label={phase[labelKey]}>
-                    {buildings.map((b) => (
-                      <option key={b.value} value={b.value}>
-                        {b[labelKey]}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            )}
-          </Field>
-
-          <Field
-            id="floor"
-            label={t('register.fields.floor')}
-            required
-            error={errorText(errors.floor?.message)}
-            hint={building ? t('a11y.combobox_hint') : undefined}
-          >
-            {(props) => (
-              <Controller
-                control={control}
-                name="floor"
-                render={({ field }) => (
-                  <Combobox
-                    id={props.id}
-                    options={floorOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    // Disabled until a building is chosen — the available
-                    // floors are not knowable before then.
-                    disabled={!building}
-                    placeholder={t('register.fields.floor_search')}
-                    disabledHint={t('register.fields.building_placeholder')}
-                    hasError={Boolean(errors.floor)}
-                    ariaDescribedBy={props['aria-describedby']}
-                    ariaRequired
-                    labelFor={lang}
-                  />
-                )}
-              />
-            )}
-          </Field>
-
-          <Field
-            id="flatNumber"
-            label={t('register.fields.flat')}
-            required
-            error={errorText(errors.flatNumber?.message)}
-          >
-            {(props) => (
-              <select
-                {...props}
-                {...register('flatNumber')}
-                className={`${CONTROL_CLASS} ${controlBorder(Boolean(errors.flatNumber))}`}
-              >
-                <option value="">{t('register.fields.flat_placeholder')}</option>
-                {FLAT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option[labelKey]}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-        </div>
+        <UnitFields
+          building={building}
+          buildingField={register('building')}
+          floor={floorField}
+          flatField={register('flatNumber')}
+          errors={{
+            building: errorText(errors.building?.message),
+            floor: errorText(errors.floor?.message),
+            flatNumber: errorText(errors.flatNumber?.message),
+          }}
+        />
 
         <Field
           id="parking"

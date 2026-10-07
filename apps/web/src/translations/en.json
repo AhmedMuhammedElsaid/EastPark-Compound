@@ -169,6 +169,7 @@
     },
     "errors": {
       "unit_reserved": "This unit already has a newer active request, so this one can’t be re-invited.",
+      "unit_owned": "This flat already belongs to another account.",
       "already_registered": "This resident has already registered, so the request can’t be rejected.",
       "account_deleted": "This email belongs to a deleted account. Restore it from the Recycle bin first.",
       "not_found": "This request no longer exists. The list has been refreshed.",
@@ -214,6 +215,20 @@
     "filter_all": "All roles",
     "unit": "Unit {{unit}}",
     "no_unit": "No unit",
+    "flats": "Flats",
+    "primary": "Primary",
+    "add_flat": "Add flat",
+    "add_flat_for": "Add a flat to {{name}}",
+    "add_flat_title": "Add a flat to {{name}}'s account",
+    "add_flat_body": "{{name}} gets an email that the flat was added to the account. Their votes stay one per account.",
+    "add_flat_confirm": "Add flat",
+    "add_flat_success": "Flat {{unit}} was added to {{name}}'s account.",
+    "remove_flat": "Remove",
+    "remove_flat_for": "Remove flat {{unit}} from {{name}}",
+    "remove_flat_title": "Remove flat {{unit}}?",
+    "remove_flat_body": "{{unit}} will no longer belong to {{name}}, for example after a sale or transfer. Past orders stay on record and the flat can be registered again.",
+    "remove_flat_confirm": "Remove flat",
+    "remove_flat_success": "Flat {{unit}} was removed from {{name}}'s account.",
     "you": "You",
     "locked": "Protected",
     "locked_hint": "The super admin's role can't be changed and the account can't be deleted.",
@@ -250,6 +265,10 @@
       "super_admin_required": "Only the super admin can do this.",
       "admin_invite_requires_super_admin": "Only the super admin can invite an admin.",
       "not_found": "This account no longer exists. Refresh the list.",
+      "unit_already_owned": "This flat already belongs to an account. Remove it from that account first.",
+      "unit_reserved": "This flat has an active registration request. Invite or reject that request first.",
+      "unit_not_found": "This flat is no longer on this account. Refresh the list.",
+      "unit_validation": "Check the building, floor and flat number.",
       "validation": "That role is not allowed.",
       "rate_limited": "Too many requests. Wait a minute and try again.",
       "session": "Your session ended. Sign in again.",
@@ -313,7 +332,9 @@
       "SHOP_RESTORED": "restored the shop",
       "SHOP_PHOTO_RESTORED": "restored a shop photo",
       "PRODUCT_RESTORED": "restored the product",
-      "REVIEW_RESTORED": "restored the review"
+      "REVIEW_RESTORED": "restored the review",
+      "UNIT_ADDED": "added a flat",
+      "UNIT_REMOVED": "removed a flat"
     }
   },
   "admin_trash": {
@@ -411,7 +432,8 @@
       "passwords_no_match": "Passwords do not match",
       "unverified": "This account is not activated yet. Contact the compound administration for help.",
       "invitation_account_exists": "This email already has an account. Enter that account's current password to accept the invitation.",
-      "invitation_account_deleted": "This email belongs to a deleted account, so the invitation can't be accepted. Please contact the compound administration."
+      "invitation_account_deleted": "This email belongs to a deleted account, so the invitation can't be accepted. Please contact the compound administration.",
+      "invitation_unit_owned": "This flat already belongs to another account, so the invitation can't be accepted. Please contact the compound administration."
     },
     "password_requirements": {
       "title": "Your password needs:",
@@ -472,6 +494,11 @@
   "checkout": {
     "address": "Delivery address",
     "address_hint": "Confirm the compound unit where this order should be delivered.",
+    "delivery_flat": "Delivery flat",
+    "delivery_flat_hint": "Choose which of your flats this order goes to.",
+    "delivery_flat_single": "This order will be delivered to your flat.",
+    "no_flat": "No flat is linked to your account, so this order can't be delivered. Contact the compound administration.",
+    "delivery_unit_invalid": "That flat is no longer linked to your account. Refresh the page and choose again.",
     "card": "Pay with card (Paymob)",
     "cash": "Cash on delivery",
     "notes": "Delivery notes",
@@ -903,6 +930,12 @@
     "my_orders": "My orders",
     "notification_prefs": "Notification preferences",
     "personal_details": "Personal details",
+    "flats_title": "Your flats",
+    "flats_empty": "No flat is linked to this account yet.",
+    "primary_badge": "Primary",
+    "primary_flat": "Primary flat",
+    "primary_flat_hint": "Your primary flat is the default delivery flat when you order.",
+    "flats_note": "Flats are added and removed by the compound administration.",
     "preferences": "Preferences",
     "preferences_local": "Language and appearance are stored on this browser. The account API does not currently sync these preferences.",
     "remove_photo": "Remove photo",
@@ -926,7 +959,8 @@
       "avatar_url": "Enter a valid URL.",
       "name": "Enter a name between 2 and 100 characters.",
       "phone": "Use international format, for example +201234567890.",
-      "unit": "Unit number must be 100 characters or fewer."
+      "unit": "Unit number must be 100 characters or fewer.",
+      "unit_not_owned": "That flat isn't linked to your account. Refresh the page and choose again."
     }
   },
   "nav": {

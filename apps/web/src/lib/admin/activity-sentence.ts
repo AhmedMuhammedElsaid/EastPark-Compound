@@ -48,6 +48,8 @@ export const KNOWN_ACTIONS = [
   'SHOP_PHOTO_RESTORED',
   'PRODUCT_RESTORED',
   'REVIEW_RESTORED',
+  'UNIT_ADDED',
+  'UNIT_REMOVED',
 ] as const;
 export type KnownAction = (typeof KNOWN_ACTIONS)[number];
 

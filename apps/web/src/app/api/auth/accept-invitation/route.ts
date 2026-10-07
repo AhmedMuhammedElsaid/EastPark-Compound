@@ -23,8 +23,13 @@ export async function POST(request: Request) {
       if (response.status === 429) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
       if (response.status === 409) {
         // The email belongs to a soft-deleted account: no password helps, only the administration.
-        if ((await knownBackendErrorCode(response)) === 'account_deleted') {
+        const code = await knownBackendErrorCode(response);
+        if (code === 'account_deleted') {
           return NextResponse.json({ error: 'account_deleted' }, { status: 409 });
+        }
+        // The invited flat already belongs to another account; the invitation stays unused.
+        if (code === 'unit_already_owned') {
+          return NextResponse.json({ error: 'unit_already_owned' }, { status: 409 });
         }
         // Otherwise the email already has an account and the password is not its current one.
         return NextResponse.json({ error: 'account_exists' }, { status: 409 });

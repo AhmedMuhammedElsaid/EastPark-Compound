@@ -58,6 +58,8 @@ export function acceptInvitationErrorKey(error: string | undefined): string {
       return 'auth.errors.invitation_account_deleted';
     case 'account_exists':
       return 'auth.errors.invitation_account_exists';
+    case 'unit_already_owned':
+      return 'auth.errors.invitation_unit_owned';
     case 'rate_limited':
       return 'auth.errors.rate_limited';
     default:

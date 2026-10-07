@@ -19,6 +19,49 @@ import { isValidBuilding, isValidFlat, isValidFloorForBuilding } from '@/config/
 const PHONE_PATTERN = /^(?:\+?20|0)1[0125]\d{8}$/;
 export const maritalStatuses = ['MARRIED', 'SINGLE', 'DIVORCED'] as const;
 
+/**
+ * Building / floor / flat fields, shared by the public registration form and the super admin's
+ * "Add flat" form so a flat is validated identically everywhere.
+ */
+const unitFieldShape = {
+  building: z
+    .string()
+    .min(1, 'register.errors.building_required')
+    // Wrapped rather than passed directly: isValidBuilding is a type guard,
+    // and handing it to .refine() narrows the OUTPUT type to the building
+    // union while the input stays string. That input/output split is exactly
+    // the zodResolver generics trap noted in the project's FE lessons, so
+    // keep the predicate boolean and let the form stay string-typed.
+    .refine((value): boolean => isValidBuilding(value), {
+      message: 'register.errors.invalid_building',
+    }),
+  floor: z.string().min(1, 'register.errors.floor_required'),
+  flatNumber: z
+    .string()
+    .min(1, 'register.errors.flat_required')
+    .refine(isValidFlat, { message: 'register.errors.invalid_flat' }),
+};
+
+/**
+ * Floor validity depends on the building's phase, so it can only be checked
+ * once both are known. "G" is valid for A2 (phase 2) and invalid for A1
+ * (phase 1) — and the API does NOT enforce this, so this check is the only
+ * thing preventing an impossible unit from being stored.
+ */
+function refineFloorForBuilding(values: { building: string; floor: string }, ctx: z.RefinementCtx) {
+  if (values.building && values.floor && !isValidFloorForBuilding(values.floor, values.building)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['floor'],
+      message: 'register.errors.invalid_floor',
+    });
+  }
+}
+
+/** Just the flat: `POST /api/admin/users/:id/units` body and the "Add flat" form. */
+export const unitFieldsSchema = z.object(unitFieldShape).strict().superRefine(refineFloorForBuilding);
+export type UnitFieldsValues = z.infer<typeof unitFieldsSchema>;
+
 export const registerUnitSchema = z
   .object({
     name: z.string().trim().min(2, 'register.errors.name_too_short').max(100),
@@ -32,22 +75,7 @@ export const registerUnitSchema = z
       .refine((value) => PHONE_PATTERN.test(value.replace(/[\s()-]/g, '')), {
         message: 'register.errors.invalid_phone',
       }),
-    building: z
-      .string()
-      .min(1, 'register.errors.building_required')
-      // Wrapped rather than passed directly: isValidBuilding is a type guard,
-      // and handing it to .refine() narrows the OUTPUT type to the building
-      // union while the input stays string. That input/output split is exactly
-      // the zodResolver generics trap noted in the project's FE lessons, so
-      // keep the predicate boolean and let the form stay string-typed.
-      .refine((value): boolean => isValidBuilding(value), {
-        message: 'register.errors.invalid_building',
-      }),
-    floor: z.string().min(1, 'register.errors.floor_required'),
-    flatNumber: z
-      .string()
-      .min(1, 'register.errors.flat_required')
-      .refine(isValidFlat, { message: 'register.errors.invalid_flat' }),
+    ...unitFieldShape,
     parking: z.string().trim().max(60, 'register.errors.parking_too_long').optional(),
     jobTitle: z.string().trim().max(100, 'register.errors.job_too_long').optional(),
     maritalStatus: z.union([z.enum(maritalStatuses), z.literal('')]).optional(),
@@ -60,18 +88,6 @@ export const registerUnitSchema = z
       .optional(),
     passportNumber: z.string().trim().max(30, 'register.errors.passport_too_long').optional(),
   })
-  // Floor validity depends on the building's phase, so it can only be checked
-  // once both are known. "G" is valid for A2 (phase 2) and invalid for A1
-  // (phase 1) — and the API does NOT enforce this, so this check is the only
-  // thing preventing an impossible unit from being stored.
-  .superRefine((values, ctx) => {
-    if (values.building && values.floor && !isValidFloorForBuilding(values.floor, values.building)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['floor'],
-        message: 'register.errors.invalid_floor',
-      });
-    }
-  });
+  .superRefine(refineFloorForBuilding);
 
 export type RegisterUnitValues = z.infer<typeof registerUnitSchema>;
