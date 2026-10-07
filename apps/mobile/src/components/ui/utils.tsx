@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { AxiosError } from "axios";
-import { Dimensions, Platform } from "react-native";
 import i18n from "i18next";
+import { Dimensions, Platform } from "react-native";
 import { showMessage } from "react-native-flash-message";
 
 export const IS_IOS = Platform.OS === "ios";

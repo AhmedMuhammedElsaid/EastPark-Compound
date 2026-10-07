@@ -167,8 +167,7 @@ describe("query client policy", () => {
 describe("persisted cache redaction", () => {
   it("nulls personal vote fields at any depth and keeps public data", () => {
     const client = {
-      clientState: { queries: [{ state: { data: { pages: [{ items: [{ id: "p1", question: "Q", myVoteOptionId: "o1" }] }] } } },
-        { state: { data: { id: "e1", myVoteCandidateId: "c1", candidates: [{ id: "c1", voteCount: 3 }] } } }] },
+      clientState: { queries: [{ state: { data: { pages: [{ items: [{ id: "p1", question: "Q", myVoteOptionId: "o1" }] }] } } }, { state: { data: { id: "e1", myVoteCandidateId: "c1", candidates: [{ id: "c1", voteCount: 3 }] } } }] },
     };
     const json = serializePersistedClient(client);
     expect(json).not.toContain("o1");

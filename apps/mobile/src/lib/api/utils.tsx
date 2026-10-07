@@ -27,13 +27,16 @@ export function normalizePages<T>(pages?: PaginateQuery<T>[]): T[] {
 }
 
 // a function that accept a url and return params as an object
+const URL_PARAM_RE = /[?&]([^=#]+)=([^&#]*)/g;
+
 export function getUrlParameters(
   url: string | null,
 ): { [k: string]: string } | null {
   if (url === null) {
     return null;
   }
-  const regex = /[?&]([^=#]+)=([^&#]*)/g;
+  const regex = URL_PARAM_RE;
+  regex.lastIndex = 0;
   const params = {};
   let match;
   while ((match = regex.exec(url))) {
