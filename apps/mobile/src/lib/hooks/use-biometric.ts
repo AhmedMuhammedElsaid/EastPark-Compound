@@ -7,6 +7,10 @@
  * Standard mode: when enabled, the refresh token survives logout so the
  * login screen can offer a one-tap "Sign in with Face ID/Fingerprint"
  * button that exchanges it for a fresh access token via /auth/refresh.
+ *
+ * Turning the preference off never touches the session tokens: while signed
+ * in, the refresh token belongs to the live session. Only a dead kept session
+ * (signed out, refresh rejected or missing) is forgotten with the token.
  */
 import * as LocalAuthentication from "expo-local-authentication";
 import * as React from "react";
@@ -22,7 +26,7 @@ import {
   SECURE_KEY_BIOMETRIC_EMAIL,
   SECURE_KEY_BIOMETRIC_ENABLED,
   SECURE_KEY_REFRESH,
-} from "@/services/api/client";
+} from "@/services/api/secure-keys";
 
 export type BiometricKind = "face" | "fingerprint" | "iris" | "generic";
 
@@ -85,6 +89,25 @@ async function loadBiometricState(): Promise<BiometricState> {
   }
 }
 
+/** Turns biometric sign-in off. The session's refresh token is left alone. */
+export async function clearBiometricPreference(): Promise<void> {
+  await Promise.all([
+    deleteSecureItem(SECURE_KEY_BIOMETRIC_ENABLED),
+    deleteSecureItem(SECURE_KEY_BIOMETRIC_EMAIL),
+  ]);
+}
+
+/**
+ * Signed-out only: the refresh token kept for biometric sign-in is dead
+ * (rejected or missing), so drop it together with the preference.
+ */
+export async function forgetKeptBiometricSession(): Promise<void> {
+  await Promise.all([
+    clearBiometricPreference(),
+    deleteSecureItem(SECURE_KEY_REFRESH),
+  ]);
+}
+
 export function useBiometric() {
   const { t } = useTranslation();
   const [state, setState] = React.useState<BiometricState>(initialState);
@@ -134,13 +157,14 @@ export function useBiometric() {
   }, [authenticate]);
 
   const disable = React.useCallback(async () => {
-    await Promise.all([
-      deleteSecureItem(SECURE_KEY_BIOMETRIC_ENABLED),
-      deleteSecureItem(SECURE_KEY_BIOMETRIC_EMAIL),
-      deleteSecureItem(SECURE_KEY_REFRESH),
-    ]);
+    await clearBiometricPreference();
     setState(s => ({ ...s, enabled: false, email: null }));
   }, []);
 
-  return { ...state, authenticate, enable, disable, refresh };
+  const forgetKeptSession = React.useCallback(async () => {
+    await forgetKeptBiometricSession();
+    setState(s => ({ ...s, enabled: false, email: null }));
+  }, []);
+
+  return { ...state, authenticate, enable, disable, forgetKeptSession, refresh };
 }

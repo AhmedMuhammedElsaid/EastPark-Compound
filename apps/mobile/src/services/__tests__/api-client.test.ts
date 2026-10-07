@@ -107,6 +107,18 @@ describe("api client 401 refresh interceptor", () => {
     expect(onExpired).not.toHaveBeenCalled();
   });
 
+  it("ends the session when signed in but no refresh token is stored", async () => {
+    mockSecureStore[SECURE_KEY_ACCESS] = "old-access";
+    always401();
+
+    const err = await client.get("/orders").catch(e => e);
+
+    expect(err.response.status).toBe(401);
+    expect(err.config.url).toBe("/orders");
+    expect(refreshPost).not.toHaveBeenCalled();
+    expect(onExpired).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the session on a refresh network error and propagates the original error", async () => {
     signedIn();
     always401();

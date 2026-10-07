@@ -81,7 +81,7 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
         return;
       const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
       if (!refreshToken) {
-        await biometric.disable();
+        await biometric.forgetKeptSession();
         showMessage({
           message: t("auth.biometric.session_expired"),
           type: "warning",
@@ -100,7 +100,7 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401 || status === 403) {
         // Refresh token revoked/expired. Disable biometric so user re-enters password.
-        await biometric.disable();
+        await biometric.forgetKeptSession();
         showMessage({
           message: t("auth.biometric.session_expired"),
           type: "warning",

@@ -5,7 +5,8 @@
  * - Queues 401s while a single token refresh is in flight.
  * - Never tries to refresh for public auth endpoints (login, refresh, OTP, ...)
  *   or for requests that were sent without credentials (guests).
- * - Only ends the session when the refresh endpoint itself answers 401/403.
+ * - Only ends the session when the refresh endpoint itself answers 401/403,
+ *   or when no refresh token is stored at all.
  *   Network errors, timeouts and 5xx keep the tokens so the user can retry.
  * - Always propagates the ORIGINAL request error to the caller.
  */
@@ -129,7 +130,17 @@ type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string> | null = null;
 
+/** No refresh token is stored, so the session can never be renewed. */
+class MissingRefreshTokenError extends Error {
+  constructor() {
+    super("No refresh token available");
+    this.name = "MissingRefreshTokenError";
+  }
+}
+
 function isAuthRejection(err: unknown): boolean {
+  if (err instanceof MissingRefreshTokenError)
+    return true;
   const status = (err as AxiosError | undefined)?.response?.status;
   return status === 401 || status === 403;
 }
@@ -140,7 +151,7 @@ async function runTokenRefresh(): Promise<string> {
     // refresh rotated the token never submits the already-spent one.
     const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
     if (!refreshToken)
-      throw new Error("No refresh token available");
+      throw new MissingRefreshTokenError();
     const { data } = await requestTokenRefresh(refreshToken);
     const { accessToken, refreshToken: newRefresh } = data.data;
     await setSecureItem(SECURE_KEY_ACCESS, accessToken);
@@ -149,9 +160,11 @@ async function runTokenRefresh(): Promise<string> {
     return accessToken;
   }
   catch (refreshError) {
-    // Only a definitive rejection of the refresh token ends the session.
-    // Network errors, timeouts (cold start) and 5xx keep the tokens.
-    if (isAuthRejection(refreshError)) {
+    // Only a definitive rejection of the refresh token (or no token at all)
+    // ends the session. Network errors, timeouts (cold start) and 5xx keep the
+    // tokens. A session that is already signed out is not torn down twice.
+    const signedIn = storeRef ? storeRef.getState().auth.isAuthenticated : true;
+    if (isAuthRejection(refreshError) && signedIn) {
       try {
         await sessionExpiredHandler?.();
       }
