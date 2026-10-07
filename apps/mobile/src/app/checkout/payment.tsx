@@ -15,6 +15,7 @@ import { getErrorCode, isNoResponseError } from "@/lib/api-error";
 import { CARD_PAYMENTS_ENABLED, WHATSAPP_ORDER_HANDOFF } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useEmptyCartGuard } from "@/lib/hooks/use-empty-cart-guard";
 import { resolveDeliveryUnit } from "@/lib/units";
 import { buildOrderMessage, buildWhatsAppUrl, setOrderHandoff, toWhatsAppDigits } from "@/lib/whatsapp";
 import { buildPlaceOrderPayload, getOrderItemTotal, ordersApi } from "@/services/api/orders";
@@ -101,6 +102,9 @@ export default function PaymentScreen() {
   const [verifying, setVerifying] = React.useState(false);
   // Synchronous guard: state updates are async, so a fast double-tap could fire twice.
   const inFlight = React.useRef(false);
+  // Set once the order exists: the cart is then cleared on purpose.
+  const orderPlaced = React.useRef(false);
+  useEmptyCartGuard(orderPlaced);
 
   /** Builds the shop WhatsApp link + stores the hand-off for the confirmation screen. Never throws. */
   async function prepareWhatsAppHandoff(placed: Order): Promise<string | null> {
@@ -150,6 +154,7 @@ export default function PaymentScreen() {
       const orderId = placed.id;
       // The order exists server-side from here on: the cart must never be
       // left intact, otherwise a retap would create a duplicate order.
+      orderPlaced.current = true;
       dispatch(clearCart());
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       const whatsappUrl = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
@@ -165,6 +170,10 @@ export default function PaymentScreen() {
           return;
         }
       }
+      // Drop cart/address/payment so Back from the confirmation cannot land
+      // on a stale checkout step for an order that is already placed.
+      if (router.canDismiss())
+        router.dismissAll();
       router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
       if (whatsappUrl) {
         Linking.openURL(whatsappUrl).catch(() => {

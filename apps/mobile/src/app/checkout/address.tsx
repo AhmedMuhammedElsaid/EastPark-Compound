@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useEmptyCartGuard } from "@/lib/hooks/use-empty-cart-guard";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { getDeliveryUnitOptions, resolveDeliveryUnit } from "@/lib/units";
 import { useAppSelector } from "@/store";
@@ -114,6 +115,7 @@ export default function AddressScreen() {
   const [notes, setNotes] = React.useState("");
   const [chosenUnit, setChosenUnit] = React.useState<string | null>(null);
   useRefreshProfileUnits();
+  useEmptyCartGuard();
   const unitOptions = getDeliveryUnitOptions(user);
   const deliveryUnit = resolveDeliveryUnit(user, chosenUnit);
   const { styles, colors } = useStyles();

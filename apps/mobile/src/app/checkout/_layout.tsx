@@ -5,6 +5,8 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 export default function CheckoutLayout() {
   const colors = useAppColors();
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack.Screen name="confirmation" options={{ gestureEnabled: false }} />
+    </Stack>
   );
 }

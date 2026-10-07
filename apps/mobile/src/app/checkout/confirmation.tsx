@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import LottieView from "lottie-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Linking, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, Linking, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,6 +45,15 @@ export default function ConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const styles = useStyles();
   const handoff = getOrderHandoff(orderId);
+
+  // Order is placed: Back always leaves checkout for home, never a stale step.
+  React.useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/(tabs)");
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   // Entry animations
   const scale = React.useRef(new Animated.Value(0)).current;
