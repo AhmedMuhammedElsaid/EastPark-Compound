@@ -233,6 +233,21 @@ function ProfileSections({ control, errors, styles, colors }: ProfileSectionsPro
   );
 }
 
+const PHONE_FIELD_ERROR = /phone|whatsapp/i;
+
+/** A 400 whose validation errors name the phone or WhatsApp field. */
+function isPhoneValidationError(error: unknown): boolean {
+  const response = (error as { response?: { status?: number; data?: unknown } } | undefined)?.response;
+  if (response?.status !== 400)
+    return false;
+  try {
+    return PHONE_FIELD_ERROR.test(JSON.stringify(response.data ?? ""));
+  }
+  catch {
+    return false;
+  }
+}
+
 function useSaveShopProfile() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -244,8 +259,9 @@ function useSaveShopProfile() {
       showMessage({ message: t("merchant.shop_saved"), type: "success", backgroundColor: SEMANTIC.success });
       router.back();
     },
-    onError: () => {
-      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    onError: (error) => {
+      const message = isPhoneValidationError(error) ? t("validation.invalid_phone") : t("common.error");
+      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 

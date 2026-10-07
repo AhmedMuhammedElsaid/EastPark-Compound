@@ -4,7 +4,7 @@
  */
 const INTERNATIONAL_PHONE = /^\+\d{8,15}$/;
 const SEPARATORS = /[\s\-.()]/g;
-const EGYPT_LOCAL = /^01\d{9}$/;
+const EGYPT_LOCAL = /^0\d{9,10}$/;
 
 /** Strips spaces, dashes, dots and parentheses; keeps a leading "+". */
 function compact(value: string): string {
@@ -13,7 +13,7 @@ function compact(value: string): string {
 
 /**
  * Normalises what a merchant typed to international format. Egyptian local
- * numbers (01XXXXXXXXX) and 0020/20-prefixed forms become +20XXXXXXXXXX.
+ * mobiles (01XXXXXXXXX), landlines (0XXXXXXXXX) and 0020/20-prefixed forms become +20XXXXXXXXXX.
  * Anything else is returned compacted, unchanged otherwise.
  */
 export function normalizePhone(value: string | undefined | null): string {
@@ -23,7 +23,7 @@ export function normalizePhone(value: string | undefined | null): string {
   if (v.startsWith("00"))
     v = `+${v.slice(2)}`;
   if (EGYPT_LOCAL.test(v))
-    return `+2${v}`;
+    return `+20${v.slice(1)}`;
   return v;
 }
 
