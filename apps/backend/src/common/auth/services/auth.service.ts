@@ -314,21 +314,20 @@ export class AuthService {
                 );
         }
 
-        const lead =
+        // Every INVITED lead for this email becomes a flat of the account
+        // (one person can register several flats). Oldest first: the oldest
+        // attached flat is the primary when the account has none yet.
+        // PENDING leads are not attached (not approved yet).
+        const leads =
             invitation.role === Role.RESIDENT
-                ? await this.db.residentLead.findFirst({
-                      where: {
-                          email,
-                          status: {
-                              in: [
-                                  ResidentLeadStatus.INVITED,
-                                  ResidentLeadStatus.PENDING,
-                              ],
-                          },
-                      },
-                      orderBy: { createdAt: 'desc' },
+                ? await this.db.residentLead.findMany({
+                      where: { email, status: ResidentLeadStatus.INVITED },
+                      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
                   })
-                : null;
+                : [];
+        const primaryLead = leads[0];
+        // Phone: the newest registration, as before.
+        const phoneLead = leads[leads.length - 1];
 
         const passwordHash = existing
             ? undefined
@@ -353,11 +352,11 @@ export class AuthService {
                                   ? invitation.role
                                   : existing.role,
                           isVerified: true,
-                          ...(lead && !existing.phone
-                              ? { phone: lead.phone }
+                          ...(phoneLead && !existing.phone
+                              ? { phone: phoneLead.phone }
                               : {}),
-                          ...(lead && !existing.unitNumber
-                              ? { unitNumber: formatLeadUnit(lead) }
+                          ...(primaryLead && !existing.unitNumber
+                              ? { unitNumber: formatLeadUnit(primaryLead) }
                               : {}),
                       },
                   })
@@ -368,19 +367,19 @@ export class AuthService {
                           passwordHash: passwordHash as string,
                           role: invitation.role,
                           isVerified: true,
-                          ...(lead
+                          ...(primaryLead && phoneLead
                               ? {
-                                    phone: lead.phone,
-                                    unitNumber: formatLeadUnit(lead),
+                                    phone: phoneLead.phone,
+                                    unitNumber: formatLeadUnit(primaryLead),
                                 }
                               : {}),
                       },
                   });
 
-            if (lead) {
-                // The flat becomes owned by this account. Another owner
-                // (unique flat key) rolls the whole claim back: the invitation
-                // stays unused.
+            for (const lead of leads) {
+                // The flat becomes owned by this account. Another owner of ANY
+                // of the flats (unique flat key) rolls the whole claim back:
+                // the invitation stays unused.
                 try {
                     await tx.residentUnit.create({
                         data: {

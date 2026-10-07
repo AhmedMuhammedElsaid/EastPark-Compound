@@ -42,7 +42,14 @@ All reference files live in `Documentation/` — read these before exploring the
 - Lead flow: public lead on an owned flat → 409 `residentLead.error.unitReserved`; invite → 409
   `unit.error.alreadyOwned` when another account owns the flat (web `leadErrorKey` maps every invite 409 to
   `unit_reserved` unless it reads `code`); invite of an existing account adds the flat + emails (idempotent);
-  accept-invitation creates the flat in its transaction (flat P2002 → 409 `unit.error.alreadyOwned`).
+  accept-invitation attaches EVERY `INVITED` lead for the invitation email in its transaction (one flat per
+  lead, each lead CONVERTED; PENDING leads are not attached; primary = oldest attached flat when unitNumber was
+  null; any flat P2002 → 409 `unit.error.alreadyOwned` and full rollback). Approving a CONVERTED lead again is a
+  no-op (`alreadyRegistered`), so a removed flat is never re-created.
+- `PUT /v1/user` `unitNumber` only chooses the PRIMARY flat: unchanged (trimmed; ''/null = none) → 200 with no
+  write (old mobile builds resend the whole form); one of the caller's flat labels → stored; anything else,
+  including clearing it while flats are owned, → 400 `user.error.unitNotOwned`. Legacy accounts (no flats) can
+  only resend the unchanged value.
   Service: `src/modules/units/resident-units.service.ts`; tests `test/modules/resident-units.spec.ts`.
 
 ### RLS lockdown — 2026-10-07

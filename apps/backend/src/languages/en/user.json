@@ -14,6 +14,7 @@
         "cannotChangeSuperAdmin": "The super admin account cannot be changed or deleted.",
         "superAdminRequired": "Only the super admin can do this.",
         "accountDeleted": "This email belongs to a deleted account. The super admin can restore it from the recycle bin.",
-        "notRestorable": "This account was permanently anonymised and cannot be restored."
+        "notRestorable": "This account was permanently anonymised and cannot be restored.",
+        "unitNotOwned": "Choose one of the flats that belong to your account."
     }
 }

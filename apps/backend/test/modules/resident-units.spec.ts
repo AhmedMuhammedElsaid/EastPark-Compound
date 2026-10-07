@@ -525,3 +525,94 @@ describe('OrdersService.create deliveryUnit', () => {
         );
     });
 });
+
+// ─── PUT /user unitNumber = choose the primary flat ──────────────────────────
+
+describe('UserService.updateUser unitNumber', () => {
+    const db = {
+        user: { findUnique: jest.fn(), update: jest.fn() },
+        residentUnit: { findMany: jest.fn() },
+    };
+    const service = new UserService(
+        db as unknown as DatabaseService,
+        {} as SessionVersionService,
+        {} as ConfigService,
+        { record: jest.fn() } as unknown as AuditService
+    );
+    const owner = (unitNumber: string | null) => ({
+        id: 'user-1',
+        name: 'Sara',
+        avatarUrl: null,
+        unitNumber,
+        deletedAt: null,
+    });
+    const owned = [
+        { building: 'A1', floor: '3', flatNumber: '2' },
+        { building: 'B2', floor: 'G', flatNumber: '5' },
+    ];
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        db.user.findUnique.mockResolvedValue(owner('A1-3-2'));
+        db.residentUnit.findMany.mockResolvedValue(owned);
+        db.user.update.mockResolvedValue({});
+    });
+
+    const sentData = () => db.user.update.mock.calls[0][0].data;
+
+    it('unchanged value (old mobile builds send the whole form) is 200 and not rewritten', async () => {
+        await service.updateUser('user-1', {
+            name: 'Sara',
+            unitNumber: ' A1-3-2 ',
+        });
+        expect(sentData()).toEqual({ name: 'Sara' });
+        expect(db.residentUnit.findMany).not.toHaveBeenCalled();
+    });
+
+    it('switching the primary to another owned flat is stored (trimmed)', async () => {
+        await service.updateUser('user-1', { unitNumber: 'B2-G-5 ' });
+        expect(sentData()).toEqual({ unitNumber: 'B2-G-5' });
+        expect(db.residentUnit.findMany).toHaveBeenCalledWith({
+            where: { userId: 'user-1' },
+            select: { building: true, floor: true, flatNumber: true },
+        });
+    });
+
+    it.each([
+        ['a flat the caller does not own', 'C1-1-1'],
+        ['clearing it while flats are owned (null)', null],
+        ['clearing it while flats are owned (empty)', '  '],
+    ])('400 user.error.unitNotOwned for %s', async (_, unitNumber) => {
+        const attempt = service.updateUser('user-1', { unitNumber });
+        await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+        await expect(attempt).rejects.toThrow('user.error.unitNotOwned');
+        expect(db.user.update).not.toHaveBeenCalled();
+    });
+
+    it('legacy account (no flats): only the unchanged value is accepted', async () => {
+        db.user.findUnique.mockResolvedValue(owner('B1-301'));
+        db.residentUnit.findMany.mockResolvedValue([]);
+
+        await service.updateUser('user-1', { unitNumber: 'B1-301' });
+        expect(sentData()).toEqual({});
+
+        await expect(
+            service.updateUser('user-1', { unitNumber: 'B1-302' })
+        ).rejects.toThrow('user.error.unitNotOwned');
+        await expect(
+            service.updateUser('user-1', { unitNumber: null })
+        ).rejects.toThrow('user.error.unitNotOwned');
+    });
+
+    it('\'\' and null are the same "none" for an account without a primary', async () => {
+        db.user.findUnique.mockResolvedValue(owner(null));
+        await service.updateUser('user-1', { unitNumber: '' });
+        expect(sentData()).toEqual({});
+    });
+
+    it('omitting unitNumber never touches it', async () => {
+        await service.updateUser('user-1', { name: 'Sara' });
+        expect(sentData()).toEqual({ name: 'Sara' });
+        expect(db.residentUnit.findMany).not.toHaveBeenCalled();
+    });
+});

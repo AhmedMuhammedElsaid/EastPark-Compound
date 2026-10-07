@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     ForbiddenException,
     Injectable,
@@ -12,6 +13,7 @@ import { isSuperAdmin } from 'src/common/auth/utils/roles';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { assertStoragePublicUrls } from 'src/common/file/storage-url';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
+import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
 import { AuditService } from 'src/modules/audit/audit.service';
@@ -107,7 +109,49 @@ export class UserService {
             );
         }
 
-        return this.db.user.update({ where: { id: userId }, data });
+        const update: UserUpdateDto = { ...data };
+        if (update.unitNumber !== undefined) {
+            const primary = await this.resolvePrimaryUnit(
+                userId,
+                user.unitNumber,
+                update.unitNumber
+            );
+            if (primary === undefined) delete update.unitNumber;
+            else update.unitNumber = primary;
+        }
+
+        return this.db.user.update({ where: { id: userId }, data: update });
+    }
+
+    /**
+     * `unitNumber` on `PUT /user` only chooses the PRIMARY flat. Unchanged
+     * (after trim; '' and null both mean "none") is always accepted — old
+     * mobile builds send the whole form — and returns `undefined` (no write).
+     * Otherwise it must be one of the caller's flat labels; anything else,
+     * including clearing it while flats are owned, is 400
+     * `user.error.unitNotOwned`. Legacy accounts (no flats) can only resend it.
+     */
+    private async resolvePrimaryUnit(
+        userId: string,
+        current: string | null,
+        requested: string | null
+    ): Promise<string | undefined> {
+        const normalize = (value: string | null): string | null =>
+            typeof value === 'string' && value.trim() !== ''
+                ? value.trim()
+                : null;
+        const wanted = normalize(requested);
+        if (wanted === normalize(current)) return undefined;
+
+        if (wanted !== null) {
+            const units = await this.db.residentUnit.findMany({
+                where: { userId },
+                select: { building: true, floor: true, flatNumber: true },
+            });
+            if (units.some(unit => formatUnitLabel(unit) === wanted))
+                return wanted;
+        }
+        throw new BadRequestException('user.error.unitNotOwned');
     }
 
     /**
