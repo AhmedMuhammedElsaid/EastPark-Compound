@@ -41,7 +41,7 @@ function useStyles() {
     quickLinks: { flexDirection: "row" as const, gap: SPACING.sm },
     quickLink: {
       flex: 1,
-      minHeight: 76,
+      minHeight: 92,
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
@@ -49,10 +49,13 @@ function useStyles() {
       paddingVertical: SPACING.md,
       paddingHorizontal: SPACING.sm,
       alignItems: "center" as const,
-      justifyContent: "center" as const,
+      // Top-aligned so the three icons share one baseline even when a label wraps.
+      justifyContent: "flex-start" as const,
       gap: SPACING.xs,
     },
-    quickLinkLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.text, textAlign: "center" as const, fontWeight: "600" },
+    quickLinkIcon: { width: 28, height: 28, alignItems: "center" as const, justifyContent: "center" as const },
+    // Two lines reserved on every tile: all three tiles end up the same height.
+    quickLinkLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, minHeight: 36, color: colors.text, textAlign: "center" as const, fontWeight: "600" },
     pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     chipsScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.md, gap: SPACING.sm },
@@ -161,16 +164,16 @@ function CommunityHeader({
       <Text style={styles.headerTitle}>{t("community.title")}</Text>
       <View style={styles.quickLinks}>
         <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onGovernance} accessibilityRole="button">
-          <CheckSquare size={22} color={BRAND.gold} />
-          <Text style={styles.quickLinkLabel}>{t("community.governance")}</Text>
+          <View style={styles.quickLinkIcon}><CheckSquare size={24} color={BRAND.gold} /></View>
+          <Text style={styles.quickLinkLabel} numberOfLines={2}>{t("community.governance")}</Text>
         </Pressable>
         <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onReports} accessibilityRole="button">
-          <FilePdf size={22} color={BRAND.gold} />
-          <Text style={styles.quickLinkLabel}>{t("community.reports")}</Text>
+          <View style={styles.quickLinkIcon}><FilePdf size={24} color={BRAND.gold} /></View>
+          <Text style={styles.quickLinkLabel} numberOfLines={2}>{t("community.reports")}</Text>
         </Pressable>
         <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onFeedback} accessibilityRole="button">
-          <ChatCircle size={22} color={BRAND.gold} />
-          <Text style={styles.quickLinkLabel}>{t("community.feedback")}</Text>
+          <View style={styles.quickLinkIcon}><ChatCircle size={24} color={BRAND.gold} /></View>
+          <Text style={styles.quickLinkLabel} numberOfLines={2}>{t("community.feedback")}</Text>
         </Pressable>
       </View>
     </View>
