@@ -472,6 +472,7 @@
     "send_reset_link": "Send reset link",
     "show_password": "Show password",
     "unit_number": "Unit number",
+    "waking_server": "The server is starting up. This can take up to a minute — please wait…",
     "welcome_back": "Welcome back to EastPark"
   },
   "cart": {

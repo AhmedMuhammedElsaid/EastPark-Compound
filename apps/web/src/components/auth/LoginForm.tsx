@@ -24,12 +24,20 @@ const ERROR_KEYS = {
   validation: 'auth.errors.login_failed',
 } as const;
 
+/**
+ * A sleeping Render instance can take ~60 s to boot, longer than one 30 s login attempt. A
+ * transport failure is retried while the backend wakes; it never reached the backend (or a
+ * success lost its cookies), so repeating the login is safe.
+ */
+const COLD_START_RETRIES = 2;
+
 export function LoginForm() {
   const router = useRouter();
   const { isLoading, login, user } = useAuth();
   const { t } = useTranslation();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [waking, setWaking] = React.useState(false);
   const {
     register,
     handleSubmit,
@@ -48,7 +56,12 @@ export function LoginForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
-    const result = await login(values);
+    let result = await login(values);
+    for (let attempt = 0; !result.ok && result.error === 'network' && attempt < COLD_START_RETRIES; attempt += 1) {
+      setWaking(true);
+      result = await login(values);
+    }
+    setWaking(false);
     if (!result.ok) {
       setSubmitError(t(ERROR_KEYS[result.error]));
       return;
@@ -109,6 +122,12 @@ export function LoginForm() {
           {t('auth.forgot_password')}
         </Link>
       </div>
+
+      {waking && (
+        <p role="status" className="rounded-sm bg-info/12 px-4 py-3 text-[length:var(--text-body)] text-foreground">
+          {t('auth.waking_server')}
+        </p>
+      )}
 
       {submitError && (
         <p role="alert" className="rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error">
