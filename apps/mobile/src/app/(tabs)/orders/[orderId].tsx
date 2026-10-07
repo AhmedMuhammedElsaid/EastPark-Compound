@@ -100,6 +100,16 @@ function useStyles() {
 
 type Styles = ReturnType<typeof buildStyles>;
 
+function subscribeSocketConnection(onChange: () => void) {
+  const socket = getOrdersSocket();
+  socket.on("connect", onChange);
+  socket.on("disconnect", onChange);
+  return () => {
+    socket.off("connect", onChange);
+    socket.off("disconnect", onChange);
+  };
+}
+
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { t, i18n } = useTranslation();
@@ -107,7 +117,7 @@ export default function OrderDetailScreen() {
   const { styles } = useStyles();
   const isAr = i18n.language === "ar";
 
-  const [socketConnected, setSocketConnected] = React.useState(() => getOrdersSocket().connected);
+  const socketConnected = React.useSyncExternalStore(subscribeSocketConnection, () => getOrdersSocket().connected, () => false);
 
   const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["order", orderId],
@@ -133,23 +143,17 @@ export default function OrderDetailScreen() {
     };
 
     const onConnect = () => {
-      setSocketConnected(true);
       // Updates sent while disconnected were missed: catch up once.
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
     };
-    const onDisconnect = () => setSocketConnected(false);
-
     socket.on(ORDER_STATUS_UPDATE_EVENT, handler);
     socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    setSocketConnected(socket.connected);
     joinOrderRoom(orderId);
 
     return () => {
       leaveOrderRoom(orderId);
       socket.off(ORDER_STATUS_UPDATE_EVENT, handler);
       socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
     };
   }, [orderId, queryClient]);
 

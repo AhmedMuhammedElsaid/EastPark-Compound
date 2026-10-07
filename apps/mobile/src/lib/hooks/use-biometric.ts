@@ -60,38 +60,50 @@ function pickKind(types: LocalAuthentication.AuthenticationType[]): BiometricKin
   return "generic";
 }
 
+async function loadBiometricState(): Promise<BiometricState> {
+  try {
+    const [hasHardware, isEnrolled, types, enabledRaw, email] = await Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+      LocalAuthentication.supportedAuthenticationTypesAsync(),
+      getSecureItem(SECURE_KEY_BIOMETRIC_ENABLED),
+      getSecureItem(SECURE_KEY_BIOMETRIC_EMAIL),
+    ]);
+    return {
+      ready: true,
+      isAvailable: hasHardware && isEnrolled,
+      kind: pickKind(types),
+      enabled: enabledRaw === "1",
+      email,
+    };
+  }
+  catch (err) {
+    if (__DEV__) {
+      console.warn("[biometric] refresh failed", err);
+    }
+    return { ...initialState, ready: true };
+  }
+}
+
 export function useBiometric() {
   const { t } = useTranslation();
   const [state, setState] = React.useState<BiometricState>(initialState);
 
   const refresh = React.useCallback(async () => {
-    try {
-      const [hasHardware, isEnrolled, types, enabledRaw, email] = await Promise.all([
-        LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync(),
-        LocalAuthentication.supportedAuthenticationTypesAsync(),
-        getSecureItem(SECURE_KEY_BIOMETRIC_ENABLED),
-        getSecureItem(SECURE_KEY_BIOMETRIC_EMAIL),
-      ]);
-      setState({
-        ready: true,
-        isAvailable: hasHardware && isEnrolled,
-        kind: pickKind(types),
-        enabled: enabledRaw === "1",
-        email,
-      });
-    }
-    catch (err) {
-      if (__DEV__) {
-        console.warn("[biometric] refresh failed", err);
-      }
-      setState({ ...initialState, ready: true });
-    }
+    setState(await loadBiometricState());
   }, []);
 
   React.useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let active = true;
+    loadBiometricState().then((next) => {
+      if (active) {
+        setState(next);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const authenticate = React.useCallback(async (): Promise<boolean> => {
     try {

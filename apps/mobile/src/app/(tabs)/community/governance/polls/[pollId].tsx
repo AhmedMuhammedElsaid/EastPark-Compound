@@ -95,6 +95,9 @@ export default function PollDetailScreen() {
   const poll = data?.data.data;
   const isAr = i18n.language === "ar";
 
+  // Snapshot taken once on mount: Date.now() is impure and must not run during render.
+  const [mountedAt] = React.useState(() => Date.now());
+
   const { mutate, isPending } = useMutation({
     mutationFn: (optionId: string) => governanceApi.votePoll(pollId, optionId),
     onSuccess: () => {
@@ -131,7 +134,7 @@ export default function PollDetailScreen() {
   // Backend only includes voteCount once the poll has expired.
   const showResults = poll.resultsVisible;
   const totalVotes = poll.totalVotes;
-  const votingClosed = poll.isExpired || new Date(poll.expiresAt).getTime() <= Date.now();
+  const votingClosed = poll.isExpired || new Date(poll.expiresAt).getTime() <= mountedAt;
   // Voting is resident-only on the backend; a signed-in admin/merchant would only get a 403.
   const isNonResident = !!role && role !== "RESIDENT";
   const canVote = !poll.myVoteOptionId && !votingClosed && !isNonResident;

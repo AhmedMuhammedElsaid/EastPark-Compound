@@ -98,6 +98,9 @@ export default function ElectionScreen() {
   const isAr = i18n.language === "ar";
   const locale = isAr ? "ar-EG" : "en-GB";
 
+  // Snapshot taken once on mount: Date.now() is impure and must not run during render.
+  const [mountedAt] = React.useState(() => Date.now());
+
   const { mutate, isPending } = useMutation({
     mutationFn: (candidateId: string) => governanceApi.voteElection(id, candidateId),
     onSuccess: () => {
@@ -134,7 +137,7 @@ export default function ElectionScreen() {
   // Backend includes voteCount when resultsOpen or visibilityMode is LIVE_COUNT.
   const showVotes = election.resultsVisible;
   const totalVotes = election.totalVotes;
-  const votingClosed = election.isExpired || new Date(election.expiresAt).getTime() <= Date.now();
+  const votingClosed = election.isExpired || new Date(election.expiresAt).getTime() <= mountedAt;
   // Voting is resident-only on the backend; a signed-in admin/merchant would only get a 403.
   const isNonResident = !!role && role !== "RESIDENT";
   const canVote = !election.myVoteCandidateId && !votingClosed && !isNonResident;
