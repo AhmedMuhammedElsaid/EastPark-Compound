@@ -1,3 +1,4 @@
+import type { Control, FieldErrors } from "react-hook-form";
 import type { ShopUpdatePayload, WorkingHoursDay } from "@/services/api/merchant";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -136,10 +137,142 @@ function useStyles() {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
+type ProfileSectionsProps = {
+  control: Control<ShopProfileForm>;
+  errors: FieldErrors<ShopProfileForm>;
+  styles: ReturnType<typeof useStyles>;
+  colors: ReturnType<typeof useAppColors>;
+};
+
+function ProfileSections({ control, errors, styles, colors }: ProfileSectionsProps) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      {/* Basic Info */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("merchant.section_basic_info")}</Text>
+
+        <FormField
+          label={t("merchant.field_name_en")}
+          control={control}
+          name="name"
+          error={errors.name?.message}
+          styles={styles}
+          colors={colors}
+        />
+        <FormField
+          label={t("merchant.field_name_ar")}
+          control={control}
+          name="nameAr"
+          error={errors.nameAr?.message}
+          styles={styles}
+          colors={colors}
+          rtl
+        />
+        <FormField
+          label={t("merchant.field_description_en")}
+          control={control}
+          name="description"
+          error={errors.description?.message}
+          styles={styles}
+          colors={colors}
+          multiline
+        />
+        <FormField
+          label={t("merchant.field_description_ar")}
+          control={control}
+          name="descriptionAr"
+          error={errors.descriptionAr?.message}
+          styles={styles}
+          colors={colors}
+          multiline
+          rtl
+        />
+      </View>
+
+      {/* Contact */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("merchant.section_contact")}</Text>
+
+        <FormField
+          label={t("merchant.field_phone")}
+          control={control}
+          name="phone"
+          error={errors.phone?.message}
+          styles={styles}
+          colors={colors}
+          keyboardType="phone-pad"
+        />
+        <FormField
+          label={t("merchant.field_whatsapp")}
+          control={control}
+          name="whatsapp"
+          error={errors.whatsapp?.message}
+          styles={styles}
+          colors={colors}
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      {/* Working Hours */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("merchant.section_working_hours")}</Text>
+        {DAYS.map(day => (
+          <WorkingHoursRow
+            key={day}
+            day={day}
+            control={control}
+            styles={styles}
+            colors={colors}
+          />
+        ))}
+      </View>
+    </>
+  );
+}
+
+function useSaveShopProfile() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const { mutate: saveProfile, isPending } = useMutation({
+    mutationFn: (payload: ShopUpdatePayload) => merchantApi.updateShop(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["merchant-shop"] });
+      showMessage({ message: t("merchant.shop_saved"), type: "success", backgroundColor: SEMANTIC.success });
+      router.back();
+    },
+    onError: () => {
+      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    },
+  });
+
+  const onSubmit = (values: ShopProfileForm) => {
+    const payload: ShopUpdatePayload = {
+      name: values.name,
+      nameAr: values.nameAr,
+      description: toNullable(values.description),
+      descriptionAr: toNullable(values.descriptionAr),
+      phone: toNullable(values.phone),
+      whatsapp: toNullable(values.whatsapp),
+      workingHours: values.workingHours as Record<string, WorkingHoursDay> | undefined,
+    };
+    saveProfile(payload);
+  };
+
+  // Invalid working hours have no inline slot, so surface them as a toast.
+  const onInvalid = (formErrors: FieldErrors<ShopProfileForm>) => {
+    if (formErrors.workingHours)
+      showMessage({ message: t("validation.invalid_time"), type: "danger", backgroundColor: SEMANTIC.error });
+  };
+
+  return { onSubmit, onInvalid, isPending };
+}
+
 export default function MerchantShopProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const styles = useStyles();
   const colors = useAppColors();
 
@@ -192,36 +325,7 @@ export default function MerchantShopProfileScreen() {
     }
   }, [shop, reset, defaultWorkingHours]);
 
-  const { mutate: saveProfile, isPending } = useMutation({
-    mutationFn: (payload: ShopUpdatePayload) => merchantApi.updateShop(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["merchant-shop"] });
-      showMessage({ message: t("merchant.shop_saved"), type: "success", backgroundColor: SEMANTIC.success });
-      router.back();
-    },
-    onError: () => {
-      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
-    },
-  });
-
-  const onSubmit = (values: ShopProfileForm) => {
-    const payload: ShopUpdatePayload = {
-      name: values.name,
-      nameAr: values.nameAr,
-      description: toNullable(values.description),
-      descriptionAr: toNullable(values.descriptionAr),
-      phone: toNullable(values.phone),
-      whatsapp: toNullable(values.whatsapp),
-      workingHours: values.workingHours as Record<string, WorkingHoursDay> | undefined,
-    };
-    saveProfile(payload);
-  };
-
-  // Invalid working hours have no inline slot, so surface them as a toast.
-  const onInvalid = (formErrors: typeof errors) => {
-    if (formErrors.workingHours)
-      showMessage({ message: t("validation.invalid_time"), type: "danger", backgroundColor: SEMANTIC.error });
-  };
+  const { onSubmit, onInvalid, isPending } = useSaveShopProfile();
 
   if (isError && !shop)
     return <DetailErrorScreen onRetry={() => refetch()} />;
@@ -254,85 +358,7 @@ export default function MerchantShopProfileScreen() {
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
       >
-        {/* Basic Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("merchant.section_basic_info")}</Text>
-
-          <FormField
-            label={t("merchant.field_name_en")}
-            control={control}
-            name="name"
-            error={errors.name?.message}
-            styles={styles}
-            colors={colors}
-          />
-          <FormField
-            label={t("merchant.field_name_ar")}
-            control={control}
-            name="nameAr"
-            error={errors.nameAr?.message}
-            styles={styles}
-            colors={colors}
-            rtl
-          />
-          <FormField
-            label={t("merchant.field_description_en")}
-            control={control}
-            name="description"
-            error={errors.description?.message}
-            styles={styles}
-            colors={colors}
-            multiline
-          />
-          <FormField
-            label={t("merchant.field_description_ar")}
-            control={control}
-            name="descriptionAr"
-            error={errors.descriptionAr?.message}
-            styles={styles}
-            colors={colors}
-            multiline
-            rtl
-          />
-        </View>
-
-        {/* Contact */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("merchant.section_contact")}</Text>
-
-          <FormField
-            label={t("merchant.field_phone")}
-            control={control}
-            name="phone"
-            error={errors.phone?.message}
-            styles={styles}
-            colors={colors}
-            keyboardType="phone-pad"
-          />
-          <FormField
-            label={t("merchant.field_whatsapp")}
-            control={control}
-            name="whatsapp"
-            error={errors.whatsapp?.message}
-            styles={styles}
-            colors={colors}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        {/* Working Hours */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("merchant.section_working_hours")}</Text>
-          {DAYS.map(day => (
-            <WorkingHoursRow
-              key={day}
-              day={day}
-              control={control}
-              styles={styles}
-              colors={colors}
-            />
-          ))}
-        </View>
+        <ProfileSections control={control} errors={errors} styles={styles} colors={colors} />
       </ScrollView>
     </View>
   );

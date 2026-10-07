@@ -77,11 +77,29 @@ function useStyles() {
   }), [colors, gold]);
 }
 
+function useVotePoll(pollId: string) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (optionId: string) => governanceApi.votePoll(pollId, optionId),
+    onSuccess: () => {
+      showMessage({ message: t("governance.vote_submitted"), type: "success" });
+      queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
+      queryClient.invalidateQueries({ queryKey: ["polls"] });
+    },
+    onError: (error) => {
+      showMessage({ message: t(pickErrorKey(error, VOTE_ERROR_KEYS, "common.error")), type: "danger" });
+      // Already voted / expired: refetch so the screen shows the true state.
+      queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
+    },
+  });
+}
+
 export default function PollDetailScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
   const { t, i18n } = useTranslation();
   const { requireAuth } = useAuthGuard();
-  const queryClient = useQueryClient();
   const styles = useStyles();
   const colors = useAppColors();
   const role = useAppSelector(s => s.auth.user?.role);
@@ -98,19 +116,7 @@ export default function PollDetailScreen() {
   // Snapshot taken once on mount: Date.now() is impure and must not run during render.
   const [mountedAt] = React.useState(() => Date.now());
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: (optionId: string) => governanceApi.votePoll(pollId, optionId),
-    onSuccess: () => {
-      showMessage({ message: t("governance.vote_submitted"), type: "success" });
-      queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
-      queryClient.invalidateQueries({ queryKey: ["polls"] });
-    },
-    onError: (error) => {
-      showMessage({ message: t(pickErrorKey(error, VOTE_ERROR_KEYS, "common.error")), type: "danger" });
-      // Already voted / expired: refetch so the screen shows the true state.
-      queryClient.invalidateQueries({ queryKey: ["poll", pollId] });
-    },
-  });
+  const { mutate, isPending } = useVotePoll(pollId);
 
   function handleVote(optionId: string, optionText: string) {
     requireAuth(() => {

@@ -110,24 +110,8 @@ function subscribeSocketConnection(onChange: () => void) {
   };
 }
 
-export default function OrderDetailScreen() {
-  const { orderId } = useLocalSearchParams<{ orderId: string }>();
-  const { t, i18n } = useTranslation();
+function useOrderSocketSync(orderId: string) {
   const queryClient = useQueryClient();
-  const { styles } = useStyles();
-  const isAr = i18n.language === "ar";
-
-  const socketConnected = React.useSyncExternalStore(subscribeSocketConnection, () => getOrdersSocket().connected, () => false);
-
-  const { data, isError, isLoading, refetch } = useQuery({
-    queryKey: ["order", orderId],
-    queryFn: () => ordersApi.getOrder(orderId),
-    enabled: !!orderId,
-    // Fallback only: poll while the socket is down and the order is still active.
-    refetchInterval: query => getOrderPollInterval(query.state.data?.data.data.status, socketConnected),
-  });
-
-  const order = data?.data.data;
 
   // Socket.io real-time status (contract: order:join / order:status_update)
   React.useEffect(() => {
@@ -156,6 +140,37 @@ export default function OrderDetailScreen() {
       socket.off("connect", onConnect);
     };
   }, [orderId, queryClient]);
+}
+
+function formatOrderDate(createdAt: string, isAr: boolean) {
+  return new Date(createdAt).toLocaleString(isAr ? "ar-EG" : "en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function OrderDetailScreen() {
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const { styles } = useStyles();
+  const isAr = i18n.language === "ar";
+
+  const socketConnected = React.useSyncExternalStore(subscribeSocketConnection, () => getOrdersSocket().connected, () => false);
+
+  const { data, isError, isLoading, refetch } = useQuery({
+    queryKey: ["order", orderId],
+    queryFn: () => ordersApi.getOrder(orderId),
+    enabled: !!orderId,
+    // Fallback only: poll while the socket is down and the order is still active.
+    refetchInterval: query => getOrderPollInterval(query.state.data?.data.data.status, socketConnected),
+  });
+
+  const order = data?.data.data;
+
+  useOrderSocketSync(orderId);
 
   const { mutate: cancelOrder, isPending: cancelling } = useMutation({
     mutationFn: () => ordersApi.cancelOrder(orderId),
@@ -198,12 +213,7 @@ export default function OrderDetailScreen() {
 
   const shopName = (isAr ? order.shop?.nameAr : order.shop?.name) ?? t("orders.unknown_shop");
   const accent = getOrderStatusAccent(order.status);
-  const date = new Date(order.createdAt).toLocaleString(isAr ? "ar-EG" : "en-GB", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const date = formatOrderDate(order.createdAt, isAr);
   const deliveryUnit = order.deliveryUnit?.trim();
   const notes = order.notes?.trim();
 
@@ -233,28 +243,7 @@ export default function OrderDetailScreen() {
 
         <OrderItems order={order} isAr={isAr} styles={styles} />
 
-        {(deliveryUnit || notes)
-          ? (
-              <View style={styles.card}>
-                {deliveryUnit
-                  ? (
-                      <View style={styles.infoRow}>
-                        <MapPin size={20} color={BRAND.gold} />
-                        <Text style={styles.infoText}>{t("checkout.unit", { number: deliveryUnit })}</Text>
-                      </View>
-                    )
-                  : null}
-                {notes
-                  ? (
-                      <View style={styles.infoRow}>
-                        <NoteBlank size={20} color={BRAND.gold} />
-                        <Text style={styles.infoText}>{notes}</Text>
-                      </View>
-                    )
-                  : null}
-              </View>
-            )
-          : null}
+        <DeliveryInfo deliveryUnit={deliveryUnit} notes={notes} styles={styles} />
 
         <OrderSummary order={order} styles={styles} />
 
@@ -270,6 +259,32 @@ export default function OrderDetailScreen() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function DeliveryInfo({ deliveryUnit, notes, styles }: { deliveryUnit?: string; notes?: string; styles: Styles }) {
+  const { t } = useTranslation();
+  if (!deliveryUnit && !notes)
+    return null;
+  return (
+    <View style={styles.card}>
+      {deliveryUnit
+        ? (
+            <View style={styles.infoRow}>
+              <MapPin size={20} color={BRAND.gold} />
+              <Text style={styles.infoText}>{t("checkout.unit", { number: deliveryUnit })}</Text>
+            </View>
+          )
+        : null}
+      {notes
+        ? (
+            <View style={styles.infoRow}>
+              <NoteBlank size={20} color={BRAND.gold} />
+              <Text style={styles.infoText}>{notes}</Text>
+            </View>
+          )
+        : null}
+    </View>
+  );
+}
 
 function StatusTimeline({ currentStatus, styles }: { currentStatus: OrderStatus; styles: Styles }) {
   const { t } = useTranslation();

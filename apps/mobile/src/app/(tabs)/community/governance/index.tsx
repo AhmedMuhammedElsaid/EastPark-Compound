@@ -68,13 +68,8 @@ function useStyles() {
   }), [colors, gold]);
 }
 
-export default function GovernanceScreen() {
-  const { t } = useTranslation();
-  const styles = useStyles();
-  const colors = useAppColors();
-  const [tab, setTab] = React.useState<"polls" | "elections">("polls");
-
-  const pollsQuery = useInfiniteQuery<
+function usePollsQuery(enabled: boolean) {
+  return useInfiniteQuery<
     AxiosResponse<{ data: { items: Poll[]; nextCursor: string | null } }>,
     Error,
     { pages: AxiosResponse<{ data: { items: Poll[]; nextCursor: string | null } }>[] },
@@ -85,10 +80,12 @@ export default function GovernanceScreen() {
     queryFn: ({ pageParam }) => governanceApi.getPolls({ cursor: pageParam, limit: 20 }),
     getNextPageParam: last => last.data.data.nextCursor ?? undefined,
     initialPageParam: undefined,
-    enabled: tab === "polls",
+    enabled,
   });
+}
 
-  const electionsQuery = useInfiniteQuery<
+function useElectionsQuery(enabled: boolean) {
+  return useInfiniteQuery<
     AxiosResponse<{ data: { items: Election[]; nextCursor: string | null } }>,
     Error,
     { pages: AxiosResponse<{ data: { items: Election[]; nextCursor: string | null } }>[] },
@@ -99,8 +96,78 @@ export default function GovernanceScreen() {
     queryFn: ({ pageParam }) => governanceApi.getElections({ cursor: pageParam, limit: 20 }),
     getNextPageParam: last => last.data.data.nextCursor ?? undefined,
     initialPageParam: undefined,
-    enabled: tab === "elections",
+    enabled,
   });
+}
+
+type GovernanceListQuery = {
+  isError: boolean;
+  isLoading: boolean;
+  data: unknown;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => unknown;
+  refetch: () => unknown;
+};
+
+type GovernanceListProps<T extends { id: string }> = {
+  query: GovernanceListQuery;
+  items: T[];
+  renderItem: (item: T) => React.ReactElement;
+  emptyKey: "governance.no_polls" | "governance.no_elections";
+  skeletonKeyPrefix: string;
+  styles: ReturnType<typeof useStyles>;
+};
+
+function GovernanceList<T extends { id: string }>({ query, items, renderItem, emptyKey, skeletonKeyPrefix, styles }: GovernanceListProps<T>) {
+  const { t } = useTranslation();
+  const colors = useAppColors();
+
+  if (query.isError && !query.data)
+    return <ErrorState onRetry={() => query.refetch()} />;
+  if (query.isLoading) {
+    return (
+      <View style={styles.loadingPad}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={`${skeletonKeyPrefix}-${i}`} width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.md }} />
+        ))}
+      </View>
+    );
+  }
+  return (
+    <FlashList
+      data={items}
+      keyExtractor={item => item.id}
+      renderItem={({ item }) => renderItem(item)}
+      onEndReached={() => {
+        if (query.hasNextPage && !query.isFetchingNextPage)
+          query.fetchNextPage();
+      }}
+      onEndReachedThreshold={0.5}
+      contentContainerStyle={styles.listContent}
+      ListEmptyComponent={(
+        <View style={styles.empty}>
+          <CheckSquare size={48} color={colors.textMuted} />
+          <Text style={styles.emptyText}>{t(emptyKey)}</Text>
+        </View>
+      )}
+      ListFooterComponent={
+        query.isFetchingNextPage
+          ? <Skeleton width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginTop: SPACING.sm }} />
+          : null
+      }
+    />
+  );
+}
+
+export default function GovernanceScreen() {
+  const { t } = useTranslation();
+  const styles = useStyles();
+  const [tab, setTab] = React.useState<"polls" | "elections">("polls");
+
+  const pollsQuery = usePollsQuery(tab === "polls");
+
+  const electionsQuery = useElectionsQuery(tab === "elections");
 
   const polls = pollsQuery.data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
   const elections = electionsQuery.data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
@@ -127,76 +194,24 @@ export default function GovernanceScreen() {
 
       {tab === "polls"
         ? (
-            pollsQuery.isError && !pollsQuery.data
-              ? <ErrorState onRetry={() => pollsQuery.refetch()} />
-              : pollsQuery.isLoading
-                ? (
-                    <View style={styles.loadingPad}>
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={`gov-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.md }} />
-                      ))}
-                    </View>
-                  )
-                : (
-                    <FlashList
-                      data={polls}
-                      keyExtractor={item => item.id}
-                      renderItem={({ item }) => <PollCard poll={item} styles={styles} />}
-                      onEndReached={() => {
-                        if (pollsQuery.hasNextPage && !pollsQuery.isFetchingNextPage)
-                          pollsQuery.fetchNextPage();
-                      }}
-                      onEndReachedThreshold={0.5}
-                      contentContainerStyle={styles.listContent}
-                      ListEmptyComponent={(
-                        <View style={styles.empty}>
-                          <CheckSquare size={48} color={colors.textMuted} />
-                          <Text style={styles.emptyText}>{t("governance.no_polls")}</Text>
-                        </View>
-                      )}
-                      ListFooterComponent={
-                        pollsQuery.isFetchingNextPage
-                          ? <Skeleton width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginTop: SPACING.sm }} />
-                          : null
-                      }
-                    />
-                  )
+            <GovernanceList
+              query={pollsQuery}
+              items={polls}
+              renderItem={poll => <PollCard poll={poll} styles={styles} />}
+              emptyKey="governance.no_polls"
+              skeletonKeyPrefix="gov-sk"
+              styles={styles}
+            />
           )
         : (
-            electionsQuery.isError && !electionsQuery.data
-              ? <ErrorState onRetry={() => electionsQuery.refetch()} />
-              : electionsQuery.isLoading
-                ? (
-                    <View style={styles.loadingPad}>
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={`gov-el-sk-${i}`} width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.md }} />
-                      ))}
-                    </View>
-                  )
-                : (
-                    <FlashList
-                      data={elections}
-                      keyExtractor={item => item.id}
-                      renderItem={({ item }) => <ElectionCard election={item} styles={styles} />}
-                      onEndReached={() => {
-                        if (electionsQuery.hasNextPage && !electionsQuery.isFetchingNextPage)
-                          electionsQuery.fetchNextPage();
-                      }}
-                      onEndReachedThreshold={0.5}
-                      contentContainerStyle={styles.listContent}
-                      ListEmptyComponent={(
-                        <View style={styles.empty}>
-                          <CheckSquare size={48} color={colors.textMuted} />
-                          <Text style={styles.emptyText}>{t("governance.no_elections")}</Text>
-                        </View>
-                      )}
-                      ListFooterComponent={
-                        electionsQuery.isFetchingNextPage
-                          ? <Skeleton width="100%" height={96} borderRadius={RADIUS.lg} style={{ marginTop: SPACING.sm }} />
-                          : null
-                      }
-                    />
-                  )
+            <GovernanceList
+              query={electionsQuery}
+              items={elections}
+              renderItem={election => <ElectionCard election={election} styles={styles} />}
+              emptyKey="governance.no_elections"
+              skeletonKeyPrefix="gov-el-sk"
+              styles={styles}
+            />
           )}
     </View>
   );
