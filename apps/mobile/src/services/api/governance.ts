@@ -151,6 +151,15 @@ export type PollCreatePayload = {
   expiresAt: string;
 };
 
+/** `CandidateCreateDto` — leave optional keys out rather than sending "" (`@IsUrl` rejects ""). */
+export type CandidateCreatePayload = {
+  name: string;
+  nameAr: string;
+  statement?: string;
+  statementAr?: string;
+  photoUrl?: string;
+};
+
 export const governanceApi = {
   // Polls
   getPolls: async (params?: { cursor?: string; limit?: number }) =>
@@ -189,4 +198,7 @@ export const governanceApi = {
     expiresAt: string;
     visibilityMode: ElectionVisibilityMode;
   }) => client.post<{ data: ElectionResponse }>("/elections", data),
+
+  addCandidate: (electionId: string, data: CandidateCreatePayload) =>
+    client.post<{ data: CandidateResponse }>(`/elections/${encodeURIComponent(electionId)}/candidates`, data),
 };

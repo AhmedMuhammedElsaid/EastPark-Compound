@@ -1,4 +1,4 @@
-import type { ElectionVisibilityMode, PollCreatePayload } from "@/services/api/governance";
+import type { CandidateCreatePayload, ElectionVisibilityMode, PollCreatePayload } from "@/services/api/governance";
 import { toExpiryIso } from "@/lib/expiry-date";
 
 /** Trimmed text, or undefined when blank (so the key is left out of the JSON). */
@@ -54,5 +54,30 @@ export function buildElectionPayload(values: ElectionFormValues): ElectionCreate
     payload.description = description;
   if (descriptionAr)
     payload.descriptionAr = descriptionAr;
+  return payload;
+}
+
+export type CandidateFormValues = {
+  name: string;
+  nameAr: string;
+  statement?: string;
+  statementAr?: string;
+};
+
+/** Blank optional fields are omitted; `photoUrl` comes from the upload, never typed. */
+export function buildCandidatePayload(values: CandidateFormValues, photoUrl?: string | null): CandidateCreatePayload {
+  const payload: CandidateCreatePayload = {
+    name: values.name.trim(),
+    nameAr: values.nameAr.trim(),
+  };
+  const statement = optionalText(values.statement);
+  const statementAr = optionalText(values.statementAr);
+  const photo = optionalText(photoUrl ?? undefined);
+  if (statement)
+    payload.statement = statement;
+  if (statementAr)
+    payload.statementAr = statementAr;
+  if (photo)
+    payload.photoUrl = photo;
   return payload;
 }

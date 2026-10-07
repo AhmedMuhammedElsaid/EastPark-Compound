@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { CaretRight, ChartBar, EnvelopeSimple, Megaphone, Trophy, UsersThree } from "phosphor-react-native";
+import { CaretRight, ChartBar, EnvelopeSimple, Megaphone, Trophy, UserList, UsersThree } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -52,6 +52,7 @@ export default function AdminDashboard() {
     { labelKey: "admin.new_announcement", icon: <Megaphone size={20} color={gold} />, route: "/(admin)/announcements/new" },
     { labelKey: "admin.new_poll", icon: <ChartBar size={20} color={gold} />, route: "/(admin)/polls/new" },
     { labelKey: "admin.new_election", icon: <Trophy size={20} color={gold} />, route: "/(admin)/elections/new" },
+    { labelKey: "admin.manage_elections", icon: <UserList size={20} color={gold} />, route: "/(admin)/elections" },
   ];
 
   return (

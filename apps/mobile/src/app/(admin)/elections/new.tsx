@@ -67,10 +67,15 @@ export default function NewElectionScreen() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: FormValues) => governanceApi.createElection(buildElectionPayload(data)),
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["elections"] });
       showMessage({ message: t("admin.election_created"), type: "success", backgroundColor: SEMANTIC.success });
-      router.back();
+      // Residents see the election straight away, so go straight on to its candidates.
+      const id = res.data.data?.id;
+      if (id)
+        router.replace(`/(admin)/elections/${id}/candidates`);
+      else
+        router.back();
     },
     onError: () => {
       showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
