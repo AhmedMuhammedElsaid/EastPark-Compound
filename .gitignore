@@ -12,3 +12,6 @@ node_modules/
 # Obsolete pre-migration directories; canonical applications live under apps/.
 eastpark-backend/
 eastpark-web-app/
+
+# Local secrets (Render/Vercel tokens, prod DB URL) — never commit or upload to EAS
+/.env
