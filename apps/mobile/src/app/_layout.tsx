@@ -22,7 +22,7 @@ import { useThemeConfig } from "@/components/ui/use-theme-config";
 import { useAuthRehydration } from "@/lib/hooks/use-auth-rehydration";
 import { usePushTokenRefresh } from "@/lib/hooks/use-push-token-refresh";
 import { loadSelectedTheme } from "@/lib/hooks/use-selected-theme";
-import i18n from "@/lib/i18n";
+import i18n, { consumePostLanguageRestart, POST_LANGUAGE_ROUTE } from "@/lib/i18n";
 import { ensureLayoutDirection } from "@/lib/i18n/layout-direction";
 import { injectStore, setSessionExpiredHandler, warmUpServer } from "@/services/api/client";
 import { teardownSession } from "@/services/auth/session";
@@ -111,6 +111,20 @@ function Providers({ children }: { children: React.ReactNode }) {
       i18n.changeLanguage(savedLanguage);
     ensureLayoutDirection(savedLanguage);
   }, [savedLanguage]);
+
+  // After a language-switch restart, land back on Profile (where the switch was made).
+  React.useEffect(() => {
+    consumePostLanguageRestart().then((restarted) => {
+      if (!restarted)
+        return;
+      try {
+        router.replace(POST_LANGUAGE_ROUTE as Href);
+      }
+      catch {
+        // Navigation not ready: the default (tabs) home is an acceptable landing too.
+      }
+    });
+  }, [router]);
 
   // Navigate to the relevant screen when user taps a push notification.
   React.useEffect(() => {

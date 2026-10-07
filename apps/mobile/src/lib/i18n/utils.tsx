@@ -1,6 +1,7 @@
 import type TranslateOptions from "i18next";
 import type { Language, resources } from "./resources";
 import type { RecursiveKeyOf } from "./types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
 import memoize from "lodash.memoize";
 import { useCallback } from "react";
@@ -24,6 +25,23 @@ export const translate = memoize(
     options ? key + JSON.stringify(options) : key,
 );
 
+/** Route to open once after the language restart (the restart must not drop a super admin into the admin portal). */
+export const POST_LANGUAGE_ROUTE_KEY = "eastpark_post_language_route";
+export const POST_LANGUAGE_ROUTE = "/(tabs)/profile";
+
+/** Returns true (once) when the app was just restarted by a language switch. */
+export async function consumePostLanguageRestart(): Promise<boolean> {
+  try {
+    const pending = (await AsyncStorage.getItem(POST_LANGUAGE_ROUTE_KEY)) === POST_LANGUAGE_ROUTE;
+    if (pending)
+      await AsyncStorage.removeItem(POST_LANGUAGE_ROUTE_KEY);
+    return pending;
+  }
+  catch {
+    return false;
+  }
+}
+
 export async function changeLanguage(lang: Language) {
   i18n.changeLanguage(lang);
   store.dispatch(setLanguageAction(lang));
@@ -31,6 +49,7 @@ export async function changeLanguage(lang: Language) {
   // AsyncStorage write is async. Without flush() the reload races the write and the
   // language reverts to the old value on the next boot.
   await persistor.flush();
+  await AsyncStorage.setItem(POST_LANGUAGE_ROUTE_KEY, POST_LANGUAGE_ROUTE).catch(() => {});
   I18nManager.allowRTL(lang === "ar");
   I18nManager.forceRTL(lang === "ar");
   reloadApp();

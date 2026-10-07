@@ -376,8 +376,14 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
             key={lang}
             style={({ pressed }) => [styles.segment, language === lang && styles.segmentActive, pressed && { opacity: 0.85 }]}
             onPress={() => {
+              if (lang === language)
+                return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setLanguage(lang);
+              // The switch restarts the app: ask first.
+              Alert.alert(t("profile.language_restart_title"), t("profile.language_restart_body"), [
+                { text: t("common.cancel"), style: "cancel" },
+                { text: t("profile.language_restart_confirm"), onPress: () => setLanguage(lang) },
+              ]);
             }}
             accessibilityRole="radio"
             accessibilityLabel={lang === "en" ? t("profile.english") : t("profile.arabic")}
