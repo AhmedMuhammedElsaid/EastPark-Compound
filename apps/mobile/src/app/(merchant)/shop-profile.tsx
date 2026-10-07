@@ -25,6 +25,7 @@ import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toNullable } from "@/lib/utils";
 import { merchantApi } from "@/services/api/merchant";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -49,8 +50,8 @@ const shopProfileSchema = z.object({
   nameAr: z.string().min(2, "validation.min_2"),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  phone: z.string().optional(),
-  whatsapp: z.string().optional(),
+  phone: z.string().refine(isValidPhone, "validation.invalid_phone").optional(),
+  whatsapp: z.string().refine(isValidPhone, "validation.invalid_phone").optional(),
   workingHours: z.record(z.string(), workingHoursDaySchema).optional(),
 });
 
@@ -254,8 +255,8 @@ function useSaveShopProfile() {
       nameAr: values.nameAr,
       description: toNullable(values.description),
       descriptionAr: toNullable(values.descriptionAr),
-      phone: toNullable(values.phone),
-      whatsapp: toNullable(values.whatsapp),
+      phone: toNullable(normalizePhone(values.phone)),
+      whatsapp: toNullable(normalizePhone(values.whatsapp)),
       workingHours: values.workingHours as Record<string, WorkingHoursDay> | undefined,
     };
     saveProfile(payload);

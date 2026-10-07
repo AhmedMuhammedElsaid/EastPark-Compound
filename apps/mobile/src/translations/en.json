@@ -485,6 +485,7 @@
   },
   "validation": {
     "invalid_date": "Enter the date as YYYY-MM-DD",
+    "invalid_phone": "Enter a phone number such as +20 10 1234 5678 or 01012345678",
     "invalid_price": "Enter a price greater than zero",
     "invalid_time": "Use the HH:MM format, for example 09:00",
     "invalid_url": "Enter a valid link starting with https://",
