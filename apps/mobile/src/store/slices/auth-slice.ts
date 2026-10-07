@@ -2,6 +2,16 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 
 import { createSlice } from "@reduxjs/toolkit";
 
+export type ResidentUnit = {
+  id: string;
+  building: string;
+  floor: string;
+  flatNumber: string;
+  /** `${building}-${floor}-${flatNumber}` */
+  label: string;
+  createdAt: string;
+};
+
 export type AuthUser = {
   id: string;
   name: string;
@@ -9,9 +19,23 @@ export type AuthUser = {
   role: "RESIDENT" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
   isVerified: boolean;
   avatarUrl: string | null;
-  unitNumber?: string;
+  /** Primary flat label (legacy single-flat field; kept by the backend). */
+  unitNumber?: string | null;
+  /** Owned flats. Only `GET /user/profile` returns it; absent on older backends. */
+  units?: ResidentUnit[];
   phone?: string;
 };
+
+/**
+ * Replace the stored user with one from a response that may lack `units`
+ * (login, PUT /user, accept-invitation): keep the previous flats, but only
+ * when it is the same account.
+ */
+export function mergeUserKeepingUnits(prev: AuthUser | null | undefined, next: AuthUser): AuthUser {
+  if (next.units !== undefined || !prev || prev.id !== next.id || prev.units === undefined)
+    return next;
+  return { ...next, units: prev.units };
+}
 
 type AuthWallConfig = {
   redirectAction?: string;
@@ -53,7 +77,7 @@ export const authSlice = createSlice({
         refreshToken: string;
       }>,
     ) {
-      state.user = action.payload.user;
+      state.user = mergeUserKeepingUnits(state.user, action.payload.user);
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
