@@ -40,4 +40,6 @@ EXPOSE 10000
 # Run migrations then start server.
 # `exec` replaces the shell so Node becomes PID 1 and receives SIGTERM —
 # without it the shell swallows the signal and graceful shutdown never runs.
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && exec node dist/main"]
+# Call the prisma binary directly: `pnpm exec` as the `node` user makes Corepack re-download pnpm
+# on every boot, which slowed Render cold starts past the web login timeout.
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/main"]
