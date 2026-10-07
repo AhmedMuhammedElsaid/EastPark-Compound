@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useOriginBack } from "@/lib/hooks/use-origin-back";
 import { communityApi } from "@/services/api/community";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -80,6 +81,7 @@ function useStyles() {
 
 export default function FeedbackListScreen() {
   const { t } = useTranslation();
+  const onBack = useOriginBack();
   const styles = useStyles();
   const colors = useAppColors();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
@@ -105,6 +107,7 @@ export default function FeedbackListScreen() {
     <View style={styles.container}>
       <ScreenHeader
         title={t("feedback.title")}
+        onBack={onBack}
         right={(
           <Pressable
             style={({ pressed }) => [styles.newBtn, pressed && styles.rowPressed]}

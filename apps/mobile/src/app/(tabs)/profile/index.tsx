@@ -347,7 +347,7 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
       <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
-      <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback")} styles={styles} colors={colors} />
+      <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
       {role === "RESIDENT" && (
         <ProfileRow icon={<BookmarkSimple size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/profile/saved-shops")} styles={styles} colors={colors} />

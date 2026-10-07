@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useOriginBack } from "@/lib/hooks/use-origin-back";
 import { openDocument } from "@/lib/utils";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
@@ -55,6 +56,7 @@ function useStyles() {
 
 export default function ReportsScreen() {
   const { t, i18n } = useTranslation();
+  const onBack = useOriginBack();
   const styles = useStyles();
   const colors = useAppColors();
   const isAr = i18n.language === "ar";
@@ -77,7 +79,7 @@ export default function ReportsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title={t("community.reports")} />
+      <ScreenHeader title={t("community.reports")} onBack={onBack} />
 
       {isError && !data
         ? <ErrorState onRetry={() => refetch()} />

@@ -208,10 +208,10 @@ const QUICK_ACTIONS: Array<{
 }> = [
   { renderIcon: color => <Storefront size={24} color={color} />, labelKey: "home.shops", route: "/(tabs)/directory" },
   { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community" },
-  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance", authRequired: false },
+  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false },
   { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders", authRequired: true },
-  { renderIcon: color => <ChatCircle size={24} color={color} />, labelKey: "home.feedback", route: "/(tabs)/community/feedback", authRequired: true },
-  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports" },
+  { renderIcon: color => <ChatCircle size={24} color={color} />, labelKey: "home.feedback", route: "/(tabs)/community/feedback?from=home", authRequired: true },
+  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports?from=home" },
 ];
 
 function QuickActionsGrid({ requireAuthNavigation, colors }: { requireAuthNavigation: (href: string) => void; colors: any }) {

@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useOriginBack } from "@/lib/hooks/use-origin-back";
 import { governanceApi } from "@/services/api/governance";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
@@ -162,6 +163,7 @@ function GovernanceList<T extends { id: string }>({ query, items, renderItem, em
 
 export default function GovernanceScreen() {
   const { t } = useTranslation();
+  const onBack = useOriginBack();
   const styles = useStyles();
   const [tab, setTab] = React.useState<"polls" | "elections">("polls");
 
@@ -174,7 +176,7 @@ export default function GovernanceScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title={t("governance.title")} />
+      <ScreenHeader title={t("governance.title")} onBack={onBack} />
 
       <View style={styles.tabBar}>
         {(["polls", "elections"] as const).map(key => (
