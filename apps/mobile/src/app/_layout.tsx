@@ -12,6 +12,7 @@ import { SystemBars } from "react-native-edge-to-edge";
 import FlashMessage from "react-native-flash-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { AuthWallSheet } from "@/components/auth/auth-wall-sheet";
@@ -87,6 +88,8 @@ export default function RootLayout() {
 function Providers({ children }: { children: React.ReactNode }) {
   useAuthRehydration();
   const theme = useThemeConfig();
+  // Edge-to-edge: toasts must start below the status bar, not under its clock and icons.
+  const { top: statusBarInset } = useSafeAreaInsets();
   const savedLanguage = useAppSelector(s => s.preferences.language);
   const router = useRouter();
 
@@ -140,7 +143,7 @@ function Providers({ children }: { children: React.ReactNode }) {
             {children}
             <AuthWallSheet />
             <CartConflictSheet />
-            <FlashMessage position="top" />
+            <FlashMessage position="top" statusBarHeight={statusBarInset} />
           </BottomSheetModalProvider>
         </ThemeProvider>
       </KeyboardProvider>
