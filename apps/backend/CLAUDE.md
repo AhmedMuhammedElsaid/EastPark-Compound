@@ -129,8 +129,8 @@ All reference files live in `Documentation/` — read these before exploring the
 - Public `POST /v1/support/issues` is throttled to 3 requests/minute, validates the submission, and
   uses the resident's email as Reply-To. Focused support service tests pass. The web support form is
   still pending.
-- Root `.github/workflows/keep-render-awake.yml` schedules a health ping every 10 minutes to reduce
-  free-tier cold starts. Login also performs a best-effort web BFF warm-up.
+- An external UptimeRobot monitor pings `/health` every 5 minutes to prevent free-tier sleep (the
+  GitHub Actions keep-alive cron was removed 2026-10-07: it only fired every 4-6 hours). Login also performs a best-effort web BFF warm-up.
 
 ### Render migration prepared — 2026-09-30
 

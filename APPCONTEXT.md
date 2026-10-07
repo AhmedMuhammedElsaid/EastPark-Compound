@@ -53,8 +53,8 @@ cookies, SMTP values, storage keys, or signed URLs in commands, logs, documentat
   `eastpark.eg@gmail.com`. Keep `info@benayat-eg.com` as the public company contact.
 - Backend support delivery is available at throttled public `POST /v1/support/issues`. The matching
   web support page, BFF, form, and footer link remain pending.
-- Render availability protection is committed: `.github/workflows/keep-render-awake.yml` pings
-  `/health` every 10 minutes, and the login page performs a best-effort BFF warm-up. Auth proxy and
+- Render availability protection: an external UptimeRobot monitor pings `/health` every 5 minutes
+  (the GitHub Actions cron it replaced only fired every 4-6 hours, so it was removed 2026-10-07), and the login page performs a best-effort BFF warm-up. Auth proxy and
   client timeouts are coordinated at 25 and 30 seconds. Production warm-up returns HTTP 204.
 - Password visibility controls are accessible eye/eye-off icon buttons across login, registration,
   reset, and invitation flows.
