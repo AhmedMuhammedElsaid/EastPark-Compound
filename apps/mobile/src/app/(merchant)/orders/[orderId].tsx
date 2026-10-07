@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -179,9 +179,19 @@ export default function MerchantOrderDetailScreen() {
               if (nextStatus)
                 updateStatus(nextStatus);
             }}
-            onReject={() => rejectOrder()}
-            isPending={isPending}
-            isRejecting={rejecting}
+            onReject={() => {
+              const isReject = order.status === "PLACED";
+              Alert.alert(
+                t(isReject ? "merchant.reject" : "orders.cancel_order"),
+                t(isReject ? "merchant.confirm_reject" : "merchant.confirm_cancel_order"),
+                [
+                  { text: t("common.cancel"), style: "cancel" },
+                  { text: t(isReject ? "merchant.reject" : "orders.cancel_order"), style: "destructive", onPress: () => rejectOrder() },
+                ],
+              );
+            }}
+            isPending={isPending || rejecting}
+            isRejecting={rejecting || isPending}
             styles={styles}
           />
         )}

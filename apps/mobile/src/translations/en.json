@@ -372,7 +372,9 @@
     "advance_to_ON_THE_WAY": "Out for delivery",
     "advance_to_PREPARING": "Start preparing",
     "advance_to_READY": "Mark ready",
+    "confirm_cancel_order": "The resident will be notified and this cannot be undone. Cancel this order?",
     "confirm_delete": "Are you sure you want to delete this?",
+    "confirm_reject": "The resident will be notified and this cannot be undone. Reject this order?",
     "dashboard": "Dashboard",
     "days": {
       "fri": "Fri",

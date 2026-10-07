@@ -372,7 +372,9 @@
     "advance_to_ON_THE_WAY": "خرج للتوصيل",
     "advance_to_PREPARING": "بدء التحضير",
     "advance_to_READY": "جاهز",
+    "confirm_cancel_order": "سيتم إشعار الساكن ولا يمكن التراجع عن ذلك. هل تريد إلغاء هذا الطلب؟",
     "confirm_delete": "هل أنت متأكد من الحذف؟",
+    "confirm_reject": "سيتم إشعار الساكن ولا يمكن التراجع عن ذلك. هل تريد رفض هذا الطلب؟",
     "dashboard": "لوحة التحكم",
     "days": {
       "fri": "جمع",
