@@ -53,10 +53,24 @@ WHERE l."status" = 'CONVERTED'
 ORDER BY l."updatedAt" ASC, l."id" ASC
 ON CONFLICT DO NOTHING;
 
+-- Primary flat: accounts without a unitNumber get their oldest flat's label.
+-- Accounts that already have one keep it.
+UPDATE "users" u
+SET "unitNumber" = first_unit."label"
+FROM (
+    SELECT DISTINCT ON (ru."userId")
+        ru."userId",
+        ru."building" || '-' || ru."floor" || '-' || ru."flatNumber" AS "label"
+    FROM "resident_units" ru
+    ORDER BY ru."userId", ru."createdAt" ASC, ru."id" ASC
+) AS first_unit
+WHERE u."id" = first_unit."userId"
+  AND u."unitNumber" IS NULL;
+
 -- Recreate the active-application guard (same name) for PENDING/INVITED only,
 -- AFTER the backfill. Prisma cannot model partial indexes — never let a
 -- generated diff drop this index (see the WARNING above ResidentLead).
-DROP INDEX "resident_leads_active_unit_key";
+DROP INDEX IF EXISTS "resident_leads_active_unit_key";
 
 CREATE UNIQUE INDEX "resident_leads_active_unit_key"
 ON "resident_leads"("building", "floor", "flatNumber")

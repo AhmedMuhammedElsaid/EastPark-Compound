@@ -314,16 +314,9 @@ export class AuthService {
                 );
         }
 
-        // Every INVITED lead for this email becomes a flat of the account
-        // (one person can register several flats). Oldest first: the oldest
-        // attached flat is the primary when the account has none yet.
-        // PENDING leads are not attached (not approved yet).
         const leads =
             invitation.role === Role.RESIDENT
-                ? await this.db.residentLead.findMany({
-                      where: { email, status: ResidentLeadStatus.INVITED },
-                      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-                  })
+                ? await this.findInvitationLeads(email)
                 : [];
         const primaryLead = leads[0];
         // Phone: the newest registration, as before.
@@ -409,6 +402,26 @@ export class AuthService {
         });
 
         return this.buildAuthResponse(user);
+    }
+
+    /**
+     * Leads a RESIDENT invitation attaches. Every INVITED lead for the email
+     * (one person can register several flats), oldest first: the oldest is the
+     * primary when the account has none yet. With no INVITED lead (e.g. an
+     * admin's manual RESIDENT invitation), the newest PENDING lead, as before.
+     */
+    private async findInvitationLeads(email: string): Promise<ResidentLead[]> {
+        const invited = await this.db.residentLead.findMany({
+            where: { email, status: ResidentLeadStatus.INVITED },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        });
+        if (invited.length > 0) return invited;
+
+        const pending = await this.db.residentLead.findFirst({
+            where: { email, status: ResidentLeadStatus.PENDING },
+            orderBy: { createdAt: 'desc' },
+        });
+        return pending ? [pending] : [];
     }
 
     // ── Push Token ────────────────────────────────────────────────────────────

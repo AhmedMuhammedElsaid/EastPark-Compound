@@ -913,6 +913,82 @@ describe('AuthService', () => {
             expect(db.residentUnit.create).not.toHaveBeenCalled();
         });
 
+        it('no INVITED lead: falls back to the newest PENDING lead (manual RESIDENT invitation)', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(null);
+            db.residentLead.findMany.mockResolvedValue([]);
+            db.residentLead.findFirst.mockResolvedValue({
+                id: 'lead-p',
+                phone: '01000400333',
+                building: 'C1',
+                floor: '4',
+                flatNumber: '1',
+            });
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(mockUser({ id: 'user-9' }));
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Resident',
+                password: 'Pass123!',
+            });
+
+            expect(db.residentLead.findFirst).toHaveBeenCalledWith({
+                where: { email: validInvitation.email, status: 'PENDING' },
+                orderBy: { createdAt: 'desc' },
+            });
+            expect(db.user.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    phone: '01000400333',
+                    unitNumber: 'C1-4-1',
+                }),
+            });
+            expect(db.residentUnit.create).toHaveBeenCalledWith({
+                data: {
+                    userId: 'user-9',
+                    building: 'C1',
+                    floor: '4',
+                    flatNumber: '1',
+                    leadId: 'lead-p',
+                },
+            });
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-p' },
+                data: { userId: 'user-9', status: 'CONVERTED' },
+            });
+        });
+
+        it('INVITED leads present: PENDING leads are never looked up', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(null);
+            db.residentLead.findMany.mockResolvedValue([
+                {
+                    id: 'lead-i',
+                    phone: '01000400111',
+                    building: 'A1',
+                    floor: '3',
+                    flatNumber: '2',
+                },
+            ]);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(mockUser({ id: 'user-9' }));
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Resident',
+                password: 'Pass123!',
+            });
+
+            expect(db.residentLead.findFirst).not.toHaveBeenCalled();
+            expect(db.residentUnit.create).toHaveBeenCalledTimes(1);
+        });
+
         it('attaches EVERY INVITED lead: one flat each, all CONVERTED, primary = oldest, phone = newest', async () => {
             db.invitation.findUnique.mockResolvedValue({
                 ...validInvitation,

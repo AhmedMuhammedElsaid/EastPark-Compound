@@ -28,7 +28,7 @@ All reference files live in `Documentation/` — read these before exploring the
   row (audit keeps history; not in the recycle bin). Label everywhere = `${building}-${floor}-${flatNumber}`
   (`src/common/helper/utils/unit-label.ts`). `User.unitNumber` stays the PRIMARY flat (old mobile builds).
 - Migration `20261007100000_resident_units`: table + RLS + backfill from CONVERTED leads (`id = 'ru_' || lead.id`),
-  then recreates `resident_leads_active_unit_key` as `WHERE status IN ('PENDING','INVITED')`. Reservation is now
+  sets a NULL `users.unitNumber` to the oldest backfilled flat's label (existing values kept), then recreates `resident_leads_active_unit_key` as `WHERE status IN ('PENDING','INVITED')`. Reservation is now
   split: active application = PENDING/INVITED lead (partial index); owned flat = `resident_units` row.
   Every unit-reservation lookup uses `status: { in: ACTIVE_LEAD_STATUSES }` plus an ownership check.
 - API: `GET /v1/user/profile` and `GET /v1/admin/user` items add `units: ResidentUnitDto[]` (oldest first,
@@ -43,13 +43,17 @@ All reference files live in `Documentation/` — read these before exploring the
   `unit.error.alreadyOwned` when another account owns the flat (web `leadErrorKey` maps every invite 409 to
   `unit_reserved` unless it reads `code`); invite of an existing account adds the flat + emails (idempotent);
   accept-invitation attaches EVERY `INVITED` lead for the invitation email in its transaction (one flat per
-  lead, each lead CONVERTED; PENDING leads are not attached; primary = oldest attached flat when unitNumber was
+  lead, each lead CONVERTED; with no INVITED lead it falls back to the newest PENDING lead, so a manual RESIDENT
+  invitation still copies phone + flat; primary = oldest attached flat when unitNumber was
   null; any flat P2002 → 409 `unit.error.alreadyOwned` and full rollback). Approving a CONVERTED lead again is a
   no-op (`alreadyRegistered`), so a removed flat is never re-created.
 - `PUT /v1/user` `unitNumber` only chooses the PRIMARY flat: unchanged (trimmed; ''/null = none) → 200 with no
   write (old mobile builds resend the whole form); one of the caller's flat labels → stored; anything else,
   including clearing it while flats are owned, → 400 `user.error.unitNotOwned`. Legacy accounts (no flats) can
   only resend the unchanged value.
+- Order responses (`toOrderResponse`: REST + merchant module; sockets only carry status) set
+  `resident.unitNumber = order.deliveryUnit`, so merchants see the delivery flat, not the primary.
+- `ResidentLeadCreateDto.building` is trimmed (also the admin add-flat DTO via `PickType`): "A1 " = "A1".
   Service: `src/modules/units/resident-units.service.ts`; tests `test/modules/resident-units.spec.ts`.
 
 ### RLS lockdown — 2026-10-07

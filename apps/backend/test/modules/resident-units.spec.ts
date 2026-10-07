@@ -11,9 +11,11 @@ import { validate } from 'class-validator';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { EmailService } from 'src/common/email/email.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { OrdersService } from 'src/modules/orders/orders.service';
+import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
 import { ResidentUnitCreateDto } from 'src/modules/units/dtos/resident-unit.dto';
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { UserGetProfileResponseDto } from 'src/modules/user/dtos/response/user.response';
@@ -338,6 +340,25 @@ describe('ResidentUnitCreateDto', () => {
         await expect(
             errorsFor({ building: 'B2', floor: 'G', flatNumber: '5' })
         ).resolves.toEqual([]);
+    });
+
+    it('trims building, so "A1 " and "A1" are the same flat (same unique key)', () => {
+        const padded = plainToInstance(ResidentUnitCreateDto, {
+            ...flat,
+            building: ' A1 ',
+        });
+        expect(padded.building).toBe('A1');
+        expect(formatUnitLabel(padded)).toBe(formatUnitLabel(flat));
+        const lead = plainToInstance(ResidentLeadCreateDto, {
+            building: 'A1 ',
+        });
+        expect(lead.building).toBe('A1');
+    });
+
+    it('a whitespace-only building is empty after trimming', async () => {
+        await expect(errorsFor({ ...flat, building: '   ' })).resolves.toEqual([
+            'building',
+        ]);
     });
 
     it('rejects spellings the lead form rejects', async () => {

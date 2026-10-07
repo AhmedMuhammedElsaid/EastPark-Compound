@@ -46,7 +46,12 @@ export class ResidentLeadCreateDto {
     })
     phone: string;
 
+    // Trimmed so "A1 " and "A1" are the same flat for every unique key
+    // (also the admin add-flat DTO, which picks this field).
     @ApiProperty({ example: 'Building A' })
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim() : value
+    )
     @IsString()
     @IsNotEmpty()
     building: string;

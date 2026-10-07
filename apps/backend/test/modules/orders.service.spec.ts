@@ -325,6 +325,7 @@ describe('OrdersService', () => {
         it('returns numeric money, lineTotal, shop and resident summary', () => {
             const response = toOrderResponse({
                 ...(mockOrder() as never),
+                deliveryUnit: 'A1-3-2',
                 totalAmount: new Prisma.Decimal('31.50'),
                 items: [
                     {
@@ -350,12 +351,32 @@ describe('OrdersService', () => {
                 name: 'Cafe',
                 nameAr: 'كافيه',
             });
+            // The delivery flat, not the resident's primary flat ('B2').
             expect(response.resident).toEqual({
                 id: 'resident-1',
                 name: 'Ali',
-                unitNumber: 'B2',
+                unitNumber: 'A1-3-2',
             });
             expect(JSON.parse(JSON.stringify(response)).totalAmount).toBe(31.5);
+        });
+
+        it('merchants see the delivery flat as resident.unitNumber (multi-flat owners)', async () => {
+            db.order.findUnique.mockResolvedValue(
+                mockOrder({
+                    deliveryUnit: 'B2-G-5',
+                    resident: {
+                        id: 'resident-1',
+                        name: 'Ali',
+                        unitNumber: 'A1-3-2',
+                    },
+                })
+            );
+            db.shop.findUnique.mockResolvedValue({ merchantId: 'merchant-1' });
+
+            const response = await service.findOne('order-1', merchantActor);
+
+            expect(response.deliveryUnit).toBe('B2-G-5');
+            expect(response.resident?.unitNumber).toBe('B2-G-5');
         });
 
         it('includes only id/name/unitNumber of the resident for merchants', async () => {

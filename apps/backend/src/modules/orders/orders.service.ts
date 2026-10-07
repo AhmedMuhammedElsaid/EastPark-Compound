@@ -110,7 +110,10 @@ function orderInclude(actor: IAuthUser) {
     } satisfies Prisma.OrderInclude;
 }
 
-/** Prisma row → API shape. Money leaves the service as plain numbers. */
+/**
+ * Prisma row → API shape. Money leaves the service as plain numbers. Every
+ * order response (REST, merchant module) goes through here.
+ */
 export function toOrderResponse(order: OrderRow): OrderResponseDto {
     const { items, resident, ...rest } = order;
     return {
@@ -123,7 +126,12 @@ export function toOrderResponse(order: OrderRow): OrderResponseDto {
                 toDecimal(item.unitPrice).mul(item.quantity)
             ),
         })),
-        ...(resident ? { resident } : {}),
+        // Merchants must see the flat the order goes to, not the resident's
+        // primary flat. `resident.unitNumber` is kept (= deliveryUnit) because
+        // old merchant builds read `resident?.unitNumber ?? deliveryUnit`.
+        ...(resident
+            ? { resident: { ...resident, unitNumber: order.deliveryUnit } }
+            : {}),
     };
 }
 
