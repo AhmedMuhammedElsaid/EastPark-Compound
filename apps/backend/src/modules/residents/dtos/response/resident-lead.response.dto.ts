@@ -18,6 +18,11 @@ export class ResidentLeadResponseDto {
     @ApiProperty({ enum: ResidentLeadStatus }) status: ResidentLeadStatus;
     @ApiPropertyOptional() notes?: string | null;
     @ApiPropertyOptional() userId?: string | null;
+    @ApiPropertyOptional({
+        description:
+            'Admin list only: a live account already uses this email, so approving adds the flat to it (no invitation).',
+    })
+    hasAccount?: boolean;
     @ApiProperty() createdAt: Date;
     @ApiProperty() updatedAt: Date;
 }

@@ -133,7 +133,24 @@ export class ResidentsService {
 
         const { items, nextCursor } = toCursorPage(rows, limit);
 
-        return { items, nextCursor };
+        // `hasAccount`: approving this lead adds the flat to an existing live
+        // account instead of emailing an invitation (same lookup as `invite`).
+        const emails = [...new Set(items.map(lead => lead.email))];
+        const accounts = emails.length
+            ? await this.db.user.findMany({
+                  where: { email: { in: emails }, deletedAt: null },
+                  select: { email: true },
+              })
+            : [];
+        const withAccount = new Set(accounts.map(user => user.email));
+
+        return {
+            items: items.map(lead => ({
+                ...lead,
+                hasAccount: withAccount.has(lead.email),
+            })),
+            nextCursor,
+        };
     }
 
     /** Lead counts per status (zero-filled) plus the overall total. */

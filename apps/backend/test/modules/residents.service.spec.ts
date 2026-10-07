@@ -65,6 +65,7 @@ const db = {
     },
     user: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
         updateMany: jest.fn(),
     },
     residentUnit: {
@@ -97,6 +98,7 @@ describe('ResidentsService', () => {
         // Defaults: the flat has no owner; interactive transactions run on the mocks.
         residentUnits.findOwner.mockResolvedValue(null);
         residentUnits.notifyAdded.mockResolvedValue(undefined);
+        db.user.findMany.mockResolvedValue([]);
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
             fn(db)
         );
@@ -738,6 +740,38 @@ describe('ResidentsService', () => {
 
             const findManyCall = db.residentLead.findMany.mock.calls[0]?.[0];
             expect(findManyCall?.where).toEqual({});
+        });
+
+        it('flags leads whose email already has a live account (hasAccount)', async () => {
+            db.residentLead.findMany.mockResolvedValue([
+                mockLead({ id: 'lead-0', email: 'owner@example.com' }),
+                mockLead({ id: 'lead-1', email: 'owner@example.com' }),
+                mockLead({ id: 'lead-2', email: 'new@example.com' }),
+            ]);
+            db.user.findMany.mockResolvedValue([{ email: 'owner@example.com' }]);
+
+            const result = await service.findAll({ limit: 20 } as any);
+
+            expect(db.user.findMany).toHaveBeenCalledWith({
+                where: {
+                    email: { in: ['owner@example.com', 'new@example.com'] },
+                    deletedAt: null,
+                },
+                select: { email: true },
+            });
+            expect(result.items.map(lead => lead.hasAccount)).toEqual([
+                true,
+                true,
+                false,
+            ]);
+        });
+
+        it('skips the account lookup on an empty page', async () => {
+            db.residentLead.findMany.mockResolvedValue([]);
+
+            await service.findAll({ limit: 20 } as any);
+
+            expect(db.user.findMany).not.toHaveBeenCalled();
         });
     });
 });
