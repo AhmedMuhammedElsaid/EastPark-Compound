@@ -136,6 +136,8 @@ model User {
   auditLogs         AuditLog[]
   invitations       Invitation[]             @relation("InvitedBy")
   residentLeads     ResidentLead[]           @relation("ResidentLeadUser")
+  residentUnits     ResidentUnit[]           @relation("ResidentUnitOwner")
+  addedUnits        ResidentUnit[]           @relation("ResidentUnitAddedBy")
 
   deletedUsers      User[]                   @relation("UserDeletedBy")
   deletedShops      Shop[]                   @relation("ShopDeletedBy")
@@ -165,13 +167,15 @@ model Invitation {
 
 // ─── Resident Leads ───────────────────────────────────────────────────────────
 
-// WARNING: the migration `20260930000000_resident_lead_unique_active_unit` adds a
-// PARTIAL unique index `resident_leads_active_unit_key` on
-// (building, floor, flatNumber) WHERE status <> 'REJECTED'. Prisma cannot model
-// partial indexes, so `prisma migrate dev` will propose a diff that DROPS it.
-// Never accept that diff — the index is the atomic duplicate-unit guard
-// (ResidentsService maps its P2002 to HTTP 409). Hand-edit the generated SQL
-// to remove the DROP INDEX statement instead.
+// WARNING: the partial unique index `resident_leads_active_unit_key` on
+// (building, floor, flatNumber) WHERE status IN ('PENDING', 'INVITED') (created by
+// `20260930000000_resident_lead_unique_active_unit`, recreated with this WHERE
+// clause by `20261007100000_resident_units`) is NOT modelled here: Prisma cannot
+// model partial indexes, so `prisma migrate dev` will propose a diff that DROPS
+// it. Never accept that diff — the index is the atomic guard for a flat in an
+// ACTIVE application (ResidentsService maps its P2002 to HTTP 409). An OWNED flat
+// is guarded by `resident_units`' own unique key. Hand-edit the generated SQL to
+// remove the DROP INDEX statement instead.
 model ResidentLead {
   id             String             @id @default(cuid())
   name           String
@@ -193,11 +197,42 @@ model ResidentLead {
   userId String?
   user   User?   @relation("ResidentLeadUser", fields: [userId], references: [id], onDelete: SetNull)
 
+  unit ResidentUnit?
+
   @@index([status, createdAt])
   @@index([email])
   @@index([building, floor, flatNumber])
   @@index([userId])
   @@map("resident_leads")
+}
+
+// A flat owned by an account (multi-flat owners, 2026-10-07). One account can
+// own many flats; a flat has at most one owner at a time. Removing a flat (sale
+// or transfer) HARD-deletes the row — the audit log keeps the history — and it
+// is not part of the recycle bin. Label everywhere: `${building}-${floor}-${flatNumber}`.
+// `User.unitNumber` stays the PRIMARY flat label (old mobile builds read it).
+model ResidentUnit {
+  id         String   @id @default(cuid())
+  building   String
+  floor      String
+  flatNumber String
+  createdAt  DateTime @default(now())
+
+  // Users are soft-deleted, never hard-deleted: Restrict, not Cascade.
+  userId String
+  user   User   @relation("ResidentUnitOwner", fields: [userId], references: [id], onDelete: Restrict)
+
+  // Who added it; null for the backfill and for a self-accepted invitation.
+  addedById String?
+  addedBy   User?   @relation("ResidentUnitAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  // The registration it came from, if any.
+  leadId String?       @unique
+  lead   ResidentLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@unique([building, floor, flatNumber])
+  @@index([userId])
+  @@map("resident_units")
 }
 
 // ─── Shops & Products ─────────────────────────────────────────────────────────
