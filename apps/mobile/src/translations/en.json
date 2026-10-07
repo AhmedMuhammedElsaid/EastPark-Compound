@@ -517,6 +517,8 @@
     "role_resident": "Resident",
     "role_super_admin": "Owner",
     "saved_shops": "Saved shops",
+    "saved_shops_empty": "No saved shops yet",
+    "saved_shops_empty_subtitle": "Tap the heart on a shop to keep it here.",
     "security": "Security",
     "system": "System",
     "theme": "Theme",

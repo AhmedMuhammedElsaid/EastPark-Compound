@@ -517,6 +517,8 @@
     "role_resident": "ساكن",
     "role_super_admin": "المالك",
     "saved_shops": "المحلات المحفوظة",
+    "saved_shops_empty": "لا توجد محلات محفوظة بعد",
+    "saved_shops_empty_subtitle": "اضغط على القلب في أي محل لتجده هنا.",
     "security": "الأمان",
     "system": "تلقائي",
     "theme": "المظهر",

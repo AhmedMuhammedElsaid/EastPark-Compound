@@ -259,7 +259,7 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
       <UserAvatar name={user.name} unitNumber={getPrimaryUnit(user)} email={user.email} role={user.role} styles={styles} />
       <UnitsSection units={getUnitLabels(user)} primary={getPrimaryUnit(user)} styles={styles} />
       <ManagementSection role={user.role} styles={styles} colors={colors} />
-      <AccountSection styles={styles} colors={colors} />
+      <AccountSection role={user.role} styles={styles} colors={colors} />
       {biometric.ready && biometric.isAvailable && (
         <SecuritySection
           biometric={biometric}
@@ -340,7 +340,7 @@ function ManagementSection({ role, styles, colors }: { role: string; styles: App
   );
 }
 
-function AccountSection({ styles, colors }: { styles: AppStyles; colors: AppColors }) {
+function AccountSection({ role, styles, colors }: { role: string; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
   const g = gold(colors);
   return (
@@ -348,7 +348,10 @@ function AccountSection({ styles, colors }: { styles: AppStyles; colors: AppColo
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
       <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback")} styles={styles} colors={colors} />
-      <ProfileRow icon={<BookmarkSimple size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/directory")} styles={styles} colors={colors} />
+      {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
+      {role === "RESIDENT" && (
+        <ProfileRow icon={<BookmarkSimple size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/profile/saved-shops")} styles={styles} colors={colors} />
+      )}
     </View>
   );
 }

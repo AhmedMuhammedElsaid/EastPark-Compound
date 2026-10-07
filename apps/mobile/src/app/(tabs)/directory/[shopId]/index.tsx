@@ -281,6 +281,8 @@ function useShopSave(shopId: string) {
       const rest = (ids ?? []).filter(id => id !== shopId);
       return next ? [...rest, shopId] : rest;
     });
+    // The Profile > Saved shops list shows full shop rows, so refetch it too.
+    queryClient.invalidateQueries({ queryKey: ["saved-shops"] });
   }, [queryClient, shopId]);
 
   const { mutate: toggleSaved, isPending: savePending } = useMutation({
