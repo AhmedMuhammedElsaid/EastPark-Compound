@@ -168,6 +168,12 @@ export class ResidentsService {
         const lead = await this.db.residentLead.findUnique({ where: { id } });
         if (!lead) throw new NotFoundException('residentLead.error.notFound');
 
+        // Already converted: history only. Never re-create its flat (it may
+        // have been removed after a sale); adding a flat again is
+        // `POST /admin/user/:id/units`.
+        if (lead.status === ResidentLeadStatus.CONVERTED)
+            return { message: 'residentLead.success.alreadyRegistered' };
+
         // Re-activating a REJECTED lead must not collide with a newer active
         // lead for the same unit (partial unique index). Checked before any
         // invitation email goes out.

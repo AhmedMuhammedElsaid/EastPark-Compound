@@ -410,6 +410,23 @@ describe('ResidentsService', () => {
             expect(residentUnits.notifyAdded).not.toHaveBeenCalled();
         });
 
+        it('a CONVERTED lead is history: no flat re-created (e.g. after removal), no email, no lead change', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({
+                    status: ResidentLeadStatus.CONVERTED,
+                    userId: 'user-1',
+                })
+            );
+
+            await expect(service.invite('lead-1', adminActor)).resolves.toEqual(
+                { message: 'residentLead.success.alreadyRegistered' }
+            );
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+            expect(residentUnits.notifyAdded).not.toHaveBeenCalled();
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(invitationsService.create).not.toHaveBeenCalled();
+        });
+
         it('re-inviting a REJECTED lead whose flat is owned: 409 alreadyOwned', async () => {
             db.residentLead.findUnique.mockResolvedValue(
                 mockLead({ status: ResidentLeadStatus.REJECTED })
