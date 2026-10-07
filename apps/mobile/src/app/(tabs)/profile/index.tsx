@@ -12,8 +12,10 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
+import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
+import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
 import { revokeRefreshToken } from "@/services/api/auth";
 import { usersApi } from "@/services/api/users";
 import { teardownSession } from "@/services/auth/session";
@@ -81,6 +83,14 @@ function buildStyles(colors: AppColors) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       paddingVertical: SPACING.sm,
+      gap: SPACING.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    unitRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      minHeight: 44,
       gap: SPACING.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
@@ -183,6 +193,7 @@ function GuestProfile({ styles, colors }: { styles: AppStyles; colors: AppColors
 
 function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
+  useRefreshProfileUnits();
   const biometric = useBiometric();
   const { mutate: deleteAccount } = useMutation({
     mutationFn: () => usersApi.deleteAccount(),
@@ -224,7 +235,8 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 
   return (
     <>
-      <UserAvatar name={user.name} unitNumber={user.unitNumber} email={user.email} styles={styles} />
+      <UserAvatar name={user.name} unitNumber={getPrimaryUnit(user)} email={user.email} styles={styles} />
+      <UnitsSection units={getUnitLabels(user)} primary={getPrimaryUnit(user)} styles={styles} />
       <AccountSection role={user.role} styles={styles} colors={colors} />
       {biometric.ready && biometric.isAvailable && (
         <SecuritySection
@@ -255,6 +267,23 @@ function UserAvatar({ name, unitNumber, email, styles }: { name: string; unitNum
         <Text style={styles.userEmail}>{email}</Text>
         {unitNumber ? <Text style={styles.userUnit}>{t("checkout.unit", { number: unitNumber })}</Text> : null}
       </View>
+    </View>
+  );
+}
+
+function UnitsSection({ units, primary, styles }: { units: string[]; primary: string; styles: AppStyles }) {
+  const { t } = useTranslation();
+  if (units.length < 2)
+    return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{t("profile.my_units")}</Text>
+      {units.map(label => (
+        <View key={label} style={styles.unitRow}>
+          <Text style={styles.rowLabel}>{t("checkout.unit", { number: label })}</Text>
+          {label === primary ? <Text style={styles.userUnit}>{t("profile.primary_unit")}</Text> : null}
+        </View>
+      ))}
     </View>
   );
 }

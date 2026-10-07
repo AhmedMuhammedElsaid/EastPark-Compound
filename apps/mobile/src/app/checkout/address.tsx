@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ArrowLeft } from "phosphor-react-native";
 import * as React from "react";
@@ -17,6 +18,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
+import { getDeliveryUnitOptions, resolveDeliveryUnit } from "@/lib/units";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
@@ -55,6 +58,33 @@ function useStyles() {
       borderColor: colors.border,
     },
     unitLabel: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 16, color: colors.text },
+    unitOption: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      minHeight: 48,
+      backgroundColor: colors.card,
+      borderRadius: RADIUS.md,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: SPACING.md,
+    },
+    unitOptionSelected: { borderColor: BRAND.gold },
+    unitOptionText: { flex: 1, fontFamily: FONT.sans, fontWeight: "500", fontSize: 15, color: colors.textMuted },
+    unitOptionTextSelected: { color: colors.text },
+    unitTag: { fontFamily: FONT.sans, fontSize: 12, color: BRAND.gold, fontWeight: "600" },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border,
+      justifyContent: "center" as const,
+      alignItems: "center" as const,
+    },
+    radioSelected: { borderColor: BRAND.gold },
+    radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND.gold },
     unitHint: { fontFamily: FONT.sans, fontSize: 13, color: colors.textMuted },
     notesInput: {
       backgroundColor: colors.card,
@@ -85,11 +115,16 @@ export default function AddressScreen() {
   const insets = useSafeAreaInsets();
   const user = useAppSelector(s => s.auth.user);
   const [notes, setNotes] = React.useState("");
+  const [chosenUnit, setChosenUnit] = React.useState<string | null>(null);
+  useRefreshProfileUnits();
+  const unitOptions = getDeliveryUnitOptions(user);
+  const deliveryUnit = resolveDeliveryUnit(user, chosenUnit);
   const styles = useStyles();
   const colors = useAppColors();
 
   function handleNext() {
-    router.push({ pathname: "/checkout/payment", params: { notes } });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: "/checkout/payment", params: { notes, deliveryUnit } });
   }
 
   return (
@@ -111,15 +146,49 @@ export default function AddressScreen() {
       >
         <View style={styles.section}>
           <Text style={styles.label}>{t("checkout.address")}</Text>
-          <View style={styles.unitBox}>
-            <Text style={styles.unitLabel}>{t("checkout.unit", { number: user?.unitNumber ?? "" })}</Text>
-          </View>
-          <Text style={styles.unitHint}>
-            {t("auth.unit_number")}
-            :
-            {" "}
-            {user?.unitNumber}
-          </Text>
+          {unitOptions.length > 1
+            ? (
+                <>
+                  <Text style={styles.unitHint}>{t("checkout.choose_unit")}</Text>
+                  {unitOptions.map((label, index) => {
+                    const selected = label === deliveryUnit;
+                    return (
+                      <Pressable
+                        key={label}
+                        style={[styles.unitOption, selected && styles.unitOptionSelected]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setChosenUnit(label);
+                        }}
+                        accessibilityRole="radio"
+                        accessibilityLabel={t("checkout.unit", { number: label })}
+                        accessibilityState={{ checked: selected }}
+                      >
+                        <Text style={[styles.unitOptionText, selected && styles.unitOptionTextSelected]}>
+                          {t("checkout.unit", { number: label })}
+                        </Text>
+                        {index === 0 ? <Text style={styles.unitTag}>{t("checkout.unit_primary_tag")}</Text> : null}
+                        <View style={[styles.radio, selected && styles.radioSelected]}>
+                          {selected && <View style={styles.radioInner} />}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </>
+              )
+            : (
+                <>
+                  <View style={styles.unitBox}>
+                    <Text style={styles.unitLabel}>{t("checkout.unit", { number: deliveryUnit })}</Text>
+                  </View>
+                  <Text style={styles.unitHint}>
+                    {t("auth.unit_number")}
+                    :
+                    {" "}
+                    {deliveryUnit}
+                  </Text>
+                </>
+              )}
         </View>
 
         <View style={styles.section}>
@@ -143,7 +212,7 @@ export default function AddressScreen() {
           />
         </View>
 
-        <Pressable style={styles.nextBtn} onPress={handleNext}>
+        <Pressable style={styles.nextBtn} onPress={handleNext} accessibilityRole="button" accessibilityLabel={t("common.next")}>
           <Text style={styles.nextBtnText}>{t("common.next")}</Text>
         </Pressable>
       </ScrollView>

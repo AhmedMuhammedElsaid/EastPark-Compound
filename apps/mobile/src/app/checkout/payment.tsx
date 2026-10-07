@@ -10,10 +10,11 @@ import { Alert, I18nManager, Linking, Pressable, StyleSheet, Text, View } from "
 
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { isNoResponseError } from "@/lib/api-error";
+import { getErrorCode, isNoResponseError } from "@/lib/api-error";
 import { CARD_PAYMENTS_ENABLED } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { resolveDeliveryUnit } from "@/lib/units";
 import { buildPlaceOrderPayload, ordersApi } from "@/services/api/orders";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearCart } from "@/store/slices/cart-slice";
@@ -98,10 +99,12 @@ export default function PaymentScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const { notes } = useLocalSearchParams<{ notes?: string }>();
+  const { notes, deliveryUnit: chosenUnit } = useLocalSearchParams<{ notes?: string; deliveryUnit?: string }>();
   const items = useAppSelector(s => s.cart.items);
-  // Backend OrderCreateDto requires deliveryUnit (pre-filled from the profile).
-  const deliveryUnit = useAppSelector(s => s.auth.user?.unitNumber ?? "").trim();
+  // Backend OrderCreateDto requires deliveryUnit: the flat picked on the
+  // address step, else the primary flat (legacy accounts: unitNumber).
+  const authUser = useAppSelector(s => s.auth.user);
+  const deliveryUnit = resolveDeliveryUnit(authUser, chosenUnit).trim();
   const canPlaceOrder = items.length > 0 && deliveryUnit.length > 0;
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("CASH");
   const styles = useStyles();
@@ -147,7 +150,8 @@ export default function PaymentScreen() {
     onError: async (error) => {
       if (!isNoResponseError(error)) {
         inFlight.current = false;
-        showMessage({ message: t("checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+        const invalidUnit = getErrorCode(error) === "order.error.deliveryUnitInvalid";
+        showMessage({ message: t(invalidUnit ? "checkout.unit_invalid" : "checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
         return;
       }
       // Timeout / connection loss: the server may have committed the order.
