@@ -49,7 +49,7 @@ function buildStyles(colors: ReturnType<typeof useAppColors>) {
     meta: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
     empty: { alignItems: "center", gap: SPACING.md, paddingVertical: SPACING["2xl"] },
     emptyText: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted, textAlign: "center" },
-    newBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.full },
+    newBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: RADIUS.full, backgroundColor: BRAND.gold },
   });
 }
 
@@ -87,7 +87,7 @@ export default function AdminElectionsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("admin.new_election")}
           >
-            <Plus size={22} color={gold} />
+            <Plus size={22} color={BRAND.ink} />
           </Pressable>
         )}
       />

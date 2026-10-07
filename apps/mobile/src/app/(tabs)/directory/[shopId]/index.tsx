@@ -580,7 +580,7 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
             <Star size={14} weight="fill" color={BRAND.gold} />
             <Text style={styles.metaStrong}>{formatRating(shop.averageRating)}</Text>
             <Text style={styles.meta}>
-              {`(${t("directory.reviews_count", { total: formatCount(shop.reviewCount) })})`}
+              {`(${t("directory.reviews_count", { count: shop.reviewCount, total: formatCount(shop.reviewCount) })})`}
             </Text>
           </>
         )}

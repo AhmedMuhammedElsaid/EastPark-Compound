@@ -4,10 +4,14 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { I18nManager } from "react-native";
 
+import { installPluralRulesFallback } from "./plural-rules";
 import { resources } from "./resources";
 import { getLanguage } from "./utils";
 
 export * from "./utils";
+
+// Must run before init(): i18next reads Intl.PluralRules while resolving plural keys.
+installPluralRulesFallback();
 
 i18n.use(initReactI18next).init({
   resources,
