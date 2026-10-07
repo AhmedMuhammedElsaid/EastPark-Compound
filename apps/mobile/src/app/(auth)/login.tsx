@@ -15,6 +15,7 @@ import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
+import { loginErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { getSecureItem, setSecureItem } from "@/lib/secure-storage";
@@ -224,12 +225,7 @@ export default function LoginScreen() {
         });
         return;
       }
-      const message = status === undefined
-        ? t("auth.errors.server_unreachable")
-        : status === 429
-          ? t("errors.rate_limited")
-          : t("auth.errors.login_failed");
-      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
+      showMessage({ message: t(loginErrorKey(err)), type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {
       clearTimeout(wakingTimer);

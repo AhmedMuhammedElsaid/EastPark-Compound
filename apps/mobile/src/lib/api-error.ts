@@ -51,6 +51,27 @@ export function acceptInvitationErrorKey(error: unknown): string {
   return code === undefined ? "auth.errors.invitation_existing_account" : "common.error";
 }
 
+/**
+ * Toast copy for a failed email + password login. Only a 401 means the
+ * credentials are wrong: a 5xx (Redis down fails closed with 503, gateway
+ * errors during a deploy) must never send the user guessing passwords into
+ * the per-email lockout. 403 (unverified account) is handled by the screen.
+ */
+export function loginErrorKey(error: unknown): string {
+  const status = getErrorStatus(error);
+  if (status === undefined)
+    return "auth.errors.server_unreachable";
+  if (status === 401)
+    return "auth.errors.login_failed";
+  if (status === 400)
+    return "auth.errors.invalid_email"; // AuthLoginDto: @IsEmail
+  if (status === 429)
+    return "errors.rate_limited";
+  if (status >= 500)
+    return "errors.server";
+  return "errors.unknown";
+}
+
 /** Toast copy for a failed admin invitation send. */
 export function sendInvitationErrorKey(error: unknown): string {
   if (isAccountDeletedError(error))

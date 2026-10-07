@@ -4,6 +4,7 @@ import {
   getErrorStatus,
   isAccountDeletedError,
   isNoResponseError,
+  loginErrorKey,
   pickErrorKey,
   sendInvitationErrorKey,
 } from "@/lib/api-error";
@@ -24,6 +25,19 @@ describe("api-error", () => {
     expect(pickErrorKey({ response: { status: 418 } }, map, "f")).toBe("f");
     expect(pickErrorKey({}, map, "f")).toBe("n");
     expect(pickErrorKey({}, {}, "f")).toBe("f");
+  });
+});
+
+describe("login error mapping", () => {
+  it("says the credentials are wrong only for a 401", () => {
+    expect(loginErrorKey({ response: { status: 401 } })).toBe("auth.errors.login_failed");
+    expect(loginErrorKey({ response: { status: 500 } })).toBe("errors.server");
+    expect(loginErrorKey({ response: { status: 502 } })).toBe("errors.server");
+    expect(loginErrorKey({ response: { status: 503 } })).toBe("errors.server");
+    expect(loginErrorKey({ response: { status: 400 } })).toBe("auth.errors.invalid_email");
+    expect(loginErrorKey({ response: { status: 429 } })).toBe("errors.rate_limited");
+    expect(loginErrorKey({ code: "ECONNABORTED" })).toBe("auth.errors.server_unreachable");
+    expect(loginErrorKey({ response: { status: 404 } })).toBe("errors.unknown");
   });
 });
 
