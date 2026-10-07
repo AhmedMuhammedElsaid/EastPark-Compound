@@ -676,3 +676,67 @@ Not filed (checked and correct):
 - `formatCurrency` uses `ar-EG` / `en-US`.
 - No hardcoded user-facing English or Arabic strings in JSX apart from LTR-4.
 - `ensureLayoutDirection` guards against a reload loop.
+
+## Device walk on build versionCode 3 (7949d68) — 2026-10-08
+
+Signed in as SUPER_ADMIN (owner). Arabic then English. 0 P0, 2 P1, 21 P2. Order flow blocked: only RESIDENT can POST /orders.
+
+### Device walk — Samsung A72, preview build versionCode 3 (commit 7949d68) — 2026-10-08
+
+#### Findings
+
+- DEV-1 | P2 | Tab bar | AR | Profile tab label truncated "الملف الشخ…" | (known) w-start.png
+- DEV-2 | P2 | Home quick actions -> Governance / Feedback / Reports | AR | These push onto the Community tab stack; hardware Back lands on the Community feed, not Home where the user came from. Expected Back -> Home. | w-qa-gov.png, w-qa-feedback-back.png
+- DEV-3 | P2 | Shop detail | AR | Hero photo still runs under the status bar with no scrim/solid status bar; once scrolled, status icons sit on the photo and the back button scrolls away (no sticky header). | w-shop1.png, w-shop3.png
+- DEV-4 | P2 | Shop detail (Al-Rayan butcher) | AR | No working-hours section on the detail page — code check: `directory/[shopId]/index.tsx` never reads `workingHours`, so hours are never shown for any shop (CLAUDE.md: FE computes 'open now' from schedule). Rating row only shows when reviews exist. | w-shop1.png
+- DEV-5 | P2 | Community hub tiles | AR | The three tiles are not aligned: Feedback label wraps to 2 lines while Reports/Governance are 1 line, icons sit at different heights and the PDF icon is smaller. | w-qa-community.png
+- DEV-6 | P1 | Profile > المحلات المحفوظة (Saved shops) | AR | Row opens the full Directory list (code: `profile/index.tsx:351` `router.push("/(tabs)/directory")` — no saved-shops screen/filter exists) (all shops, no filter, no "saved" title), not a saved-shops list. Also it is pushed on top of whatever the Directory stack had (Back from it revealed the previously open butcher shop detail). Expected a saved-shops screen. (Role is super admin "المالك" — heart is hidden for admins, so maybe the row should be hidden for non-residents too.) | w-saved.png, w-x.png
+- DEV-7 | P2 | Profile | AR | Still no edit-profile, phone, my-flats or notification-preferences entries (audit #18); profile card is not tappable. | w-profile0.png
+- DEV-8 | WITHDRAWN (was P2) | Profile > Biometric switch | AR | In English the same switch reads clearly ON (white thumb right, gold track); the Arabic one is the correct RTL mirror. Original note: Switch is checked=true and subtitle says "مفعّل" but it renders as a white thumb on a faint short gold track, which still reads as OFF at a glance (audit #6 only partly fixed). | w-profile0.png
+- DEV-9 | P2? (unverified) | Shop detail > اتصال | AR | An accidental tap on Call opened the Samsung dialer with an EMPTY number field (no number prefilled). No call was placed. Could not re-test (blocked by the phone-call safety rule). Code check: button only renders when `shop.phone` is set and opens `tel:${shop.phone}`, so the empty field is probably Samsung dialer behaviour / timing; likely NOT a bug — owner to confirm by tapping Call once. | w-prof-back.png
+- DEV-10 | P2 | Admin hub | AR | Profile row says "لوحة الإدارة" but the screen title is "لوحة المشرف" — two names for one screen. | w-profile0.png, w-admin1.png
+- DEV-11 | P2 | Admin > طلبات السكان (resident requests) | AR | Filter-chip counts mix digit systems: "76 · الكل", "19 · تمت الدعوة" in Latin but "قيد الانتظار · ٠" in Arabic-Indic; dates are Arabic-Indic, phones/units Latin. Also the list scrolls under the 3-button nav bar (no bottom inset; same on Invitations). | w-adm-leads.png, w-adm-inv.png
+- DEV-12 | P2 | Admin forms (invitation, new announcement, poll, election, add candidate) | AR | Placeholders repeat the field label word for word (e.g. label "العنوان (إنجليزي)" + placeholder "العنوان (إنجليزي)"). Announcement/poll/election forms put the English field first in the Arabic UI while Add-candidate puts Arabic first. | w-adm-ann.png, w-adm-inv-new.png, w-adm-cand2.png
+- DEV-13 | P2 | Admin > New poll | AR | LTR-4 still open: option placeholders "خيار 1 (EN)" / "خيار 1 (AR)" with Latin digits and Latin EN/AR tags; "+ إضافة خيار" uses a literal "+" character instead of an icon. | w-adm-poll.png
+- DEV-14 | P2 | Admin > New poll / New election date picker | AR | MA-6 picker works (date then 24h clock, field then shows "٩ أكتوبر ٢٠٢٦، ٢:٠٠ ص"), but the native dialogs are English/LTR (Fri, 9 Oct; M T W; CANCEL/OK) with default teal Material colours, not the gold theme, inside the Arabic UI. | w-adm-poll-date.png, w-adm-poll-time.png, w-adm-poll-filled.png
+- DEV-15 | P2 | Admin > New poll | AR | Back with a filled-in expiry date discards the form silently (no "discard changes?" prompt). | w-adm-afterpoll.png
+- DEV-16 | P2 | Admin > Elections & candidates list + election admin | AR | "٢ مرشح" — wrong Arabic number agreement (should be "مرشحان"), same family as audit #8. Header "+" is a bare gold glyph while Feedback/Invitations use a filled gold circle "+". | w-adm-elections.png, w-adm-cand.png
+- DEV-17 | P2 | Feedback > New | AR | Photo helper text uses Latin digits inside Arabic: "حتى 3 صور ... بحد أقصى 4 ميجابايت" (rest of app uses Arabic-Indic). | w-fb-new.png
+- DEV-18 | P2 | Election detail (SEALED, not voted) | AR | RES-7 still open: a non-voter (here the super admin, who cannot vote) sees candidates with no counts and no "results hidden until the deadline" explanation. | w-election-detail.png
+- DEV-19 | P1 | Checkout > Payment > تأكيد الطلب | AR | Placing the cash order fails instantly with a generic red toast "تعذر تقديم طلبك. يرجى المحاولة مرة أخرى." (tried twice). Cause: the signed-in account is SUPER_ADMIN ("المالك") and backend `POST /orders` is `@AllowedRoles([Role.RESIDENT])` (apps/backend/src/modules/orders/orders.controller.ts:35) -> 403. The app lets a non-resident add to cart and walk cart -> address -> payment, then shows "try again" which can never succeed. Expected: hide add-to-cart/checkout for non-residents (like the saved-shop heart), or map 403 to a clear "only residents can order" message. Also the owner's own account cannot order at all. | w-placing.png, w-placing2.png
+- DEV-20 | P2 | Global toast | AR | The red error toast is drawn over the status bar: the clock/battery icons sit on top of the message text, which is clipped/overlapped ("تعذر تقديم طلبك" collides with 74%). Toast needs a top safe-area inset. | w-placing.png
+- DEV-21 | P2 | App restart after language switch (both directions) | AR/EN | LTR-2 still open: tapping the other language restarts immediately with no confirmation. After the restart a super admin lands on the Admin Portal (لوحة المشرف / Admin Portal), not on Profile where they were or on Home. Header back then goes to Home. | w-lang1.png, w-lang3.png, w-ar-back.png
+- DEV-22 | P2 | Naming: "Management" / "الإدارة" | EN/AR | The same word is used for Governance (Home quick action, Community tile, governance screen title) and for the admin section in Profile ("Management > Admin dashboard"); the admin screen itself is titled "Admin Portal" / "لوحة المشرف" while the row says "Admin dashboard" / "لوحة الإدارة". Three names, one overloaded. | w-en-afterback.png, w-en-profile.png, w-en-gov.png
+- DEV-23 | P2 | Profile > Sign Out icon | AR | LTR-5 still open: the SignOut arrow points the same way in Arabic and English (not mirrored). | w-profile1.png, w-en-profile2.png
+- DEV-24 | P2 | Shop detail hero (light photo) | EN | Over a light photo the top scrim shows visible horizontal banding stripes, and the white status-bar icons are hard to read. | w-en-shop.png
+- DEV-25 | P2 | Cart > مسح (Clear) | AR | One tap empties the whole cart with no confirmation or undo. | w-clear.png
+
+#### Confirmed fixes (on device, AR)
+
+- #1 tab bar above the 3-button nav, fully tappable.
+- #8 election card "المرشحون: ٢" (Arabic-Indic). #9 greeting uses Arabic comma "صباح الخير، أحمد".
+- #10 poll options have radio affordance + "التصويت متاح لحسابات السكان الموثقة فقط" note.
+- #11 announcement detail: category chip + date, no duplicate title, empty-comments message, composer sits on the tab bar.
+- #12 Orders empty state has "تصفّح المحلات" button. #14 Home header with brand, cart, bell. #16 Directory title. #17 Community cards show dates.
+- #18/#26 Profile has Management > لوحة الإدارة for admin. #21 compact checkout bar on shop. #22 cart shows Arabic shop name + horizontal stepper. #23 address prefilled "وحدة A1-1-3", Next works.
+- #24 open item: feedback form now has photo attach (gallery + camera) with the anonymous explainer.
+- RES-9: header cart badge shows "١" (Arabic-Indic). (Notification times not checked — feed empty.)
+- MA-4 / LTR-1: invitations list shows "ساكن" for resident invitations (no raw key).
+- MA-5: admin can list elections and open the candidates screen with an Add-candidate form (photo optional).
+- MA-6: poll/election expiry uses native date -> time pickers; Cancel leaves the field empty; OK fills "٩ أكتوبر ٢٠٢٦، ٢:٠٠ ص".
+
+#### English pass (LTR) — clean items
+
+Home, Directory, shop detail, My Orders (empty — no cancelled order exists), Community, Governance (poll + election), Notifications, Profile, Admin Portal, Elections & candidates, Resident requests: LTR layout correct, back arrows point left, row chevrons point right, no truncation (tab label 'Profile' fits), no raw keys, Latin digits throughout (cart badge '1', 'Candidates: 2', '2 candidates', '1 Oct 2026', 'EGP 6,850'). No Arabic flash seen on the first frame after restart (LTR-6 not reproduced). Arabic restored at the end; RTL layout back.
+
+#### Not confirmable here
+
+- RES-1, RES-2 (Back from confirmation), RES-14, WhatsApp hand-off, order cancel: no order could be placed (DEV-19).
+- RES-6 (Closed <date>): the only election is still open.
+- MA-1/2/3/7 (merchant): no merchant account. AUTH-*: need logout / biometric toggle, both off-limits.
+
+#### Order test
+
+NOT PLACED. Cart (1x دجاجة كاملة, 210 EGP, Al-Rayan butcher) -> address (unit A1-1-3, note 'TEST order - will be cancelled') -> payment (Cash preselected, only option) -> تأكيد الطلب failed twice with a generic error (DEV-19: account is SUPER_ADMIN, backend accepts orders from RESIDENT only). No order number, so confirmation / WhatsApp hand-off / Back-to-Home (RES-2) / order detail (RES-1) / cancel could not be tested. Needs a resident test account.
+
+#### Not reached
