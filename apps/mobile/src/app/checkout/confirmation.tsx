@@ -104,10 +104,7 @@ export default function ConfirmationScreen() {
       <Animated.View style={[styles.actions, contentStyle]}>
         <GoldButton
           label={t("home.my_orders")}
-          onPress={() => {
-            if (orderId)
-              router.replace(`/(tabs)/orders/${orderId}`);
-          }}
+          onPress={() => router.replace("/(tabs)/orders")}
         />
         {handoff?.whatsappDigits
           ? (
