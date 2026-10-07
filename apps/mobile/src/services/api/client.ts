@@ -202,6 +202,11 @@ client.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Signed out (e.g. biometric logout keeps the refresh token on disk):
+    // a 401 must never refresh and write a new access token.
+    if (storeRef && !storeRef.getState().auth.isAuthenticated)
+      return Promise.reject(error);
+
     originalRequest._retry = true;
 
     // Another request already rotated the tokens while this one was in

@@ -3,7 +3,7 @@ import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from "ax
 import axios, { AxiosError } from "axios";
 
 import { revokeRefreshToken } from "@/services/api/auth";
-import { client, isRefreshExemptUrl, setSessionExpiredHandler } from "@/services/api/client";
+import { client, injectStore, isRefreshExemptUrl, setSessionExpiredHandler } from "@/services/api/client";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
 
 jest.mock("env", () => ({
@@ -287,4 +287,37 @@ describe("revokeRefreshToken (logout)", () => {
       throw fail(config, 401);
     });
   }
+});
+
+describe("401 while signed out", () => {
+  let adapter: jest.Mock;
+  let refreshPost: jest.SpyInstance;
+
+  beforeEach(() => {
+    Object.keys(mockSecureStore).forEach(k => delete mockSecureStore[k]);
+    adapter = jest.fn();
+    client.defaults.adapter = adapter as unknown as AxiosAdapter;
+    setSessionExpiredHandler(jest.fn());
+    refreshPost = jest.spyOn(axios, "post");
+  });
+
+  afterEach(() => {
+    refreshPost.mockRestore();
+    injectStore(null as never);
+  });
+
+  it("never refreshes with a biometric-kept refresh token", async () => {
+    injectStore({ getState: () => ({ auth: { isAuthenticated: false } }), dispatch: jest.fn() } as never);
+    mockSecureStore[SECURE_KEY_ACCESS] = "old-access";
+    mockSecureStore[SECURE_KEY_REFRESH] = "refresh-1";
+    adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
+      throw fail(config, 401);
+    });
+
+    await expect(client.get("/orders")).rejects.toMatchObject({ response: { status: 401 } });
+
+    expect(refreshPost).not.toHaveBeenCalled();
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBe("old-access");
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("refresh-1");
+  });
 });
