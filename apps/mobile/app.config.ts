@@ -149,6 +149,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "expo-notifications",
     [
+      "expo-image-picker",
+      {
+        photosPermission: "Allow EastPark to access your photos so you can attach them to feedback.",
+        cameraPermission: "Allow EastPark to use the camera so you can attach a photo to feedback.",
+        microphonePermission: false,
+      },
+    ],
+    [
       "expo-local-authentication",
       {
         faceIDPermission: "Allow EastPark to use Face ID to sign you in faster.",

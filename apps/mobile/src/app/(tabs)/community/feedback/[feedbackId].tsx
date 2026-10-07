@@ -1,10 +1,11 @@
 import type { FeedbackReply, FeedbackStatus } from "@/services/api/community";
 import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +31,10 @@ function useStyles() {
     badge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.full },
     badgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 11, lineHeight: 18, color: colors.text },
     fbBody: { fontFamily: FONT.sans, fontSize: 15, color: colors.text, lineHeight: 26 },
+    thumbs: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.md, marginVertical: SPACING.sm },
+    thumb: { width: 104, height: 104, borderRadius: RADIUS.md, overflow: "hidden" as const, backgroundColor: colors.elevated },
+    thumbImg: { width: 104, height: 104 },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
     fbDate: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: SPACING.lg },
     sectionTitle: {
@@ -137,6 +142,21 @@ function FeedbackMeta({ feedback, date, styles, colors }: { feedback: any; date:
         )}
       </View>
       <Text style={styles.fbBody}>{feedback.body}</Text>
+      {(feedback.attachments?.length ?? 0) > 0 && (
+        <View style={styles.thumbs}>
+          {(feedback.attachments as string[]).map((url, index) => (
+            <Pressable
+              key={url}
+              style={({ pressed }) => [styles.thumb, pressed && styles.pressed]}
+              onPress={() => void Linking.openURL(url).catch(() => undefined)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`${t("feedback.attachment")} ${index + 1}`}
+            >
+              <Image source={{ uri: url }} style={styles.thumbImg} contentFit="cover" />
+            </Pressable>
+          ))}
+        </View>
+      )}
       <Text style={styles.fbDate}>{date}</Text>
     </View>
   );

@@ -1,10 +1,14 @@
 import type { FeedbackCategory } from "@/services/api/community";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
+import { Camera, Image as ImageIcon, X } from "phosphor-react-native";
 import * as React from "react";
 import { useController, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,14 +20,15 @@ import {
   TextInput,
   View,
 } from "react-native";
-
 import { showMessage } from "react-native-flash-message";
 import { z } from "zod";
 
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { MAX_ATTACHMENTS, uploadErrorKey, validateAsset } from "@/lib/feedback-attachments";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
+import { uploadsApi } from "@/services/api/uploads";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const CATEGORIES: FeedbackCategory[] = [
@@ -43,6 +48,16 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+type Photo = { uri: string; mime: string };
+
+/** Wraps an upload failure so onError can pick upload-specific copy. */
+class UploadFailedError extends Error {
+  readonly original: unknown;
+  constructor(original: unknown) {
+    super("upload_failed");
+    this.original = original;
+  }
+}
 
 function useStyles() {
   const colors = useAppColors();
@@ -82,6 +97,42 @@ function useStyles() {
     inputFocused: { borderColor: BRAND.gold },
     inputError: { borderColor: SEMANTIC.error },
     errorText: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: SEMANTIC.error },
+    hint: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 20, color: colors.textMuted },
+    photoActions: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.sm },
+    photoBtn: {
+      minHeight: 48,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: SPACING.sm,
+      paddingHorizontal: SPACING.base,
+      borderRadius: RADIUS.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    photoBtnDisabled: { opacity: 0.5 },
+    photoBtnText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.text },
+    thumbs: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.md },
+    thumb: { width: 96, height: 96, borderRadius: RADIUS.md, overflow: "hidden" as const, backgroundColor: colors.elevated },
+    thumbImg: { width: 96, height: 96 },
+    thumbBusy: { ...StyleSheet.absoluteFillObject, backgroundColor: `${BRAND.ink}99` },
+    removeBtn: {
+      position: "absolute" as const,
+      top: 0,
+      end: 0,
+      width: 44,
+      height: 44,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    removeDot: {
+      width: 24,
+      height: 24,
+      borderRadius: RADIUS.full,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      backgroundColor: `${BRAND.ink}cc`,
+    },
     anonymousRow: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -98,6 +149,52 @@ function useStyles() {
   }), [colors]);
 }
 
+function usePhotoPicker() {
+  const { t } = useTranslation();
+  const [photos, setPhotos] = React.useState<Photo[]>([]);
+  const [uploading, setUploading] = React.useState(false);
+
+  async function addPhotos(source: "library" | "camera") {
+    const remaining = MAX_ATTACHMENTS - photos.length;
+    if (remaining <= 0) {
+      showMessage({ message: t("feedback.photo_limit"), type: "warning", backgroundColor: SEMANTIC.warning });
+      return;
+    }
+    try {
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ["images"],
+        quality: 0.7,
+        ...(source === "library" ? { allowsMultipleSelection: true, selectionLimit: remaining } : {}),
+      };
+      if (source === "camera") {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted)
+          return;
+      }
+      const result = source === "camera"
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled)
+        return;
+      const next: Photo[] = [];
+      for (const asset of result.assets.slice(0, remaining)) {
+        const check = validateAsset({ uri: asset.uri, mimeType: asset.mimeType, fileSize: asset.fileSize });
+        if (check.ok)
+          next.push({ uri: asset.uri, mime: check.mime });
+        else
+          showMessage({ message: t(check.errorKey as any), type: "danger", backgroundColor: SEMANTIC.error });
+      }
+      if (next.length)
+        setPhotos(current => [...current, ...next].slice(0, MAX_ATTACHMENTS));
+    }
+    catch {
+      showMessage({ message: t("feedback.upload_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+    }
+  }
+
+  return { photos, setPhotos, uploading, setUploading, addPhotos };
+}
+
 export default function NewFeedbackScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -109,14 +206,33 @@ export default function NewFeedbackScreen() {
     defaultValues: { category: "MAINTENANCE", body: "", isAnonymous: false },
   });
 
+  const { photos, setPhotos, uploading, setUploading, addPhotos } = usePhotoPicker();
+
   const { mutate, isPending } = useMutation({
-    mutationFn: (data: FormData) => communityApi.submitFeedback(data),
+    mutationFn: async (data: FormData) => {
+      const attachments: string[] = [];
+      if (photos.length) {
+        setUploading(true);
+        try {
+          for (const photo of photos)
+            attachments.push(await uploadsApi.uploadImage(photo.uri, photo.mime, "feedback"));
+        }
+        catch (error) {
+          throw new UploadFailedError(error);
+        }
+        finally {
+          setUploading(false);
+        }
+      }
+      return communityApi.submitFeedback({ ...data, attachments });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-feedback"] });
       router.back();
     },
-    onError: () => {
-      showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error });
+    onError: (error) => {
+      const message = error instanceof UploadFailedError ? t(uploadErrorKey(error.original) as any) : t("common.error");
+      showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
 
@@ -144,10 +260,19 @@ export default function NewFeedbackScreen() {
           styles={styles}
           colors={colors}
         />
+        <PhotoField
+          photos={photos}
+          busy={uploading}
+          disabled={isPending}
+          onAdd={addPhotos}
+          onRemove={uri => setPhotos(current => current.filter(p => p.uri !== uri))}
+          styles={styles}
+          colors={colors}
+        />
         <AnonymousToggleField control={control} styles={styles} colors={colors} />
 
         <GoldButton
-          label={isPending ? t("common.loading") : t("common.submit")}
+          label={uploading ? t("feedback.uploading") : isPending ? t("common.loading") : t("common.submit")}
           onPress={handleSubmit(d => mutate(d))}
           loading={isPending}
           disabled={isPending}
@@ -234,6 +359,77 @@ function RhfTextInput({
         ]}
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function PhotoField({ photos, busy, disabled, onAdd, onRemove, styles, colors }: {
+  photos: Photo[];
+  busy: boolean;
+  disabled: boolean;
+  onAdd: (source: "library" | "camera") => void;
+  onRemove: (uri: string) => void;
+  styles: any;
+  colors: any;
+}) {
+  const { t } = useTranslation();
+  const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  const off = photos.length >= MAX_ATTACHMENTS || disabled;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.label}>{t("feedback.attachments")}</Text>
+      <Text style={styles.hint}>{t("feedback.attachments_hint")}</Text>
+      <View style={styles.photoActions}>
+        <Pressable
+          style={({ pressed }) => [styles.photoBtn, off && styles.photoBtnDisabled, pressed && styles.pressed]}
+          onPress={() => onAdd("library")}
+          disabled={off}
+          accessibilityRole="button"
+          accessibilityLabel={t("feedback.add_photo")}
+        >
+          <ImageIcon size={20} color={gold} />
+          <Text style={styles.photoBtnText}>{t("feedback.add_photo")}</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.photoBtn, off && styles.photoBtnDisabled, pressed && styles.pressed]}
+          onPress={() => onAdd("camera")}
+          disabled={off}
+          accessibilityRole="button"
+          accessibilityLabel={t("feedback.take_photo")}
+        >
+          <Camera size={20} color={gold} />
+          <Text style={styles.photoBtnText}>{t("feedback.take_photo")}</Text>
+        </Pressable>
+      </View>
+      {photos.length > 0 && (
+        <View style={styles.thumbs}>
+          {photos.map((photo, index) => (
+            <View key={photo.uri} style={styles.thumb}>
+              <Image
+                source={{ uri: photo.uri }}
+                style={styles.thumbImg}
+                contentFit="cover"
+                accessibilityLabel={`${t("feedback.attachment")} ${index + 1}`}
+              />
+              {busy && <View style={styles.thumbBusy} />}
+              {!busy && (
+                <Pressable
+                  style={styles.removeBtn}
+                  onPress={() => onRemove(photo.uri)}
+                  disabled={disabled}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("feedback.remove_photo")}
+                >
+                  <View style={styles.removeDot}>
+                    <X size={14} color={BRAND.gold} weight="bold" />
+                  </View>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
