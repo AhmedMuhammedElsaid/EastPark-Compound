@@ -3,10 +3,13 @@
  * go through the same-origin BFF routes under `/api/admin/users` and `/api/admin/activity`; the BFF
  * returns `{ error: <code> }` with the HTTP status, and `teamErrorKey` turns that into copy keys.
  */
+import type { ResidentUnit } from '@/lib/api/contracts';
 import type { AssignableRole, RoleName } from '@/lib/auth/roles';
+import type { UnitFieldsValues } from '@/lib/schemas/registerUnit';
 
 import {
   activityItemSchema,
+  addedUnitEnvelopeSchema,
   adminUserItemSchema,
   parsePage,
   type ActivityItem,
@@ -26,6 +29,10 @@ export type TeamErrorKey =
   | 'restore_conflict'
   | 'super_admin_required'
   | 'admin_invite_requires_super_admin'
+  | 'unit_already_owned'
+  | 'unit_reserved'
+  | 'unit_not_found'
+  | 'unit_validation'
   | 'not_found'
   | 'validation'
   | 'rate_limited'
@@ -42,6 +49,10 @@ const EXPLICIT_CODES = new Set<TeamErrorKey>([
   'restore_conflict',
   'super_admin_required',
   'admin_invite_requires_super_admin',
+  'unit_already_owned',
+  'unit_reserved',
+  'unit_not_found',
+  'unit_validation',
   'not_found',
   'validation',
   'rate_limited',
@@ -108,6 +119,30 @@ export async function changeUserRole(id: string, role: AssignableRole): Promise<
   );
   const parsed = adminUserItemSchema.safeParse((payload as { data?: unknown } | null)?.data);
   return parsed.success ? parsed.data : null;
+}
+
+/** Adds a flat to an account. Returns the new flat, or null when the response did not parse. */
+export async function addUserUnit(userId: string, unit: UnitFieldsValues): Promise<ResidentUnit | null> {
+  const payload = await request(
+    `/api/admin/users/${encodeURIComponent(userId)}/units`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ building: unit.building, floor: unit.floor, flatNumber: unit.flatNumber }),
+    },
+    30_000,
+  );
+  const parsed = addedUnitEnvelopeSchema.safeParse(payload);
+  return parsed.success ? parsed.data.data : null;
+}
+
+/** Removes a flat from an account (sale / transfer). No request body. */
+export async function removeUserUnit(userId: string, unitId: string): Promise<void> {
+  await request(
+    `/api/admin/users/${encodeURIComponent(userId)}/units/${encodeURIComponent(unitId)}`,
+    { method: 'DELETE' },
+    30_000,
+  );
 }
 
 /** Soft-deletes an account (signed out + hidden; restorable from the recycle bin). No request body. */

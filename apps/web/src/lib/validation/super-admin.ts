@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 
+import { residentUnitSchema, residentUnitsSchema } from '@/lib/api/auth-schemas';
 import { ASSIGNABLE_ROLES, ROLES } from '@/lib/auth/roles';
 
 const optionalText = (max: number) =>
@@ -36,6 +37,12 @@ export const roleChangeSchema = z.object({ role: z.enum(ASSIGNABLE_ROLES) });
 
 export const userIdSchema = z.string().trim().min(1).max(100);
 
+/** `:unitId` of `DELETE /api/admin/users/:id/units/:unitId`. */
+export const unitIdSchema = z.string().trim().min(1).max(100);
+
+/** The `POST /api/admin/users/:id/units` response (`201` with the new flat). */
+export const addedUnitEnvelopeSchema = z.object({ data: residentUnitSchema });
+
 /** Reads URL search params into a plain object, treating empty values as absent. */
 export function searchParamsObject(params: URLSearchParams, keys: readonly string[]): Record<string, string> {
   const result: Record<string, string> = {};
@@ -67,6 +74,8 @@ export const adminUserItemSchema = z.object({
   email: z.string().catch(''),
   role: z.enum(ROLES),
   unitNumber: nullableString.catch(null),
+  // Malformed flats never hide the person's row; an older backend sends none.
+  units: residentUnitsSchema,
   createdAt: z.string().catch(''),
 });
 export type AdminUserItem = z.infer<typeof adminUserItemSchema>;

@@ -1,14 +1,17 @@
 'use client';
 
-import { Lock, Search, SearchX, ShieldCheck, Trash2, UserCog, UserX, X } from 'lucide-react';
+import { House, Lock, Plus, Search, SearchX, ShieldCheck, Trash2, UserCog, UserX, X } from 'lucide-react';
 import * as React from 'react';
 
 import { LeadToasts, useToasts } from '@/components/admin/residents/LeadToasts';
 import { roleLabel } from '@/lib/admin/activity-sentence';
+import type { ResidentUnit } from '@/lib/api/contracts';
 import {
+  addUserUnit,
   changeUserRole,
   deleteUser,
   fetchUsers,
+  removeUserUnit,
   SuperAdminRequestError,
   teamErrorKey,
   type AdminUserItem,
@@ -16,7 +19,10 @@ import {
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { ROLES, type AssignableRole, type RoleName } from '@/lib/auth/roles';
 import { useTranslation } from '@/lib/i18n';
+import type { UnitFieldsValues } from '@/lib/schemas/registerUnit';
+import { afterUnitRemoved, keepUnits, primaryAfterAdd } from '@/lib/units';
 
+import { AddFlatDialog } from './AddFlatDialog';
 import { ChangeRoleDialog } from './ChangeRoleDialog';
 import { ConfirmActionDialog, type ConfirmContent } from './ConfirmActionDialog';
 import { EmptyState, ErrorState, FOCUS, initialOf, LoadMoreButton, PanelHeader, RowsSkeleton, SELECT_CLASS } from './panel-parts';
@@ -46,6 +52,8 @@ export function TeamRolesPanel() {
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<AdminUserItem | null>(null);
   const [deleting, setDeleting] = React.useState<AdminUserItem | null>(null);
+  const [addingFlat, setAddingFlat] = React.useState<AdminUserItem | null>(null);
+  const [removingFlat, setRemovingFlat] = React.useState<{ person: AdminUserItem; unit: ResidentUnit } | null>(null);
   const listSeq = React.useRef(0);
   const debouncedRef = React.useRef('');
 
@@ -100,7 +108,8 @@ export function TeamRolesPanel() {
     const name = target.name || target.email;
     try {
       const updated = await changeUserRole(target.id, nextRole);
-      setRows((current) => current.map((item) => (item.id === target.id ? (updated ?? { ...item, role: nextRole }) : item)));
+      // The role-change response carries no flats: keep the row's.
+      setRows((current) => current.map((item) => (item.id === target.id ? (updated ? keepUnits(item, updated) : { ...item, role: nextRole }) : item)));
       push('success', t('admin_team.success', { name, role: roleLabel(nextRole, t) }));
     } catch (error) {
       push('error', t(`admin_team.errors.${teamErrorKey(...errorStatus(error))}`));
@@ -123,6 +132,67 @@ export function TeamRolesPanel() {
     }
   }
 
+  /** Resolves to an inline error message, or null once the flat was added. */
+  async function addFlat(target: AdminUserItem, values: UnitFieldsValues): Promise<string | null> {
+    const name = target.name || target.email;
+    try {
+      const unit = await addUserUnit(target.id, values);
+      if (!unit) {
+        // Added, but the response did not parse: reload the list to show it.
+        setListState('loading');
+        setReloadKey((key) => key + 1);
+      } else {
+        setRows((current) =>
+          current.map((item) =>
+            item.id === target.id
+              ? { ...item, units: [...item.units, unit], unitNumber: primaryAfterAdd(item.unitNumber, unit) }
+              : item,
+          ),
+        );
+      }
+      push('success', t('admin_team.add_flat_success', { name, unit: unit?.label ?? `${values.building}-${values.floor}-${values.flatNumber}` }));
+      return null;
+    } catch (error) {
+      return t(`admin_team.errors.${teamErrorKey(...errorStatus(error))}`);
+    }
+  }
+
+  async function removeFlat(target: AdminUserItem, unit: ResidentUnit) {
+    setPendingId(target.id);
+    const name = target.name || target.email;
+    const dropLocally = () =>
+      setRows((current) =>
+        current.map((item) => (item.id === target.id ? { ...item, ...afterUnitRemoved(item.units, item.unitNumber, unit.id) } : item)),
+      );
+    try {
+      await removeUserUnit(target.id, unit.id);
+      dropLocally();
+      push('success', t('admin_team.remove_flat_success', { name, unit: unit.label }));
+    } catch (error) {
+      const key = teamErrorKey(...errorStatus(error));
+      push('error', t(`admin_team.errors.${key}`));
+      // Already gone on the server: drop it here too so the row matches.
+      if (key === 'unit_not_found') dropLocally();
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  const closeAddFlat = React.useCallback(() => setAddingFlat(null), []);
+  const closeRemoveFlat = React.useCallback(() => setRemovingFlat(null), []);
+  const removeFlatContent = React.useMemo<ConfirmContent | null>(() => {
+    if (!removingFlat) return null;
+    const name = removingFlat.person.name || removingFlat.person.email;
+    const unit = removingFlat.unit.label;
+    return {
+      title: t('admin_team.remove_flat_title', { unit }),
+      icon: House,
+      tone: 'danger',
+      body: <p>{t('admin_team.remove_flat_body', { name, unit })}</p>,
+      confirmLabel: t('admin_team.remove_flat_confirm'),
+      cancelLabel: t('admin_team.dialog_cancel'),
+    };
+  }, [removingFlat, t]);
   const closeDialog = React.useCallback(() => setEditing(null), []);
   const closeDelete = React.useCallback(() => setDeleting(null), []);
   const deleteContent = React.useMemo<ConfirmContent | null>(() => {
@@ -235,13 +305,25 @@ export function TeamRolesPanel() {
                       <p className="truncate text-[length:var(--text-body)] text-muted-foreground">
                         <bdi>{person.email}</bdi>
                       </p>
-                      <p className="text-[length:var(--text-caption)] text-muted-foreground">
-                        {person.unitNumber ? t('admin_team.unit', { unit: person.unitNumber }) : t('admin_team.no_unit')}
-                      </p>
+                      <PersonFlats
+                        person={person}
+                        disabled={pending}
+                        onRemove={(unit) => setRemovingFlat({ person, unit })}
+                      />
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 ps-13 sm:ps-0">
                     <RoleBadge role={person.role} />
+                    <button
+                      type="button"
+                      onClick={() => setAddingFlat(person)}
+                      disabled={pending}
+                      aria-label={t('admin_team.add_flat_for', { name })}
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:border-primary/60 hover:bg-muted disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
+                    >
+                      <Plus aria-hidden="true" className="size-4" />
+                      {t('admin_team.add_flat')}
+                    </button>
                     {locked ? (
                       <span
                         title={t('admin_team.locked_hint')}
@@ -295,7 +377,67 @@ export function TeamRolesPanel() {
         }}
         onCancel={closeDelete}
       />
+      <AddFlatDialog user={addingFlat} onSubmit={addFlat} onCancel={closeAddFlat} />
+      <ConfirmActionDialog
+        content={removeFlatContent}
+        onConfirm={() => {
+          if (removingFlat) void removeFlat(removingFlat.person, removingFlat.unit);
+        }}
+        onCancel={closeRemoveFlat}
+      />
       <LeadToasts toasts={toasts} onDismiss={dismiss} />
     </section>
+  );
+}
+
+/**
+ * The person's flats, each with a remove action (the primary is marked when there are several).
+ * Legacy accounts have only `unitNumber` (no flat rows): shown as plain text without actions.
+ */
+function PersonFlats({
+  person,
+  disabled,
+  onRemove,
+}: {
+  person: AdminUserItem;
+  disabled: boolean;
+  onRemove: (unit: ResidentUnit) => void;
+}) {
+  const { t } = useTranslation();
+  const name = person.name || person.email;
+  if (person.units.length === 0) {
+    return (
+      <p className="text-[length:var(--text-caption)] text-muted-foreground">
+        {person.unitNumber ? t('admin_team.unit', { unit: person.unitNumber }) : t('admin_team.no_unit')}
+      </p>
+    );
+  }
+  return (
+    <ul aria-label={t('admin_team.flats')} className="mt-1 flex flex-wrap gap-2">
+      {person.units.map((unit) => (
+        <li
+          key={unit.id}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-muted/35 ps-3 pe-0.5 text-[length:var(--text-body)] font-semibold text-foreground"
+        >
+          <House aria-hidden="true" className="size-4 text-primary" />
+          <bdi dir="ltr">{unit.label}</bdi>
+          {person.units.length > 1 && unit.label === person.unitNumber && (
+            <span className="rounded-sm bg-primary/12 px-1.5 text-[length:var(--text-caption)] font-bold text-primary">
+              {t('admin_team.primary')}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => onRemove(unit)}
+            disabled={disabled}
+            aria-label={t('admin_team.remove_flat_for', { unit: unit.label, name })}
+            title={t('admin_team.remove_flat')}
+            className={`flex size-11 items-center justify-center rounded-md text-muted-foreground hover:bg-error/10 hover:text-error disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
+          >
+            <X aria-hidden="true" className="size-4" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
