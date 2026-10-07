@@ -328,6 +328,7 @@
     "candidates": "المرشحون",
     "candidates_count": "المرشحون: {{total}}",
     "closed": "منتهٍ",
+    "closed_on": "انتهى {{date}}",
     "elections": "الانتخابات",
     "error_already_voted": "لقد قمت بالتصويت بالفعل.",
     "error_expired": "انتهى التصويت.",

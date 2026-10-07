@@ -299,7 +299,9 @@ function ElectionCard({ election, styles }: { election: Election; styles: any })
           })}
         </Text>
         <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaText}>{t("governance.expires", { date: expiry })}</Text>
+        <Text style={styles.metaText}>
+          {t(election.isExpired ? "governance.closed_on" : "governance.expires", { date: expiry })}
+        </Text>
       </View>
     </Pressable>
   );

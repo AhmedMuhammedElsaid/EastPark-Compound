@@ -183,7 +183,7 @@ export default function ElectionScreen() {
 
         <Text style={styles.meta}>
           {totalVotes !== null && `${totalVotes.toLocaleString(locale)} ${t("governance.votes_label")} · `}
-          {t("governance.expires", {
+          {t(votingClosed ? "governance.closed_on" : "governance.expires", {
             date: new Date(election.expiresAt).toLocaleDateString(locale, {
               month: "short",
               day: "numeric",

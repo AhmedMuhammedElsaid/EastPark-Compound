@@ -328,6 +328,7 @@
     "candidates": "Candidates",
     "candidates_count": "Candidates: {{total}}",
     "closed": "Closed",
+    "closed_on": "Closed {{date}}",
     "elections": "Elections",
     "error_already_voted": "You have already voted here.",
     "error_expired": "Voting has closed.",
