@@ -9,6 +9,7 @@ import {
   pickErrorKey,
   sendInvitationErrorKey,
 } from "@/lib/api-error";
+import { INVITATION_PASSWORD_MAX, invitationPasswordSchema } from "@/lib/auth/password";
 import ar from "@/translations/ar.json";
 import en from "@/translations/en.json";
 
@@ -97,5 +98,26 @@ describe("deleted-account 409 mapping", () => {
       expect(json.auth.errors.invitation_account_deleted).toEqual(expect.any(String));
       expect(json.auth.errors.invitation_unit_owned).toEqual(expect.any(String));
     }
+  });
+});
+
+describe("accept-invitation password strength (new accounts only)", () => {
+  it("maps the backend's new-account weak-password 400 to the requirements copy, not the invalid-invitation card", () => {
+    // AcceptInvitationService throws the same array body the DTO used to.
+    const weak = { response: { status: 400, data: { statusCode: 400, message: "Bad Request", error: ["Password must be 8+ chars with uppercase, lowercase, number, and special character"] } } };
+    expect(isInvalidInvitationError(weak)).toBe(false);
+    expect(acceptInvitationErrorKey(weak)).toBe("auth.errors.password_requirements");
+  });
+
+  it("the form accepts a weak current password and rejects only empty or over-long input", () => {
+    expect(invitationPasswordSchema.safeParse("oldpass").success).toBe(true);
+    expect(invitationPasswordSchema.safeParse("a".repeat(INVITATION_PASSWORD_MAX)).success).toBe(true);
+    const empty = invitationPasswordSchema.safeParse("");
+    expect(empty.success).toBe(false);
+    expect(empty.error?.issues[0]?.message).toBe("validation.required");
+    const long = invitationPasswordSchema.safeParse("a".repeat(INVITATION_PASSWORD_MAX + 1));
+    expect(long.error?.issues[0]?.message).toBe("auth.errors.password_too_long");
+    for (const json of [en, ar])
+      expect(json.auth.errors.password_too_long).toEqual(expect.any(String));
   });
 });

@@ -13,7 +13,7 @@ import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { acceptInvitationErrorKey, isInvalidInvitationError } from "@/lib/api-error";
-import { newPasswordSchema } from "@/lib/auth/password";
+import { invitationPasswordSchema } from "@/lib/auth/password";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { roleLabelKey } from "@/lib/roles";
 import { authApi } from "@/services/api/auth";
@@ -22,7 +22,9 @@ import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const schema = z.object({
   name: z.string().min(2, "auth.errors.name_too_short"),
-  password: newPasswordSchema,
+  // Not held to the strength rules here: an existing owner enters a current
+  // password that may predate them. The backend checks new accounts only.
+  password: invitationPasswordSchema,
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, { message: "auth.errors.passwords_no_match", path: ["confirmPassword"] });
 type FormData = z.infer<typeof schema>;
@@ -148,6 +150,8 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
           />
         )}
       />
+      {/* Guidance for a NEW password only; it never blocks submit. */}
+      <Text style={styles.existingAccountHint}>{t("auth.errors.password_requirements")}</Text>
       <Controller
         control={control}
         name="confirmPassword"

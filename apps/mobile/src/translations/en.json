@@ -152,6 +152,7 @@
       "login_failed": "Incorrect email or password",
       "name_too_short": "Name must be at least 2 characters",
       "password_requirements": "Use 8+ characters with an uppercase letter, a lowercase letter, a number and a symbol. English letters only, no spaces.",
+      "password_too_long": "Password must be at most 256 characters",
       "password_too_short": "Password must be at least 8 characters",
       "passwords_no_match": "Passwords do not match",
       "server_unreachable": "We couldn't reach the server. Check your connection and try again."
