@@ -433,7 +433,7 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
         accessibilityRole="button"
         accessibilityLabel={t("auth.logout")}
       >
-        <View style={styles.rowIconWrapDanger}><SignOut size={20} color={SEMANTIC.error} /></View>
+        <View style={styles.rowIconWrapDanger}><SignOut mirrored={I18nManager.isRTL} size={20} color={SEMANTIC.error} /></View>
         <Text style={styles.rowLabelDanger}>{t("auth.logout")}</Text>
       </Pressable>
       <Pressable
