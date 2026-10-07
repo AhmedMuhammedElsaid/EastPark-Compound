@@ -16,7 +16,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sendInvitationErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { isSuperAdminRole } from "@/lib/roles";
+import { isSuperAdminRole, roleLabelKey } from "@/lib/roles";
 import { adminApi } from "@/services/api/admin";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -145,7 +145,7 @@ function InviteForm({ email, onEmailChange, role, onRoleChange, roleOptions, isP
             accessibilityState={{ selected: role === r }}
           >
             <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
-              {t(`auth.role_${r.toLowerCase() as "merchant" | "admin"}`)}
+              {t(roleLabelKey(r))}
             </Text>
           </Pressable>
         ))}
@@ -212,7 +212,7 @@ export default function InvitationsScreen() {
       return;
     Alert.alert(
       t("admin.send_invite"),
-      `${email.trim()} · ${t(`auth.role_${role.toLowerCase() as "merchant" | "admin"}`)}`,
+      `${email.trim()} · ${t(roleLabelKey(role))}`,
       [
         { text: t("common.cancel"), style: "cancel" },
         { text: t("admin.send_invite"), onPress: () => sendInvite() },
@@ -306,7 +306,7 @@ function InvitationRow({ invitation, styles }: { invitation: Invitation; styles:
       <View style={styles.rowRight}>
         <View style={styles.rolePill}>
           <Text style={styles.rolePillText}>
-            {t(`auth.role_${invitation.role.toLowerCase() as "merchant" | "admin"}`)}
+            {t(roleLabelKey(invitation.role))}
           </Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: `${statusColor}33` }]}>

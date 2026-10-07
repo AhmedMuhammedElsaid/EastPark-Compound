@@ -1,12 +1,15 @@
 import { client } from "./client";
 
+/** Roles an admin can invite. */
 export type InvitationRole = "MERCHANT" | "ADMIN";
+/** Roles the backend can return on an invitation (lead approval creates RESIDENT ones). */
+export type InvitationResponseRole = InvitationRole | "RESIDENT" | "SUPER_ADMIN";
 export type InvitationStatus = "PENDING" | "USED" | "EXPIRED";
 
 export type Invitation = {
   id: string;
   email: string;
-  role: InvitationRole;
+  role: InvitationResponseRole;
   expiresAt: string;
   usedAt: string | null;
   createdAt: string;
