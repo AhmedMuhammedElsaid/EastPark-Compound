@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { toWhatsAppDigits } from "@/lib/whatsapp";
+import { DAY_KEYS, dayKeyFor, formatClockTime, hasSchedule, isShopOpenNow } from "@/lib/working-hours";
 import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { addItem, updateQuantity } from "@/store/slices/cart-slice";
@@ -116,6 +117,22 @@ function buildHeaderStyles(colors: ReturnType<typeof useAppColors>) {
     tabActive: { borderBottomColor: gold },
     tabText: { fontFamily: FONT.sans, fontSize: 15, lineHeight: 22, color: colors.textMuted, fontWeight: "500" },
     tabTextActive: { color: gold, fontWeight: "700" },
+
+    // Working hours
+    hoursBox: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.lg,
+      paddingHorizontal: SPACING.base,
+      paddingVertical: SPACING.sm,
+      marginTop: SPACING.xs,
+    },
+    hoursTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 15, lineHeight: 23, color: colors.text, marginBottom: SPACING.xs },
+    hoursRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 32, gap: SPACING.sm },
+    hoursDay: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: colors.textMuted },
+    hoursValue: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: colors.textMuted },
+    hoursToday: { color: gold, fontWeight: "700" },
   });
 }
 
@@ -542,14 +559,16 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
   const displayName = isAr ? shop.nameAr : shop.name;
   const description = isAr ? shop.descriptionAr : shop.description;
   const categoryLabel = t(`directory.${shop.category.toLowerCase().replace("_and_", "_")}`);
+  // Manual override AND today's schedule (CLAUDE.md: the client computes "open now").
+  const openNow = isShopOpenNow(shop, new Date());
 
   return (
     <View style={styles.info}>
       <View style={styles.nameRow}>
         <Text style={styles.name} accessibilityRole="header">{displayName}</Text>
-        <View style={[styles.statusBadge, shop.isOpen ? styles.badgeOpen : styles.badgeClosed]}>
-          <Text style={[styles.statusText, shop.isOpen && styles.statusTextOpen]}>
-            {shop.isOpen ? t("common.open") : t("common.closed")}
+        <View style={[styles.statusBadge, openNow ? styles.badgeOpen : styles.badgeClosed]}>
+          <Text style={[styles.statusText, openNow && styles.statusTextOpen]}>
+            {openNow ? t("common.open") : t("common.closed")}
           </Text>
         </View>
       </View>
@@ -567,6 +586,7 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
         )}
       </View>
       {description ? <Text style={styles.description}>{description}</Text> : null}
+      <WorkingHoursSection shop={shop} styles={styles} />
       {(shop.phone || shop.whatsapp)
         ? (
             <View style={styles.ctaRow}>
@@ -602,6 +622,36 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
             </View>
           )
         : null}
+    </View>
+  );
+}
+
+/** Weekly schedule with today highlighted; times use locale digits. Hidden when the shop has none. */
+function WorkingHoursSection({ shop, styles }: { shop: Shop; styles: Styles }) {
+  const { t, i18n } = useTranslation();
+  const hours = shop.workingHours;
+  if (!hasSchedule(hours))
+    return null;
+  const today = dayKeyFor(new Date());
+  return (
+    <View style={styles.hoursBox}>
+      <Text style={styles.hoursTitle} accessibilityRole="header">{t("directory.working_hours")}</Text>
+      {DAY_KEYS.map((day) => {
+        const entry = hours[day];
+        const isToday = day === today;
+        const value = !entry || entry.closed || !entry.open || !entry.close
+          ? t("common.closed")
+          : `${formatClockTime(entry.open, i18n.language)} - ${formatClockTime(entry.close, i18n.language)}`;
+        const dayName = t(`directory.days.${day}`);
+        return (
+          <View key={day} style={styles.hoursRow} accessibilityLabel={`${dayName}: ${value}`}>
+            <Text style={[styles.hoursDay, isToday && styles.hoursToday]}>
+              {isToday ? `${dayName} (${t("directory.today")})` : dayName}
+            </Text>
+            <Text style={[styles.hoursValue, isToday && styles.hoursToday]}>{value}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }

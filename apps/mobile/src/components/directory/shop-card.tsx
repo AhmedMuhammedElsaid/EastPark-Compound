@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatCount, formatRating } from "@/components/directory/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { isShopOpenNow } from "@/lib/working-hours";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 type Props = { shop: Shop };
@@ -28,6 +29,7 @@ export function ShopCard({ shop }: Props) {
   const displayName = isAr ? shop.nameAr : shop.name;
   const categoryLabel = t(`directory.${shop.category.toLowerCase().replace("_and_", "_")}`);
   const hasRating = typeof shop.averageRating === "number";
+  const openNow = isShopOpenNow(shop, new Date());
 
   function handlePress() {
     router.push(`/(tabs)/directory/${shop.id}`);
@@ -46,7 +48,7 @@ export function ShopCard({ shop }: Props) {
               <Image
                 source={{ uri: coverPhoto.url }}
                 recyclingKey={shop.id}
-                style={[styles.image, !shop.isOpen && styles.imageClosed]}
+                style={[styles.image, !openNow && styles.imageClosed]}
                 contentFit="cover"
                 transition={150}
               />
@@ -57,9 +59,9 @@ export function ShopCard({ shop }: Props) {
               </View>
             )}
 
-        <View style={[styles.badge, shop.isOpen ? styles.badgeOpen : styles.badgeClosed]}>
-          <Text style={[styles.badgeText, shop.isOpen ? styles.badgeTextOpen : null]}>
-            {shop.isOpen ? t("common.open") : t("common.closed")}
+        <View style={[styles.badge, openNow ? styles.badgeOpen : styles.badgeClosed]}>
+          <Text style={[styles.badgeText, openNow ? styles.badgeTextOpen : null]}>
+            {openNow ? t("common.open") : t("common.closed")}
           </Text>
         </View>
       </View>

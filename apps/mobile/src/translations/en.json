@@ -280,6 +280,15 @@
     "cafe_food": "Café & Food",
     "call": "Call",
     "closed_now": "Closed",
+    "days": {
+      "fri": "Friday",
+      "mon": "Monday",
+      "sat": "Saturday",
+      "sun": "Sunday",
+      "thu": "Thursday",
+      "tue": "Tuesday",
+      "wed": "Wednesday"
+    },
     "decrease_quantity": "Decrease quantity",
     "grocery": "Grocery",
     "increase_quantity": "Increase quantity",
@@ -302,6 +311,7 @@
     "search_placeholder": "Search shops...",
     "services": "Services",
     "title": "Directory",
+    "today": "Today",
     "unavailable": "Unavailable",
     "whatsapp": "WhatsApp",
     "working_hours": "Working hours",

@@ -280,6 +280,15 @@
     "cafe_food": "مقاهٍ وطعام",
     "call": "اتصال",
     "closed_now": "مغلق",
+    "days": {
+      "fri": "الجمعة",
+      "mon": "الاثنين",
+      "sat": "السبت",
+      "sun": "الأحد",
+      "thu": "الخميس",
+      "tue": "الثلاثاء",
+      "wed": "الأربعاء"
+    },
     "decrease_quantity": "تقليل الكمية",
     "grocery": "بقالة",
     "increase_quantity": "زيادة الكمية",
@@ -302,6 +311,7 @@
     "search_placeholder": "ابحث عن المحلات...",
     "services": "خدمات",
     "title": "الدليل",
+    "today": "اليوم",
     "unavailable": "غير متاح",
     "whatsapp": "واتساب",
     "working_hours": "ساعات العمل",
