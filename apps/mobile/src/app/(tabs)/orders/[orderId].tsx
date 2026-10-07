@@ -347,7 +347,7 @@ function OrderSummary({ order, styles }: { order: Order; styles: Styles }) {
         </Text>
       </View>
       <View style={styles.summaryRow}>
-        <Text style={styles.summaryLabel}>{t("orders.paid")}</Text>
+        <Text style={styles.summaryLabel}>{t("orders.payment_status")}</Text>
         <Text style={[styles.summaryValue, { color: order.isPaid ? SEMANTIC.success : SEMANTIC.warning }]}>
           {order.isPaid ? t("orders.paid") : t("orders.unpaid")}
         </Text>
