@@ -11,7 +11,7 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { getErrorCode, isNoResponseError } from "@/lib/api-error";
+import { getErrorCode, getErrorStatus, isNoResponseError } from "@/lib/api-error";
 import { CARD_PAYMENTS_ENABLED, WHATSAPP_ORDER_HANDOFF } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -185,7 +185,10 @@ export default function PaymentScreen() {
       if (!isNoResponseError(error)) {
         inFlightRef.current = false;
         const invalidUnit = getErrorCode(error) === "order.error.deliveryUnitInvalid";
-        showMessage({ message: t(invalidUnit ? "checkout.unit_invalid" : "checkout.order_failed"), type: "danger", backgroundColor: SEMANTIC.error });
+        // POST /orders is RESIDENT-only: any other role gets a 403 that retrying never fixes.
+        const forbidden = getErrorStatus(error) === 403;
+        const key = forbidden ? "checkout.residents_only" : invalidUnit ? "checkout.unit_invalid" : "checkout.order_failed";
+        showMessage({ message: t(key), type: "danger", backgroundColor: SEMANTIC.error });
         return;
       }
       // Timeout / connection loss: the server may have committed the order.

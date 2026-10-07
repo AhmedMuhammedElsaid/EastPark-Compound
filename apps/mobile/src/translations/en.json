@@ -211,6 +211,7 @@
     "payment": "Payment method",
     "payment_init_failed": "Your order was placed, but we couldn't start the card payment. Open the order to try paying again.",
     "place_order": "Place order",
+    "residents_only": "Only residents can place orders.",
     "title": "Checkout",
     "unit": "Unit {{number}}",
     "unit_invalid": "That flat is not on your account. Pick one of your flats and try again.",
