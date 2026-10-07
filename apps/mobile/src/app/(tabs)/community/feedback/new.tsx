@@ -25,7 +25,7 @@ import { z } from "zod";
 
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { MAX_ATTACHMENTS, uploadErrorKey, validateAsset } from "@/lib/feedback-attachments";
+import { MAX_ATTACHMENTS, uploadErrorKey, uploadLimitParams, validateAsset } from "@/lib/feedback-attachments";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { communityApi } from "@/services/api/community";
 import { uploadsApi } from "@/services/api/uploads";
@@ -150,14 +150,14 @@ function useStyles() {
 }
 
 function usePhotoPicker() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [photos, setPhotos] = React.useState<Photo[]>([]);
   const [uploading, setUploading] = React.useState(false);
 
   async function addPhotos(source: "library" | "camera") {
     const remaining = MAX_ATTACHMENTS - photos.length;
     if (remaining <= 0) {
-      showMessage({ message: t("feedback.photo_limit"), type: "warning", backgroundColor: SEMANTIC.warning });
+      showMessage({ message: t("feedback.photo_limit", uploadLimitParams(i18n.language)), type: "warning", backgroundColor: SEMANTIC.warning });
       return;
     }
     try {
@@ -196,7 +196,7 @@ function usePhotoPicker() {
 }
 
 export default function NewFeedbackScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const styles = useStyles();
   const colors = useAppColors();
@@ -231,7 +231,7 @@ export default function NewFeedbackScreen() {
       router.back();
     },
     onError: (error) => {
-      const message = error instanceof UploadFailedError ? t(uploadErrorKey(error.original) as any) : t("common.error");
+      const message = error instanceof UploadFailedError ? t(uploadErrorKey(error.original) as any, uploadLimitParams(i18n.language)) : t("common.error");
       showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
@@ -372,14 +372,14 @@ function PhotoField({ photos, busy, disabled, onAdd, onRemove, styles, colors }:
   styles: any;
   colors: any;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   const off = photos.length >= MAX_ATTACHMENTS || disabled;
 
   return (
     <View style={styles.section}>
       <Text style={styles.label}>{t("feedback.attachments")}</Text>
-      <Text style={styles.hint}>{t("feedback.attachments_hint")}</Text>
+      <Text style={styles.hint}>{t("feedback.attachments_hint", uploadLimitParams(i18n.language))}</Text>
       <View style={styles.photoActions}>
         <Pressable
           style={({ pressed }) => [styles.photoBtn, off && styles.photoBtnDisabled, pressed && styles.pressed]}

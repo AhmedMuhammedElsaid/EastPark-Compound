@@ -1,4 +1,5 @@
 import { getErrorStatus } from "./api-error";
+import { formatNumber } from "./format-number";
 
 /** Same limits as the web feedback form (apps/web FeedbackViews). */
 export const MAX_ATTACHMENTS = 3;
@@ -48,4 +49,12 @@ export function uploadErrorKey(error: unknown): string {
     case 503: return "feedback.upload_unavailable";
     default: return "feedback.upload_failed";
   }
+}
+
+/** Interpolation values for the upload copy: limits shown with locale digits. */
+export function uploadLimitParams(language: string) {
+  return {
+    maxPhotos: formatNumber(MAX_ATTACHMENTS, language),
+    maxSize: formatNumber(MAX_ATTACHMENT_BYTES / (1024 * 1024), language),
+  };
 }

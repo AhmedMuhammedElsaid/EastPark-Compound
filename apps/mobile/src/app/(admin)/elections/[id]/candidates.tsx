@@ -20,7 +20,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canOpenResults, resultsStatusKey } from "@/lib/election-results";
 import { formatExpiry } from "@/lib/expiry-date";
-import { uploadErrorKey, validateAsset } from "@/lib/feedback-attachments";
+import { uploadErrorKey, uploadLimitParams, validateAsset } from "@/lib/feedback-attachments";
 import { formatNumber } from "@/lib/format-number";
 import { buildCandidatePayload } from "@/lib/governance-payload";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -213,7 +213,7 @@ function CandidatePhotoField({ photo, onChange, styles, colors }: PhotoFieldProp
 type AddCandidateFormProps = { electionId: string; styles: Styles; colors: Colors };
 
 function AddCandidateForm({ electionId, styles, colors }: AddCandidateFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [photo, setPhoto] = React.useState<Photo | null>(null);
 
@@ -243,7 +243,7 @@ function AddCandidateForm({ electionId, styles, colors }: AddCandidateFormProps)
       showMessage({ message: t("admin.candidate_added"), type: "success", backgroundColor: SEMANTIC.success });
     },
     onError: (error) => {
-      const message = error instanceof UploadFailedError ? t(uploadErrorKey(error.original) as any) : t("common.error");
+      const message = error instanceof UploadFailedError ? t(uploadErrorKey(error.original) as any, uploadLimitParams(i18n.language)) : t("common.error");
       showMessage({ message, type: "danger", backgroundColor: SEMANTIC.error });
     },
   });
