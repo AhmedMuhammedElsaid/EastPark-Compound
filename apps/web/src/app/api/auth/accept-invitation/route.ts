@@ -34,7 +34,15 @@ export async function POST(request: Request) {
         // Otherwise the email already has an account and the password is not its current one.
         return NextResponse.json({ error: 'account_exists' }, { status: 409 });
       }
-      if (response.status === 400 || response.status === 404) {
+      if (response.status === 400) {
+        // A validation 400 carries its per-field messages as an `error` array. Past the schema above that
+        // can only be the password rules, which the backend applies to a NEW account only. The other 400s
+        // ("Invitation already used" / "expired") carry prose and no array.
+        const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        if (Array.isArray(body?.error)) return NextResponse.json({ error: 'password_weak' }, { status: 400 });
+        return NextResponse.json({ error: 'invalid_invitation' }, { status: 400 });
+      }
+      if (response.status === 404) {
         return NextResponse.json({ error: 'invalid_invitation' }, { status: 400 });
       }
       return NextResponse.json({ error: 'server' }, { status: response.status >= 500 ? response.status : 400 });

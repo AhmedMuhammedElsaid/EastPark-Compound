@@ -111,6 +111,70 @@ describe('POST /api/auth/accept-invitation 409 mapping', () => {
   });
 });
 
+describe('accept-invitation password: strength is checked by the backend, for new accounts only', () => {
+  const post = async (password: string) => {
+    const { POST } = await import('@/app/api/auth/accept-invitation/route');
+    return POST(
+      new Request('http://localhost/api/auth/accept-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: 'a'.repeat(64), name: 'Sara', password }),
+      }),
+    );
+  };
+  const weakNewAccount = {
+    statusCode: 400,
+    message: 'Bad Request',
+    error: ['Password must be 8+ chars with uppercase, lowercase, number, and special character'],
+  };
+
+  it('forwards a weak password (it may be the current password of an existing owner) instead of rejecting it', async () => {
+    backend = () => json(409, { statusCode: 409, message: 'An account with this email already exists' });
+    const response = await post('oldpass');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ password: 'oldpass' });
+    expect(await response.json()).toEqual({ error: 'account_exists' });
+  });
+
+  it('still rejects an empty or over-long password without calling the backend', async () => {
+    for (const password of ['', 'a'.repeat(257)]) {
+      const response = await post(password);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'validation' });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('maps the backend validation 400 (an error array) to password_weak', async () => {
+    backend = () => json(400, weakNewAccount);
+    const response = await post('weakpass');
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'password_weak' });
+  });
+
+  it('keeps invalid_invitation for the prose 400s and the 404', async () => {
+    for (const reply of [
+      () => json(400, { statusCode: 400, message: 'Invitation expired', error: 'stack' }),
+      () => json(400, { statusCode: 400, message: 'Invitation already used' }),
+      () => json(404, { statusCode: 404, message: 'Invitation not found' }),
+    ]) {
+      backend = reply;
+      const response = await post('Password1!');
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'invalid_invitation' });
+    }
+  });
+
+  it('shows the new-password requirements copy, in ar and en', () => {
+    const path = acceptInvitationErrorKey('password_weak');
+    expect(path).toBe('auth.errors.invitation_password_weak');
+    expect(translate(en, path)).toContain('requirement');
+    expect(translate(ar, path)).not.toBe(path);
+    expect(translate(en, 'auth.invitation_existing_account_hint')).toContain('current password');
+    expect(translate(ar, 'auth.invitation_existing_account_hint')).not.toBe('auth.invitation_existing_account_hint');
+  });
+});
+
 describe('POST /api/admin/residents/leads/[id]/invite 409 mapping', () => {
   function asAdmin(other: () => Response) {
     state.cookies.set('eastpark_access', 'access-1');

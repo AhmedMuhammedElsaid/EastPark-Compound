@@ -67,6 +67,10 @@ export function AcceptInvitationForm({ token }: { token: string | null }) {
         <input id="name" type="text" autoComplete="name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'name-error' : undefined} className="min-h-12 w-full rounded-md border border-input bg-background px-4 text-[length:var(--text-body-lg)] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25" {...register('name')} />
         {errors.name && <p id="name-error" role="alert" className="mt-2 text-[length:var(--text-caption)] text-error">{t(errors.name.message ?? 'auth.errors.name_too_short')}</p>}
       </div>
+      {/* No invitation lookup exists, so an existing account can't be detected up front. Its owner enters the
+          CURRENT password, which the backend only matches (never held to the checklist below); the checklist is
+          guidance for a new password and the backend enforces it only when it creates the account. */}
+      <p className="text-[length:var(--text-caption)] leading-5 text-muted-foreground">{t('auth.invitation_existing_account_hint')}</p>
       {(['password', 'confirmPassword'] as const).map((name) => {
         const error = errors[name];
         const describedBy = [
