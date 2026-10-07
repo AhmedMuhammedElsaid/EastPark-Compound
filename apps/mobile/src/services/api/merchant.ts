@@ -42,7 +42,8 @@ export function getOrderResidentName(order: Pick<Order, "resident">): string | n
 }
 
 export function getOrderUnit(order: Pick<Order, "resident" | "deliveryUnit">): string {
-  return order.resident?.unitNumber ?? order.deliveryUnit ?? "";
+  // The flat the resident picked for this order, not their profile primary.
+  return order.deliveryUnit || order.resident?.unitNumber || "";
 }
 
 /** ProductQueryDto max page size. */
