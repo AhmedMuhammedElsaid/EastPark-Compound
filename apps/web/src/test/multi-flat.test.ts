@@ -195,6 +195,24 @@ describe('POST /api/admin/residents/leads/[id]/invite — flat owned by another 
   });
 });
 
+describe('POST /api/auth/accept-invitation — flat owned by another account', () => {
+  it('returns unit_already_owned instead of the current-password hint', async () => {
+    backend = () => json(409, { statusCode: 409, code: 'unit.error.alreadyOwned', message: 'unit.error.alreadyOwned' });
+    const { POST } = await import('@/app/api/auth/accept-invitation/route');
+    const response = await POST(
+      new Request('http://localhost/api/auth/accept-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: 'a'.repeat(64), name: 'Sara', password: 'Password1!' }),
+      }),
+    );
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: string };
+    expect(body).toEqual({ error: 'unit_already_owned' });
+    expect(acceptInvitationErrorKey(body.error)).toBe('auth.errors.invitation_unit_owned');
+  });
+});
+
 describe('POST /api/admin/users/[id]/units', () => {
   const call = async (body: unknown, id = 'u1') => {
     const { POST } = await import('@/app/api/admin/users/[id]/units/route');

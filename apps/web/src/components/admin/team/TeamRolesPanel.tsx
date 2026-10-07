@@ -319,7 +319,7 @@ export function TeamRolesPanel() {
                       onClick={() => setAddingFlat(person)}
                       disabled={pending}
                       aria-label={t('admin_team.add_flat_for', { name })}
-                      className={`inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:border-primary/60 hover:bg-muted disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
+                      className={`inline-flex min-h-12 items-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-semibold text-foreground hover:border-primary/60 hover:bg-muted disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
                     >
                       <Plus aria-hidden="true" className="size-4" />
                       {t('admin_team.add_flat')}
@@ -417,7 +417,7 @@ function PersonFlats({
       {person.units.map((unit) => (
         <li
           key={unit.id}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-muted/35 ps-3 pe-0.5 text-[length:var(--text-body)] font-semibold text-foreground"
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-md border border-border bg-muted/35 ps-3 pe-0.5 text-[length:var(--text-body)] font-semibold text-foreground"
         >
           <House aria-hidden="true" className="size-4 text-primary" />
           <bdi dir="ltr">{unit.label}</bdi>
@@ -432,7 +432,7 @@ function PersonFlats({
             disabled={disabled}
             aria-label={t('admin_team.remove_flat_for', { unit: unit.label, name })}
             title={t('admin_team.remove_flat')}
-            className={`flex size-11 items-center justify-center rounded-md text-muted-foreground hover:bg-error/10 hover:text-error disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
+            className={`flex size-12 items-center justify-center rounded-md text-muted-foreground hover:bg-error/10 hover:text-error disabled:cursor-wait disabled:opacity-60 ${FOCUS}`}
           >
             <X aria-hidden="true" className="size-4" />
           </button>
