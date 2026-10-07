@@ -28,6 +28,13 @@ export function DateTimeField({ value, onChange, label, hasError }: Props) {
   const styles = React.useMemo(() => buildStyles(colors), [colors]);
   const [iosOpen, setIosOpen] = React.useState(false);
   const isAr = i18n.language === "ar";
+  const accent = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  // The Android dialog's calendar/clock text follows the DEVICE locale (the API
+  // has no locale option); its buttons are labelled and tinted by the app.
+  const buttons = {
+    positiveButton: { label: t("common.confirm"), textColor: accent },
+    negativeButton: { label: t("common.cancel"), textColor: accent },
+  };
 
   const open = () => {
     void Haptics.selectionAsync();
@@ -42,12 +49,14 @@ export function DateTimeField({ value, onChange, label, hasError }: Props) {
       mode: "date",
       value: start,
       minimumDate: new Date(),
+      ...buttons,
       onChange: (dateEvent, pickedDate) => {
         if (dateEvent.type !== "set" || !pickedDate)
           return;
         DateTimePickerAndroid.open({
           mode: "time",
           value: start,
+          ...buttons,
           onChange: (timeEvent, pickedTime) => {
             if (timeEvent.type !== "set" || !pickedTime)
               return;
@@ -67,7 +76,7 @@ export function DateTimeField({ value, onChange, label, hasError }: Props) {
         accessibilityLabel={value ? `${label}: ${formatExpiry(value, i18n.language)}` : label}
         accessibilityHint={t("admin.pick_date_time_hint")}
       >
-        <CalendarBlank size={20} color={"primaryText" in colors ? colors.primaryText : BRAND.gold} />
+        <CalendarBlank size={20} color={accent} />
         <Text style={[styles.valueText, !value && styles.placeholder]} numberOfLines={1}>
           {value ? formatExpiry(value, i18n.language) : t("admin.pick_date_time")}
         </Text>
