@@ -30,6 +30,8 @@ import {
     AuthForgotPasswordDto,
     AuthLoginDto,
     AuthResetPasswordDto,
+    PASSWORD_MSG,
+    PASSWORD_REGEX,
 } from '../dtos/request/auth.dto';
 import {
     AuthRefreshResponseDto,
@@ -303,7 +305,18 @@ export class AuthService {
         if (existing?.deletedAt)
             throw new ConflictException('user.error.accountDeleted');
 
+        if (!existing && !PASSWORD_REGEX.test(dto.password)) {
+            // New account: the strength rules apply. Same body as the DTO
+            // validation 400 it replaces (an array message, rendered as
+            // `error: [...]`), so clients keep telling it apart from the
+            // prose "Invitation already used/expired" 400s. The invitation
+            // stays unused.
+            throw new BadRequestException([PASSWORD_MSG]);
+        }
+
         if (existing) {
+            // Existing account: only the stored hash decides, never today's
+            // strength rules.
             const owns = await this.encryption.match(
                 existing.passwordHash,
                 dto.password

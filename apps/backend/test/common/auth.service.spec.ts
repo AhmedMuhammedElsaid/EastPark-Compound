@@ -10,7 +10,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 
+import {
+    AcceptInvitationDto,
+    PASSWORD_MSG,
+} from 'src/common/auth/dtos/request/auth.dto';
 import { AuthService } from 'src/common/auth/services/auth.service';
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { CacheService } from 'src/common/cache/services/cache.service';
@@ -1107,6 +1113,74 @@ describe('AuthService', () => {
 
             expect(db.user.update.mock.calls[0][0].data.role).toBe(Role.ADMIN);
         });
+
+        // ── Password strength: new accounts only (owner decision 2026-10-08) ──
+
+        it('accepts a weak CURRENT password for an existing account when it matches the hash', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(true);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(mockUser({ role: Role.MERCHANT }));
+
+            const result = await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'oldpass',
+            });
+
+            expect(encryption.match).toHaveBeenCalledWith(
+                '$argon2hash',
+                'oldpass'
+            );
+            expect(db.user.update).toHaveBeenCalled();
+            expect(encryption.createHash).not.toHaveBeenCalled();
+            expect(result.accessToken).toBe(mockTokens.accessToken);
+        });
+
+        it('still rejects a wrong weak password for an existing account with the 409', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(false);
+
+            const attempt = service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'guess',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow(
+                'An account with this email already exists'
+            );
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+            expect(db.user.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects a weak password for a NEW account with the DTO-shaped 400 and leaves the invitation unused', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(null);
+
+            const error = await service
+                .acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'weakpass',
+                })
+                .catch((e: unknown) => e);
+
+            expect(error).toBeInstanceOf(BadRequestException);
+            // Same body ValidationPipe produced: an ARRAY message, which the
+            // response filter renders as `error: [...]`.
+            expect((error as BadRequestException).getResponse()).toEqual({
+                message: [PASSWORD_MSG],
+                error: 'Bad Request',
+                statusCode: 400,
+            });
+            expect(encryption.match).not.toHaveBeenCalled();
+            expect(encryption.createHash).not.toHaveBeenCalled();
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+            expect(db.user.create).not.toHaveBeenCalled();
+        });
     });
 
     describe('updatePushToken', () => {
@@ -1132,5 +1206,32 @@ describe('AuthService', () => {
             });
             expect(db.$transaction).toHaveBeenCalledTimes(1);
         });
+    });
+});
+
+// ─── AcceptInvitationDto: password shape only ─────────────────────────────────
+
+describe('AcceptInvitationDto password', () => {
+    const errorsFor = async (password: unknown) =>
+        (
+            await validate(
+                plainToInstance(AcceptInvitationDto, {
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password,
+                })
+            )
+        ).filter(e => e.property === 'password');
+
+    it('accepts a weak password (an existing owner may still use one)', async () => {
+        expect(await errorsFor('oldpass')).toHaveLength(0);
+    });
+
+    it('rejects an empty, missing, non-string or over-long password', async () => {
+        expect(await errorsFor('')).toHaveLength(1);
+        expect(await errorsFor(undefined)).toHaveLength(1);
+        expect(await errorsFor(12345678)).toHaveLength(1);
+        expect(await errorsFor('a'.repeat(257))).toHaveLength(1);
+        expect(await errorsFor('a'.repeat(256))).toHaveLength(0);
     });
 });

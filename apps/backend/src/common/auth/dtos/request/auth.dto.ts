@@ -6,14 +6,18 @@ import {
     Length,
     IsOptional,
     Matches,
+    MaxLength,
 } from 'class-validator';
 
 import { NormalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
 
-const PASSWORD_REGEX =
+export const PASSWORD_REGEX =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[\x21-\x7E]{8,}$/;
-const PASSWORD_MSG =
+export const PASSWORD_MSG =
     'Password must be 8+ chars with uppercase, lowercase, number, and special character';
+
+/** Upper bound for the accept-invitation password field (shape check only). */
+export const ACCEPT_INVITATION_PASSWORD_MAX = 256;
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
@@ -69,10 +73,17 @@ export class AcceptInvitationDto {
     @Length(2, 100)
     name: string;
 
-    @ApiProperty({ example: 'Passw0rd!', description: PASSWORD_MSG })
+    // Shape only. For an email that already has an account this is its
+    // CURRENT password, checked against the stored hash and never against
+    // today's strength rules (older passwords may predate them). The service
+    // enforces PASSWORD_REGEX only when it creates a new account.
+    @ApiProperty({
+        example: 'Passw0rd!',
+        description: `New account: ${PASSWORD_MSG}. Existing account: its current password.`,
+    })
     @IsString()
     @IsNotEmpty()
-    @Matches(PASSWORD_REGEX, { message: PASSWORD_MSG })
+    @MaxLength(ACCEPT_INVITATION_PASSWORD_MAX)
     password: string;
 }
 
