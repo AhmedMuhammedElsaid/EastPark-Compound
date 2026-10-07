@@ -83,7 +83,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t("profile.title"),
+          // Short on purpose: "الملف الشخصي" truncates in the 5-tab bar.
+          title: t("profile.tab_label"),
           tabBarIcon: ({ color, focused }) => (
             <User color={color} size={24} weight={focused ? "fill" : "regular"} />
           ),
