@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -147,7 +147,10 @@ export default function CartScreen() {
             style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              dispatch(clearCart());
+              Alert.alert(t("cart.clear_confirm_title"), t("cart.clear_confirm_body"), [
+                { text: t("common.cancel"), style: "cancel" },
+                { text: t("common.clear"), style: "destructive", onPress: () => dispatch(clearCart()) },
+              ]);
             }}
             accessibilityRole="button"
             accessibilityLabel={t("common.clear")}

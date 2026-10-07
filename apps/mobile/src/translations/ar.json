@@ -189,6 +189,8 @@
   "cart": {
     "checkout": "إتمام الطلب",
     "clear_and_add": "مسح وإضافة",
+    "clear_confirm_body": "ستتم إزالة جميع المنتجات من سلتك.",
+    "clear_confirm_title": "مسح السلة؟",
     "empty": "سلتك فارغة",
     "empty_subtitle": "تصفّح الدليل وأضف منتجات",
     "shop_conflict_body": "سلتك تحتوي على منتجات من {{shopName}}. إضافة منتجات من محل آخر ستمسح سلتك الحالية.",

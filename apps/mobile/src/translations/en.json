@@ -189,6 +189,8 @@
   "cart": {
     "checkout": "Checkout",
     "clear_and_add": "Clear & Add",
+    "clear_confirm_body": "All items will be removed from your cart.",
+    "clear_confirm_title": "Clear your cart?",
     "empty": "Your cart is empty",
     "empty_subtitle": "Browse the directory and add items",
     "shop_conflict_body": "Your cart has items from {{shopName}}. Adding from a different shop will clear your current cart.",
