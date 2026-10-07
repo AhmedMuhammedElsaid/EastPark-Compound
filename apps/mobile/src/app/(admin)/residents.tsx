@@ -14,6 +14,7 @@ import { LEAD_STATS_QUERY_KEY, LEADS_QUERY_ROOT, useLeadActions } from "@/compon
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { leadMatches } from "@/lib/resident-leads";
 import { adminApi } from "@/services/api/admin";
@@ -67,7 +68,7 @@ function filterCount(stats: LeadStats | undefined, filter: Filter): number | und
 type FilterBarProps = { filter: Filter; onSelect: (filter: Filter) => void; stats?: LeadStats };
 
 function FilterBar({ filter, onSelect, stats, styles }: FilterBarProps & { styles: ReturnType<typeof buildStyles> }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterBarContent}>
       {FILTERS.map((key) => {
@@ -82,7 +83,7 @@ function FilterBar({ filter, onSelect, stats, styles }: FilterBarProps & { style
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{count === undefined ? label : `${label} · ${count}`}</Text>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{count === undefined ? label : `${label} · ${formatNumber(count, i18n.language)}`}</Text>
           </Pressable>
         );
       })}
