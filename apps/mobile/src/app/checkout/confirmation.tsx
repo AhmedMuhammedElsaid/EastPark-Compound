@@ -49,7 +49,7 @@ export default function ConfirmationScreen() {
   // Order is placed: Back always leaves checkout for home, never a stale step.
   React.useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      router.replace("/(tabs)");
+      router.dismissTo("/(tabs)");
       return true;
     });
     return () => sub.remove();
@@ -104,7 +104,7 @@ export default function ConfirmationScreen() {
       <Animated.View style={[styles.actions, contentStyle]}>
         <GoldButton
           label={t("home.my_orders")}
-          onPress={() => router.replace("/(tabs)/orders")}
+          onPress={() => router.dismissTo("/(tabs)/orders")}
         />
         {handoff?.whatsappDigits
           ? (
@@ -129,7 +129,7 @@ export default function ConfirmationScreen() {
                 />
               )
             : null}
-        <GoldButton label={t("orders.browse_shops")} variant="ghost" onPress={() => router.replace("/(tabs)/directory")} />
+        <GoldButton label={t("orders.browse_shops")} variant="ghost" onPress={() => router.dismissTo("/(tabs)/directory")} />
       </Animated.View>
     </View>
   );
