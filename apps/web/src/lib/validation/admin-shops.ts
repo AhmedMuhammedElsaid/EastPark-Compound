@@ -104,9 +104,7 @@ export type AdminMerchantItem = z.infer<typeof adminMerchantItemSchema>;
 
 // ── Form (react-hook-form values: every input is a string or boolean) ────────────────────────────
 
-const formDaySchema = z
-  .object({ open: z.string(), close: z.string(), closed: z.boolean() })
-  .refine((day) => day.closed || (HH_MM.test(day.open) && HH_MM.test(day.close)));
+const formDaySchema = z.object({ open: z.string(), close: z.string(), closed: z.boolean() });
 
 export const shopFormSchema = z.object({
   merchantId: z.string().trim().min(1),
@@ -125,6 +123,15 @@ export const shopFormSchema = z.object({
   hours: z.object(
     Object.fromEntries(weekDays.map((day) => [day, formDaySchema])) as Record<WeekDay, typeof formDaySchema>,
   ),
+}).superRefine((values, ctx) => {
+  // Times only matter when hours are on, and only for open days (the row is flagged per day).
+  if (!values.hoursEnabled) return;
+  for (const day of weekDays) {
+    const { open, close, closed } = values.hours[day];
+    if (!closed && !(HH_MM.test(open) && HH_MM.test(close))) {
+      ctx.addIssue({ code: 'custom', path: ['hours', day], message: 'hours' });
+    }
+  }
 });
 export type ShopFormValues = z.infer<typeof shopFormSchema>;
 

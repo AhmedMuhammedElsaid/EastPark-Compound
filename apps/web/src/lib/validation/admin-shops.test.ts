@@ -44,7 +44,16 @@ describe('shopFormSchema', () => {
     const hours = { ...form().hours, mon: { open: '', close: '', closed: true } };
     expect(shopFormSchema.safeParse(form({ hoursEnabled: true, hours })).success).toBe(true);
     const bad = { ...form().hours, mon: { open: '25:00', close: '22:00', closed: false } };
-    expect(shopFormSchema.safeParse(form({ hoursEnabled: true, hours: bad })).success).toBe(false);
+    const result = shopFormSchema.safeParse(form({ hoursEnabled: true, hours: bad }));
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['hours', 'mon']);
+  });
+
+  it('ignores invalid times while working hours are off', () => {
+    const bad = { ...form().hours, mon: { open: '', close: '', closed: false } };
+    const parsed = shopFormSchema.safeParse(form({ hoursEnabled: false, hours: bad }));
+    expect(parsed.success).toBe(true);
+    expect(toShopCreatePayload(parsed.data!).workingHours).toBeUndefined();
   });
 });
 
