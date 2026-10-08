@@ -95,6 +95,9 @@ export default function PaymentScreen() {
   const colors = useAppColors();
 
   const total = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  // The cart is cleared as soon as the order exists: keep showing the total
+  // that was placed (not "0") while the hand-off and navigation finish.
+  const [placedTotal, setPlacedTotal] = React.useState<number | null>(null);
 
   const queryClient = useQueryClient();
   // Blocks re-taps while the create is in flight AND while we verify, after a
@@ -155,6 +158,7 @@ export default function PaymentScreen() {
       // The order exists server-side from here on: the cart must never be
       // left intact, otherwise a retap would create a duplicate order.
       orderPlacedRef.current = true;
+      setPlacedTotal(total);
       dispatch(clearCart());
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       const whatsapp = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
@@ -243,7 +247,7 @@ export default function PaymentScreen() {
 
         <View style={styles.summary}>
           <Text style={styles.summaryLabel}>{t("cart.total")}</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(total)}</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(placedTotal ?? total)}</Text>
         </View>
 
         {!deliveryUnit
