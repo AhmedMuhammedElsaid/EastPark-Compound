@@ -763,3 +763,130 @@ NOT PLACED. Cart (1x دجاجة كاملة, 210 EGP, Al-Rayan butcher) -> addres
 - DEV-23 -> 5ea73ca
 - DEV-25 -> e8f9b0b
 - Not done: DEV-7 (new Profile screens, out of scope), DEV-8 (withdrawn), DEV-9 (unverified).
+
+## Resident walk on build versionCode 4 (3f80f2b) — 2026-10-08
+
+Test resident ahmed.resider@gmail.com (A1-1-4). Order #RA3WMI placed and cancelled while PLACED. 2 P1, 11 P2.
+
+### Resident walk — Samsung A72, preview build versionCode 4 (HEAD 3f80f2b) — 2026-10-08
+
+#### Outcome: STOPPED at step 1 (resident login failed)
+
+- Owner (SUPER_ADMIN) signed out from Profile (confirm dialog -> login screen). Biometric not toggled.
+- Resident login with ahmed.resident@gmail.com: backend answered with the red toast
+  "البريد الإلكتروني أو كلمة المرور غير صحيحة" (email or password incorrect). r-afterlogin.png
+- Verified the typed values without recording them: the email field held exactly the given address
+  and the revealed password field matched the supplied password character for character (checked via
+  UI dump comparison, dump deleted). So the credentials themselves are rejected by prod, not a typing slip.
+- One login attempt only (no retries, to avoid the per-email/per-IP lockout).
+- App left on the login screen, email field holds the resident email, password field cleared.
+  Owner's biometric button ("الدخول عبر البصمة" / ahmed.muhammed.elsaid@gmail.com) still shown.
+
+#### Findings (seen before the stop)
+
+- RW-1 | P2 | Login | AR | Keyboard "Next" on the email field does not move focus to the password field
+  (keyboard closes, password stays unfocused; typed text went nowhere). Expected Next -> password. r-login4.png
+- RW-2 | P2 | Profile > Sign out confirm | AR | Native Android alert: title "تسجيل الخروج" left-aligned (LTR) in the
+  Arabic UI, no message body (large empty gap), default teal button colours, not the gold theme. r-signout.png
+- RW-3 | P2 | Profile | AR | Tab label reads "حسابي" but the screen header still reads "الملف الشخصي" —
+  two names for one screen. r-4.png
+- Note (not app): a floating gold "sun" bubble with an X appeared over the app on launch and is not in the app's
+  UI tree (another app's overlay); it disappeared on its own. r-open.png
+
+#### Fixes confirmed on device (owner account, AR, before sign-out)
+
+- DEV-1: tab label "حسابي" fits, no truncation. r-3.png
+- DEV-10 / DEV-22: admin screen title "لوحة الإدارة" matches the Profile row; Home quick action reads "الحوكمة". r-1.png, r-3.png
+- DEV-11: Resident requests filter-chip counts all Arabic-Indic ("الكل · ٧٧", "تمت الدعوة · ٢٠", "قيد الانتظار · ٠"). r-open.png
+- DEV-6 (partial): Saved shops row is hidden for the SUPER_ADMIN profile. The resident Saved shops screen itself was NOT reached.
+- DEV-20: the login error toast text now sits below the status bar icons (red band fills the status-bar area, text below). r-afterlogin.png
+
+#### Not reached
+
+Everything in steps 2-4: resident Home/Directory/shop detail (hours, open-now, scrim — DEV-3/4/24), save/unsave + Saved shops
+screen (DEV-6), Community/Governance/Feedback/Notifications, the order flow (DEV-19 path, RES-1/RES-2, WhatsApp hand-off,
+cancel), language switch (DEV-21), cart Clear confirm (DEV-25), Sign-out icon mirroring in EN (DEV-23). No order was placed.
+
+---
+
+#### Resumed 12:30 with the owner's new test resident (ahmed.resider@gmail.com, flat A1-1-4)
+
+Login OK on the first attempt -> Home "مساء الخير، أحمد" / "وحدة A1-1-4". r-home.png
+
+- RW-4 | P2 | Shop detail (جزارة الريان) scrolled | AR | DEV-3 partly fixed: back + heart buttons now stay fixed, but the
+  status-bar band is a thin translucent strip; while scrolling, the shop title / "مفتوح" chip / hours text slide under the
+  status icons and under the floating round buttons with no solid header (text collides with the clock/battery and the
+  buttons). r-shop2.png, r-shop3.png
+- RW-5 | P1 | Profile > الأمان (biometric) + Login biometric button | AR | Biometric sign-in is device-wide, not per account.
+  After the resident signed in with a PASSWORD, his Profile shows "الدخول عبر البصمة" ON ("مفعّل — رمز التحديث محفوظ بأمان",
+  switch checked=true) although he never enabled it; the stored biometric email is still the owner's
+  (ahmed.muhammed.elsaid@gmail.com, shown under the login-screen biometric button), but the refresh token in SecureStore is
+  now the resident's. Code: use-biometric.ts keeps SECURE_KEY_BIOMETRIC_ENABLED/EMAIL across a password login by another
+  user; profile handleLogout with biometric.enabled keeps the refresh token and skips server revoke. Consequences: (1) the
+  owner's kept biometric session was overwritten; (2) after the resident signs out, the login screen offers biometric
+  "as ahmed.muhammed.elsaid@gmail.com" but it would restore the RESIDENT session (not tested — biometric off-limits);
+  (3) the resident's refresh token is not revoked on sign-out. Expected: a password login with a different email clears
+  the biometric preference (or the kept token is keyed to the email). r-prof.png
+- RW-6 | P2 | Profile > المحلات المحفوظة > tap a shop | AR | Opens the shop inside the Directory TAB (tab bar switches to الدليل,
+  and it reused the Directory stack's shop screen at its old scroll position); Back then lands on the Directory list, not on
+  Saved shops. Same family as DEV-2 (origin-aware back). r-unsave.png, r-saved2.png
+- RW-7 | P2 | Saved shops empty state / Profile row | AR | Row and empty-state icon are a bookmark, but the hint says
+  "اضغط على القلب" and the shop screen uses a heart — pick one metaphor. r-saved3.png
+- RW-8 | P2 | Community hub tiles | AR | DEV-5 still partly open: "الشكاوى والمقترحات" wraps to 2 lines while الحوكمة / التقارير are
+  1 line. Also the tile says "الشكاوى والمقترحات" but the screen it opens is titled "شكاواي". r-comm.png, r-fb.png
+- RW-9 | P2 | Checkout > Payment while placing | AR | After tapping تأكيد الطلب the cart is cleared before navigation, so the
+  الإجمالي row flashes "٠ ج.م." under the spinner. r-placing.png
+- RW-10 | P1 | Order placed -> WhatsApp hand-off | AR | WhatsApp IS installed and registered on this phone (owner's personal
+  account). The hand-off opened WhatsApp's "Send to..." CONTACT PICKER (com.whatsapp ContactPicker) with a "Searching..."
+  dialog that never resolved, instead of a chat with the shop. Hardware Back could not leave it (dialog swallowed Back twice);
+  had to return via Recents. Risk: a resident could pick any personal contact/group and send the order text there.
+  Likely cause: the shop's WhatsApp number is not a WhatsApp account / not in wa.me international format, so WhatsApp falls
+  back to the share picker. Nothing was sent. (Screenshots of the picker deleted: they showed the owner's private chats.)
+- RW-11 | P2 | Order confirmation | AR | The success animation renders as a flat static olive circle (no check mark / no motion
+  seen ~5 s after return), and the screen shows no order number (#RA3WMI only visible in Orders). Buttons: طلباتي /
+  إرسال عبر واتساب مرة أخرى / تصفّح المحلات. r-confirm2.png
+- RW-12 | P2 | Order detail > Cancel confirm | AR | Native alert, title left-aligned, teal buttons; dismiss button is "إلغاء" next
+  to the destructive "إلغاء الطلب" — two "cancel" words, easy to mis-tap. Use "رجوع"/"لا" for dismiss. r-cancel-dlg.png
+- Note: another floating overlay bubble (mosque icon, not part of the app) appeared again over the order detail. r-cancelled.png
+
+### Order test (resident, AR)
+- Cart 1x دجاجة كاملة 210 EGP (جزارة الريان) -> address prefilled "وحدة A1-1-4", note "TEST order - will be cancelled" ->
+  payment Cash only (preselected) -> تأكيد الطلب -> placed OK (DEV-19 path: resident can order).
+- Order number **#RA3WMI**, 8 Oct 12:36. Back on confirmation -> Home (RES-2 OK); second Back -> exits app to launcher, the
+  checkout/shop screen does NOT reappear (OK).
+- Order detail: status "تم تقديمه", 6-step tracker, "حالة الدفع: غير مدفوع" (amber) + "طريقة الدفع: الدفع عند الاستلام" (RES-1 OK),
+  cancel button visible while PLACED. Cancelled -> status chip + banner "ملغى", tracker replaced by cancelled banner. r-order.png, r-cancelled.png
+- RW-13 | P2 | Shop detail (gold shop) menu | AR | Product names/descriptions keep Latin digits ("تعليقة حرف عيار 18", "خاتم ذهب عيار 21")
+  next to Arabic-Indic prices — seed/content data, not code. r-cart-shop.png
+- RW-4 also reproduced in EN on the light-photo shop (r-en-shop2.png): mid-scroll the round button backgrounds fade out and the
+  title "Al-Kawthar Gold" / "Open" chip / "Other" collide with the status icons and the back arrow. No banding seen (DEV-24 banding OK).
+
+### English pass (resident)
+- Language switch shows a confirm prompt in both directions ("تغيير اللغة؟" / "Switch language?") and the app restarts ON PROFILE
+  (DEV-21 confirmed both ways). r-lang1.png, r-en1.png, r-en-lang.png, r-ar-back.png
+- EN clean: Profile (Resident / Unit A1-1-4 chips, chevrons right, Sign Out icon points right = mirrored vs AR -> DEV-23 confirmed),
+  My Orders list (Cancelled chip, "#RA3WMI · 8 Oct, 12:36", EGP 210), order detail (Cancelled banner, Cash on delivery, Payment
+  status Unpaid, Total EGP 210), Directory (Open chips, category chips), shop detail (Working hours, Thursday (Today) highlighted,
+  Call/WhatsApp), Home (Good afternoon, Quick Actions incl. Governance, What's new, Shops). Greeting shows the Arabic name
+  "أحمد" (account data). Arabic restored at the end.
+
+### Cart clear (DEV-25)
+- Added 1x تعليقة حرف عيار 18 -> cart -> "مسح" -> confirm dialog "مسح السلة؟ / ستتم إزالة جميع المنتجات من سلتك." (إلغاء / مسح) ->
+  مسح -> empty cart state "سلتك فارغة". r-clear-dlg.png, r-cleared.png
+
+### End state
+- Resident signed out (confirm dialog) -> login screen, fields empty. The biometric button still reads
+  "ahmed.muhammed.elsaid@gmail.com" — per RW-5 it now holds the RESIDENT's kept refresh token (biometric was "enabled" at sign-out,
+  so the token was kept and not revoked). OWNER: sign back in with the PASSWORD, not the fingerprint button; then toggle biometric
+  off/on in Profile to re-bind it to your account. r-final-login.png
+
+#### Fixes confirmed on device (resident walk)
+DEV-1 (tab "حسابي"), DEV-4 (weekly hours, today highlighted, open-now chip on cards + detail), DEV-6 (Saved shops screen lists
+saved shop, unsave removes it, empty state), DEV-10/DEV-22 (owner part), DEV-11, DEV-17 (٣ / ٤ in feedback helper), DEV-18
+("ستُكشف النتائج بعد انتهاء المهلة" for a non-voter), DEV-19 path (resident order placed OK), DEV-20, DEV-21 (both directions),
+DEV-23, DEV-25, RES-1 (حالة الدفع row), RES-2 (Back from confirmation -> Home; 2nd Back exits, no checkout). Cancel while PLACED works.
+Partly: DEV-3 (buttons fixed, but scrim/overlap RW-4), DEV-5 (RW-8), DEV-24 (no banding; status icons on light photo still weak).
+Not re-checked: DEV-2, DEV-12..16 (admin-only), DEV-15.
+
+#### Counts
+RW-1..RW-13: 2 P1 (RW-5 biometric per-device, RW-10 WhatsApp contact picker), 11 P2.
