@@ -3,7 +3,7 @@ import type { LIGHT } from "@/theme/tokens";
 import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { BookmarkSimple, CaretRight, ChatCircle, FaceMask, Fingerprint, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -346,7 +346,7 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
       {role === "RESIDENT" && (
-        <ProfileRow icon={<BookmarkSimple size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/profile/saved-shops")} styles={styles} colors={colors} />
+        <ProfileRow icon={<Heart size={20} color={g} />} label={t("profile.saved_shops")} onPress={() => router.push("/(tabs)/profile/saved-shops")} styles={styles} colors={colors} />
       )}
     </View>
   );

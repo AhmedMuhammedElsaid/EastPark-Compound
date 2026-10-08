@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { BookmarkSimple } from "phosphor-react-native";
+import { Heart } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
@@ -79,7 +79,7 @@ export default function SavedShopsScreen() {
                 ListEmptyComponent={(
                   <View style={styles.empty}>
                     <View style={styles.emptyIcon}>
-                      <BookmarkSimple size={32} color={gold} />
+                      <Heart size={32} color={gold} />
                     </View>
                     <Text style={styles.emptyTitle}>{t("profile.saved_shops_empty")}</Text>
                     <Text style={styles.emptyBody}>{t("profile.saved_shops_empty_subtitle")}</Text>
