@@ -172,7 +172,8 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <AppHeader title={t("profile.title")} />
+      {/* Same name as the tab ("حسابي" / "Profile"): one name per screen. */}
+      <AppHeader title={t("profile.tab_label")} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
