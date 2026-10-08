@@ -15,6 +15,11 @@
 - New: tab label key `profile.tab_label` (حسابي / Profile), Saved shops screen `(tabs)/profile/saved-shops.tsx` + `profile/shop/[shopId].tsx`,
   admin Elections & candidates + native date-time picker (`@react-native-community/datetimepicker@8.4.4`), `useOriginBack`,
   `useDiscardGuard`, `formatNumber`, Hermes plural fallback `src/lib/i18n/plural-rules.ts`, WhatsApp opener `openWhatsAppChat`.
+- Admin **Resident requests** screen `(admin)/residents.tsx` (`143fbdc`): status chips with counts
+  (`/admin/residents/leads/stats`), client-side search over loaded rows, FlashList of `components/admin/lead-card.tsx`,
+  actions via `components/admin/use-lead-actions.ts` (native Alert confirm → toast → refetch). Pure rules in
+  `src/lib/resident-leads.ts` (`leadActions(status, hasAccount)` → `attach` = "Add to account", `leadErrorKey`), keys
+  under `admin_leads.*`. Mirrors web; flats themselves (Team & roles) stay web-only.
 - Rules learned: never put `*.test.tsx` under `src/app/` (bundled as a route → EAS bundle fails); run `npx expo export --platform android`
   before a build (restore the regenerated `uniwind-types.d.ts`); ask the owner before EVERY EAS build.
 

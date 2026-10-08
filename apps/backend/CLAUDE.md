@@ -57,6 +57,10 @@ All reference files live in `Documentation/` — read these before exploring the
   invitation still copies phone + flat; primary = oldest attached flat when unitNumber was
   null; any flat P2002 → 409 `unit.error.alreadyOwned` and full rollback). Approving a CONVERTED lead again is a
   no-op (`alreadyRegistered`), so a removed flat is never re-created.
+- `GET /v1/admin/residents/leads` items add `hasAccount: boolean` (one `user.findMany` per page on the stored
+  lead emails, `deletedAt: null`; same lookup as `invite`). Web and mobile show "Add to account" for those leads.
+  Leads stuck at INVITED from before the release (account accepted one invitation under the old code) are fixed by
+  approving them again — deliberately no data migration (it could not send the "flat added" email or audit entry).
 - `PUT /v1/user` `unitNumber` only chooses the PRIMARY flat: unchanged (trimmed; ''/null = none) → 200 with no
   write (old mobile builds resend the whole form); one of the caller's flat labels → stored; anything else,
   including clearing it while flats are owned, → 400 `user.error.unitNotOwned`. Legacy accounts (no flats) can

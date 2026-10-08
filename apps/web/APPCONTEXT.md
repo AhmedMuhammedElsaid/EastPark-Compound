@@ -107,6 +107,11 @@ upload tests. Never print or persist credentials, cookies, SMTP values, storage 
   update optimistically and roll back on error, and the result shows in a bilingual toast. An
   invite whose email already has an account comes back as `residentLead.success.alreadyRegistered`
   and the row becomes CONVERTED. Counts are refetched after every action.
+- **Add to account (2026-10-07, `b13232f`):** backend lead items carry `hasAccount` (a live account uses the
+  email). `leadActions(status, hasAccount)` then returns `attach` for PENDING/INVITED/REJECTED: the button reads
+  "Add to account" (HousePlus icon), the confirm dialog says the flat is added and no invitation is sent, the
+  optimistic status is CONVERTED, and the toast names the unit. Same invite endpoint underneath. Typical case:
+  an owner who accepted one invitation before the multi-flat release left his second lead stuck at INVITED.
 - The details drawer is a native `<dialog>` that opens from inline-end. National ID and passport
   are masked (last 4 shown) with a per-field reveal, and they re-mask every time the drawer opens.
 - **409 copy (REV-22):** the BFF reduces a 409 to `{ error: 'conflict' }`, except allowlisted backend

@@ -60,6 +60,11 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > valid), their 3 feedbacks + 1 reply + 1 review deleted. Users PDF export (one row per flat, merchants excluded):
 > `D:\CodeLab\EastPark-backups\users-export-20261007-233626\` + `~/Downloads/EastPark-users-export.pdf` (PII; generator
 > `D:\CodeLab\EastPark-backups\scripts\users-export-pdf.py`, CSV → HTML → Edge headless `--print-to-pdf`).
+>
+> **Multi-flat follow-up (2026-10-07, pushed):** first two-flat owner (`rimonwilliam88@`, E2-4-5 + F2-11-4) had his
+> second lead stuck at INVITED (accepted before `be3f3f5`); owner approved it again. Leads list now returns
+> `hasAccount`; web (`4e54567`/`b13232f`) and the new mobile Resident requests screen (`143fbdc`, needs an EAS build)
+> show "Add to account" instead of Resend. Owner to confirm both flats in Team & roles + the "flat added" email.
 
 > ### 2026-10-03 (later) — WENT LIVE
 >
