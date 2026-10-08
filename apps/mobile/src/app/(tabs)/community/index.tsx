@@ -173,7 +173,8 @@ function CommunityHeader({
         </Pressable>
         <Pressable style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]} onPress={onFeedback} accessibilityRole="button">
           <View style={styles.quickLinkIcon}><ChatCircle size={24} color={BRAND.gold} /></View>
-          <Text style={styles.quickLinkLabel} numberOfLines={2}>{t("community.feedback")}</Text>
+          {/* Same name as the screen it opens ("شكاواي" / "My Feedback"); fits one line like the other tiles. */}
+          <Text style={styles.quickLinkLabel} numberOfLines={2}>{t("feedback.title")}</Text>
         </Pressable>
       </View>
     </View>
