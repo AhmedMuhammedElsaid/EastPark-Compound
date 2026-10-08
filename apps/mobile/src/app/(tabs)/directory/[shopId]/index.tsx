@@ -11,7 +11,7 @@ import { ArrowLeft, ChatCircleDots, Heart, HeartStraight, Minus, Phone, Plus, St
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
-import { I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, I18nManager, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCount, formatRating } from "@/components/directory/format";
@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { openWhatsAppChat, toWhatsAppDigits } from "@/lib/whatsapp";
 import { DAY_KEYS, dayKeyFor, formatClockTime, hasSchedule, isShopOpenNow } from "@/lib/working-hours";
 import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
@@ -32,6 +33,11 @@ type Row = { kind: "product"; product: Product } | { kind: "review"; review: Rev
 
 const HERO_HEIGHT = 220;
 const CART_BAR_HEIGHT = 56;
+const NAV_BTN_SIZE = 44;
+/** Status bar excluded: the band the floating back/save buttons occupy. */
+const NAV_BAR_HEIGHT = SPACING.sm + NAV_BTN_SIZE + SPACING.sm;
+/** The solid bar is fully in before the shop name can reach the buttons. */
+const SOLID_HEADER_AT = HERO_HEIGHT - NAV_BAR_HEIGHT - SPACING.xl;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -45,24 +51,6 @@ function buildHeaderStyles(colors: ReturnType<typeof useAppColors>) {
     heroImage: { width: "100%", height: "100%" },
     heroPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
     scrim: { position: "absolute", top: 0, left: 0, right: 0 },
-    heroNav: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: SPACING.base,
-    },
-    navBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: RADIUS.full,
-      backgroundColor: `${BRAND.ink}99`,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    navSpacer: { width: 44, height: 44 },
-
     // Info
     info: { paddingHorizontal: SPACING.base, paddingTop: SPACING.base, paddingBottom: SPACING.md, gap: SPACING.sm },
     nameRow: { flexDirection: "row", alignItems: "flex-start", gap: SPACING.sm },
@@ -246,8 +234,49 @@ function buildListStyles(colors: ReturnType<typeof useAppColors>) {
   });
 }
 
+/** Floating back/save buttons and the solid bar that appears behind them. */
+function buildNavStyles(colors: ReturnType<typeof useAppColors>) {
+  return StyleSheet.create({
+    heroNav: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: SPACING.base,
+    },
+    navBtn: {
+      width: NAV_BTN_SIZE,
+      height: NAV_BTN_SIZE,
+      borderRadius: RADIUS.full,
+      backgroundColor: `${BRAND.ink}99`,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    navSpacer: { width: NAV_BTN_SIZE, height: NAV_BTN_SIZE },
+    // Solid bar that replaces the photo under the status bar and the buttons
+    // once the hero has scrolled away, so text never slides under them.
+    solidHeader: {
+      position: "absolute",
+      top: 0,
+      start: 0,
+      end: 0,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      justifyContent: "flex-end",
+    },
+    solidHeaderRow: {
+      height: NAV_BAR_HEIGHT,
+      justifyContent: "center",
+      paddingHorizontal: SPACING.base + NAV_BTN_SIZE + SPACING.sm,
+    },
+    solidHeaderTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 16, lineHeight: 24, color: colors.text, textAlign: "center" },
+  });
+}
+
 function buildStyles(colors: ReturnType<typeof useAppColors>) {
-  return { ...buildHeaderStyles(colors), ...buildListStyles(colors) };
+  return { ...buildHeaderStyles(colors), ...buildNavStyles(colors), ...buildListStyles(colors) };
 }
 
 type Styles = ReturnType<typeof buildStyles>;
@@ -258,12 +287,26 @@ function useStyles() {
   return React.useMemo(() => ({ styles: buildStyles(colors), colors }), [colors]);
 }
 
-/** Light status-bar icons over the hero scrim while focused; theme default again on blur. */
-function useLightStatusBar(isDarkTheme: boolean) {
+/**
+ * Light status-bar icons over the hero scrim while focused; once the solid
+ * header is in, the theme's own style (dark icons on the light theme).
+ * Theme default again on blur.
+ */
+function useHeroStatusBar(isDarkTheme: boolean, solid: boolean) {
   useFocusEffect(React.useCallback(() => {
-    setStatusBarStyle("light");
+    setStatusBarStyle(solid && !isDarkTheme ? "dark" : "light");
     return () => setStatusBarStyle(isDarkTheme ? "light" : "dark");
-  }, [isDarkTheme]));
+  }, [isDarkTheme, solid]));
+}
+
+/** True once the hero photo has scrolled away from under the buttons. */
+function useSolidHeader() {
+  const [solid, setSolid] = React.useState(false);
+  const onScroll = React.useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const next = e.nativeEvent.contentOffset.y > SOLID_HEADER_AT;
+    setSolid(prev => (prev === next ? prev : next));
+  }, []);
+  return { solid, onScroll };
 }
 
 function goBack() {
@@ -390,7 +433,8 @@ export default function ShopDetailScreen() {
   const [activeTab, setActiveTab] = React.useState<Tab>("menu");
   const isAr = i18n.language === "ar";
 
-  useLightStatusBar(colors === DARK);
+  const { solid, onScroll } = useSolidHeader();
+  useHeroStatusBar(colors === DARK, solid);
 
   const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ["shop", shopId],
@@ -443,12 +487,15 @@ export default function ShopDetailScreen() {
         }
         onEndReached={tab.loadMore}
         onEndReachedThreshold={0.5}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingBottom: cartVisible ? CART_BAR_HEIGHT + SPACING.base * 2 + SPACING.sm : SPACING["2xl"],
         }}
       />
       <StatusScrim topInset={insets.top} />
+      <SolidHeader visible={solid} title={isAr ? shop.nameAr : shop.name} topInset={insets.top} styles={styles} />
       <HeroNav saved={saved} canSave={canSave} onSave={handleSave} topInset={insets.top} styles={styles} />
       <CartBar shopId={shopId} styles={styles} />
     </View>
@@ -467,7 +514,7 @@ function openWhatsApp(raw: string | null) {
 /** Height of the soft fade under the status bar, over the hero photo. */
 const SCRIM_FADE_HEIGHT = 96;
 const SCRIM_STEP = 2;
-const SCRIM_TOP_ALPHA = 0.6;
+const SCRIM_TOP_ALPHA = 0.72;
 
 /**
  * Fine ink bands (expo-linear-gradient is not installed): 2px steps with an
@@ -496,6 +543,27 @@ function StatusScrim({ topInset }: { topInset: number }) {
       pointerEvents="none"
       style={{ position: "absolute", top: 0, start: 0, end: 0, height: topInset, backgroundColor: `${BRAND.ink}${hex}` }}
     />
+  );
+}
+
+/** Opaque bar behind the status bar and the buttons, faded in once the hero is gone. */
+function SolidHeader({ visible, title, topInset, styles }: { visible: boolean; title: string; topInset: number; styles: Styles }) {
+  const reduceMotion = useReducedMotion();
+  const opacity = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(opacity, { toValue: visible ? 1 : 0, duration: reduceMotion ? 0 : 160, useNativeDriver: true }).start();
+  }, [opacity, visible, reduceMotion]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.solidHeader, { height: topInset + NAV_BAR_HEIGHT, opacity }]}
+      accessibilityElementsHidden={!visible}
+      importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
+    >
+      <View style={styles.solidHeaderRow}>
+        <Text style={styles.solidHeaderTitle} numberOfLines={1}>{title}</Text>
+      </View>
+    </Animated.View>
   );
 }
 
