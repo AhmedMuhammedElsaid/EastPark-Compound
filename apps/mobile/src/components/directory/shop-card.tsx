@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import type { Shop } from "@/services/api/shops";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -12,14 +13,18 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { isShopOpenNow } from "@/lib/working-hours";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
-type Props = { shop: Shop };
+type Props = {
+  shop: Shop;
+  /** Where the card opens the shop; defaults to the Directory stack. */
+  href?: string;
+};
 
 /**
  * Shop card — mirrors the web directory card:
  * 16:9 cover with an Open/Closed pill at the end edge → name → category · rating (count).
  * Closed shops dim their cover. Loading state is handled by the parent (skeleton).
  */
-export function ShopCard({ shop }: Props) {
+export function ShopCard({ shop, href }: Props) {
   const { t, i18n } = useTranslation();
   const colors = useAppColors();
   const styles = useStyles(colors);
@@ -32,7 +37,7 @@ export function ShopCard({ shop }: Props) {
   const openNow = isShopOpenNow(shop, new Date());
 
   function handlePress() {
-    router.push(`/(tabs)/directory/${shop.id}`);
+    router.push((href ?? `/(tabs)/directory/${shop.id}`) as Href);
   }
 
   return (

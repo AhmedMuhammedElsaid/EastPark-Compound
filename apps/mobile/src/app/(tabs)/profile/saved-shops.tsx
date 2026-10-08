@@ -66,7 +66,8 @@ export default function SavedShopsScreen() {
               <FlashList
                 data={shops}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <ShopCard shop={item} />}
+                // Opens the shop in the Profile stack so Back returns here.
+                renderItem={({ item }) => <ShopCard shop={item} href={`/(tabs)/profile/shop/${item.id}`} />}
                 onEndReached={() => {
                   if (hasNextPage && !isFetchingNextPage)
                     fetchNextPage();
