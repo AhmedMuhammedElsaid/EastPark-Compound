@@ -497,6 +497,8 @@
     "browse_shops": "تصفّح المحلات",
     "call_shop": "اتصل بالمتجر",
     "cancel_confirm": "هل أنت متأكد من إلغاء هذا الطلب؟",
+    "cancel_confirm_title": "إلغاء هذا الطلب؟",
+    "cancel_keep": "تراجع",
     "cancel_order": "إلغاء الطلب",
     "cash_on_delivery": "الدفع عند الاستلام",
     "empty": "لا توجد طلبات بعد",

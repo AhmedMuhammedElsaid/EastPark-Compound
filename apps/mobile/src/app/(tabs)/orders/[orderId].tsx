@@ -196,11 +196,12 @@ export default function OrderDetailScreen() {
   });
 
   function handleCancel() {
+    // Dismiss is "Go back"/"Keep order", never a second "cancel" next to "Cancel order".
     Alert.alert(
-      t("orders.cancel_order"),
+      t("orders.cancel_confirm_title"),
       t("orders.cancel_confirm"),
       [
-        { text: t("common.cancel"), style: "cancel" },
+        { text: t("orders.cancel_keep"), style: "cancel" },
         { text: t("orders.cancel_order"), style: "destructive", onPress: () => cancelOrder() },
       ],
     );
