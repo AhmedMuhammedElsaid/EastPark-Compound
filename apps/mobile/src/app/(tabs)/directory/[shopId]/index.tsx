@@ -502,11 +502,14 @@ export default function ShopDetailScreen() {
   );
 }
 
-/** Opens the shop's WhatsApp chat (app scheme, then wa.me), same normalisation as the order hand-off. */
-function openWhatsApp(raw: string | null) {
+/**
+ * Opens the shop's WhatsApp chat (app scheme, then wa.me), same normalisation
+ * as the order hand-off; a failure shows the same toast as the confirmation screen.
+ */
+function openWhatsApp(raw: string | null, onFailed: () => void) {
   const digits = toWhatsAppDigits(raw);
   if (digits)
-    openWhatsAppChat(digits, undefined, url => Linking.openURL(url)).catch(() => {});
+    openWhatsAppChat(digits, undefined, url => Linking.openURL(url)).catch(onFailed);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -679,7 +682,7 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
                 ? (
                     <Pressable
                       style={({ pressed }) => [styles.ctaBtn, pressed && styles.pressed]}
-                      onPress={() => openWhatsApp(shop.whatsapp)}
+                      onPress={() => openWhatsApp(shop.whatsapp, () => showMessage({ message: t("checkout.whatsapp_failed"), type: "warning" }))}
                       accessibilityRole="button"
                       accessibilityLabel={t("directory.whatsapp")}
                     >
