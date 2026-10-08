@@ -893,7 +893,7 @@ RW-1..RW-13: 2 P1 (RW-5 biometric per-device, RW-10 WhatsApp contact picker), 11
 
 ### Fixed after the resident walk (2026-10-08)
 
-Gates for every commit (from `apps/mobile`): `pnpm type-check` exit 0, `pnpm lint` 0 errors (16 existing warnings),
+Gates (from `apps/mobile`, full gate after every finding; RW-3 was committed after type-check + lint only and covered by the next full run): `pnpm type-check` exit 0, `pnpm lint` 0 errors (16 existing warnings),
 `pnpm test` 29 suites / 201 tests passing. Not yet on a device: needs a new EAS build.
 
 - RW-5 (P1) -> `90791aa`. Biometric sign-in is bound to one account (`src/lib/biometric-binding.ts`). Every login
@@ -904,7 +904,7 @@ Gates for every commit (from `apps/mobile`): `pnpm type-check` exit 0, `pnpm lin
   the rotated token and forgets the kept session. The enrolment prompt reads the stored binding fresh. This also cleans
   up the owner phone's current state (owner label, resident token) on the first fingerprint tap. Tests:
   `biometric-binding.test.ts`, `session.test.ts`.
-- RW-10 (P1) -> `b0c77e8`. The URL was already `https://wa.me/201017134627?text=…`. Now: app scheme
+- RW-10 (P1) -> `b0c77e8` + `3dcc63b` (shop WhatsApp button hidden for a number WhatsApp cannot open). The URL was already `https://wa.me/201017134627?text=…`. Now: app scheme
   `whatsapp://send?phone=<digits>&text=…` first, then wa.me if that fails (`openWhatsAppChat`, used by the payment
   hand-off, the confirmation "send again" button and the shop WhatsApp button). Numbers still starting with 0 (no
   country code) and `+20 0…` are normalised or rejected. Tests cover +20…, 0020…, 01…, spaces and dashes. Likely cause on
