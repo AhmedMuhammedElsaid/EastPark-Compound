@@ -66,12 +66,32 @@ function useStyles() {
   }), [colors]);
 }
 
-function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
+/**
+ * One sign-in at a time. A ref (not state) so the password field's keyboard
+ * "done", which bypasses the disabled button, is guarded too.
+ */
+function useSignInLock() {
+  const ownerRef = React.useRef<"password" | "biometric" | null>(null);
+  return React.useMemo(() => ({
+    acquire(who: "password" | "biometric"): boolean {
+      if (ownerRef.current)
+        return false;
+      ownerRef.current = who;
+      return true;
+    },
+    release() {
+      ownerRef.current = null;
+    },
+  }), []);
+}
+type SignInLock = ReturnType<typeof useSignInLock>;
+
+function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>, lock: SignInLock) {
   const { t } = useTranslation();
   const [biometricSubmitting, setBiometricSubmitting] = React.useState(false);
 
   async function onBiometricSignIn() {
-    if (biometricSubmitting)
+    if (!lock.acquire("biometric"))
       return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBiometricSubmitting(true);
@@ -101,6 +121,7 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
       showMessage({ message: t("auth.errors.server_unreachable"), type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {
+      lock.release();
       setBiometricSubmitting(false);
     }
   }
@@ -111,11 +132,13 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
 type BiometricSignInProps = {
   biometric: ReturnType<typeof useBiometric>;
   submitting: boolean;
+  /** The password sign-in is running. */
+  disabled: boolean;
   onPress: () => void;
   styles: ReturnType<typeof useStyles>;
 };
 
-function BiometricSignIn({ biometric, submitting: biometricSubmitting, onPress: onBiometricSignIn, styles }: BiometricSignInProps) {
+function BiometricSignIn({ biometric, submitting: biometricSubmitting, disabled, onPress: onBiometricSignIn, styles }: BiometricSignInProps) {
   const { t } = useTranslation();
   const BiometricIcon
     = biometric.kind === "face"
@@ -127,9 +150,10 @@ function BiometricSignIn({ biometric, submitting: biometricSubmitting, onPress: 
   return (
     <>
       <Pressable
-        style={[styles.biometricBtn, biometricSubmitting && styles.biometricBtnLoading]}
+        style={[styles.biometricBtn, (biometricSubmitting || disabled) && styles.biometricBtnLoading]}
         onPress={onBiometricSignIn}
-        disabled={biometricSubmitting}
+        disabled={biometricSubmitting || disabled}
+        accessibilityState={{ disabled: biometricSubmitting || disabled, busy: biometricSubmitting }}
         accessibilityRole="button"
         accessibilityLabel={t(`auth.biometric.sign_in_with.${biometric.kind}`)}
       >
@@ -185,7 +209,8 @@ export default function LoginScreen() {
   const styles = useStyles();
   const biometric = useBiometric();
   const [showPassword, setShowPassword] = React.useState(false);
-  const { biometricSubmitting, onBiometricSignIn } = useBiometricSignIn(biometric);
+  const signInLock = useSignInLock();
+  const { biometricSubmitting, onBiometricSignIn } = useBiometricSignIn(biometric, signInLock);
   const [serverWaking, setServerWaking] = React.useState(false);
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
     resolver: zodResolver(schema),
@@ -193,6 +218,9 @@ export default function LoginScreen() {
   });
 
   async function onSubmit({ email, password }: LoginFormData) {
+    // One sign-in at a time: never race the biometric sign-in.
+    if (!signInLock.acquire("password"))
+      return;
     // Render cold starts take 25-50 s: explain the wait instead of looking stuck.
     const wakingTimer = setTimeout(setServerWaking, SERVER_WAKING_HINT_MS, true);
     try {
@@ -218,6 +246,7 @@ export default function LoginScreen() {
       showMessage({ message: t(loginErrorKey(err)), type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {
+      signInLock.release();
       clearTimeout(wakingTimer);
       setServerWaking(false);
     }
@@ -235,6 +264,7 @@ export default function LoginScreen() {
         <BiometricSignIn
           biometric={biometric}
           submitting={biometricSubmitting}
+          disabled={isSubmitting}
           onPress={onBiometricSignIn}
           styles={styles}
         />
@@ -251,7 +281,7 @@ export default function LoginScreen() {
       >
         <Text style={styles.forgotText}>{t("auth.forgot_password")}</Text>
       </Pressable>
-      <GoldButton label={t("auth.login")} onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+      <GoldButton label={t("auth.login")} onPress={handleSubmit(onSubmit)} loading={isSubmitting} disabled={biometricSubmitting} />
       {serverWaking
         ? <Text style={styles.wakingText} accessibilityLiveRegion="polite">{t("common.server_waking")}</Text>
         : null}
