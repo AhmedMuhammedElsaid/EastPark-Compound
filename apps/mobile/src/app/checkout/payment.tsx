@@ -17,7 +17,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useEmptyCartGuard } from "@/lib/hooks/use-empty-cart-guard";
 import { resolveDeliveryUnit } from "@/lib/units";
-import { buildOrderMessage, buildWhatsAppUrl, setOrderHandoff, toWhatsAppDigits } from "@/lib/whatsapp";
+import { buildOrderMessage, openWhatsAppChat, setOrderHandoff, toWhatsAppDigits } from "@/lib/whatsapp";
 import { buildPlaceOrderPayload, getOrderItemTotal, ordersApi } from "@/services/api/orders";
 import { shopsApi } from "@/services/api/shops";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -106,8 +106,8 @@ export default function PaymentScreen() {
   const orderPlacedRef = React.useRef(false);
   useEmptyCartGuard(orderPlacedRef);
 
-  /** Builds the shop WhatsApp link + stores the hand-off for the confirmation screen. Never throws. */
-  async function prepareWhatsAppHandoff(placed: Order): Promise<string | null> {
+  /** Builds the shop WhatsApp hand-off + stores it for the confirmation screen. Never throws. */
+  async function prepareWhatsAppHandoff(placed: Order): Promise<{ digits: string; message: string } | null> {
     try {
       const shop = cartShopId
         ? (await queryClient.fetchQuery({
@@ -134,7 +134,7 @@ export default function PaymentScreen() {
         notes,
       });
       setOrderHandoff({ orderId: placed.id, whatsappDigits: digits, shopPhone: shop?.phone ?? null, message });
-      return digits ? buildWhatsAppUrl(digits, message) : null;
+      return digits ? { digits, message } : null;
     }
     catch {
       return null;
@@ -157,7 +157,7 @@ export default function PaymentScreen() {
       orderPlacedRef.current = true;
       dispatch(clearCart());
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      const whatsappUrl = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
+      const whatsapp = WHATSAPP_ORDER_HANDOFF ? await prepareWhatsAppHandoff(placed) : null;
       if (paymentMethod === "PAYMOB") {
         try {
           const payRes = await ordersApi.initiatePaymobPayment(orderId);
@@ -175,8 +175,8 @@ export default function PaymentScreen() {
       if (router.canDismiss())
         router.dismissAll();
       router.replace({ pathname: "/checkout/confirmation", params: { orderId } });
-      if (whatsappUrl) {
-        Linking.openURL(whatsappUrl).catch(() => {
+      if (whatsapp) {
+        openWhatsAppChat(whatsapp.digits, whatsapp.message, url => Linking.openURL(url)).catch(() => {
           showMessage({ message: t("checkout.whatsapp_failed"), type: "warning" });
         });
       }

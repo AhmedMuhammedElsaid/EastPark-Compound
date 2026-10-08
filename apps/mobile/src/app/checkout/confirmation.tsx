@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
-import { buildWhatsAppUrl, getOrderHandoff } from "@/lib/whatsapp";
+import { getOrderHandoff, openWhatsAppChat } from "@/lib/whatsapp";
 import { FONT, SPACING } from "@/theme/tokens";
 
 function useStyles() {
@@ -112,7 +112,7 @@ export default function ConfirmationScreen() {
                 label={t("orders.send_whatsapp")}
                 variant="outline"
                 onPress={() => {
-                  Linking.openURL(buildWhatsAppUrl(handoff.whatsappDigits as string, handoff.message)).catch(() => {
+                  openWhatsAppChat(handoff.whatsappDigits as string, handoff.message, url => Linking.openURL(url)).catch(() => {
                     showMessage({ message: t("checkout.whatsapp_failed"), type: "warning" });
                   });
                 }}

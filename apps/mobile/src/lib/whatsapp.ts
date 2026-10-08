@@ -2,9 +2,11 @@ const NON_DIGITS = /\D/g;
 const DASHES = /-/g;
 
 /**
- * wa.me only accepts digits in international format. Egyptian local numbers
- * (01XXXXXXXXX) become 201XXXXXXXXX; "+" and "00" prefixes are dropped.
- * Returns null when nothing usable is left.
+ * wa.me only accepts digits in international format: no "+", no "00", no
+ * spaces/dashes and no trunk "0". Egyptian local numbers (01XXXXXXXXX)
+ * become 201XXXXXXXXX, and "+20 0…" (country code plus trunk 0) drops the 0.
+ * Returns null when nothing usable is left; a number that still starts with
+ * 0 has no country code, and wa.me would open WhatsApp's contact picker.
  */
 export function toWhatsAppDigits(raw: string | null | undefined): string | null {
   let digits = (raw ?? "").replace(NON_DIGITS, "");
@@ -12,7 +14,11 @@ export function toWhatsAppDigits(raw: string | null | undefined): string | null 
     digits = digits.slice(2);
   else if (digits.startsWith("0") && digits.length === 11)
     digits = `20${digits.slice(1)}`;
-  return digits.length >= 8 ? digits : null;
+  if (digits.startsWith("200") && digits.length === 13)
+    digits = `20${digits.slice(3)}`;
+  if (digits.startsWith("0") || digits.length < 8 || digits.length > 15)
+    return null;
+  return digits;
 }
 
 /** Short, human-friendly order reference shown in chat and on the order screen. */
@@ -63,10 +69,37 @@ export function buildOrderMessage(input: OrderMessageInput): string {
   return [...lines, "", ...customer].join("\n");
 }
 
+/** Universal link: works with or without the app installed (browser fallback). */
 export function buildWhatsAppUrl(digits: string, message?: string): string {
   return message
     ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
     : `https://wa.me/${digits}`;
+}
+
+/** App scheme: opens the chat with that number directly in WhatsApp. */
+export function buildWhatsAppAppUrl(digits: string, message?: string): string {
+  return message
+    ? `whatsapp://send?phone=${digits}&text=${encodeURIComponent(message)}`
+    : `whatsapp://send?phone=${digits}`;
+}
+
+/**
+ * Opens the chat with `digits`: the WhatsApp app scheme first (no browser
+ * hop), then wa.me when the app is missing or the scheme fails. Rejects only
+ * when neither opens. Never gated on canOpenURL: on Android 11+ that needs a
+ * manifest <queries> entry and would report false even with WhatsApp installed.
+ */
+export async function openWhatsAppChat(
+  digits: string,
+  message: string | undefined,
+  openURL: (url: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await openURL(buildWhatsAppAppUrl(digits, message));
+  }
+  catch {
+    await openURL(buildWhatsAppUrl(digits, message));
+  }
 }
 
 export type OrderHandoff = {

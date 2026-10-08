@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
-import { toWhatsAppDigits } from "@/lib/whatsapp";
+import { openWhatsAppChat, toWhatsAppDigits } from "@/lib/whatsapp";
 import { DAY_KEYS, dayKeyFor, formatClockTime, hasSchedule, isShopOpenNow } from "@/lib/working-hours";
 import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -455,12 +455,11 @@ export default function ShopDetailScreen() {
   );
 }
 
-/** wa.me only accepts digits in international format (no "+", spaces or dashes). */
+/** Opens the shop's WhatsApp chat (app scheme, then wa.me), same normalisation as the order hand-off. */
 function openWhatsApp(raw: string | null) {
-  // Same normalisation as the order hand-off: local 01… numbers become 201….
   const digits = toWhatsAppDigits(raw);
   if (digits)
-    Linking.openURL(`https://wa.me/${digits}`).catch(() => {});
+    openWhatsAppChat(digits, undefined, url => Linking.openURL(url)).catch(() => {});
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
