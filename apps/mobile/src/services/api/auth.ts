@@ -1,9 +1,6 @@
 import type { AuthUser } from "@/store/slices/auth-slice";
 
-import { getSecureItem } from "@/lib/secure-storage";
-
 import { client, requestTokenRefresh } from "./client";
-import { SECURE_KEY_REFRESH } from "./secure-keys";
 
 export type { AuthTokens } from "./client";
 
@@ -55,32 +52,39 @@ function httpStatus(err: unknown): number | undefined {
   return (err as { response?: { status?: number } } | null)?.response?.status;
 }
 
+/** Upper bound for each logout call made by a background revocation. */
+export const REVOKE_TIMEOUT_MS = 15_000;
+
 /**
- * Best-effort server-side revocation of the stored refresh token before a
- * local logout. `POST /auth/logout` needs a valid ACCESS token, which expires
- * after 15 minutes, and logout is exempt from the 401 refresh interceptor.
- * Without this, a user idle for 15+ minutes "logs out" while the refresh
- * token stays valid for 7 days. On 401 we rotate once (raw call: no global
- * session-expiry side effects) and revoke the NEW refresh token, because the
- * rotation already spent the old one. Never throws; the caller tears down
- * the local session regardless.
+ * Best-effort server-side revocation of a refresh token the device has
+ * ALREADY dropped locally (callers capture the tokens, tear down, then call
+ * this). `POST /auth/logout` needs a valid ACCESS token, which expires after
+ * 15 minutes, and logout is exempt from the 401 refresh interceptor. The
+ * access token is always sent explicitly: after teardown the stored one may
+ * belong to a newer session. Without an access token, or on 401, it rotates
+ * once (raw call: no global session-expiry side effects) and revokes the NEW
+ * refresh token, because the rotation already spent the old one. Never throws.
  */
-export async function revokeRefreshToken(): Promise<void> {
-  const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+export async function revokeRefreshToken(
+  refreshToken: string | null | undefined,
+  accessToken?: string | null,
+): Promise<void> {
   if (!refreshToken)
     return;
-  try {
-    await authApi.logout(refreshToken);
-    return;
-  }
-  catch (err) {
-    if (httpStatus(err) !== 401)
+  if (accessToken) {
+    try {
+      await authApi.logout(refreshToken, accessToken, REVOKE_TIMEOUT_MS);
       return;
+    }
+    catch (err) {
+      if (httpStatus(err) !== 401)
+        return;
+    }
   }
   try {
     const { data } = await requestTokenRefresh(refreshToken);
-    const { accessToken, refreshToken: rotated } = data.data;
-    await authApi.logout(rotated, accessToken);
+    const { accessToken: freshAccess, refreshToken: rotated } = data.data;
+    await authApi.logout(rotated, freshAccess, REVOKE_TIMEOUT_MS);
   }
   catch {
     // Refresh token already expired/revoked or offline: nothing more to do.

@@ -234,16 +234,29 @@ describe("revokeRefreshToken (logout)", () => {
     refreshPost.mockRestore();
   });
 
-  it("revokes with the current access token when it is still valid", async () => {
+  it("revokes with the captured access token when it is still valid", async () => {
     adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => ok(config));
 
-    await revokeRefreshToken();
+    await revokeRefreshToken("refresh-1", "old-access");
 
     expect(adapter).toHaveBeenCalledTimes(1);
     expect(adapter.mock.calls[0][0].url).toBe("/auth/logout");
     expect(authHeader(adapter.mock.calls[0][0])).toBe("Bearer old-access");
     expect(JSON.parse(adapter.mock.calls[0][0].data)).toEqual({ refreshToken: "refresh-1" });
     expect(refreshPost).not.toHaveBeenCalled();
+  });
+
+  it("never attaches a stored access token (it may belong to a newer session)", async () => {
+    mockSecureStore[SECURE_KEY_ACCESS] = "newer-session-access";
+    adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => ok(config));
+    refreshPost.mockResolvedValue({ data: { data: { accessToken: "new-access", refreshToken: "refresh-2" } } });
+
+    await revokeRefreshToken("refresh-1", null);
+
+    expect(refreshPost).toHaveBeenCalledTimes(1);
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(authHeader(adapter.mock.calls[0][0])).toBe("Bearer new-access");
+    expect(JSON.parse(adapter.mock.calls[0][0].data)).toEqual({ refreshToken: "refresh-2" });
   });
 
   it("rotates once and revokes the NEW refresh token when the access token expired", async () => {
@@ -254,7 +267,7 @@ describe("revokeRefreshToken (logout)", () => {
     });
     refreshPost.mockResolvedValue({ data: { data: { accessToken: "new-access", refreshToken: "refresh-2" } } });
 
-    await revokeRefreshToken();
+    await revokeRefreshToken("refresh-1", "old-access");
 
     expect(refreshPost).toHaveBeenCalledTimes(1);
     expect(adapter).toHaveBeenCalledTimes(2);
@@ -267,19 +280,19 @@ describe("revokeRefreshToken (logout)", () => {
   it("never throws when the refresh token is already rejected or offline", async () => {
     always401Logout();
     refreshPost.mockRejectedValue(fail(bareConfig, 401));
-    await expect(revokeRefreshToken()).resolves.toBeUndefined();
+    await expect(revokeRefreshToken("refresh-1", "old-access")).resolves.toBeUndefined();
     expect(onExpired).not.toHaveBeenCalled();
 
     adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
       throw fail(config);
     });
-    await expect(revokeRefreshToken()).resolves.toBeUndefined();
+    await expect(revokeRefreshToken("refresh-1", "old-access")).resolves.toBeUndefined();
   });
 
-  it("does nothing without a stored refresh token", async () => {
-    delete mockSecureStore[SECURE_KEY_REFRESH];
-    await revokeRefreshToken();
+  it("does nothing without a refresh token", async () => {
+    await revokeRefreshToken(null, "old-access");
     expect(adapter).not.toHaveBeenCalled();
+    expect(refreshPost).not.toHaveBeenCalled();
   });
 
   function always401Logout() {

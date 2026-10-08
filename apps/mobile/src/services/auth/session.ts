@@ -67,37 +67,84 @@ export async function completeLogin({ user, accessToken, refreshToken }: {
 /**
  * Ends the local session. `keepRefreshToken` supports biometric sign-in,
  * which re-uses the stored refresh token after a local-only logout.
+ * Never touches the network. The store is signed out and the login screen
+ * shown even if a SecureStore delete throws.
  */
 export async function teardownSession({ keepRefreshToken = false, redirectToLogin = true }: {
   keepRefreshToken?: boolean;
   redirectToLogin?: boolean;
 } = {}): Promise<void> {
-  disconnectSocket();
-  await deleteSecureItem(SECURE_KEY_ACCESS);
-  if (!keepRefreshToken)
-    await deleteSecureItem(SECURE_KEY_REFRESH);
-  await clearRegisteredPushToken();
-  store.dispatch(logout());
-  queryClient.clear();
-  if (redirectToLogin)
-    router.replace("/(auth)/login");
+  try {
+    disconnectSocket();
+    await deleteSecureItem(SECURE_KEY_ACCESS);
+    if (!keepRefreshToken)
+      await deleteSecureItem(SECURE_KEY_REFRESH);
+    await clearRegisteredPushToken();
+  }
+  finally {
+    store.dispatch(logout());
+    queryClient.clear();
+    if (redirectToLogin)
+      router.replace("/(auth)/login");
+  }
+}
+
+async function readSecureOrNull(key: string): Promise<string | null> {
+  try {
+    return await getSecureItem(key);
+  }
+  catch {
+    return null;
+  }
 }
 
 /**
  * User-initiated sign-out. Only when biometric sign-in is on for THIS account
  * is the refresh token kept (and not revoked) for the one-tap sign-in;
- * otherwise it is revoked server-side and deleted, and a preference left over
- * for another account is dropped with it.
+ * otherwise a preference left over for another account is dropped, the
+ * session is torn down locally, and only THEN is the captured refresh token
+ * revoked server-side in the background, so a slow or dead network (or an
+ * app kill) can never leave the device signed in.
  */
 export async function signOut(userEmail: string | null | undefined): Promise<void> {
-  if (await isBiometricBoundTo(userEmail)) {
+  const keepForBiometric = await isBiometricBoundTo(userEmail).catch(() => false);
+  if (keepForBiometric) {
     await teardownSession({ keepRefreshToken: true });
     return;
   }
-  // Revokes server-side even when the access token has expired.
-  await revokeRefreshToken();
-  await clearBiometricPreference();
-  await teardownSession();
+  const [accessToken, refreshToken] = await Promise.all([
+    readSecureOrNull(SECURE_KEY_ACCESS),
+    readSecureOrNull(SECURE_KEY_REFRESH),
+  ]);
+  try {
+    await clearBiometricPreference();
+  }
+  catch {
+    // A stale preference without a refresh token only shows "session expired".
+  }
+  finally {
+    await teardownSession();
+  }
+  // Revokes server-side even when the access token has expired. Never awaited.
+  Promise.resolve()
+    .then(() => revokeRefreshToken(refreshToken, accessToken))
+    .catch(() => {});
+}
+
+/**
+ * After `DELETE /user` succeeded: the server already invalidated every
+ * token, so only the local session and the biometric preference go.
+ */
+export async function endDeletedAccountSession(): Promise<void> {
+  try {
+    await clearBiometricPreference();
+  }
+  catch {
+    // Teardown below removes the refresh token either way.
+  }
+  finally {
+    await teardownSession();
+  }
 }
 
 export type BiometricSignInResult

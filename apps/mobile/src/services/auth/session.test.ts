@@ -6,24 +6,47 @@ import {
 } from "@/services/api/secure-keys";
 
 const mockSecureStore: Record<string, string> = {};
-const mockRevoke = jest.fn(async () => {});
+const mockRevoke = jest.fn(async (_refresh?: string | null, _access?: string | null) => {});
+const mockEvents: string[] = [];
 
 jest.mock("expo-router", () => ({ router: { replace: jest.fn() } }));
+jest.mock("@/store", () => ({
+  store: {
+    getState: () => ({ auth: { isAuthenticated: true, pendingRedirect: null } }),
+    dispatch: (a: { type?: string }) => {
+      mockEvents.push(`dispatch:${a?.type}`);
+    },
+  },
+}));
 jest.mock("@/lib/secure-storage", () => ({
   getSecureItem: jest.fn(async (k: string) => mockSecureStore[k] ?? null),
   setSecureItem: jest.fn(async (k: string, v: string) => {
     mockSecureStore[k] = v;
   }),
   deleteSecureItem: jest.fn(async (k: string) => {
+    mockEvents.push(`delete:${k}`);
     delete mockSecureStore[k];
   }),
 }));
-jest.mock("@/services/api/auth", () => ({ revokeRefreshToken: () => mockRevoke() }));
+jest.mock("@/services/api/auth", () => ({
+  authApi: { refresh: jest.fn(), logout: jest.fn() },
+  revokeRefreshToken: (refresh?: string | null, access?: string | null) => {
+    mockEvents.push("revoke");
+    return mockRevoke(refresh, access);
+  },
+}));
+jest.mock("@/services/api/users", () => ({ usersApi: { getProfile: jest.fn() } }));
 jest.mock("@/services/push", () => ({ clearRegisteredPushToken: jest.fn(), registerPushToken: jest.fn() }));
 jest.mock("@/services/query/client", () => ({ queryClient: { clear: jest.fn() } }));
 jest.mock("@/services/socket/client", () => ({ disconnectSocket: jest.fn() }));
 
-const { DEFAULT_HOME_ROUTE, completeLogin, getPostLoginRoute, signOut } = require("./session");
+const bindingModule = require("@/lib/biometric-binding");
+const { DEFAULT_HOME_ROUTE, completeLogin, endDeletedAccountSession, getPostLoginRoute, signOut } = require("./session");
+
+async function flushBackground() {
+  for (let i = 0; i < 5; i++)
+    await Promise.resolve();
+}
 
 describe("getPostLoginRoute", () => {
   it("sends each role to its home", () => {
@@ -59,7 +82,8 @@ const owner = { id: "u1", email: "OWNER@example.com", name: "O", role: "SUPER_AD
 describe("biometric binding across logins (RW-5)", () => {
   beforeEach(() => {
     seedOwnerBiometric();
-    mockRevoke.mockClear();
+    mockRevoke.mockReset();
+    mockEvents.length = 0;
   });
 
   it("a password login by a different account clears biometric and stores only the new tokens", async () => {
@@ -84,8 +108,10 @@ describe("biometric binding across logins (RW-5)", () => {
     mockSecureStore[SECURE_KEY_REFRESH] = "res-refresh";
 
     await signOut(resident.email);
+    await flushBackground();
 
     expect(mockRevoke).toHaveBeenCalledTimes(1);
+    expect(mockRevoke).toHaveBeenCalledWith("res-refresh", "res-access");
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBeUndefined();
@@ -97,8 +123,10 @@ describe("biometric binding across logins (RW-5)", () => {
     delete mockSecureStore[SECURE_KEY_BIOMETRIC_EMAIL];
 
     await signOut(owner.email);
+    await flushBackground();
 
     expect(mockRevoke).toHaveBeenCalledTimes(1);
+    expect(mockRevoke).toHaveBeenCalledWith("owner-kept-refresh", null);
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBeUndefined();
   });
 
@@ -111,5 +139,78 @@ describe("biometric binding across logins (RW-5)", () => {
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("owner-kept-refresh");
     expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBe("1");
+  });
+});
+
+describe("sign-out tears down locally before revoking (RW-5c)", () => {
+  beforeEach(() => {
+    Object.keys(mockSecureStore).forEach(k => delete mockSecureStore[k]);
+    mockSecureStore[SECURE_KEY_ACCESS] = "acc";
+    mockSecureStore[SECURE_KEY_REFRESH] = "ref";
+    mockRevoke.mockReset();
+    mockEvents.length = 0;
+  });
+
+  function expectSignedOutLocally() {
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBeUndefined();
+    expect(mockEvents).toContain("dispatch:auth/logout");
+  }
+
+  it("finishes the local teardown while the revoke hangs, and revokes the captured tokens after it", async () => {
+    mockRevoke.mockImplementation(() => new Promise(() => {}));
+
+    await signOut("someone@example.com");
+    await flushBackground();
+
+    expectSignedOutLocally();
+    expect(mockRevoke).toHaveBeenCalledWith("ref", "acc");
+    expect(mockEvents.indexOf("revoke")).toBeGreaterThan(mockEvents.indexOf("dispatch:auth/logout"));
+  });
+
+  it("finishes the local teardown when the revoke throws", async () => {
+    mockRevoke.mockRejectedValue(new Error("boom"));
+
+    await expect(signOut("someone@example.com")).resolves.toBeUndefined();
+    await flushBackground();
+
+    expectSignedOutLocally();
+  });
+
+  it("finishes the local teardown when clearing the biometric preference throws", async () => {
+    const spy = jest.spyOn(bindingModule, "clearBiometricPreference").mockRejectedValueOnce(new Error("keystore"));
+
+    await signOut("someone@example.com");
+    await flushBackground();
+
+    expectSignedOutLocally();
+    expect(mockRevoke).toHaveBeenCalledWith("ref", "acc");
+    spy.mockRestore();
+  });
+
+  it("still signs the store out when a SecureStore delete throws", async () => {
+    const storage = require("@/lib/secure-storage");
+    const realDelete = storage.deleteSecureItem.getMockImplementation();
+    storage.deleteSecureItem.mockImplementation(async (k: string) => {
+      if (k === SECURE_KEY_ACCESS)
+        throw new Error("keystore");
+      return realDelete(k);
+    });
+
+    await expect(signOut("someone@example.com")).rejects.toThrow("keystore");
+    storage.deleteSecureItem.mockImplementation(realDelete);
+
+    expect(mockEvents).toContain("dispatch:auth/logout");
+  });
+
+  it("account delete: local teardown runs even if clearing the preference throws", async () => {
+    mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED] = "1";
+    const spy = jest.spyOn(bindingModule, "clearBiometricPreference").mockRejectedValueOnce(new Error("keystore"));
+
+    await endDeletedAccountSession();
+
+    expectSignedOutLocally();
+    expect(mockRevoke).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

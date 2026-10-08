@@ -20,7 +20,7 @@ import { useSelectedLanguage } from "@/lib/i18n";
 import { isAdminRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
 import { usersApi } from "@/services/api/users";
-import { signOut, teardownSession } from "@/services/auth/session";
+import { endDeletedAccountSession, signOut } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -219,10 +219,8 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
   const biometric = useBiometric();
   const { mutate: deleteAccount } = useMutation({
     mutationFn: () => usersApi.deleteAccount(),
-    onSuccess: async () => {
-      await biometric.disable();
-      await teardownSession();
-    },
+    // Local teardown always runs, even if clearing the biometric preference fails.
+    onSuccess: () => endDeletedAccountSession(),
     onError: () => {
       showMessage({ message: t("profile.delete_account_error"), type: "danger" });
     },
