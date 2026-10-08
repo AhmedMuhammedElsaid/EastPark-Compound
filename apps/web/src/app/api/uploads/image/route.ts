@@ -7,7 +7,8 @@ import { authenticatedBackendFetch } from '@/lib/auth/proxy';
 export const maxDuration = 30;
 
 const MAX_BODY_BYTES = 4.5 * 1024 * 1024;
-const ALLOWED_PURPOSES = new Set(['avatar', 'feedback']);
+// `shop` is staff-only: the backend allows it for MERCHANT / ADMIN / SUPER_ADMIN.
+const ALLOWED_PURPOSES = new Set(['avatar', 'feedback', 'shop']);
 
 export async function POST(request: NextRequest) {
   try {
