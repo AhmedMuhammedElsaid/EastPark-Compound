@@ -53,6 +53,13 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 > `runTokenRefresh`); push the 19 local commits on owner's "yes, push"; owner decisions pending: self-host web fonts +
 > bump CI actions, in-app styled confirm dialog (Android Alert can't be themed), `expo export` in gate/CI, remove unused
 > lottie; DEV-7 Profile screens; then Play Store assets (see memory). Ask before EVERY EAS build.
+>
+> **Prod data ops (2026-10-08, no code change):** hard-deleted test users `ahmed.muhammed.elsaid+eastpark-admin-20261001@`
+> (MERCHANT) and `+eastpark-resident-20261001@` after backup `D:\CodeLab\EastPark-backups\eastpark-prod-20261007-235552-pre-testuser-delete.dump`;
+> their 46 sent invitations were reassigned to the SUPER_ADMIN `ahmed.muhammed.elsaid@gmail.com` (keeps 18 pending links
+> valid), their 3 feedbacks + 1 reply + 1 review deleted. Users PDF export (one row per flat, merchants excluded):
+> `D:\CodeLab\EastPark-backups\users-export-20261007-233626\` + `~/Downloads/EastPark-users-export.pdf` (PII; generator
+> `D:\CodeLab\EastPark-backups\scripts\users-export-pdf.py`, CSV → HTML → Edge headless `--print-to-pdf`).
 
 > ### 2026-10-03 (later) — WENT LIVE
 >
