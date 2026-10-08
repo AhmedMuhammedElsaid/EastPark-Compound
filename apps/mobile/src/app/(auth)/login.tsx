@@ -16,9 +16,10 @@ import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { loginErrorKey } from "@/lib/api-error";
+import { isBiometricBoundTo, isSameEmail } from "@/lib/biometric-binding";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
-import { getSecureItem, setSecureItem } from "@/lib/secure-storage";
+import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
 import { usersApi } from "@/services/api/users";
@@ -95,6 +96,19 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
       await setSecureItem(SECURE_KEY_ACCESS, accessToken);
       await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
       const profile = await usersApi.getProfile();
+      // The kept token must belong to the account the button is labelled
+      // with. A mismatch (left by older builds) is revoked and forgotten.
+      if (!isSameEmail(profile.data.data.email, biometric.email)) {
+        await authApi.logout(newRefresh, accessToken).catch(() => {});
+        await deleteSecureItem(SECURE_KEY_ACCESS);
+        await biometric.forgetKeptSession();
+        showMessage({
+          message: t("auth.biometric.session_expired"),
+          type: "warning",
+          backgroundColor: SEMANTIC.warning,
+        });
+        return;
+      }
       await completeLogin({ user: profile.data.data, accessToken, refreshToken: newRefresh });
     }
     catch (err) {
@@ -164,8 +178,10 @@ function BiometricSignIn({ biometric, submitting: biometricSubmitting, onPress: 
   );
 }
 
-function maybePromptEnableBiometric(biometric: ReturnType<typeof useBiometric>, t: TFunction, email: string) {
-  if (!biometric.ready || !biometric.isAvailable || biometric.enabled)
+async function maybePromptEnableBiometric(biometric: ReturnType<typeof useBiometric>, t: TFunction, email: string) {
+  // Read the stored binding fresh: the hook state predates this login, which
+  // may have just forgotten another account's biometric sign-in.
+  if (!biometric.ready || !biometric.isAvailable || await isBiometricBoundTo(email))
     return;
   const kindLabel = t(`auth.biometric.kind.${biometric.kind}`);
   Alert.alert(
@@ -210,7 +226,7 @@ export default function LoginScreen() {
       const { user, accessToken, refreshToken } = res.data.data;
       await completeLogin({ user, accessToken, refreshToken });
       // Post-login: offer biometric enrollment (does not block navigation).
-      maybePromptEnableBiometric(biometric, t, email);
+      maybePromptEnableBiometric(biometric, t, user.email || email).catch(() => {});
     }
     catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;

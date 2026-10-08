@@ -11,6 +11,7 @@ import { showMessage } from "react-native-flash-message";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "@/components/ui/app-header";
+import { isSameEmail } from "@/lib/biometric-binding";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
@@ -18,9 +19,8 @@ import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
 import { isAdminRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
-import { revokeRefreshToken } from "@/services/api/auth";
 import { usersApi } from "@/services/api/users";
-import { teardownSession } from "@/services/auth/session";
+import { signOut, teardownSession } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
@@ -232,17 +232,9 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("auth.logout"),
-        onPress: async () => {
-          // Biometric-aware logout: keep refresh token + skip server-side revoke
-          // so user can sign back in via Face ID/Fingerprint instantly.
-          if (biometric.enabled) {
-            await teardownSession({ keepRefreshToken: true });
-            return;
-          }
-          // Revokes server-side even when the access token has expired.
-          await revokeRefreshToken();
-          await teardownSession();
-        },
+        // Keeps the refresh token only when biometric sign-in is on for this
+        // account; otherwise revokes it server-side and deletes it.
+        onPress: () => signOut(user.email),
       },
     ]);
   }
@@ -263,6 +255,7 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
       {biometric.ready && biometric.isAvailable && (
         <SecuritySection
           biometric={biometric}
+          enabledForAccount={biometric.enabled && isSameEmail(biometric.email, user.email)}
           userEmail={user.email}
           styles={styles}
           colors={colors}
@@ -472,11 +465,14 @@ function ProfileRow({ icon, label, onPress, styles, colors }: { icon: React.Reac
 
 function SecuritySection({
   biometric,
+  enabledForAccount,
   userEmail,
   styles,
   colors,
 }: {
   biometric: ReturnType<typeof useBiometric>;
+  /** Biometric sign-in is on AND bound to the signed-in account. */
+  enabledForAccount: boolean;
   userEmail: string;
   styles: AppStyles;
   colors: AppColors;
@@ -519,16 +515,16 @@ function SecuritySection({
             {t("profile.biometric_login", { kind: t(labelKey) })}
           </Text>
           <Text style={styles.securitySubtitle}>
-            {biometric.enabled
+            {enabledForAccount
               ? t("profile.biometric_login_subtitle_on")
               : t("profile.biometric_login_subtitle_off")}
           </Text>
         </View>
         <Switch
-          value={biometric.enabled}
+          value={enabledForAccount}
           onValueChange={handleToggle}
           trackColor={{ false: colors.border, true: BRAND.gold }}
-          thumbColor={biometric.enabled ? DARK.text : colors.textMuted}
+          thumbColor={enabledForAccount ? DARK.text : colors.textMuted}
           accessibilityLabel={t("profile.biometric_login", { kind: t(labelKey) })}
         />
       </View>

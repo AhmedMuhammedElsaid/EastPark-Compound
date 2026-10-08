@@ -11,6 +11,10 @@
  * Turning the preference off never touches the session tokens: while signed
  * in, the refresh token belongs to the live session. Only a dead kept session
  * (signed out, refresh rejected or missing) is forgotten with the token.
+ *
+ * The preference is bound to one account (see `@/lib/biometric-binding`): a
+ * login by another account forgets it, and sign-out keeps the refresh token
+ * only for the bound account.
  */
 import * as LocalAuthentication from "expo-local-authentication";
 import * as React from "react";
@@ -18,15 +22,20 @@ import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 
 import {
-  deleteSecureItem,
+  clearBiometricPreference,
+  forgetKeptBiometricSession,
+  normalizeEmail,
+} from "@/lib/biometric-binding";
+import {
   getSecureItem,
   setSecureItem,
 } from "@/lib/secure-storage";
 import {
   SECURE_KEY_BIOMETRIC_EMAIL,
   SECURE_KEY_BIOMETRIC_ENABLED,
-  SECURE_KEY_REFRESH,
 } from "@/services/api/secure-keys";
+
+export { clearBiometricPreference, forgetKeptBiometricSession } from "@/lib/biometric-binding";
 
 export type BiometricKind = "face" | "fingerprint" | "iris" | "generic";
 
@@ -89,25 +98,6 @@ async function loadBiometricState(): Promise<BiometricState> {
   }
 }
 
-/** Turns biometric sign-in off. The session's refresh token is left alone. */
-export async function clearBiometricPreference(): Promise<void> {
-  await Promise.all([
-    deleteSecureItem(SECURE_KEY_BIOMETRIC_ENABLED),
-    deleteSecureItem(SECURE_KEY_BIOMETRIC_EMAIL),
-  ]);
-}
-
-/**
- * Signed-out only: the refresh token kept for biometric sign-in is dead
- * (rejected or missing), so drop it together with the preference.
- */
-export async function forgetKeptBiometricSession(): Promise<void> {
-  await Promise.all([
-    clearBiometricPreference(),
-    deleteSecureItem(SECURE_KEY_REFRESH),
-  ]);
-}
-
 export function useBiometric() {
   const { t } = useTranslation();
   const [state, setState] = React.useState<BiometricState>(initialState);
@@ -150,9 +140,10 @@ export function useBiometric() {
     if (!ok) {
       return false;
     }
+    const bound = normalizeEmail(email);
     await setSecureItem(SECURE_KEY_BIOMETRIC_ENABLED, "1");
-    await setSecureItem(SECURE_KEY_BIOMETRIC_EMAIL, email);
-    setState(s => ({ ...s, enabled: true, email }));
+    await setSecureItem(SECURE_KEY_BIOMETRIC_EMAIL, bound);
+    setState(s => ({ ...s, enabled: true, email: bound }));
     return true;
   }, [authenticate]);
 
