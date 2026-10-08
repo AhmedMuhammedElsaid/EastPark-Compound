@@ -29,7 +29,32 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
-> ### 2026-10-03 (later) — WENT LIVE (NEWEST — READ FIRST)
+> ### 2026-10-08 — MOBILE DEVICE AUDIT + FIX BATCHES (NEWEST — READ FIRST)
+>
+> **State:** `main` pushed through `b0c77e8` (Render + Vercel live: password rule for existing owners `ea6e861`/
+> `4200614`/`7949d68`; web admin Shops "Create shop" + `GET /v1/admin/user/merchants` + one live shop per merchant
+> `90f2c14`/`e633ae8`/`337b05b`/`e20bba2`). **19 mobile-only commits after that are local, NOT pushed** (HEAD `0aab2f5`:
+> RW-* fixes, RW-5b/c/d biometric security, RW-10b, bundle fix). EAS project relinked to `@volunteering-apps/eastpark-app`
+> (`e64e711`, id `7c09d58b-…`, slug `eastpark-app`). Preview **versionCode 7** (HEAD `0aab2f5`) installed on the A72.
+> Findings + fix lists: `apps/mobile/Documentation/ANDROID-UI-AUDIT-2026-10-07.md` (AUTH/RES/MA/LTR, DEV-*, RW-*).
+>
+> **Gotchas:** never put `*.test.tsx` under `src/app/` (expo-router bundles it → EAS "Bundle JavaScript" fails; v6 died
+> this way). Run `npx expo export --platform android` before asking for a build; it regenerates `uniwind-types.d.ts` —
+> `git checkout` it. Web CI flakes on Google Fonts download in `next build` (rerun; self-hosting fonts proposed).
+> Hermes lacks `Intl.PluralRules` → `src/lib/i18n/plural-rules.ts` fallback.
+>
+> **Test accounts (prod):** RESIDENT `ahmed.resider@gmail.com` (flat A1-1-4), MERCHANT `ahmed.merchant@gmail.com`
+> (no shop yet), password from owner. Cleanup after testing: `node D:/CodeLab/EastPark-backups/scripts/cleanup-test-data.mjs
+> --accounts --apply` (dry run without `--apply`; the garbled-lead audit entry may already be removed). Test order #RA3WMI
+> was placed + cancelled.
+>
+> **Next:** owner verifies v7 fingerprint flow (first tap should report mismatch → password login → re-enable);
+> merchant walk once a test shop exists; fix the pre-existing refresh-in-flight-after-sign-out gap (`client.ts`
+> `runTokenRefresh`); push the 19 local commits on owner's "yes, push"; owner decisions pending: self-host web fonts +
+> bump CI actions, in-app styled confirm dialog (Android Alert can't be themed), `expo export` in gate/CI, remove unused
+> lottie; DEV-7 Profile screens; then Play Store assets (see memory). Ask before EVERY EAS build.
+
+> ### 2026-10-03 (later) — WENT LIVE
 >
 > **State:** `main` pushed: `027ba88..6a21144` (go-live batch), then `6a21144..f22d9a0` (client-IP throttle
 > fix). Render (`eastpark-backend`) and Vercel (`eastpark-web-app`) are both live on `f22d9a0`; `/health` 200.
