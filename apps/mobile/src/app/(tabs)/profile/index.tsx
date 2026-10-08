@@ -228,10 +228,12 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
   });
 
   function handleLogout() {
-    Alert.alert(t("auth.logout"), "", [
+    // Native dialog: dismiss first, the sign-out action last and destructive.
+    Alert.alert(t("auth.logout_confirm_title"), t("auth.logout_confirm_body"), [
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("auth.logout"),
+        style: "destructive",
         // Keeps the refresh token only when biometric sign-in is on for this
         // account; otherwise revokes it server-side and deletes it.
         onPress: () => signOut(user.email),

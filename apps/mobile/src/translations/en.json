@@ -171,6 +171,8 @@
     "join_via_unit_registration": "New resident? Register your unit on the EastPark website. Once the administration approves it, you will receive an email invitation to set up your account.",
     "login": "Sign In",
     "logout": "Sign Out",
+    "logout_confirm_body": "Your session on this device will end. You can sign in again at any time.",
+    "logout_confirm_title": "Sign out?",
     "name": "Full name",
     "password": "Password",
     "password_reset_success": "Password updated successfully. Please sign in.",
