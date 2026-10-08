@@ -4,6 +4,15 @@ Read this file at the start of every AI-assisted session in this repository. It 
 
 ## Purpose
 
+## Admin Shops + Accept-Invitation Rule — 2026-10-08 (pushed, live on Vercel)
+
+- Admin → Shops panel (`src/components/admin/shops/ShopsPanel.tsx`, `CreateShopForm.tsx`): list merchants with their shop,
+  "Create shop" for a merchant (picker disables merchants with a shop), cover photo via `purpose=shop`. BFF:
+  `/api/admin/merchants`, `/api/admin/shops`, `/api/admin/shops/[id]/photos`; schema `src/lib/validation/admin-shops.ts` (`337b05b`, `e633ae8`, `e20bba2`).
+- Accept-invitation no longer enforces strength client-side; BFF maps a 400 with an `error` array to `password_weak` (`4200614`).
+- CI: `next build` occasionally fails fetching Google Fonts (Turbopack "exactly one entry") — rerun; self-hosting fonts with `next/font/local` proposed, owner undecided.
+
+
 `eastpark-web-app` is EastPark's bilingual Next.js application. Its deployed release is the public
 resident lead-capture site; locally it is expanding into the browser counterpart of the completed
 mobile app without removing or weakening the public registration path.

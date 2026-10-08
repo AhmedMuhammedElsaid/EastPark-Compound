@@ -5,6 +5,20 @@
 
 ## Status
 
+### Device audit + fix batches — 2026-10-08
+
+- A72 walks (owner, resident, checkout/order) → findings + per-ID fix commits in `Documentation/ANDROID-UI-AUDIT-2026-10-07.md`
+  (AUTH-*, RES-*, MA-*, LTR-*, DEV-*, RW-*). Preview versionCode 7 = `0aab2f5`. EAS project now `@volunteering-apps/eastpark-app`.
+- Biometric sign-in is bound to ONE account (`src/lib/biometric-binding.ts`, `src/services/auth/session.ts`:
+  `signInWithKeptBiometricSession`, `rehydrateSession`, `signOut` local-teardown-first). Only `completeLogin` writes the
+  access token; relaunch restores only an access+refresh pair. Open: refresh in flight during sign-out can re-save a pair (`client.ts` `runTokenRefresh`).
+- New: tab label key `profile.tab_label` (حسابي / Profile), Saved shops screen `(tabs)/profile/saved-shops.tsx` + `profile/shop/[shopId].tsx`,
+  admin Elections & candidates + native date-time picker (`@react-native-community/datetimepicker@8.4.4`), `useOriginBack`,
+  `useDiscardGuard`, `formatNumber`, Hermes plural fallback `src/lib/i18n/plural-rules.ts`, WhatsApp opener `openWhatsAppChat`.
+- Rules learned: never put `*.test.tsx` under `src/app/` (bundled as a route → EAS bundle fails); run `npx expo export --platform android`
+  before a build (restore the regenerated `uniwind-types.d.ts`); ask the owner before EVERY EAS build.
+
+
 ### Self-registration removed, card payments off — 2026-10-03
 
 - The `(auth)/register` and `(auth)/verify-otp` screens, `authApi.register/verifyOtp/resendOtp`, their
@@ -71,7 +85,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items fixed — commits `0c74e20`–`43025a1`
 - Review pass + static analysis + TS fixes — commits `2ab46a8`–`1e8a72a`
 - Jest fix pass — commits `23a39fe`, `a498a15` (RTK/react-redux ESM fixed via global store mock)
-- `EAS_PROJECT_ID` already populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc`) — `eas init` is done
+- `EAS_PROJECT_ID` already populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — `eas init` is done
 
 ### Audit 2026-07-19 → status 2026-07-26 (full detail in `frontend_review.md`)
 - **FE-1 ✅ FIXED backend-side:** the backend now exposes a `/merchant/*` controller (`apps/backend/src/modules/merchant/`) that resolves the merchant's shop from the JWT. `src/services/api/merchant.ts` and all `(merchant)` screens work UNCHANGED — do NOT rewrite them to `/shops/:id`. Also solved B-7 (no way to discover own shopId).
@@ -185,7 +199,7 @@ src/
 │   ├── (auth)/                  # login, forgot-password, reset-password, accept-invitation
 │   ├── (admin)/                 # Admin dashboard + invitations management
 │   ├── (merchant)/              # Merchant dashboard + menu CRUD + orders + shop-profile
-│   ├── checkout/                # cart, address, payment, confirmation (Lottie)
+│   ├── checkout/                # cart, address, payment, confirmation (reanimated success badge + order number)
 │   └── notifications/           # In-app notification feed
 ├── components/ui/               # Skeleton, ErrorState, AuthWallSheet, CartConflictSheet
 ├── lib/
@@ -199,7 +213,7 @@ src/
 │   └── slices/                  # authSlice, cartSlice, preferencesSlice
 ├── theme/tokens.ts              # BRAND, DARK, SEMANTIC, FONT, SPACING, RADIUS
 └── translations/                # en.json, ar.json — all UI strings, no hardcoded text ever
-assets/animations/               # success.json (Lottie — used in checkout/confirmation.tsx)
+assets/animations/               # success.json (Lottie — UNUSED since RW-11 2026-10-08; confirmation uses a reanimated badge)
 ```
 
 ## Key Patterns
@@ -360,7 +374,7 @@ pnpm build:production:ios   # EAS production iOS
 ## Known Environment Notes
 
 - All commits use `--no-verify` — WSL cannot run node/pnpm, pre-commit hook always fails
-- `EAS_PROJECT_ID` is already populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc`) — `eas init` is done
+- `EAS_PROJECT_ID` is already populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — `eas init` is done
 - `apps/mobile/` is its own git repo — commits must be made from inside this directory
 - `deleteAccount` (`DELETE /user`): the backend self-delete endpoint exists and is used by Profile.
 - Shop profile editor uses `PATCH /merchant/shop` (shop resolved from the JWT); `PATCH /shops/:id` also accepts MERCHANT for its own shop.

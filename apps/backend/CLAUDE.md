@@ -20,6 +20,16 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Invitations + admin shops — 2026-10-08 (pushed, live on Render)
+
+- Accept-invitation: DTO password is shape-only (non-empty, ≤256); strength (`PASSWORD_REGEX`) is enforced in the service only
+  when a NEW account is created (400 `[PASSWORD_MSG]` array). An existing owner's current password is only matched to its hash (`ea6e861`).
+- `GET /v1/admin/user/merchants` [ADMIN; SUPER_ADMIN passes] `q`/`cursor`/`limit≤50` → `{ id, name, email, shop|null }`; `POST /v1/shops`
+  → 409 `shop.error.merchantHasShop` when the merchant already has a live shop (`90f2c14`). No migration.
+- Prod test accounts (remove after testing): RESIDENT `ahmed.resider@gmail.com` (A1-1-4), MERCHANT `ahmed.merchant@gmail.com`;
+  cleanup `node D:/CodeLab/EastPark-backups/scripts/cleanup-test-data.mjs --accounts --apply`.
+
+
 ### Multi-flat owners — 2026-10-07
 
 - One account can own many flats; voting is unchanged (one account = one vote). New model `ResidentUnit`

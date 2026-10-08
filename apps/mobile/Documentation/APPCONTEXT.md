@@ -34,7 +34,7 @@ Last commits: `8e8634c` → `1a27086` (maintenance pass + docs) + review pass (u
 Deep audit fixed: Paymob 3-step flow, push token endpoint/projectId, token persist blacklist, admin redirect guards, 30+ emoji→Phosphor icons, all ← arrows replaced, `formatCurrency` locale-aware (ar-EG/en-US), N+1 fetch fixed via TanStack Query `initialData`, `rgba`→token colors, theme+language reactivity (useAppColors hook), auth-wall message rendering, Socket.io cleanup, cross-user cache isolation (queryClient.clear on login/logout), haptics on all primary buttons.
 
 **Remaining user action (manual — requires Expo account):**
-- `EAS_PROJECT_ID` is populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc`) — no further `eas init` needed.
+- `EAS_PROJECT_ID` is populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — no further `eas init` needed.
 
 See `Documentation/FixedBugs.md` for the full list of bugs fixed in April 2026 audit passes.
 
@@ -106,7 +106,7 @@ app/
     ├── cart.tsx
     ├── address.tsx                   ← pre-filled from profile + free-text notes
     ├── payment.tsx                   ← COD or Paymob (3-step: place → initiate → Linking.openURL)
-    └── confirmation.tsx              ← Lottie success animation
+    └── confirmation.tsx              ← reanimated success badge + order number (Lottie unused since 2026-10-08)
 ```
 
 ---
@@ -341,7 +341,7 @@ All env vars are defined in `.env.example` (committed template). Developers copy
 | `simulator` | dev client | simulator | iOS simulator testing |
 
 `appVersionSource: "remote"` — version managed by EAS, not `package.json`.
-`EAS_PROJECT_ID` is populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc`) — no further `eas init` needed.
+`EAS_PROJECT_ID` is populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — no further `eas init` needed.
 
 ---
 
