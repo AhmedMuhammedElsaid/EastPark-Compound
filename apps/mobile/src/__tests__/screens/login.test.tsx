@@ -30,7 +30,7 @@ jest.mock("@/lib/hooks/use-biometric", () => ({
   })),
 }));
 
-const LoginScreen = require("./login").default;
+const LoginScreen = require("@/app/(auth)/login").default;
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
