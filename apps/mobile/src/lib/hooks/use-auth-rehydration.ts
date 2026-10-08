@@ -1,11 +1,40 @@
 import * as SplashScreen from "expo-splash-screen";
 import * as React from "react";
-import { getSecureItem } from "@/lib/secure-storage";
+import { deleteSecureItem, getSecureItem } from "@/lib/secure-storage";
 
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
 import { usersApi } from "@/services/api/users";
 import { store, useAppDispatch } from "@/store";
 import { login, logout } from "@/store/slices/auth-slice";
+
+type Dispatch = (action: ReturnType<typeof login> | ReturnType<typeof logout>) => unknown;
+
+/**
+ * Cold-launch session restore. Only a stored access + refresh PAIR is a
+ * session: a lone refresh token is the signed-out biometric state (kept, not
+ * restored), and a lone access token can never be renewed, so it is deleted
+ * instead of being attached to guest requests.
+ */
+export async function rehydrateSession(dispatch: Dispatch, onTokensRead?: () => void): Promise<void> {
+  const accessToken = await getSecureItem(SECURE_KEY_ACCESS);
+  const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+  onTokensRead?.();
+  if (accessToken && refreshToken) {
+    const { data } = await usersApi.getProfile();
+    dispatch(login({ user: data.data, accessToken, refreshToken }));
+    return;
+  }
+  if (accessToken)
+    await deleteSecureItem(SECURE_KEY_ACCESS);
+  if (store.getState().auth.isAuthenticated) {
+    // `user`/`isAuthenticated` are persisted in AsyncStorage, tokens in
+    // SecureStore. If the tokens are gone (keychain reset, interrupted
+    // logout) the UI must not keep looking signed in while every
+    // request goes out as a guest. A kept biometric refresh token is left
+    // untouched so it still works.
+    dispatch(logout());
+  }
+}
 
 /**
  * Reads persisted tokens from SecureStore on cold launch.
@@ -20,21 +49,7 @@ export function useAuthRehydration(): void {
   React.useEffect(() => {
     async function rehydrate() {
       try {
-        const accessToken = await getSecureItem(SECURE_KEY_ACCESS);
-        const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
-        SplashScreen.hideAsync();
-        if (accessToken && refreshToken) {
-          const { data } = await usersApi.getProfile();
-          dispatch(login({ user: data.data, accessToken, refreshToken }));
-        }
-        else if (store.getState().auth.isAuthenticated) {
-          // `user`/`isAuthenticated` are persisted in AsyncStorage, tokens in
-          // SecureStore. If the tokens are gone (keychain reset, interrupted
-          // logout) the UI must not keep looking signed in while every
-          // request goes out as a guest. Secure items are left untouched so a
-          // kept biometric refresh token still works.
-          dispatch(logout());
-        }
+        await rehydrateSession(dispatch, () => SplashScreen.hideAsync());
       }
       catch (err: any) {
         if (err?.response?.status === 401) {

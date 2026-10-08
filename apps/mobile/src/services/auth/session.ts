@@ -8,10 +8,16 @@ import type { Href } from "expo-router";
 import type { AuthUser } from "@/store/slices/auth-slice";
 import { router } from "expo-router";
 
-import { clearBiometricPreference, isBiometricBoundTo, reconcileBiometricForLogin } from "@/lib/biometric-binding";
-import { deleteSecureItem, setSecureItem } from "@/lib/secure-storage";
-import { revokeRefreshToken } from "@/services/api/auth";
+import {
+  clearBiometricPreference,
+  forgetKeptBiometricSession,
+  isBiometricBoundTo,
+  reconcileBiometricForLogin,
+} from "@/lib/biometric-binding";
+import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
+import { authApi, revokeRefreshToken } from "@/services/api/auth";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
+import { usersApi } from "@/services/api/users";
 import { clearRegisteredPushToken, registerPushToken } from "@/services/push";
 import { queryClient } from "@/services/query/client";
 import { disconnectSocket } from "@/services/socket/client";
@@ -92,4 +98,130 @@ export async function signOut(userEmail: string | null | undefined): Promise<voi
   await revokeRefreshToken();
   await clearBiometricPreference();
   await teardownSession();
+}
+
+export type BiometricSignInResult
+  = | "signed_in"
+    /** No kept refresh token: the biometric session is gone. */
+    | "no_kept_session"
+    /** The kept refresh token (or the access token it produced) was rejected. */
+    | "expired"
+    /** The kept token belongs to another account than the one biometric is bound to. */
+    | "account_mismatch"
+    /** Another sign-in finished first; nothing was stored. */
+    | "aborted"
+    /** Offline / timeout / 5xx: the (rotated) refresh token is kept for a retry. */
+    | "unreachable";
+
+/** Upper bound for the best-effort revocation of a token this device dropped. */
+export const DROPPED_TOKEN_REVOKE_TIMEOUT_MS = 15_000;
+
+function isSignedIn(): boolean {
+  return store.getState().auth.isAuthenticated === true;
+}
+
+function httpStatus(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } } | null)?.response?.status;
+}
+
+/** Fire-and-forget, bounded server-side revocation of a token pair this device no longer keeps. */
+function revokeDroppedTokens(refreshToken: string, accessToken: string): void {
+  Promise.resolve()
+    .then(() => authApi.logout(refreshToken, accessToken, DROPPED_TOKEN_REVOKE_TIMEOUT_MS))
+    .catch(() => {});
+}
+
+/**
+ * Signed-out only: the kept biometric session is dead. Never runs once
+ * another sign-in owns the stored tokens.
+ */
+async function forgetDeadKeptSession(): Promise<void> {
+  if (isSignedIn())
+    return;
+  await deleteSecureItem(SECURE_KEY_ACCESS);
+  await forgetKeptBiometricSession();
+}
+
+/**
+ * One-tap biometric sign-in with the refresh token kept after sign-out
+ * (the caller has already passed the device biometric prompt).
+ *
+ * The access token is written ONLY by `completeLogin`, after the profile it
+ * belongs to is confirmed to be the account biometric is bound to. Until
+ * then the rotated refresh token is the only thing stored (the old one is
+ * spent), so an interrupted flow never leaves a session a relaunch could
+ * restore. Every write or delete first checks that no other sign-in (the
+ * password form) has taken over the stored tokens meanwhile.
+ */
+export async function signInWithKeptBiometricSession(): Promise<BiometricSignInResult> {
+  if (isSignedIn())
+    return "aborted";
+  const keptRefresh = await getSecureItem(SECURE_KEY_REFRESH);
+  if (!keptRefresh) {
+    await forgetDeadKeptSession();
+    return "no_kept_session";
+  }
+
+  let accessToken: string;
+  let rotatedRefresh: string;
+  try {
+    const { data } = await authApi.refresh(keptRefresh);
+    accessToken = data.data.accessToken;
+    rotatedRefresh = data.data.refreshToken;
+  }
+  catch (err) {
+    const status = httpStatus(err);
+    if (status === 401 || status === 403) {
+      await forgetDeadKeptSession();
+      return "expired";
+    }
+    return "unreachable";
+  }
+
+  // The password form signed in (or replaced the kept token) while the
+  // refresh was in flight: its tokens win, this pair is dropped.
+  if (isSignedIn() || await getSecureItem(SECURE_KEY_REFRESH) !== keptRefresh) {
+    revokeDroppedTokens(rotatedRefresh, accessToken);
+    return "aborted";
+  }
+  // The kept token is spent: keep the rotated one in its place, and nothing else.
+  await setSecureItem(SECURE_KEY_REFRESH, rotatedRefresh);
+
+  let user: AuthUser;
+  try {
+    // Explicit Bearer: the access token is not stored, and a signed-out 401
+    // never triggers the refresh interceptor.
+    const { data } = await usersApi.getProfile(accessToken);
+    user = data.data;
+  }
+  catch (err) {
+    if (isSignedIn()) {
+      revokeDroppedTokens(rotatedRefresh, accessToken);
+      return "aborted";
+    }
+    const status = httpStatus(err);
+    if (status === 401 || status === 403) {
+      await forgetDeadKeptSession();
+      revokeDroppedTokens(rotatedRefresh, accessToken);
+      return "expired";
+    }
+    return "unreachable";
+  }
+
+  if (isSignedIn()) {
+    revokeDroppedTokens(rotatedRefresh, accessToken);
+    return "aborted";
+  }
+
+  // Read the binding fresh: the screen's state predates this sign-in.
+  if (!await isBiometricBoundTo(user.email)) {
+    // Local first, so an app kill here can never leave the other account's
+    // session behind; the server revocation is best effort afterwards.
+    await forgetDeadKeptSession();
+    revokeDroppedTokens(rotatedRefresh, accessToken);
+    return "account_mismatch";
+  }
+
+  await completeLogin({ user, accessToken, refreshToken: rotatedRefresh });
+  return "signed_in";
 }

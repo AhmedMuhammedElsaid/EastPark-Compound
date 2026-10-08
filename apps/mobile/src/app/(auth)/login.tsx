@@ -17,14 +17,11 @@ import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { loginErrorKey } from "@/lib/api-error";
-import { isBiometricBoundTo, isSameEmail } from "@/lib/biometric-binding";
+import { isBiometricBoundTo } from "@/lib/biometric-binding";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
-import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
 import { authApi } from "@/services/api/auth";
-import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/client";
-import { usersApi } from "@/services/api/users";
-import { completeLogin } from "@/services/auth/session";
+import { completeLogin, signInWithKeptBiometricSession } from "@/services/auth/session";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const SERVER_WAKING_HINT_MS = 5_000;
@@ -82,49 +79,25 @@ function useBiometricSignIn(biometric: ReturnType<typeof useBiometric>) {
       const ok = await biometric.authenticate();
       if (!ok)
         return;
-      const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
-      if (!refreshToken) {
-        await biometric.forgetKeptSession();
-        showMessage({
-          message: t("auth.biometric.session_expired"),
-          type: "warning",
-          backgroundColor: SEMANTIC.warning,
-        });
+      // Refresh, identity check and token storage live in the session module:
+      // the access token is only stored once the account is confirmed.
+      const result = await signInWithKeptBiometricSession();
+      if (result === "signed_in" || result === "aborted")
+        return;
+      if (result === "unreachable") {
+        // Offline / timeout / 5xx: the kept session stays for a retry.
+        showMessage({ message: t("auth.errors.server_unreachable"), type: "danger", backgroundColor: SEMANTIC.error });
         return;
       }
-      const tokens = await authApi.refresh(refreshToken);
-      const { accessToken, refreshToken: newRefresh } = tokens.data.data;
-      await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-      await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
-      const profile = await usersApi.getProfile();
-      // The kept token must belong to the account the button is labelled
-      // with. A mismatch (left by older builds) is revoked and forgotten.
-      if (!isSameEmail(profile.data.data.email, biometric.email)) {
-        await authApi.logout(newRefresh, accessToken).catch(() => {});
-        await deleteSecureItem(SECURE_KEY_ACCESS);
-        await biometric.forgetKeptSession();
-        showMessage({
-          message: t("auth.biometric.session_expired"),
-          type: "warning",
-          backgroundColor: SEMANTIC.warning,
-        });
-        return;
-      }
-      await completeLogin({ user: profile.data.data, accessToken, refreshToken: newRefresh });
+      // Expired, missing or another account's token: biometric was forgotten.
+      await biometric.refresh();
+      showMessage({
+        message: t("auth.biometric.session_expired"),
+        type: "warning",
+        backgroundColor: SEMANTIC.warning,
+      });
     }
-    catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 401 || status === 403) {
-        // Refresh token revoked/expired. Disable biometric so user re-enters password.
-        await biometric.forgetKeptSession();
-        showMessage({
-          message: t("auth.biometric.session_expired"),
-          type: "warning",
-          backgroundColor: SEMANTIC.warning,
-        });
-        return;
-      }
-      // Network error / timeout / 5xx: keep biometric + tokens so the user can retry.
+    catch {
       showMessage({ message: t("auth.errors.server_unreachable"), type: "danger", backgroundColor: SEMANTIC.error });
     }
     finally {

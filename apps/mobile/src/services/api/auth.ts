@@ -24,11 +24,14 @@ export const authApi = {
 
   // Bearer ACCESS token (attached by the request interceptor unless given
   // explicitly) + the refresh token to revoke in the body.
-  logout: (refreshToken: string, accessToken?: string) =>
+  logout: (refreshToken: string, accessToken?: string, timeout?: number) =>
     client.post<{ data: { message: string } }>(
       "/auth/logout",
       { refreshToken },
-      accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+      {
+        ...(accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {}),
+        ...(timeout ? { timeout } : {}),
+      },
     ),
 
   forgotPassword: (email: string) =>
