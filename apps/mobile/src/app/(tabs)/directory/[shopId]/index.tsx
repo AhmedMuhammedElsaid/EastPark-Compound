@@ -625,6 +625,8 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
   const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
   const displayName = isAr ? shop.nameAr : shop.name;
   const description = isAr ? shop.descriptionAr : shop.description;
+  // Same normalisation as the order hand-off: no button for a number WhatsApp cannot open.
+  const hasWhatsApp = toWhatsAppDigits(shop.whatsapp) !== null;
   const categoryLabel = t(`directory.${shop.category.toLowerCase().replace("_and_", "_")}`);
   // Manual override AND today's schedule (CLAUDE.md: the client computes "open now").
   const openNow = isShopOpenNow(shop, new Date());
@@ -654,7 +656,7 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
       </View>
       {description ? <Text style={styles.description}>{description}</Text> : null}
       <WorkingHoursSection shop={shop} styles={styles} />
-      {(shop.phone || shop.whatsapp)
+      {(shop.phone || hasWhatsApp)
         ? (
             <View style={styles.ctaRow}>
               {shop.phone
@@ -673,7 +675,7 @@ function ShopInfoSection({ shop, isAr, styles, colors }: { shop: Shop; isAr: boo
                     </Pressable>
                   )
                 : null}
-              {shop.whatsapp
+              {hasWhatsApp
                 ? (
                     <Pressable
                       style={({ pressed }) => [styles.ctaBtn, pressed && styles.pressed]}
