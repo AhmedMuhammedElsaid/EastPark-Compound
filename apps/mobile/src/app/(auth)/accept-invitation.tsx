@@ -1,4 +1,5 @@
 import type { Control, FieldErrors } from "react-hook-form";
+import type { TextInput } from "react-native";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -119,13 +120,15 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
   const styles = useStyles();
   const [showPwd, setShowPwd] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const passwordRef = React.useRef<TextInput>(null);
+  const confirmRef = React.useRef<TextInput>(null);
   return (
     <View style={styles.form}>
       <Controller
         control={control}
         name="name"
         render={({ field: { onChange, onBlur, value } }) => (
-          <AuthInput label={t("auth.name")} value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name ? t(errors.name.message as string) : undefined} autoComplete="name" returnKeyType="next" />
+          <AuthInput label={t("auth.name")} value={value} onChangeText={onChange} onBlur={onBlur} error={errors.name ? t(errors.name.message as string) : undefined} autoComplete="name" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()} />
         )}
       />
       {/* The backend has no invitation lookup, so an existing account can't be
@@ -137,6 +140,7 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
         name="password"
         render={({ field: { onChange, onBlur, value } }) => (
           <AuthInput
+            ref={passwordRef}
             label={t("auth.password")}
             value={value}
             onChangeText={onChange}
@@ -144,6 +148,8 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
             error={errors.password ? t(errors.password.message as string) : undefined}
             secureTextEntry={!showPwd}
             returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => confirmRef.current?.focus()}
             rightSlot={(
               <PasswordToggle visible={showPwd} onToggle={() => setShowPwd(v => !v)} />
             )}
@@ -157,6 +163,7 @@ function InvitationForm({ control, errors, onSubmitEditing }: { control: Control
         name="confirmPassword"
         render={({ field: { onChange, onBlur, value } }) => (
           <AuthInput
+            ref={confirmRef}
             label={t("auth.confirm_password")}
             value={value}
             onChangeText={onChange}

@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { Control, FieldErrors } from "react-hook-form";
+import type { TextInput } from "react-native";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -300,13 +301,14 @@ type LoginFormProps = {
 function LoginForm({ control, errors, showPassword, onTogglePassword, onSubmitEditing }: LoginFormProps) {
   const { t } = useTranslation();
   const styles = useStyles();
+  const passwordRef = React.useRef<TextInput>(null);
   return (
     <View style={styles.form}>
       <Controller
         control={control}
         name="email"
         render={({ field: { onChange, onBlur, value } }) => (
-          <AuthInput label={t("auth.email")} accessibilityLabel={t("auth.email")} value={value} onChangeText={onChange} onBlur={onBlur} error={errors.email ? t(errors.email.message as string) : undefined} keyboardType="email-address" autoComplete="email" returnKeyType="next" />
+          <AuthInput label={t("auth.email")} accessibilityLabel={t("auth.email")} value={value} onChangeText={onChange} onBlur={onBlur} error={errors.email ? t(errors.email.message as string) : undefined} keyboardType="email-address" autoComplete="email" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => passwordRef.current?.focus()} />
         )}
       />
       <Controller
@@ -314,6 +316,7 @@ function LoginForm({ control, errors, showPassword, onTogglePassword, onSubmitEd
         name="password"
         render={({ field: { onChange, onBlur, value } }) => (
           <AuthInput
+            ref={passwordRef}
             label={t("auth.password")}
             accessibilityLabel={t("auth.password")}
             value={value}

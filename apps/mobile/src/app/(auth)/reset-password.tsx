@@ -1,3 +1,4 @@
+import type { TextInput } from "react-native";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
@@ -106,6 +107,7 @@ export default function ResetPasswordScreen() {
   const styles = useStyles();
   const [showPwd, setShowPwd] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const confirmRef = React.useRef<TextInput>(null);
 
   const {
     control,
@@ -163,6 +165,8 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showPwd}
               autoComplete="new-password"
               returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => confirmRef.current?.focus()}
               rightSlot={(
                 <PasswordToggle visible={showPwd} onToggle={() => setShowPwd(v => !v)} />
               )}
@@ -174,6 +178,7 @@ export default function ResetPasswordScreen() {
           name="confirmPassword"
           render={({ field: { onChange, onBlur, value } }) => (
             <AuthInput
+              ref={confirmRef}
               label={t("auth.confirm_password")}
               value={value}
               onChangeText={onChange}
