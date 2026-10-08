@@ -333,4 +333,20 @@ describe("401 while signed out", () => {
     expect(mockSecureStore[SECURE_KEY_ACCESS]).toBe("old-access");
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("refresh-1");
   });
+
+  it("never refreshes when biometric sign-in checks a profile with an explicit, unstored access token", async () => {
+    injectStore({ getState: () => ({ auth: { isAuthenticated: false } }), dispatch: jest.fn() } as never);
+    mockSecureStore[SECURE_KEY_REFRESH] = "rotated-refresh";
+    adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
+      throw fail(config, 401);
+    });
+
+    await expect(client.get("/user/profile", { headers: { Authorization: "Bearer fresh-access" } }))
+      .rejects
+      .toMatchObject({ response: { status: 401 } });
+
+    expect(refreshPost).not.toHaveBeenCalled();
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("rotated-refresh");
+  });
 });
