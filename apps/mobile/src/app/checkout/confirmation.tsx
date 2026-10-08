@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import LottieView from "lottie-react-native";
+import { Check } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, BackHandler, Linking, StyleSheet, Text, View } from "react-native";
@@ -10,8 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
-import { getOrderHandoff, openWhatsAppChat } from "@/lib/whatsapp";
-import { FONT, SPACING } from "@/theme/tokens";
+import { formatOrderNumber, getOrderHandoff, openWhatsAppChat } from "@/lib/whatsapp";
+import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
+
+const BADGE_SIZE = 128;
 
 function useStyles() {
   const colors = useAppColors();
@@ -28,9 +30,35 @@ function useStyles() {
       alignItems: "center" as const,
       gap: SPACING.xl,
     },
-    iconWrap: {
+    badge: {
+      width: BADGE_SIZE,
+      height: BADGE_SIZE,
+      borderRadius: RADIUS.full,
+      backgroundColor: SEMANTIC.success,
       justifyContent: "center" as const,
       alignItems: "center" as const,
+    },
+    halo: {
+      position: "absolute" as const,
+      width: BADGE_SIZE,
+      height: BADGE_SIZE,
+      borderRadius: RADIUS.full,
+      borderWidth: 2,
+      borderColor: SEMANTIC.success,
+    },
+    badgeWrap: { width: BADGE_SIZE * 1.6, height: BADGE_SIZE * 1.6, justifyContent: "center" as const, alignItems: "center" as const },
+    orderNumber: {
+      fontFamily: FONT.sans,
+      fontWeight: "700",
+      fontSize: 15,
+      lineHeight: 22,
+      color: "primaryText" in colors ? colors.primaryText : BRAND.gold,
+      textAlign: "center" as const,
+      backgroundColor: `${BRAND.gold}1f`,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.xs,
+      borderRadius: RADIUS.full,
+      overflow: "hidden" as const,
     },
     textWrap: { alignItems: "center" as const, gap: SPACING.sm },
     title: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, color: colors.text, textAlign: "center" as const },
@@ -55,11 +83,8 @@ export default function ConfirmationScreen() {
     return () => sub.remove();
   }, []);
 
-  // Entry animations
-  const scale = React.useRef(new Animated.Value(0)).current;
-  const opacity = React.useRef(new Animated.Value(0)).current;
-
   const reduceMotion = useReducedMotion();
+  const { badgeStyle, checkStyle, haloStyle, contentStyle } = useSuccessAnimation(reduceMotion);
 
   // Success haptic exactly once, independent of the reduced-motion value
   // (which may flip after mount and re-run the animation effect).
@@ -67,36 +92,26 @@ export default function ConfirmationScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
-  React.useEffect(() => {
-    if (reduceMotion) {
-      scale.setValue(1);
-      opacity.setValue(1);
-      return;
-    }
-    Animated.spring(scale, { toValue: 1, damping: 12, stiffness: 120, useNativeDriver: true }).start();
-    Animated.sequence([
-      Animated.delay(200),
-      Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-    ]).start();
-  }, [opacity, scale, reduceMotion]);
-
-  const iconStyle = { transform: [{ scale }] };
-  const contentStyle = { opacity };
-
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + SPACING.xl, paddingTop: insets.top }]}>
       <View style={styles.body}>
-        <Animated.View style={[styles.iconWrap, iconStyle]}>
-          <LottieView
-            source={require("../../../assets/animations/success.json")}
-            autoPlay
-            loop={false}
-            style={{ width: 200, height: 200 }}
-          />
-        </Animated.View>
+        <View style={styles.badgeWrap} accessible={false}>
+          <Animated.View style={[styles.halo, haloStyle]} />
+          <Animated.View style={[styles.badge, badgeStyle]}>
+            <Animated.View style={checkStyle}>
+              <Check size={64} color={DARK.text} weight="bold" />
+            </Animated.View>
+          </Animated.View>
+        </View>
 
         <Animated.View style={[styles.textWrap, contentStyle]}>
-          <Text style={styles.title}>{t("checkout.order_placed")}</Text>
+          <Text style={styles.title} accessibilityRole="header">{t("checkout.order_placed")}</Text>
+          {orderId
+            ? (
+                // LRM keeps "#" attached to the start of the number in Arabic.
+                <Text style={styles.orderNumber}>{t("checkout.order_number", { number: `‎${formatOrderNumber(orderId)}` })}</Text>
+              )
+            : null}
           <Text style={styles.subtitle}>{t("checkout.order_placed_subtitle")}</Text>
         </Animated.View>
       </View>
@@ -133,4 +148,63 @@ export default function ConfirmationScreen() {
       </Animated.View>
     </View>
   );
+}
+
+/**
+ * Success moment (DESIGN.md motion): the olive badge springs in, the check
+ * pops a beat later, a soft halo ripples out once and the copy fades up.
+ * Reduced motion shows the final state at once.
+ */
+function useSuccessAnimation(reduceMotion: boolean) {
+  const badge = React.useRef(new Animated.Value(0)).current;
+  const check = React.useRef(new Animated.Value(0)).current;
+  const halo = React.useRef(new Animated.Value(0)).current;
+  const content = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      badge.setValue(1);
+      check.setValue(1);
+      halo.setValue(1);
+      content.setValue(1);
+      return;
+    }
+    const animation = Animated.parallel([
+      Animated.spring(badge, { toValue: 1, damping: 11, stiffness: 140, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.delay(180),
+        Animated.spring(check, { toValue: 1, damping: 8, stiffness: 180, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.delay(240),
+        Animated.timing(halo, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.delay(280),
+        Animated.timing(content, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [badge, check, halo, content, reduceMotion]);
+
+  return {
+    badgeStyle: { transform: [{ scale: badge }] },
+    checkStyle: {
+      opacity: check.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
+      transform: [
+        { scale: check.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+        { rotate: check.interpolate({ inputRange: [0, 1], outputRange: ["-25deg", "0deg"] }) },
+      ],
+    },
+    // One ripple that grows and fades out; with reduced motion it stays hidden.
+    haloStyle: {
+      opacity: reduceMotion ? 0 : halo.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.5, 0] }),
+      transform: [{ scale: halo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] }) }],
+    },
+    contentStyle: {
+      opacity: content,
+      transform: [{ translateY: content.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+    },
+  };
 }

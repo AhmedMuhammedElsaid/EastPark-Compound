@@ -209,6 +209,7 @@
     "notes": "Delivery notes",
     "notes_placeholder": "Special instructions, buzzer code, etc.",
     "order_failed": "We couldn't place your order. Please try again.",
+    "order_number": "Order {{number}}",
     "order_placed": "Order placed!",
     "order_placed_subtitle": "Your order has been received and will be confirmed shortly",
     "order_uncertain_body": "We lost connection while placing your order, so it may have gone through. Please check your orders before trying again.",
