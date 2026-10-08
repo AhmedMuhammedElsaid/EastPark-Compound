@@ -145,7 +145,7 @@ describe('shops: soft-deleted shops, photos and reviews are hidden', () => {
 describe('shops: create requires a live merchant owner', () => {
     const db = {
         user: { findUnique: jest.fn() },
-        shop: { create: jest.fn() },
+        shop: { create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     };
     const service = new ShopsService(db as unknown as DatabaseService, asAudit);
     const dto = {

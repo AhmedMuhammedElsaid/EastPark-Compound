@@ -45,6 +45,31 @@ export class AdminUserQueryDto {
     role?: Role;
 }
 
+/** `GET /admin/user/merchants` [ADMIN] — the merchant picker for "create shop". */
+export class AdminMerchantQueryDto {
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    cursor?: string;
+
+    @ApiPropertyOptional({ default: 20 })
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(50)
+    @IsOptional()
+    limit?: number = 20;
+
+    @ApiPropertyOptional({ description: 'Case-insensitive match on name or email' })
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim() : value
+    )
+    @IsString()
+    @MaxLength(100)
+    @IsOptional()
+    q?: string;
+}
+
 export class AdminUserRoleUpdateDto {
     @ApiProperty({ enum: ASSIGNABLE_ROLES })
     @IsIn(ASSIGNABLE_ROLES)

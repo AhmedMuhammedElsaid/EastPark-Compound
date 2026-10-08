@@ -1,5 +1,6 @@
 {
     "error": {
-        "merchantInvalid": "The owner must be an existing merchant account."
+        "merchantInvalid": "The owner must be an existing merchant account.",
+        "merchantHasShop": "This merchant already runs a shop. A merchant can own one shop."
     }
 }

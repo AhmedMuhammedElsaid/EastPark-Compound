@@ -1,5 +1,6 @@
 import {
     BadRequestException,
+    ConflictException,
     ForbiddenException,
     Injectable,
     NotFoundException,
@@ -52,6 +53,16 @@ export class ShopsService {
         });
         if (!merchant || merchant.deletedAt || merchant.role !== Role.MERCHANT)
             throw new BadRequestException('shop.error.merchantInvalid');
+
+        // One live shop per merchant: the merchant dashboard serves only the
+        // oldest live shop, so a second one would be unreachable by its owner.
+        // A soft-deleted shop does not count. (Check-then-create: the admin
+        // form blocks double submits; a concurrent race is an accepted risk.)
+        const owned = await this.db.shop.count({
+            where: { merchantId: dto.merchantId, deletedAt: null },
+        });
+        if (owned > 0)
+            throw new ConflictException('shop.error.merchantHasShop');
 
         const shop = await this.db.shop.create({
             data: {

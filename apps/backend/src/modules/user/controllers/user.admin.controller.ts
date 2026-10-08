@@ -26,10 +26,12 @@ import {
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 
 import {
+    AdminMerchantQueryDto,
     AdminUserQueryDto,
     AdminUserRoleUpdateDto,
 } from '../dtos/request/user.admin.request';
 import {
+    AdminMerchantListResponseDto,
     AdminUserItemDto,
     AdminUserListResponseDto,
 } from '../dtos/response/user.admin.response';
@@ -55,6 +57,20 @@ export class UserAdminController {
         @Query() query: AdminUserQueryDto
     ): Promise<AdminUserListResponseDto> {
         return this.userService.listUsers(query);
+    }
+
+    @Get('merchants')
+    @AllowedRoles([Role.ADMIN])
+    @HttpCode(HttpStatus.OK)
+    @ApiBearerAuth('accessToken')
+    @ApiOperation({
+        summary:
+            'List live merchant accounts with their live shop [ADMIN] (create-shop picker)',
+    })
+    public listMerchants(
+        @Query() query: AdminMerchantQueryDto
+    ): Promise<AdminMerchantListResponseDto> {
+        return this.userService.listMerchants(query);
     }
 
     @Patch(':id/role')

@@ -24,11 +24,13 @@ import {
 } from 'src/modules/units/dtos/resident-unit.dto';
 
 import {
+    AdminMerchantQueryDto,
     AdminUserQueryDto,
     AssignableRole,
 } from '../dtos/request/user.admin.request';
 import { UserUpdateDto } from '../dtos/request/user.update.request';
 import {
+    AdminMerchantListResponseDto,
     AdminUserItemDto,
     AdminUserListResponseDto,
 } from '../dtos/response/user.admin.response';
@@ -259,6 +261,56 @@ export class UserService {
             items: items.map(({ residentUnits, ...user }) => ({
                 ...user,
                 units: residentUnits.map(toResidentUnitDto),
+            })),
+            nextCursor,
+        };
+    }
+
+    /**
+     * `GET /admin/user/merchants` [ADMIN] — live MERCHANT accounts with their
+     * live shop, for the "create shop" picker and the admin shops list. Only
+     * id, name and email leave the server. A merchant runs one shop (the
+     * merchant module serves the oldest live one), so `shop` is that one.
+     */
+    async listMerchants(
+        query: AdminMerchantQueryDto
+    ): Promise<AdminMerchantListResponseDto> {
+        const limit = query.limit ?? 20;
+        const where: Prisma.UserWhereInput = {
+            role: Role.MERCHANT,
+            deletedAt: null,
+            NOT: { email: { endsWith: DELETED_USER_EMAIL_DOMAIN } },
+            ...(query.q
+                ? {
+                      OR: [
+                          { name: { contains: query.q, mode: 'insensitive' } },
+                          { email: { contains: query.q, mode: 'insensitive' } },
+                      ],
+                  }
+                : {}),
+        };
+        const rows = await this.db.user.findMany({
+            where,
+            take: limit + 1,
+            ...cursorArgs(query.cursor),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                shops: {
+                    where: { deletedAt: null },
+                    orderBy: { createdAt: 'asc' },
+                    take: 1,
+                    select: { id: true, name: true, nameAr: true },
+                },
+            },
+        });
+        const { items, nextCursor } = toCursorPage(rows, limit);
+        return {
+            items: items.map(({ shops, ...merchant }) => ({
+                ...merchant,
+                shop: shops[0] ?? null,
             })),
             nextCursor,
         };
