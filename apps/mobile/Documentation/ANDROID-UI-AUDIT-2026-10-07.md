@@ -890,3 +890,43 @@ Not re-checked: DEV-2, DEV-12..16 (admin-only), DEV-15.
 
 #### Counts
 RW-1..RW-13: 2 P1 (RW-5 biometric per-device, RW-10 WhatsApp contact picker), 11 P2.
+
+### Fixed after the resident walk (2026-10-08)
+
+Gates for every commit (from `apps/mobile`): `pnpm type-check` exit 0, `pnpm lint` 0 errors (16 existing warnings),
+`pnpm test` 29 suites / 201 tests passing. Not yet on a device: needs a new EAS build.
+
+- RW-5 (P1) -> `90791aa`. Biometric sign-in is bound to one account (`src/lib/biometric-binding.ts`). Every login
+  (`completeLogin`) forgets another account's biometric preference and kept refresh token BEFORE storing the new tokens.
+  Sign-out (`signOut` in `session.ts`) keeps the refresh token unrevoked only when biometric is on for THIS account;
+  otherwise it revokes, deletes and drops any leftover preference. The Profile switch shows the per-account state.
+  Biometric sign-in checks that the profile returned after refresh is the labelled email; on a mismatch it revokes
+  the rotated token and forgets the kept session. The enrolment prompt reads the stored binding fresh. This also cleans
+  up the owner phone's current state (owner label, resident token) on the first fingerprint tap. Tests:
+  `biometric-binding.test.ts`, `session.test.ts`.
+- RW-10 (P1) -> `b0c77e8`. The URL was already `https://wa.me/201017134627?text=…`. Now: app scheme
+  `whatsapp://send?phone=<digits>&text=…` first, then wa.me if that fails (`openWhatsAppChat`, used by the payment
+  hand-off, the confirmation "send again" button and the shop WhatsApp button). Numbers still starting with 0 (no
+  country code) and `+20 0…` are normalised or rejected. Tests cover +20…, 0020…, 01…, spaces and dashes. Likely cause on
+  the device: every prod shop's WhatsApp (+201017134627) is the test phone's own WhatsApp account. Retest with a shop
+  whose number is a different WhatsApp account.
+- RW-1 -> `48ad2cb`. Next on email/name/password moves focus to the following field (login, accept-invitation,
+  reset-password). Forgot-password has a single field.
+- RW-2 -> `5eca7aa`. Sign-out confirm: title "تسجيل الخروج؟", explanatory message, Cancel first and a destructive Sign Out
+  last. Still a native Android dialog, so the title alignment and the button colours follow the system theme.
+- RW-3 -> `abfe09a`. Profile header uses the tab name ("حسابي" / "Profile").
+- RW-4 -> `0ea8dcf`. Shop detail: an opaque header with the shop name fades in behind the status bar and the back/heart
+  buttons once the hero has scrolled away. Text no longer slides under them. Status icons switch to dark on the light
+  theme while it shows, and the status-bar band over the photo is stronger (alpha 0.72).
+- RW-6 -> `2f7873e`. Saved shops opens the shop at `/(tabs)/profile/shop/[shopId]`, so the Profile tab stays selected and
+  Back returns to Saved shops.
+- RW-7 -> `f19de57`. The Saved shops row and empty state use the heart.
+- RW-8 -> `163bc4a`. The Community tile (and the Home quick action) are named after the screen: "شكاواي" / "My Feedback".
+  One line, like the other tiles.
+- RW-9 -> `92a41ca`. The payment total keeps the placed amount while placing; no more "٠ ج.م.".
+- RW-11 -> `e01751c`. The confirmation shows the order number ("رقم الطلب: #XXXXXX"). The hand-made Lottie (a static
+  circle, its check never rendered) is replaced by a spring olive badge with a popping check and one halo ripple, which
+  respects reduced motion. `assets/animations/success.json` is now unused.
+- RW-12 -> `3234ab0`. The cancel-order confirm reads "إلغاء هذا الطلب؟" with "تراجع" / "Keep order" vs the destructive
+  "إلغاء الطلب". It is still a native dialog.
+- RW-13: skipped. Latin digits in product names/descriptions are shop content (seed data), not code.
