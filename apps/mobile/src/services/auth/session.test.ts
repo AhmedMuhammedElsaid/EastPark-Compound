@@ -236,3 +236,36 @@ describe("sign-out tears down locally before revoking (RW-5c)", () => {
     spy.mockRestore();
   });
 });
+
+describe("every sign-out and sign-in starts a new session epoch (AUTHGAP)", () => {
+  const { getSessionEpoch } = require("@/services/api/session-epoch");
+
+  beforeEach(() => {
+    seedOwnerBiometric();
+    mockRevoke.mockReset();
+    mockEvents.length = 0;
+  });
+
+  async function expectEpochBump(action: () => Promise<unknown>) {
+    const before = getSessionEpoch();
+    await action();
+    expect(getSessionEpoch()).toBeGreaterThan(before);
+  }
+
+  it("bumps on sign-out with biometric kept", async () => {
+    await expectEpochBump(() => signOut(owner.email));
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("owner-kept-refresh");
+  });
+
+  it("bumps on sign-out without biometric", async () => {
+    await expectEpochBump(() => signOut(resident.email));
+  });
+
+  it("bumps on account delete", async () => {
+    await expectEpochBump(() => endDeletedAccountSession());
+  });
+
+  it("bumps on login", async () => {
+    await expectEpochBump(() => completeLogin({ user: owner, accessToken: "a", refreshToken: "r" }));
+  });
+});
