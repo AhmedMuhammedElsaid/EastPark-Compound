@@ -12,6 +12,8 @@ export interface CacheClient {
     hgetall(key: string): Promise<Record<string, unknown> | null>;
     hdel(key: string, ...fields: string[]): Promise<void>;
     incr(key: string): Promise<number>;
+    /** Atomic INCR + EXPIRE-if-no-TTL (see INCR_WITH_TTL_SCRIPT). */
+    incrWithTtl(key: string, ttlSeconds: number): Promise<number>;
     decr(key: string): Promise<number>;
     expire(key: string, ttlSeconds: number): Promise<void>;
     ttl(key: string): Promise<number>;

@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 
+import { INCR_WITH_TTL_SCRIPT } from '../constants/cache.constant';
 import { CacheClient } from './cache-client.interface';
 
 export class IoredisCacheClient implements CacheClient {
@@ -59,6 +60,10 @@ export class IoredisCacheClient implements CacheClient {
 
     incr(key: string): Promise<number> {
         return this.redis.incr(key);
+    }
+
+    async incrWithTtl(key: string, ttlSeconds: number): Promise<number> {
+        return Number(await this.redis.eval(INCR_WITH_TTL_SCRIPT, 1, key, ttlSeconds));
     }
 
     decr(key: string): Promise<number> {

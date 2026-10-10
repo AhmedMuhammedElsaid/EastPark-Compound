@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 
+import { INCR_WITH_TTL_SCRIPT } from '../constants/cache.constant';
 import { CacheClient } from './cache-client.interface';
 
 export class UpstashCacheClient implements CacheClient {
@@ -59,6 +60,10 @@ export class UpstashCacheClient implements CacheClient {
 
     incr(key: string): Promise<number> {
         return this.redis.incr(key);
+    }
+
+    async incrWithTtl(key: string, ttlSeconds: number): Promise<number> {
+        return Number(await this.redis.eval<[number], unknown>(INCR_WITH_TTL_SCRIPT, [key], [ttlSeconds]));
     }
 
     decr(key: string): Promise<number> {

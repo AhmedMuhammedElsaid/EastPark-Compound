@@ -87,12 +87,13 @@ export class AuthService {
         const email = normalizeEmail(dto.email);
 
         // Per-email cap that holds across client IPs. Counted before the
-        // password check (atomic INCR) and for unknown
+        // password check (atomic INCR + TTL, one Lua call) and for unknown
         // emails too, so the 429 does not reveal which emails exist.
         const attemptsKey = this.loginAttemptsKey(email);
-        const attempts = await this.cache.incr(attemptsKey);
-        if (attempts === 1)
-            await this.cache.expire(attemptsKey, LOGIN_FAILURE_WINDOW);
+        const attempts = await this.cache.incrWithTtl(
+            attemptsKey,
+            LOGIN_FAILURE_WINDOW
+        );
         if (attempts > LOGIN_MAX_FAILURES) {
             throw new HttpException(
                 'Too many login attempts — try again later',
@@ -153,9 +154,12 @@ export class AuthService {
         // Single use: the first INCR wins, so a replayed, concurrently reused
         // or logged-out token (value already set) is rejected atomically.
         const revocationKey = this.revocationKey(payload, rawToken);
-        const uses = await this.cache.incr(revocationKey);
+        // INCR and its TTL are one atomic step (no TTL-less key on a crash).
+        const uses = await this.cache.incrWithTtl(
+            revocationKey,
+            this.remainingTtl(payload)
+        );
         if (uses !== 1) throw new UnauthorizedException('Token revoked');
-        await this.cache.expire(revocationKey, this.remainingTtl(payload));
 
         // Never mint from the token payload alone: the account may have been
         // deleted, un-verified or had its role changed since it was issued.
@@ -216,9 +220,10 @@ export class AuthService {
         // exact same response as any other, so neither the status nor the body
         // reveals whether the account exists.
         const attemptsKey = this.forgotAttemptsKey(email);
-        const attempts = await this.cache.incr(attemptsKey);
-        if (attempts === 1)
-            await this.cache.expire(attemptsKey, FORGOT_REQUEST_WINDOW);
+        const attempts = await this.cache.incrWithTtl(
+            attemptsKey,
+            FORGOT_REQUEST_WINDOW
+        );
         if (attempts > FORGOT_MAX_REQUESTS)
             return { message: FORGOT_PASSWORD_MESSAGE };
 

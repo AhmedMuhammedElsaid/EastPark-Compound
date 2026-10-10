@@ -76,6 +76,7 @@ const cache = {
     del: jest.fn(),
     exists: jest.fn(),
     incr: jest.fn(),
+    incrWithTtl: jest.fn(),
     expire: jest.fn(),
 };
 
@@ -117,7 +118,7 @@ describe('AuthService', () => {
         jest.clearAllMocks();
         // Defaults: no session-version bump recorded, first INCR wins.
         cache.get.mockResolvedValue(null);
-        cache.incr.mockResolvedValue(1);
+        cache.incrWithTtl.mockResolvedValue(1);
         sessions.getCurrent.mockResolvedValue(0);
         sessions.bump.mockResolvedValue(1);
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -223,26 +224,24 @@ describe('AuthService', () => {
             it('counts attempts per normalized email with a 15-minute window', async () => {
                 db.user.findUnique.mockResolvedValue(mockUser());
                 encryption.match.mockResolvedValue(false);
-                cache.incr.mockResolvedValueOnce(1);
+                cache.incrWithTtl.mockResolvedValueOnce(1);
                 await expect(
                     service.login({
                         email: ' Jane@EastPark.app',
                         password: 'wrong',
                     })
                 ).rejects.toBeInstanceOf(UnauthorizedException);
-                expect(cache.incr).toHaveBeenCalledWith(
-                    'login-attempts:jane@eastpark.app'
-                );
-                expect(cache.expire).toHaveBeenCalledWith(
+                expect(cache.incrWithTtl).toHaveBeenCalledWith(
                     'login-attempts:jane@eastpark.app',
                     900
                 );
+                expect(cache.expire).not.toHaveBeenCalled();
             });
 
             it('returns 429 on the 11th attempt without checking the password', async () => {
                 db.user.findUnique.mockResolvedValue(mockUser());
                 encryption.match.mockResolvedValue(true);
-                cache.incr.mockResolvedValueOnce(11);
+                cache.incrWithTtl.mockResolvedValueOnce(11);
                 const attempt = service.login({
                     email: 'jane@eastpark.app',
                     password: 'Secret123!',
@@ -257,7 +256,7 @@ describe('AuthService', () => {
 
             it('caps unknown emails the same way (no enumeration via 429)', async () => {
                 db.user.findUnique.mockResolvedValue(null);
-                cache.incr.mockResolvedValueOnce(11);
+                cache.incrWithTtl.mockResolvedValueOnce(11);
                 await expect(
                     service.login({
                         email: 'ghost@eastpark.app',
@@ -272,7 +271,7 @@ describe('AuthService', () => {
                 db.user.findUnique.mockResolvedValue(mockUser());
                 encryption.match.mockResolvedValue(false);
                 let counter = 0;
-                cache.incr.mockImplementation(() => Promise.resolve(++counter));
+                cache.incrWithTtl.mockImplementation(() => Promise.resolve(++counter));
                 const results = await Promise.allSettled(
                     Array.from({ length: 15 }, () =>
                         service.login({
@@ -319,7 +318,7 @@ describe('AuthService', () => {
             await expect(
                 service.refresh(payload, 'header.token', 'other.token')
             ).rejects.toBeInstanceOf(UnauthorizedException);
-            expect(cache.incr).not.toHaveBeenCalled();
+            expect(cache.incrWithTtl).not.toHaveBeenCalled();
         });
 
         it('rotates the HEADER token, re-deriving the role from the DB', async () => {
@@ -333,11 +332,11 @@ describe('AuthService', () => {
                 'header.token'
             );
 
-            expect(cache.incr).toHaveBeenCalledWith('blacklist:jti:jti-1');
-            expect(cache.expire).toHaveBeenCalledWith(
+            expect(cache.incrWithTtl).toHaveBeenCalledWith(
                 'blacklist:jti:jti-1',
                 expect.any(Number)
             );
+            expect(cache.expire).not.toHaveBeenCalled();
             expect(encryption.createJwtTokens).toHaveBeenCalledWith({
                 userId: 'user-1',
                 role: Role.MERCHANT,
@@ -349,7 +348,7 @@ describe('AuthService', () => {
         it('rejects a replayed refresh token after rotation', async () => {
             db.user.findUnique.mockResolvedValue(mockUser());
             const store = new Map<string, number>();
-            cache.incr.mockImplementation((key: string) => {
+            cache.incrWithTtl.mockImplementation((key: string) => {
                 const next = (store.get(key) ?? 0) + 1;
                 store.set(key, next);
                 return Promise.resolve(next);
@@ -368,7 +367,10 @@ describe('AuthService', () => {
                 { userId: 'user-1', role: Role.RESIDENT },
                 'legacy.token'
             );
-            expect(cache.incr).toHaveBeenCalledWith('blacklist:legacy.token');
+            expect(cache.incrWithTtl).toHaveBeenCalledWith(
+                'blacklist:legacy.token',
+                expect.any(Number)
+            );
         });
 
         it('rejects when the user no longer exists', async () => {
@@ -403,7 +405,7 @@ describe('AuthService', () => {
             await expect(
                 service.refresh({ ...payload, ver: 0 }, 'header.token')
             ).rejects.toThrow('Session expired');
-            expect(cache.incr).not.toHaveBeenCalled();
+            expect(cache.incrWithTtl).not.toHaveBeenCalled();
         });
 
         it('accepts tokens carrying the current session version', async () => {
@@ -545,7 +547,7 @@ describe('AuthService', () => {
         const MESSAGE = 'If that email exists, a reset link has been sent';
 
         beforeEach(() => {
-            cache.incr.mockResolvedValue(1);
+            cache.incrWithTtl.mockResolvedValue(1);
         });
 
         it('returns the same message when user does not exist (no email enumeration)', async () => {
@@ -590,18 +592,16 @@ describe('AuthService', () => {
 
             await service.forgotPassword({ email: 'Jane@EastPark.app' });
 
-            expect(cache.incr).toHaveBeenCalledWith(
-                'forgot-attempts:jane@eastpark.app'
-            );
-            expect(cache.expire).toHaveBeenCalledWith(
+            expect(cache.incrWithTtl).toHaveBeenCalledWith(
                 'forgot-attempts:jane@eastpark.app',
                 900
             );
+            expect(cache.expire).not.toHaveBeenCalled();
             expect(email.sendPasswordReset).toHaveBeenCalledTimes(1);
         });
 
         it('over the cap: same message, no lookup, no email', async () => {
-            cache.incr.mockResolvedValue(4);
+            cache.incrWithTtl.mockResolvedValue(4);
 
             const result = await service.forgotPassword({
                 email: 'jane@eastpark.app',
@@ -614,12 +614,12 @@ describe('AuthService', () => {
 
         it('over the cap for an unknown email is indistinguishable from under the cap', async () => {
             db.user.findUnique.mockResolvedValue(null);
-            cache.incr.mockResolvedValue(1);
+            cache.incrWithTtl.mockResolvedValue(1);
             const underCap = await service.forgotPassword({
                 email: 'noone@eastpark.app',
             });
 
-            cache.incr.mockResolvedValue(4);
+            cache.incrWithTtl.mockResolvedValue(4);
             const overCap = await service.forgotPassword({
                 email: 'noone@eastpark.app',
             });

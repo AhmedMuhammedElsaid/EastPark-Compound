@@ -126,6 +126,19 @@ export class CacheService implements OnModuleDestroy {
     }
 
     /**
+     * Atomically increment a counter AND ensure it expires, in one Redis
+     * round trip (Lua). Use for every rate-limit / attempt counter: a separate
+     * INCR then EXPIRE can leave a key without a TTL if the process dies (or
+     * Redis errors) between the two calls, which turns a 15-minute cap into a
+     * permanent lockout. The TTL is clamped to at least 1 s (EXPIRE 0 would
+     * delete the key and reset the counter).
+     */
+    async incrWithTtl(key: string, ttlSeconds: number): Promise<number> {
+        const ttl = Math.max(1, Math.ceil(ttlSeconds));
+        return this.redis.incrWithTtl(key, ttl);
+    }
+
+    /**
      * Atomically decrement a counter.
      */
     async decr(key: string): Promise<number> {
