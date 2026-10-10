@@ -3,7 +3,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { ResidentLead, ResidentLeadStatus, Role } from '@prisma/client';
+import { Prisma, ResidentLead, ResidentLeadStatus, Role } from '@prisma/client';
 
 import {
     isPrismaError,
@@ -122,9 +122,11 @@ export class ResidentsService {
     ): Promise<ResidentLeadListResponseDto> {
         const limit = query.limit ?? 20;
 
+        const search = query.q ? leadSearchFilter(query.q) : undefined;
         const rows = await this.db.residentLead.findMany({
             where: {
                 ...(query.status ? { status: query.status } : {}),
+                ...(search ? { OR: search } : {}),
             },
             take: limit + 1,
             ...cursorArgs(query.cursor),
@@ -373,4 +375,49 @@ export class ResidentsService {
             email: lead.email,
         });
     }
+}
+
+const LEAD_SEARCH_FIELDS = [
+    'name',
+    'email',
+    'phone',
+    'building',
+    'floor',
+    'flatNumber',
+] as const;
+
+/** Arabic-Indic (U+0660..) and Extended Arabic-Indic (U+06F0..) digits → 0-9. */
+function toLatinDigits(value: string): string {
+    return value.replace(/[٠-٩۰-۹]/g, digit =>
+        String(digit.charCodeAt(0) & 0xf)
+    );
+}
+
+/**
+ * OR-branches for the admin leads search `q` (already trimmed by the DTO):
+ * a case-insensitive `contains` on every searchable field, plus an exact
+ * (case-insensitive) unit match when `q` is a full `building-floor-flat`
+ * label. Arabic-Indic digits are also tried as 0-9, since leads may be stored
+ * with either.
+ */
+export function leadSearchFilter(
+    q: string
+): Prisma.ResidentLeadWhereInput[] {
+    const terms = [...new Set([q, toLatinDigits(q)])];
+    const branches: Prisma.ResidentLeadWhereInput[] = [];
+    for (const term of terms) {
+        for (const field of LEAD_SEARCH_FIELDS) {
+            branches.push({ [field]: { contains: term, mode: 'insensitive' } });
+        }
+        const parts = term.split('-').map(part => part.trim());
+        if (parts.length === 3 && parts.every(Boolean)) {
+            const [building, floor, flatNumber] = parts as [string, string, string];
+            branches.push({
+                building: { equals: building, mode: 'insensitive' },
+                floor: { equals: floor, mode: 'insensitive' },
+                flatNumber: { equals: flatNumber, mode: 'insensitive' },
+            });
+        }
+    }
+    return branches;
 }

@@ -9,6 +9,7 @@ import { AuditService } from 'src/modules/audit/audit.service';
 import { InvitationsService } from 'src/modules/invitations/invitations.service';
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
+import { ResidentLeadQueryDto } from 'src/modules/residents/dtos/request/resident-lead.query.dto';
 import { ResidentsService } from 'src/modules/residents/residents.service';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -766,6 +767,76 @@ describe('ResidentsService', () => {
             ]);
         });
 
+        it('q filters server-side (OR on name/email/phone/unit fields) AND status, keeping hasAccount', async () => {
+            db.residentLead.findMany.mockResolvedValue([
+                mockLead({ id: 'lead-0', email: 'owner@example.com' }),
+            ]);
+            db.user.findMany.mockResolvedValue([{ email: 'owner@example.com' }]);
+
+            const result = await service.findAll({
+                limit: 20,
+                status: ResidentLeadStatus.PENDING,
+                q: 'Sara',
+            } as any);
+
+            const where = db.residentLead.findMany.mock.calls[0]?.[0]?.where;
+            const like = { contains: 'Sara', mode: 'insensitive' };
+            expect(where).toEqual({
+                status: ResidentLeadStatus.PENDING,
+                OR: [
+                    { name: like },
+                    { email: like },
+                    { phone: like },
+                    { building: like },
+                    { floor: like },
+                    { flatNumber: like },
+                ],
+            });
+            expect(result.items[0]?.hasAccount).toBe(true);
+        });
+
+        it('q keeps cursor pagination (take limit+1, cursor, same ordering)', async () => {
+            db.residentLead.findMany.mockResolvedValue([]);
+            await service.findAll({ limit: 10, cursor: 'lead-9', q: 'x' } as any);
+            const args = db.residentLead.findMany.mock.calls[0]?.[0];
+            expect(args).toMatchObject({
+                take: 11,
+                skip: 1,
+                cursor: { id: 'lead-9' },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            });
+        });
+
+        it('q as a full unit label also matches building/floor/flat exactly', async () => {
+            db.residentLead.findMany.mockResolvedValue([]);
+            await service.findAll({ limit: 20, q: 'a1-1-4' } as any);
+            const where = db.residentLead.findMany.mock.calls[0]?.[0]?.where;
+            expect(where.OR).toContainEqual({
+                building: { equals: 'a1', mode: 'insensitive' },
+                floor: { equals: '1', mode: 'insensitive' },
+                flatNumber: { equals: '4', mode: 'insensitive' },
+            });
+            expect(where.OR).toHaveLength(7);
+        });
+
+        it('q with Arabic-Indic digits also searches the 0-9 form', async () => {
+            db.residentLead.findMany.mockResolvedValue([]);
+            await service.findAll({ limit: 20, q: '٠١٠' } as any);
+            const where = db.residentLead.findMany.mock.calls[0]?.[0]?.where;
+            expect(where.OR).toContainEqual({
+                phone: { contains: '010', mode: 'insensitive' },
+            });
+            expect(where.OR).toContainEqual({
+                phone: { contains: '٠١٠', mode: 'insensitive' },
+            });
+        });
+
+        it('an empty q (after trimming) applies no search filter', async () => {
+            db.residentLead.findMany.mockResolvedValue([]);
+            await service.findAll({ limit: 20, q: '' } as any);
+            expect(db.residentLead.findMany.mock.calls[0]?.[0]?.where).toEqual({});
+        });
+
         it('skips the account lookup on an empty page', async () => {
             db.residentLead.findMany.mockResolvedValue([]);
 
@@ -777,6 +848,21 @@ describe('ResidentsService', () => {
 });
 
 // ─── DTO validation ─────────────────────────────────────────────────────────────
+
+describe('ResidentLeadQueryDto q', () => {
+    const parse = (payload: Record<string, unknown>) =>
+        plainToInstance(ResidentLeadQueryDto, payload);
+
+    it('is trimmed, optional and capped at 100 chars', async () => {
+        const dto = parse({ q: '  A1-1-4 ' });
+        expect(dto.q).toBe('A1-1-4');
+        expect(await validate(dto)).toHaveLength(0);
+        expect(await validate(parse({}))).toHaveLength(0);
+        expect(parse({ q: '   ' }).q).toBe('');
+        expect(await validate(parse({ q: 'x'.repeat(100) }))).toHaveLength(0);
+        expect(await validate(parse({ q: 'x'.repeat(101) }))).toHaveLength(1);
+    });
+});
 
 describe('ResidentLeadCreateDto validation', () => {
     const base = {
