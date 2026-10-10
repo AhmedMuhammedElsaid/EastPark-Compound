@@ -5,8 +5,11 @@ import {
     IsOptional,
     IsString,
     IsUrl,
+    Max,
     Min,
 } from 'class-validator';
+
+import { PRODUCT_MAX_PRICE } from './product.create.dto';
 
 export class ProductUpdateDto {
     @ApiPropertyOptional()
@@ -29,9 +32,10 @@ export class ProductUpdateDto {
     @IsOptional()
     descriptionAr?: string;
 
-    @ApiPropertyOptional()
+    @ApiPropertyOptional({ minimum: 0.01, maximum: PRODUCT_MAX_PRICE })
     @IsNumber({ maxDecimalPlaces: 2 })
     @Min(0.01)
+    @Max(PRODUCT_MAX_PRICE)
     @IsOptional()
     price?: number;
 

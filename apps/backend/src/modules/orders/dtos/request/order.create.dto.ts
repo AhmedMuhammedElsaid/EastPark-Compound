@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+    ArrayMaxSize,
     ArrayMinSize,
     IsArray,
     IsEnum,
@@ -15,6 +16,14 @@ import {
 } from 'class-validator';
 
 export const ORDER_ITEM_MAX_QUANTITY = 99;
+/** Distinct products per order. */
+export const ORDER_MAX_ITEMS = 50;
+/**
+ * Cap on the server-computed order total (EGP). The per-field caps alone allow
+ * 50 x 99 x 100,000 = 495M, above the Decimal(10,2) column maximum
+ * (99,999,999.99), so the service checks the total before the write.
+ */
+export const ORDER_MAX_TOTAL = 1_000_000;
 
 export class OrderItemDto {
     @ApiProperty()
@@ -30,9 +39,10 @@ export class OrderItemDto {
 }
 
 export class OrderCreateDto {
-    @ApiProperty({ type: [OrderItemDto] })
+    @ApiProperty({ type: [OrderItemDto], maxItems: ORDER_MAX_ITEMS })
     @IsArray()
     @ArrayMinSize(1)
+    @ArrayMaxSize(ORDER_MAX_ITEMS)
     @ValidateNested({ each: true })
     @Type(() => OrderItemDto)
     items: OrderItemDto[];

@@ -11,6 +11,7 @@ import { OrderStatus, PaymentMethod, Prisma, Role } from '@prisma/client';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
+import { ORDER_MAX_TOTAL } from 'src/modules/orders/dtos/request/order.create.dto';
 import { OrdersGateway } from 'src/modules/orders/orders.gateway';
 import {
     OrdersService,
@@ -277,6 +278,39 @@ describe('OrdersService', () => {
                 service.create(validDto, residentActor)
             ).rejects.toBeInstanceOf(ConflictException);
             expect(db.order.create).not.toHaveBeenCalled();
+        });
+
+        it('rejects a total above ORDER_MAX_TOTAL with 400 before any write', async () => {
+            db.product.findMany.mockResolvedValue([
+                mockProduct('prod-1', 'shop-1', 100_000),
+            ]);
+            db.shop.findUnique.mockResolvedValue({ isOpen: true });
+
+            // 99 x 100,000 = 9.9M > 1M cap (and the per-field caps alone
+            // could reach 495M, beyond Decimal(10,2)).
+            const attempt = service.create(
+                { ...validDto, items: [{ productId: 'prod-1', quantity: 99 }] },
+                residentActor
+            );
+            await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+            await expect(attempt).rejects.toThrow('order.error.totalTooLarge');
+            expect(db.order.create).not.toHaveBeenCalled();
+        });
+
+        it('accepts a total exactly at ORDER_MAX_TOTAL', async () => {
+            db.product.findMany.mockResolvedValue([
+                mockProduct('prod-1', 'shop-1', 100_000),
+            ]);
+            db.shop.findUnique.mockResolvedValue({ isOpen: true });
+            db.order.create.mockResolvedValue(mockOrder());
+
+            await service.create(
+                { ...validDto, items: [{ productId: 'prod-1', quantity: 10 }] },
+                residentActor
+            );
+            expect(
+                db.order.create.mock.calls[0]?.[0]?.data?.totalAmount.toFixed(2)
+            ).toBe(ORDER_MAX_TOTAL.toFixed(2));
         });
 
         it('rejects duplicate products in one order', async () => {

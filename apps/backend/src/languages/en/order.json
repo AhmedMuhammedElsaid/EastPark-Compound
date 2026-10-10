@@ -1,5 +1,6 @@
 {
     "error": {
-        "deliveryUnitInvalid": "Choose one of your own flats as the delivery unit"
+        "deliveryUnitInvalid": "Choose one of your own flats as the delivery unit",
+        "totalTooLarge": "This order is too large. Split it into smaller orders."
     }
 }

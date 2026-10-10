@@ -27,7 +27,10 @@ import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 
-import { OrderCreateDto } from './dtos/request/order.create.dto';
+import {
+    ORDER_MAX_TOTAL,
+    OrderCreateDto,
+} from './dtos/request/order.create.dto';
 import { OrderQueryDto } from './dtos/request/order.query.dto';
 import { OrderUpdateStatusDto } from './dtos/request/order.update-status.dto';
 import {
@@ -224,6 +227,12 @@ export class OrdersService {
                 productNameArSnapshot: product.nameAr,
             };
         });
+
+        // Keeps the total inside the Decimal(10,2) column (a 400, never a
+        // Prisma overflow) and blocks absurd orders.
+        if (totalAmount.greaterThan(ORDER_MAX_TOTAL)) {
+            throw new BadRequestException('order.error.totalTooLarge');
+        }
 
         const deliveryUnit = await this.assertDeliveryUnit(
             actor.userId,
