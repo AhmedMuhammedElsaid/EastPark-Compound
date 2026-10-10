@@ -4,13 +4,14 @@ import { router } from "expo-router";
 import { ForkKnife, Pencil, Plus, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { merchantApi } from "@/services/api/merchant";
@@ -84,15 +85,15 @@ export default function MerchantMenuScreen() {
     onError: () => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }),
   });
 
-  function handleDelete(product: Product) {
-    Alert.alert(
-      t("common.delete"),
-      t("merchant.confirm_delete"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        { text: t("common.delete"), style: "destructive", onPress: () => deleteProduct(product.id) },
-      ],
-    );
+  async function handleDelete(product: Product) {
+    const confirmed = await showConfirm({
+      title: t("common.delete"),
+      message: t("merchant.confirm_delete"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (confirmed)
+      deleteProduct(product.id);
   }
 
   return (

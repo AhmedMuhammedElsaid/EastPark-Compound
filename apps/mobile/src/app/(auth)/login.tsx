@@ -8,16 +8,17 @@ import { FaceMask, Fingerprint, LockKey } from "phosphor-react-native";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { z } from "zod";
 import { AuthInput, PasswordToggle } from "@/components/auth/auth-input";
-
 import { AuthScreenWrapper } from "@/components/auth/auth-screen-wrapper";
+
 import { BrandMark } from "@/components/auth/brand-mark";
 import { GoldButton } from "@/components/auth/gold-button";
 import { loginErrorKey } from "@/lib/api-error";
 import { isBiometricBoundTo } from "@/lib/biometric-binding";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { authApi } from "@/services/api/auth";
@@ -182,26 +183,22 @@ async function maybePromptEnableBiometric(biometric: ReturnType<typeof useBiomet
   if (!biometric.ready || !biometric.isAvailable || await isBiometricBoundTo(email))
     return;
   const kindLabel = t(`auth.biometric.kind.${biometric.kind}`);
-  Alert.alert(
-    t("auth.biometric.enable_prompt_title"),
-    t("auth.biometric.enable_prompt_body", { kind: kindLabel }),
-    [
-      { text: t("auth.biometric.not_now"), style: "cancel" },
-      {
-        text: t("auth.biometric.enable_button"),
-        onPress: async () => {
-          const ok = await biometric.enable(email);
-          if (ok) {
-            showMessage({
-              message: t("auth.biometric.enabled_success"),
-              type: "success",
-              backgroundColor: SEMANTIC.success,
-            });
-          }
-        },
-      },
-    ],
-  );
+  const accepted = await showConfirm({
+    title: t("auth.biometric.enable_prompt_title"),
+    message: t("auth.biometric.enable_prompt_body", { kind: kindLabel }),
+    confirmLabel: t("auth.biometric.enable_button"),
+    cancelLabel: t("auth.biometric.not_now"),
+  });
+  if (!accepted)
+    return;
+  const ok = await biometric.enable(email);
+  if (ok) {
+    showMessage({
+      message: t("auth.biometric.enabled_success"),
+      type: "success",
+      backgroundColor: SEMANTIC.success,
+    });
+  }
 }
 
 export default function LoginScreen() {

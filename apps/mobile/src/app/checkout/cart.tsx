@@ -6,12 +6,13 @@ import { router } from "expo-router";
 import { Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -145,12 +146,16 @@ export default function CartScreen() {
         right={(
           <Pressable
             style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
-            onPress={() => {
+            onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              Alert.alert(t("cart.clear_confirm_title"), t("cart.clear_confirm_body"), [
-                { text: t("common.cancel"), style: "cancel" },
-                { text: t("common.clear"), style: "destructive", onPress: () => dispatch(clearCart()) },
-              ]);
+              const confirmed = await showConfirm({
+                title: t("cart.clear_confirm_title"),
+                message: t("cart.clear_confirm_body"),
+                confirmLabel: t("common.clear"),
+                destructive: true,
+              });
+              if (confirmed)
+                dispatch(clearCart());
             }}
             accessibilityRole="button"
             accessibilityLabel={t("common.clear")}

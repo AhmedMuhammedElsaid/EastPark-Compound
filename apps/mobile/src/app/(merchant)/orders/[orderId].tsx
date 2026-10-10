@@ -3,14 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { DetailErrorScreen } from "@/components/ui/error-state";
+
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorStatus } from "@/lib/api-error";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import i18n from "@/lib/i18n";
@@ -179,16 +180,9 @@ export default function MerchantOrderDetailScreen() {
               if (nextStatus)
                 updateStatus(nextStatus);
             }}
-            onReject={() => {
-              const isReject = order.status === "PLACED";
-              Alert.alert(
-                t(isReject ? "merchant.reject" : "orders.cancel_order"),
-                t(isReject ? "merchant.confirm_reject" : "merchant.confirm_cancel_order"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  { text: t(isReject ? "merchant.reject" : "orders.cancel_order"), style: "destructive", onPress: () => rejectOrder() },
-                ],
-              );
+            onReject={async () => {
+              if (await confirmEndOrder(order.status === "PLACED"))
+                rejectOrder();
             }}
             isPending={isPending || rejecting}
             isRejecting={rejecting || isPending}
@@ -198,6 +192,18 @@ export default function MerchantOrderDetailScreen() {
       </ScrollView>
     </View>
   );
+}
+
+/** Reject (still PLACED) or cancel confirm. Dismiss is "Keep order", never a second "cancel". */
+function confirmEndOrder(isReject: boolean): Promise<boolean> {
+  const action = i18n.t(isReject ? "merchant.reject" : "orders.cancel_order");
+  return showConfirm({
+    title: action,
+    message: i18n.t(isReject ? "merchant.confirm_reject" : "merchant.confirm_cancel_order"),
+    confirmLabel: action,
+    cancelLabel: i18n.t("orders.cancel_keep"),
+    destructive: true,
+  });
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

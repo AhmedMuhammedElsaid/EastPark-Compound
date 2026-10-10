@@ -5,16 +5,17 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 import { Plus, X } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
-
 import { Skeleton } from "@/components/ui/skeleton";
+
 import { sendInvitationErrorKey } from "@/lib/api-error";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { isSuperAdminRole, roleLabelKey } from "@/lib/roles";
 import { adminApi } from "@/services/api/admin";
@@ -204,17 +205,16 @@ export default function InvitationsScreen() {
     },
   });
 
-  function handleSend() {
+  async function handleSend() {
     if (!email.trim())
       return;
-    Alert.alert(
-      t("admin.send_invite"),
-      `${email.trim()} · ${t(roleLabelKey(role))}`,
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        { text: t("admin.send_invite"), onPress: () => sendInvite() },
-      ],
-    );
+    const confirmed = await showConfirm({
+      title: t("admin.send_invite"),
+      message: `${email.trim()} · ${t(roleLabelKey(role))}`,
+      confirmLabel: t("admin.send_invite"),
+    });
+    if (confirmed)
+      sendInvite();
   }
 
   const invitations = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];

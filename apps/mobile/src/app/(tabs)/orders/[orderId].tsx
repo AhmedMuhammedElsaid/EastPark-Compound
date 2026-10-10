@@ -4,14 +4,15 @@ import { useLocalSearchParams } from "expo-router";
 import { Check, MapPin, NoteBlank, XCircle } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
-
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
+
 import { GoldButton } from "@/components/auth/gold-button";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CANCEL_ORDER_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { getOrderStatusAccent } from "@/lib/order-status-style";
@@ -195,16 +196,17 @@ export default function OrderDetailScreen() {
     },
   });
 
-  function handleCancel() {
+  async function handleCancel() {
     // Dismiss is "Go back"/"Keep order", never a second "cancel" next to "Cancel order".
-    Alert.alert(
-      t("orders.cancel_confirm_title"),
-      t("orders.cancel_confirm"),
-      [
-        { text: t("orders.cancel_keep"), style: "cancel" },
-        { text: t("orders.cancel_order"), style: "destructive", onPress: () => cancelOrder() },
-      ],
-    );
+    const confirmed = await showConfirm({
+      title: t("orders.cancel_confirm_title"),
+      message: t("orders.cancel_confirm"),
+      confirmLabel: t("orders.cancel_order"),
+      cancelLabel: t("orders.cancel_keep"),
+      destructive: true,
+    });
+    if (confirmed)
+      cancelOrder();
   }
 
   if (isError && !order)

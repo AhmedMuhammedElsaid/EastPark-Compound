@@ -5,13 +5,14 @@ import { router, useLocalSearchParams } from "expo-router";
 import { CreditCard, Money } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { getErrorCode, getErrorStatus, isNoResponseError } from "@/lib/api-error";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { CARD_PAYMENTS_ENABLED, WHATSAPP_ORDER_HANDOFF } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -206,14 +207,13 @@ export default function PaymentScreen() {
       }
       setVerifying(false);
       inFlightRef.current = false;
-      Alert.alert(
-        t("checkout.order_uncertain_title"),
-        t("checkout.order_uncertain_body"),
-        [
-          { text: t("checkout.order_uncertain_view"), onPress: () => router.replace("/(tabs)/orders") },
-          { text: t("common.cancel"), style: "cancel" },
-        ],
-      );
+      const viewOrders = await showConfirm({
+        title: t("checkout.order_uncertain_title"),
+        message: t("checkout.order_uncertain_body"),
+        confirmLabel: t("checkout.order_uncertain_view"),
+      });
+      if (viewOrders)
+        router.replace("/(tabs)/orders");
     },
   });
 

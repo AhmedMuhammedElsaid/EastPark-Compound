@@ -9,15 +9,16 @@ import { ImageSquare, UserCircle, X } from "phosphor-react-native";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
-
 import { BilingualFields } from "@/components/admin/bilingual-fields";
+
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { canOpenResults, resultsStatusKey } from "@/lib/election-results";
 import { formatExpiry } from "@/lib/expiry-date";
 import { uploadErrorKey, uploadLimitParams, validateAsset } from "@/lib/feedback-attachments";
@@ -101,11 +102,9 @@ function OpenResultsButton({ electionId, styles }: { electionId: string; styles:
     },
   });
 
-  const confirm = () => {
-    Alert.alert(t("admin.open_results"), t("admin.open_results_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("admin.open_results"), onPress: () => mutate() },
-    ]);
+  const confirm = async () => {
+    if (await showConfirm({ title: t("admin.open_results"), message: t("admin.open_results_confirm"), confirmLabel: t("admin.open_results") }))
+      mutate();
   };
 
   return (

@@ -3,8 +3,8 @@ import type { ResidentLead } from "@/services/api/admin";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert } from "react-native";
 import { showMessage } from "react-native-flash-message";
+import { showConfirm } from "@/lib/confirm-dialog";
 
 import { inviteResultStatus, leadActions, leadErrorKey, leadUnitLabel } from "@/lib/resident-leads";
 import { adminApi } from "@/services/api/admin";
@@ -64,14 +64,15 @@ export function useLeadActions() {
       return;
     const key = confirmKey(lead, action);
     const vars = { name: lead.name, email: lead.email, unit: leadUnitLabel(lead) };
-    Alert.alert(t(`admin_leads.confirm_${key}_title`), t(`admin_leads.confirm_${key}_body`, vars), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t(`admin_leads.confirm_${key}_button`),
-        style: action === "reject" ? "destructive" : "default",
-        onPress: () => { void execute(lead, action); },
-      },
-    ]);
+    void showConfirm({
+      title: t(`admin_leads.confirm_${key}_title`),
+      message: t(`admin_leads.confirm_${key}_body`, vars),
+      confirmLabel: t(`admin_leads.confirm_${key}_button`),
+      destructive: action === "reject",
+    }).then((confirmed) => {
+      if (confirmed)
+        void execute(lead, action);
+    });
   }, [execute, pending, t]);
 
   return { pending, onAction };

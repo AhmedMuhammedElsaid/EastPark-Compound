@@ -5,13 +5,14 @@ import { useLocalSearchParams } from "expo-router";
 import { CheckCircle, CircleIcon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickErrorKey, VOTE_ERROR_KEYS } from "@/lib/api-error";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { governanceApi, votePercent } from "@/services/api/governance";
@@ -115,15 +116,14 @@ export default function ElectionScreen() {
   });
 
   function handleVote(candidateId: string, candidateName: string) {
-    requireAuth(() => {
-      Alert.alert(
-        t("governance.vote"),
-        t("governance.vote_confirm", { option: candidateName }),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          { text: t("governance.vote"), onPress: () => mutate(candidateId) },
-        ],
-      );
+    requireAuth(async () => {
+      const confirmed = await showConfirm({
+        title: t("governance.vote"),
+        message: t("governance.vote_confirm", { option: candidateName }),
+        confirmLabel: t("governance.vote"),
+      });
+      if (confirmed)
+        mutate(candidateId);
     });
   }
 

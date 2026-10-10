@@ -1,7 +1,7 @@
 import { useNavigation } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert } from "react-native";
+import { showConfirm } from "@/lib/confirm-dialog";
 
 /**
  * Asks "discard changes?" before a dirty form screen is left by any route
@@ -16,10 +16,16 @@ export function useDiscardGuard(isDirty: boolean, allowLeaveRef: React.RefObject
       if (!isDirty || allowLeaveRef.current)
         return;
       event.preventDefault();
-      Alert.alert(t("common.discard_title"), t("common.discard_body"), [
-        { text: t("common.keep_editing"), style: "cancel" },
-        { text: t("common.discard"), style: "destructive", onPress: () => navigation.dispatch(event.data.action) },
-      ]);
+      void showConfirm({
+        title: t("common.discard_title"),
+        message: t("common.discard_body"),
+        confirmLabel: t("common.discard"),
+        cancelLabel: t("common.keep_editing"),
+        destructive: true,
+      }).then((confirmed) => {
+        if (confirmed)
+          navigation.dispatch(event.data.action);
+      });
     });
   }, [navigation, isDirty, allowLeaveRef, t]);
 }

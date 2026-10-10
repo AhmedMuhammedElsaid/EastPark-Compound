@@ -17,6 +17,7 @@ import { Provider as ReduxProvider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { AuthWallSheet } from "@/components/auth/auth-wall-sheet";
 import { CartConflictSheet } from "@/components/cart/cart-conflict-sheet";
+import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 
 import { useThemeConfig } from "@/components/ui/use-theme-config";
 import { useAuthRehydration } from "@/lib/hooks/use-auth-rehydration";
@@ -157,6 +158,7 @@ function Providers({ children }: { children: React.ReactNode }) {
             {children}
             <AuthWallSheet />
             <CartConflictSheet />
+            <ConfirmDialogHost />
             <FlashMessage position="top" statusBarHeight={statusBarInset} />
           </BottomSheetModalProvider>
         </ThemeProvider>

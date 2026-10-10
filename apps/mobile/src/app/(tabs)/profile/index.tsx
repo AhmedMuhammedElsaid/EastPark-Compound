@@ -6,12 +6,13 @@ import { router } from "expo-router";
 import { CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { AppHeader } from "@/components/ui/app-header";
 import { isSameEmail } from "@/lib/biometric-binding";
+import { showConfirm } from "@/lib/confirm-dialog";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
@@ -226,25 +227,29 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
     },
   });
 
-  function handleLogout() {
-    // Native dialog: dismiss first, the sign-out action last and destructive.
-    Alert.alert(t("auth.logout_confirm_title"), t("auth.logout_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("auth.logout"),
-        style: "destructive",
-        // Keeps the refresh token only when biometric sign-in is on for this
-        // account; otherwise revokes it server-side and deletes it.
-        onPress: () => signOut(user.email),
-      },
-    ]);
+  async function handleLogout() {
+    // Dismiss first, the sign-out action last and destructive.
+    const confirmed = await showConfirm({
+      title: t("auth.logout_confirm_title"),
+      message: t("auth.logout_confirm_body"),
+      confirmLabel: t("auth.logout"),
+      destructive: true,
+    });
+    // Keeps the refresh token only when biometric sign-in is on for this
+    // account; otherwise revokes it server-side and deletes it.
+    if (confirmed)
+      signOut(user.email);
   }
 
-  function handleDeleteAccount() {
-    Alert.alert(t("profile.delete_account"), t("profile.delete_account_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("profile.delete_account_button"), style: "destructive", onPress: () => deleteAccount() },
-    ]);
+  async function handleDeleteAccount() {
+    const confirmed = await showConfirm({
+      title: t("profile.delete_account"),
+      message: t("profile.delete_account_confirm"),
+      confirmLabel: t("profile.delete_account_button"),
+      destructive: true,
+    });
+    if (confirmed)
+      deleteAccount();
   }
 
   return (
@@ -369,15 +374,18 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
           <Pressable
             key={lang}
             style={({ pressed }) => [styles.segment, language === lang && styles.segmentActive, pressed && { opacity: 0.85 }]}
-            onPress={() => {
+            onPress={async () => {
               if (lang === language)
                 return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               // The switch restarts the app: ask first.
-              Alert.alert(t("profile.language_restart_title"), t("profile.language_restart_body"), [
-                { text: t("common.cancel"), style: "cancel" },
-                { text: t("profile.language_restart_confirm"), onPress: () => setLanguage(lang) },
-              ]);
+              const confirmed = await showConfirm({
+                title: t("profile.language_restart_title"),
+                message: t("profile.language_restart_body"),
+                confirmLabel: t("profile.language_restart_confirm"),
+              });
+              if (confirmed)
+                setLanguage(lang);
             }}
             accessibilityRole="radio"
             accessibilityLabel={lang === "en" ? t("profile.english") : t("profile.arabic")}
