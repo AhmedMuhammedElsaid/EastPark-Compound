@@ -8,6 +8,8 @@ import {
 const mockSecureStore: Record<string, string> = {};
 const mockRevoke = jest.fn(async (_refresh?: string | null, _access?: string | null) => {});
 const mockEvents: string[] = [];
+const mockRevokePush = jest.fn((_push?: string | null) => {});
+let mockPushToken: string | null = null;
 
 jest.mock("expo-router", () => ({ router: { replace: jest.fn() } }));
 jest.mock("@/store", () => ({
@@ -30,13 +32,21 @@ jest.mock("@/lib/secure-storage", () => ({
 }));
 jest.mock("@/services/api/auth", () => ({
   authApi: { refresh: jest.fn(), logout: jest.fn() },
-  revokeRefreshToken: (refresh?: string | null, access?: string | null) => {
+  revokeRefreshToken: (refresh?: string | null, access?: string | null, push?: string | null) => {
     mockEvents.push("revoke");
+    mockRevokePush(push);
     return mockRevoke(refresh, access);
   },
 }));
 jest.mock("@/services/api/users", () => ({ usersApi: { getProfile: jest.fn() } }));
-jest.mock("@/services/push", () => ({ clearRegisteredPushToken: jest.fn(), registerPushToken: jest.fn() }));
+jest.mock("@/services/push", () => ({
+  // Teardown forgets the last registered token, like the real module.
+  clearRegisteredPushToken: jest.fn(async () => {
+    mockPushToken = null;
+  }),
+  getRegisteredPushToken: jest.fn(async () => mockPushToken),
+  registerPushToken: jest.fn(),
+}));
 jest.mock("@/services/query/client", () => ({ queryClient: { clear: jest.fn() } }));
 jest.mock("@/services/socket/client", () => ({ disconnectSocket: jest.fn() }));
 
@@ -166,6 +176,18 @@ describe("sign-out tears down locally before revoking (RW-5c)", () => {
     expectSignedOutLocally();
     expect(mockRevoke).toHaveBeenCalledWith("ref", "acc");
     expect(mockEvents.indexOf("revoke")).toBeGreaterThan(mockEvents.indexOf("dispatch:auth/logout"));
+  });
+
+  it("sends the device's push token (captured before teardown forgets it) with the revoke", async () => {
+    mockPushToken = "ExponentPushToken[device]";
+    mockRevokePush.mockClear();
+
+    await signOut("someone@example.com");
+    await flushBackground();
+
+    expectSignedOutLocally();
+    expect(mockPushToken).toBeNull();
+    expect(mockRevokePush).toHaveBeenCalledWith("ExponentPushToken[device]");
   });
 
   it("finishes the local teardown when the revoke throws", async () => {

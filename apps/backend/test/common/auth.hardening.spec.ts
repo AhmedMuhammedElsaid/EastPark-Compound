@@ -7,6 +7,7 @@ import {
     AuthForgotPasswordDto,
     AuthLoginDto,
     AuthLogoutDto,
+    AuthSignOutDto,
 } from 'src/common/auth/dtos/request/auth.dto';
 import { AuthService } from 'src/common/auth/services/auth.service';
 import { maskEmail, maskToken } from 'src/common/helper/utils/redact';
@@ -230,6 +231,29 @@ describe('AuthLogoutDto', () => {
     it('accepts a body without refreshToken (header is authoritative)', async () => {
         const errors = await validate(plainToInstance(AuthLogoutDto, {}));
         expect(errors).toHaveLength(0);
+    });
+});
+
+describe('AuthSignOutDto (logout body)', () => {
+    it('accepts the refresh token plus an optional push token', async () => {
+        expect(await validate(plainToInstance(AuthSignOutDto, {}))).toHaveLength(0);
+        const errors = await validate(
+            plainToInstance(AuthSignOutDto, {
+                refreshToken: 'r.t.k',
+                pushToken: 'ExponentPushToken[abc]',
+            }),
+            { whitelist: true, forbidNonWhitelisted: true }
+        );
+        expect(errors).toHaveLength(0);
+    });
+
+    it('rejects an empty or oversized push token', async () => {
+        for (const pushToken of ['', 'x'.repeat(513)]) {
+            const errors = await validate(
+                plainToInstance(AuthSignOutDto, { pushToken })
+            );
+            expect(errors.map(e => e.property)).toEqual(['pushToken']);
+        }
     });
 });
 

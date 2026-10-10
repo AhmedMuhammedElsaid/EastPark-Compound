@@ -19,7 +19,7 @@ import { authApi, revokeRefreshToken } from "@/services/api/auth";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
 import { bumpSessionEpoch, withAuthStorageLock } from "@/services/api/session-epoch";
 import { usersApi } from "@/services/api/users";
-import { clearRegisteredPushToken, registerPushToken } from "@/services/push";
+import { clearRegisteredPushToken, getRegisteredPushToken, registerPushToken } from "@/services/push";
 import { queryClient } from "@/services/query/client";
 import { disconnectSocket } from "@/services/socket/client";
 import { store } from "@/store";
@@ -124,9 +124,11 @@ export async function signOut(userEmail: string | null | undefined): Promise<voi
     await teardownSession({ keepRefreshToken: true });
     return;
   }
-  const [accessToken, refreshToken] = await Promise.all([
+  // Captured before teardown, which forgets the last registered push token.
+  const [accessToken, refreshToken, pushToken] = await Promise.all([
     readSecureOrNull(SECURE_KEY_ACCESS),
     readSecureOrNull(SECURE_KEY_REFRESH),
+    getRegisteredPushToken().catch(() => null),
   ]);
   try {
     await clearBiometricPreference();
@@ -137,9 +139,10 @@ export async function signOut(userEmail: string | null | undefined): Promise<voi
   finally {
     await teardownSession();
   }
-  // Revokes server-side even when the access token has expired. Never awaited.
+  // Revokes server-side (and detaches this device's push token) even when
+  // the access token has expired. Never awaited.
   Promise.resolve()
-    .then(() => revokeRefreshToken(refreshToken, accessToken))
+    .then(() => revokeRefreshToken(refreshToken, accessToken, pushToken))
     .catch(() => {});
 }
 
@@ -186,7 +189,7 @@ function httpStatus(err: unknown): number | undefined {
 /** Fire-and-forget, bounded server-side revocation of a token pair this device no longer keeps. */
 function revokeDroppedTokens(refreshToken: string, accessToken: string): void {
   Promise.resolve()
-    .then(() => authApi.logout(refreshToken, accessToken, DROPPED_TOKEN_REVOKE_TIMEOUT_MS))
+    .then(() => authApi.logout(refreshToken, accessToken, { timeout: DROPPED_TOKEN_REVOKE_TIMEOUT_MS }))
     .catch(() => {});
 }
 

@@ -118,7 +118,7 @@ describe("biometric sign-in (RW-5b)", () => {
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_BIOMETRIC_EMAIL]).toBeUndefined();
-    expect(mockLogout).toHaveBeenCalledWith("rotated-refresh", "new-access", expect.any(Number));
+    expect(mockLogout).toHaveBeenCalledWith("rotated-refresh", "new-access", { timeout: expect.any(Number) });
     expect(mockEvents).not.toContain(`set:${SECURE_KEY_ACCESS}`);
     expect(loginDispatches()).toHaveLength(0);
   });
@@ -195,7 +195,7 @@ describe("biometric sign-in (RW-5b)", () => {
     expect(mockGetProfile).not.toHaveBeenCalled();
     expect(loginDispatches()).toHaveLength(0);
     // The orphaned rotated pair is revoked in the background.
-    expect(mockLogout).toHaveBeenCalledWith("rotated-refresh", "new-access", expect.any(Number));
+    expect(mockLogout).toHaveBeenCalledWith("rotated-refresh", "new-access", { timeout: expect.any(Number) });
   });
 
   it("a password login that finishes during the profile fetch wins too", async () => {

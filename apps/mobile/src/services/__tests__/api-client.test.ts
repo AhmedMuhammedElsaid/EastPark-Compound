@@ -290,6 +290,34 @@ describe("revokeRefreshToken (logout)", () => {
     await expect(revokeRefreshToken("refresh-1", "old-access")).resolves.toBeUndefined();
   });
 
+  it("detaches the device push token on both the direct and the rotated logout", async () => {
+    adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
+      if (authHeader(config) === "Bearer old-access")
+        throw fail(config, 401);
+      return ok(config);
+    });
+    refreshPost.mockResolvedValue({ data: { data: { accessToken: "new-access", refreshToken: "refresh-2" } } });
+
+    await revokeRefreshToken("refresh-1", "old-access", "ExponentPushToken[device]");
+
+    expect(JSON.parse(adapter.mock.calls[0][0].data)).toEqual({ refreshToken: "refresh-1", pushToken: "ExponentPushToken[device]" });
+    expect(JSON.parse(adapter.mock.calls[1][0].data)).toEqual({ refreshToken: "refresh-2", pushToken: "ExponentPushToken[device]" });
+  });
+
+  it("still revokes when a backend without the pushToken field rejects the body (400)", async () => {
+    adapter.mockImplementation(async (config: InternalAxiosRequestConfig) => {
+      if (JSON.parse(config.data).pushToken)
+        throw fail(config, 400);
+      return ok(config);
+    });
+
+    await revokeRefreshToken("refresh-1", "old-access", "ExponentPushToken[device]");
+
+    expect(adapter).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(adapter.mock.calls[1][0].data)).toEqual({ refreshToken: "refresh-1" });
+    expect(refreshPost).not.toHaveBeenCalled();
+  });
+
   it("does nothing without a refresh token", async () => {
     await revokeRefreshToken(null, "old-access");
     expect(adapter).not.toHaveBeenCalled();

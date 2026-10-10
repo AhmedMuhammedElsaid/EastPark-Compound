@@ -27,6 +27,7 @@ import {
     AuthLogoutDto,
     AuthPushTokenDto,
     AuthResetPasswordDto,
+    AuthSignOutDto,
 } from '../dtos/request/auth.dto';
 import {
     AuthRefreshResponseDto,
@@ -91,9 +92,9 @@ export class AuthPublicController {
     @ApiOperation({ summary: 'Revoke refresh token (blacklist)' })
     logout(
         @AuthUser() user: IAuthUser,
-        @Body() dto: AuthLogoutDto
+        @Body() dto: AuthSignOutDto
     ): Promise<{ message: string }> {
-        return this.authService.logout(user, dto.refreshToken);
+        return this.authService.logout(user, dto.refreshToken, dto.pushToken);
     }
 
     @Post('forgot-password')

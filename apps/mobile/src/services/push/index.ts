@@ -56,6 +56,14 @@ export async function registerPushToken({ requestPermission = true, force = true
   }
 }
 
+/**
+ * The Expo push token last sent for the current session, if any. Sign-out
+ * reads it BEFORE teardown forgets it, so logout can detach it server-side.
+ */
+export function getRegisteredPushToken(): Promise<string | null> {
+  return readLastToken();
+}
+
 /** Forget the last-sent token so the next session always re-registers. */
 export async function clearRegisteredPushToken() {
   try {

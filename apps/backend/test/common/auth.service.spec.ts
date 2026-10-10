@@ -457,6 +457,22 @@ describe('AuthService', () => {
             await service.logout(actor);
             expect(cache.set).not.toHaveBeenCalled();
         });
+
+        it('detaches the given push token from the caller only', async () => {
+            encryption.verifyRefreshToken.mockRejectedValue(new Error('expired'));
+
+            await service.logout(actor, 'expired.refresh', 'ExponentPushToken[abc]');
+
+            expect(db.user.updateMany).toHaveBeenCalledWith({
+                where: { id: 'user-1', pushToken: 'ExponentPushToken[abc]' },
+                data: { pushToken: null },
+            });
+        });
+
+        it('leaves push tokens alone when none is given', async () => {
+            await service.logout(actor);
+            expect(db.user.updateMany).not.toHaveBeenCalled();
+        });
     });
 
     // ── resetPassword ─────────────────────────────────────────────────────────

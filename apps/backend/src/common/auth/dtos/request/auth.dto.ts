@@ -16,6 +16,9 @@ export const PASSWORD_REGEX =
 export const PASSWORD_MSG =
     'Password must be 8+ chars with uppercase, lowercase, number, and special character';
 
+/** Upper bound for a push token sent on logout (Expo tokens are ~41 chars). */
+export const PUSH_TOKEN_MAX = 512;
+
 /** Upper bound for the accept-invitation password field (shape check only). */
 export const ACCEPT_INVITATION_PASSWORD_MAX = 256;
 
@@ -108,4 +111,18 @@ export class AuthLogoutDto {
     @IsString()
     @IsNotEmpty()
     refreshToken?: string;
+}
+
+/**
+ * Logout body. `pushToken`: the Expo push token this device registered; it
+ * is detached from the caller (only if it is still theirs), so a signed-out
+ * phone stops receiving the account's pushes. Another device's token is kept.
+ */
+export class AuthSignOutDto extends AuthLogoutDto {
+    @ApiPropertyOptional({ example: 'ExponentPushToken[xxxxxx]' })
+    @IsOptional()
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(PUSH_TOKEN_MAX)
+    pushToken?: string;
 }

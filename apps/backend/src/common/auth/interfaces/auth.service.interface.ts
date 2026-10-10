@@ -21,7 +21,8 @@ export interface IAuthService {
     ): Promise<AuthRefreshResponseDto>;
     logout(
         actor: IAuthUser,
-        rawRefreshToken?: string
+        rawRefreshToken?: string,
+        pushToken?: string
     ): Promise<{ message: string }>;
     forgotPassword(data: AuthForgotPasswordDto): Promise<{ message: string }>;
     resetPassword(data: AuthResetPasswordDto): Promise<{ message: string }>;

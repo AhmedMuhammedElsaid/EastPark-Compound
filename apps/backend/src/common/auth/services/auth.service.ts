@@ -187,9 +187,19 @@ export class AuthService {
      */
     async logout(
         actor: IAuthUser,
-        rawRefreshToken?: string
+        rawRefreshToken?: string,
+        pushToken?: string
     ): Promise<{ message: string }> {
         const message = { message: 'Logged out successfully' };
+        // The caller is authenticated by the access token, so the device's
+        // push token is detached even when the refresh token is unusable.
+        // Matching on the token keeps another device's registration.
+        if (pushToken) {
+            await this.db.user.updateMany({
+                where: { id: actor.userId, pushToken },
+                data: { pushToken: null },
+            });
+        }
         if (!rawRefreshToken) return message;
 
         let payload: IRefreshTokenPayload;
