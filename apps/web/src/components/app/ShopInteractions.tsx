@@ -6,7 +6,7 @@ import * as React from "react";
 
 import { PendingMark } from "@/components/PendingMark";
 import type { Review, ReviewPage } from "@/lib/api/shop-interactions";
-import { parseReview, parseReviewPage, reviewInputSchema } from "@/lib/api/shop-interactions";
+import { assertShopPresent, parseReview, parseReviewPage, reviewInputSchema, ShopGoneError } from "@/lib/api/shop-interactions";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { loginPath } from "@/lib/auth/return-path";
 import { useTranslation } from "@/lib/i18n";
@@ -35,6 +35,7 @@ export function ShopInteractions({
     const params = new URLSearchParams();
     if (cursor) params.set("cursor", cursor);
     const response = await fetch(`/api/shops/${encodeURIComponent(shopId)}/reviews?${params}`);
+    assertShopPresent(response);
     if (!response.ok) throw new Error("reviews");
     const page = parseReviewPage(await response.json());
     setReviews((current) => cursor ? [...current, ...page.items] : page.items);
@@ -72,6 +73,10 @@ export function ShopInteractions({
     return () => { active = false; };
   }, [myReview, nextCursor, reviews, shopId, user]);
 
+  function failureMessage(error: unknown, fallback: "errors.server" | "directory.reviews_unavailable") {
+    return t(error instanceof ShopGoneError ? "directory.shop_gone" : fallback);
+  }
+
   const ownedReview = myReview ?? (user ? reviews.find((review) => review.user.id === user.id) : undefined);
 
   async function toggleSaved() {
@@ -84,11 +89,12 @@ export function ShopInteractions({
       const response = await fetch(`/api/shops/${encodeURIComponent(shopId)}/save`, {
         method: previous ? "DELETE" : "POST",
       });
+      assertShopPresent(response);
       if (!response.ok) throw new Error("save");
       setMessage(previous ? t("directory.shop_unsaved") : t("directory.shop_saved"));
-    } catch {
+    } catch (error) {
       setSaved(previous);
-      setMessage(t("errors.server"));
+      setMessage(failureMessage(error, "errors.server"));
     } finally {
       setIsBusy(false);
     }
@@ -113,14 +119,15 @@ export function ShopInteractions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input.data),
       });
+      assertShopPresent(response);
       if (!response.ok) throw new Error("review");
       const payload = await response.json() as unknown;
       const updated = parseReview(payload);
       setMyReview(updated);
       await loadReviews();
       setMessage(ownedReview ? t("directory.review_updated") : t("directory.review_created"));
-    } catch {
-      setMessage(t("errors.server"));
+    } catch (error) {
+      setMessage(failureMessage(error, "errors.server"));
     } finally {
       setIsBusy(false);
     }
@@ -131,12 +138,13 @@ export function ShopInteractions({
     setIsBusy(true);
     try {
       const response = await fetch(`/api/shops/${encodeURIComponent(shopId)}/reviews`, { method: "DELETE" });
+      assertShopPresent(response);
       if (!response.ok) throw new Error("delete");
       setMyReview(undefined);
       await loadReviews();
       setMessage(t("directory.review_deleted"));
-    } catch {
-      setMessage(t("errors.server"));
+    } catch (error) {
+      setMessage(failureMessage(error, "errors.server"));
     } finally {
       setIsBusy(false);
     }
@@ -241,7 +249,7 @@ export function ShopInteractions({
       )}
 
       {nextCursor && (
-        <button type="button" disabled={isBusy} onClick={() => void loadReviews(nextCursor).catch(() => setMessage(t("directory.reviews_unavailable")))} className="mt-6 min-h-12 rounded-md border border-border px-5 font-bold text-foreground hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60">
+        <button type="button" disabled={isBusy} onClick={() => void loadReviews(nextCursor).catch((error) => setMessage(failureMessage(error, "directory.reviews_unavailable")))} className="mt-6 min-h-12 rounded-md border border-border px-5 font-bold text-foreground hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 disabled:opacity-60">
           {t("common.load_more")}
         </button>
       )}

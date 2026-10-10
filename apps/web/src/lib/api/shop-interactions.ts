@@ -34,3 +34,14 @@ export function parseReview(payload: unknown): Review {
 export function parseReviewPage(payload: unknown): ReviewPage {
   return reviewPageEnvelopeSchema.parse(payload).data;
 }
+/** The shop was deleted or never existed: review and save calls answer 404 for it. */
+export class ShopGoneError extends Error {
+  constructor() {
+    super('shop_gone');
+  }
+}
+
+/** Throws `ShopGoneError` for a 404 from a shop review/save BFF route; other failures are left to the caller. */
+export function assertShopPresent(response: { status: number }): void {
+  if (response.status === 404) throw new ShopGoneError();
+}
