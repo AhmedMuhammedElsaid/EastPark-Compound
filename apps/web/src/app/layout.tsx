@@ -49,7 +49,9 @@ const alexandriaLatin = localFont({
   src: [{ path: '../fonts/Alexandria-latin.woff2', weight: '400 700', style: 'normal' }],
   declarations: [{ prop: 'unicode-range', value: 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD' }],
   display: 'swap',
-  fallback: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+  // No fallback / size-adjust face here: a unicode-range-less fallback face in this variable would
+  // match Arabic characters before alexandriaArabic is tried. System fonts come from the Arabic face.
+  adjustFontFallback: false,
 });
 
 // Cormorant Garamond — English display/hero only. Never functional UI, never Arabic.
