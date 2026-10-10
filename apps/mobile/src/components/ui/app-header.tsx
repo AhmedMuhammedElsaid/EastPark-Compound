@@ -1,8 +1,7 @@
-import type { Href } from "expo-router";
+import type { ComingSoonFeature } from "@/lib/coming-soon";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { Bell, ShoppingBag } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -10,7 +9,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { useGuestGate } from "@/lib/hooks/use-guest-gate";
 import { notificationsApi } from "@/services/api/notifications";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
@@ -26,7 +25,7 @@ export function AppHeader({ title }: { title?: string }) {
   const { t, i18n } = useTranslation();
   const colors = useAppColors();
   const styles = React.useMemo(() => buildStyles(colors), [colors]);
-  const { requireAuthNavigation } = useAuthGuard();
+  const { gateNavigation } = useGuestGate();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
   const cartCount = useAppSelector(s => s.cart.items.reduce((n: number, i: { quantity: number }) => n + i.quantity, 0));
 
@@ -40,11 +39,10 @@ export function AppHeader({ title }: { title?: string }) {
   });
   const unread = isAuthenticated ? (data?.data.data.unreadCount ?? 0) : 0;
 
-  function go(href: string, needsAuth: boolean) {
+  // Guests get the Coming soon sheet: ordering and notifications are not public yet.
+  function go(href: string, feature?: ComingSoonFeature) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (needsAuth)
-      requireAuthNavigation(href);
-    else router.push(href as Href);
+    gateNavigation(href, feature);
   }
 
   return (
@@ -56,7 +54,7 @@ export function AppHeader({ title }: { title?: string }) {
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
-          onPress={() => go("/checkout/cart", false)}
+          onPress={() => go("/checkout/cart", "market")}
           accessibilityRole="button"
           accessibilityLabel={t("cart.title")}
           hitSlop={4}
@@ -70,7 +68,7 @@ export function AppHeader({ title }: { title?: string }) {
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
-          onPress={() => go("/notifications", true)}
+          onPress={() => go("/notifications")}
           accessibilityRole="button"
           accessibilityLabel={t("notifications.title")}
           hitSlop={4}
