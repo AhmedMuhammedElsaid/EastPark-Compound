@@ -15,8 +15,21 @@ import { ReviewListResponseDto, ReviewResponseDto } from './dtos/response/review
 export class ReviewsService {
     constructor(private readonly db: DatabaseService) {}
 
+    /**
+     * Every review route is scoped to a shop: an unknown or soft-deleted shop
+     * is a 404 (not an empty list, and its reviews cannot be changed).
+     */
+    private async assertLiveShop(shopId: string): Promise<void> {
+        const shop = await this.db.shop.findUnique({
+            where: { id: shopId },
+            select: { deletedAt: true },
+        });
+        if (!shop || shop.deletedAt) throw new NotFoundException('shop.error.notFound');
+    }
+
     async findAll(shopId: string, query: ReviewQueryDto): Promise<ReviewListResponseDto> {
         const limit = query.limit ?? 20;
+        await this.assertLiveShop(shopId);
 
         const [rows, aggregate] = await Promise.all([
             // Soft-deleted reviews, and every review of a soft-deleted shop,
@@ -55,11 +68,7 @@ export class ReviewsService {
      * new review (fresh createdAt). A deleted shop cannot be reviewed.
      */
     async upsert(shopId: string, userId: string, dto: ReviewCreateDto): Promise<ReviewResponseDto> {
-        const shop = await this.db.shop.findUnique({
-            where: { id: shopId },
-            select: { deletedAt: true },
-        });
-        if (!shop || shop.deletedAt) throw new NotFoundException('shop.error.notFound');
+        await this.assertLiveShop(shopId);
 
         const existing = await this.db.review.findUnique({
             where: { userId_shopId: { userId, shopId } },
@@ -96,6 +105,8 @@ export class ReviewsService {
 
     /** Soft delete by its author (not audited: the actor is a resident). */
     async remove(shopId: string, userId: string): Promise<void> {
+        // A deleted shop's reviews are frozen with it (restorable together).
+        await this.assertLiveShop(shopId);
         const review = await this.db.review.findUnique({
             where: { userId_shopId: { userId, shopId } },
         });

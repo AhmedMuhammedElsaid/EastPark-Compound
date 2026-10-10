@@ -225,6 +225,7 @@ describe('reviews: soft delete and revive', () => {
     };
 
     it('list and average skip deleted reviews and reviews of deleted shops', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
         db.review.findMany.mockResolvedValue([]);
         db.review.aggregate.mockResolvedValue({ _avg: { rating: null } });
         await service.findAll('s1', {});
@@ -234,6 +235,7 @@ describe('reviews: soft delete and revive', () => {
     });
 
     it('delete by its author is soft (row kept, deletedById = author, not audited)', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
         db.review.findUnique.mockResolvedValue({ id: 'r1', deletedAt: null });
         await service.remove('s1', 'resident-1');
         expect(db.review.delete).not.toHaveBeenCalled();
@@ -244,6 +246,7 @@ describe('reviews: soft delete and revive', () => {
     });
 
     it('deleting an already deleted review is a 404', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
         db.review.findUnique.mockResolvedValue({ id: 'r1', deletedAt: new Date() });
         await expect(service.remove('s1', 'resident-1')).rejects.toThrow(
             'review.error.notFound'
@@ -286,6 +289,60 @@ describe('reviews: soft delete and revive', () => {
             service.upsert('s1', 'resident-1', { rating: 5 })
         ).rejects.toThrow('shop.error.notFound');
         expect(db.review.upsert).not.toHaveBeenCalled();
+    });
+});
+
+describe('REV-19: review routes of a deleted or unknown shop are 404', () => {
+    const db = {
+        shop: { findUnique: jest.fn() },
+        review: {
+            findMany: jest.fn(),
+            aggregate: jest.fn(),
+            findUnique: jest.fn(),
+            upsert: jest.fn(),
+            update: jest.fn(),
+        },
+    };
+    const service = new ReviewsService(db as unknown as DatabaseService);
+    beforeEach(() => jest.clearAllMocks());
+
+    it.each([
+        ['deleted', { deletedAt: new Date() }],
+        ['unknown', null],
+    ])('listing reviews of a %s shop is a 404, not an empty list', async (_label, shop) => {
+        db.shop.findUnique.mockResolvedValue(shop);
+        await expect(service.findAll('s1', {})).rejects.toEqual(
+            new NotFoundException('shop.error.notFound')
+        );
+        expect(db.review.findMany).not.toHaveBeenCalled();
+        expect(db.review.aggregate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['deleted', { deletedAt: new Date() }],
+        ['unknown', null],
+    ])('deleting my review of a %s shop is a 404 and writes nothing', async (_label, shop) => {
+        db.shop.findUnique.mockResolvedValue(shop);
+        db.review.findUnique.mockResolvedValue({ id: 'r1', deletedAt: null });
+        await expect(service.remove('s1', 'resident-1')).rejects.toEqual(
+            new NotFoundException('shop.error.notFound')
+        );
+        expect(db.review.update).not.toHaveBeenCalled();
+    });
+
+    it('a live shop still lists its reviews', async () => {
+        db.shop.findUnique.mockResolvedValue({ deletedAt: null });
+        db.review.findMany.mockResolvedValue([]);
+        db.review.aggregate.mockResolvedValue({ _avg: { rating: null } });
+        await expect(service.findAll('s1', {})).resolves.toEqual({
+            items: [],
+            nextCursor: undefined,
+            averageRating: null,
+        });
+        expect(db.shop.findUnique).toHaveBeenCalledWith({
+            where: { id: 's1' },
+            select: { deletedAt: true },
+        });
     });
 });
 
