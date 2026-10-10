@@ -19,7 +19,9 @@ async function request<T>(path: string, schema: z.ZodType<T>, init?: RequestInit
     cache: 'no-store',
     signal: AbortSignal.timeout(12_000),
   });
-  const payload = (await response.json().catch(() => null)) as Envelope<unknown> | null;
+  const payload = (await response.json().catch(() => null)) as (Envelope<unknown> & { error?: string }) | null;
+  // A 409 may carry an allowlisted order error code (see `orderErrorKey`); keep it as the message.
+  if (response.status === 409 && typeof payload?.error === 'string') throw new Error(payload.error);
   if (!response.ok || !payload) throw new Error(response.status === 403 ? 'forbidden' : 'request_failed');
   return schema.parse(payload.data);
 }

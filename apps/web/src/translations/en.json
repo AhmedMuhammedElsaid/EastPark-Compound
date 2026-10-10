@@ -980,7 +980,16 @@
     "title": "My Orders",
     "unknown_shop": "Unknown shop",
     "unpaid": "Unpaid",
-    "update_error": "We could not refresh this order. Tracking will retry automatically."
+    "update_error": "We could not refresh this order. Tracking will retry automatically.",
+    "errors": {
+      "shop_closed": "This shop is closed right now, so we can't place your order. Try again when it reopens.",
+      "payments_disabled": "Card payments are not available yet. Choose cash on delivery.",
+      "invalid_transition": "That status change isn't allowed for this order.",
+      "paid_cannot_cancel": "This order is already paid and can't be cancelled here. Contact the shop.",
+      "status_changed": "This order was just updated by someone else. We refreshed it. Please try again.",
+      "already_paid": "This order is already paid.",
+      "order_cancelled": "This order was cancelled, so it can't be paid."
+    }
   },
   "profile": {
     "account": "Account",
@@ -997,6 +1006,7 @@
     "delete_account_button": "Delete account",
     "delete_account_confirm": "Your account will be deleted and hidden, and you will be signed out on every device. If you change your mind, the compound administration can restore it on request.",
     "delete_account_error": "Could not delete account. Please try again.",
+    "delete_merchant_owns_shop": "This account can't be deleted while it owns a shop. Ask the compound administration to remove the shop first.",
     "delete_confirm_word": "DELETE",
     "delete_type_prompt": "Type {{word}} to confirm deleting your account.",
     "delete_unavailable": "Administrators cannot delete their own account from this profile.",

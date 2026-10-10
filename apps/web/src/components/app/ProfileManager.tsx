@@ -32,7 +32,7 @@ export function ProfileManager() {
   const [saveErrorKey, setSaveErrorKey] = React.useState('profile.save_error');
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteValue, setDeleteValue] = React.useState('');
-  const [deleteError, setDeleteError] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<'generic' | 'merchant_owns_shop' | false>(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
@@ -163,10 +163,18 @@ export function ProfileManager() {
         method: 'DELETE',
         signal: AbortSignal.timeout(15_000),
       });
-      if (!response.ok) throw new Error('Account deletion failed');
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (response.status === 409 && body?.error === 'merchant_owns_shop') {
+          setDeleteError('merchant_owns_shop');
+          setIsDeleting(false);
+          return;
+        }
+        throw new Error('Account deletion failed');
+      }
       await logout({ redirectTo: '/' });
     } catch {
-      setDeleteError(true);
+      setDeleteError('generic');
       setIsDeleting(false);
     }
   }
@@ -335,7 +343,7 @@ export function ProfileManager() {
             <div className="mt-6 max-w-xl rounded-md border border-error/50 bg-error/8 p-5">
               <label htmlFor="delete-confirm" className="block text-[length:var(--text-body)] font-semibold text-foreground">{t('profile.delete_type_prompt', { word: confirmWord })}</label>
               <input id="delete-confirm" value={deleteValue} onChange={(event) => setDeleteValue(event.target.value)} autoComplete="off" className={`${fieldClass} mt-3`} />
-              {deleteError && <p role="alert" className="mt-3 text-[length:var(--text-body)] text-error">{t('profile.delete_account_error')}</p>}
+              {deleteError && <p role="alert" className="mt-3 text-[length:var(--text-body)] text-error">{t(deleteError === 'merchant_owns_shop' ? 'profile.delete_merchant_owns_shop' : 'profile.delete_account_error')}</p>}
               <div className="mt-4 flex flex-wrap gap-3">
                 <button type="button" onClick={() => void deleteAccount()} disabled={deleteValue.trim() !== confirmWord || isDeleting} className="inline-flex min-h-12 items-center gap-2 rounded-md bg-error px-5 text-[length:var(--text-button)] font-bold text-error-foreground disabled:cursor-not-allowed disabled:opacity-40">
                   <Trash2 aria-hidden="true" className="size-4.5" />{isDeleting ? t('common.loading') : t('profile.delete_account_button')}

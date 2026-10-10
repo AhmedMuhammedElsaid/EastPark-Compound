@@ -27,6 +27,9 @@ async function proxy(path: string, init?: RequestInit): Promise<NextResponse> {
       // The chosen primary flat is not one of the account's flats.
       return NextResponse.json({ error: 'unit_not_owned' }, { status: 400 });
     }
+    if (response.status === 409 && (await knownBackendErrorCode(response)) === 'merchant_owns_shop') {
+      return NextResponse.json({ error: 'merchant_owns_shop' }, { status: 409 });
+    }
     if (!response.ok) return upstreamError(response.status);
 
     const parsed = authUserEnvelopeSchema.safeParse(await response.json().catch(() => null));

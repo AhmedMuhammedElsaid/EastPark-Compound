@@ -7,6 +7,7 @@ import * as React from 'react';
 import { Container } from '@/components/Container';
 import { Status } from '@/components/merchant/MerchantOrders';
 import { merchantApi } from '@/lib/api/merchant';
+import { orderErrorKey } from '@/lib/api/order-errors';
 import { useTranslation } from '@/lib/i18n';
 import type { MerchantOrder, OrderStatus } from '@/lib/schemas/merchant';
 
@@ -29,7 +30,7 @@ export function MerchantOrderDetail({ orderId }: { orderId: string }) {
       window.clearInterval(poll);
     };
   }, [load]);
-  async function update(status: Exclude<OrderStatus, 'PLACED'>) { setBusy(true); setError(''); try { setOrder(await merchantApi.updateOrderStatus(orderId, status)); } catch { setError(t('merchant.error_save')); } finally { setBusy(false); } }
+  async function update(status: Exclude<OrderStatus, 'PLACED'>) { setBusy(true); setError(''); try { setOrder(await merchantApi.updateOrderStatus(orderId, status)); } catch (reason) { const key = orderErrorKey(reason instanceof Error ? reason.message : undefined); setError(t(key ?? 'merchant.error_save')); if (key) void load(); } finally { setBusy(false); } }
   if (!order && busy) return <Container className="py-12"><p role="status">{t('common.loading')}</p></Container>;
   if (!order) return <Container className="py-12"><p role="alert" className="text-error">{error || t('merchant.error_load')}</p></Container>;
   const next = NEXT_STATUS[order.status];

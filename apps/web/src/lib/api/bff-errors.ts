@@ -65,6 +65,17 @@ const KNOWN_BACKEND_CODES: Record<string, string> = {
   // Admin create shop: the owner is not a live merchant (400) / already runs a shop (409).
   'shop.error.merchantInvalid': 'merchant_invalid',
   'shop.error.merchantHasShop': 'merchant_has_shop',
+  // Orders (409): the shop is closed, card payments are off, the status moved under the caller, a
+  // paid order cannot be cancelled, the requested transition is not allowed.
+  'order.error.shopClosed': 'order_shop_closed',
+  'order.error.paymentsDisabled': 'payments_disabled',
+  'order.error.invalidStatusTransition': 'order_invalid_transition',
+  'order.error.cannotCancelPaidOrder': 'order_paid_cannot_cancel',
+  'order.error.statusChanged': 'order_status_changed',
+  'payments.error.alreadyPaid': 'payment_already_paid',
+  'payments.error.orderCancelled': 'payment_order_cancelled',
+  // Self-service account delete while the merchant still owns a shop.
+  'user.error.merchantOwnsShop': 'merchant_owns_shop',
 };
 
 /**
@@ -91,7 +102,14 @@ export async function knownBackendErrorCode(response: Response): Promise<string 
  * 204 stays empty, and failures are mapped to the shared error vocabulary.
  */
 export async function relayBackendResponse(response: Response): Promise<NextResponse> {
-  if (!response.ok) return upstreamError(response.status);
+  if (!response.ok) {
+    // A 409 may carry an allowlisted backend code the client shows its own copy for.
+    if (response.status === 409) {
+      const code = await knownBackendErrorCode(response);
+      if (code) return NextResponse.json({ error: code }, { status: 409, headers: PRIVATE_NO_STORE });
+    }
+    return upstreamError(response.status);
+  }
   if (response.status === 204) return new NextResponse(null, { status: 204, headers: PRIVATE_NO_STORE });
   const payload: unknown = await response.json().catch(() => undefined);
   // An empty/non-JSON success keeps its 2xx status (clients may only check `response.ok`).

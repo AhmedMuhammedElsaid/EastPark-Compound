@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Container } from '@/components/Container';
+import { orderErrorKey } from '@/lib/api/order-errors';
 import type { Order, OrderStatus } from '@/lib/api/orders';
 import { isTerminalOrderStatus, parseOrder } from '@/lib/api/orders';
 import { useTranslation } from '@/lib/i18n';
+import type { TranslationKey } from '@/lib/i18n/types';
 import { formatDate, formatMoney, shortId } from './OrderHistory';
 
 const steps: OrderStatus[] = ['PLACED', 'CONFIRMED', 'PREPARING', 'READY', 'ON_THE_WAY', 'DELIVERED'];
@@ -18,6 +20,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   const { lang, t } = useTranslation();
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState(false);
+  const [cancelErrorKey, setCancelErrorKey] = useState<TranslationKey | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -111,13 +114,24 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     if (!order || order.status !== 'PLACED' || !window.confirm(t('orders.cancel_confirm'))) return;
     setIsCancelling(true);
     setError(false);
+    setCancelErrorKey(null);
     try {
       const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/cancel`, { method: 'PATCH', signal: AbortSignal.timeout(10_000) });
       if (response.status === 401) {
         router.replace(`/login?next=${encodeURIComponent(`/orders/${order.id}`)}`);
         return;
       }
-      if (!response.ok) throw new Error('Cancel failed');
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const key = response.status === 409 ? orderErrorKey(body?.error) : undefined;
+        if (key) {
+          // The order moved under us (accepted, paid): show why, then pick up the current state.
+          setCancelErrorKey(key);
+          void readOrder(AbortSignal.timeout(10_000)).catch(() => undefined);
+          return;
+        }
+        throw new Error('Cancel failed');
+      }
       setOrder(parseOrder(await response.json()));
       setLastUpdated(new Date());
     } catch { setError(true); } finally { setIsCancelling(false); }
@@ -180,6 +194,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </aside>
         </div>
 
+        {cancelErrorKey && <p role="alert" className="mb-5 rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error">{t(cancelErrorKey)}</p>}
         {error && <p role="alert" className="mb-5 rounded-sm bg-error/12 px-4 py-3 text-[length:var(--text-body)] text-error">{t('orders.update_error')}</p>}
         {order.status === 'PLACED' && <div className="border-t border-border pt-6"><button type="button" onClick={() => void cancelOrder()} disabled={isCancelling} className="inline-flex min-h-12 items-center justify-center rounded-md border border-error px-5 text-[length:var(--text-button)] font-bold text-error hover:bg-error hover:text-error-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error disabled:opacity-60">{isCancelling ? t('common.loading') : t('orders.cancel_order')}</button></div>}
       </article>

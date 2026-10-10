@@ -9,6 +9,7 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { formatCurrency } from '@/components/app/ProductMenu';
 import { cardPaymentsEnabled, residentOrderingEnabled } from '@/config/features';
+import { orderErrorKey } from '@/lib/api/order-errors';
 import { initiatePaymob, OrderRequestError, placeOrder, type PaymentMethod } from '@/lib/api/orders';
 import type { AuthUser } from '@/lib/api/contracts';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -81,8 +82,9 @@ function CheckoutForm({ user }: { user: AuthUser }) {
         try {
           payment = await initiatePaymob(order.id);
           if (!payment.iframeUrl.startsWith('https://accept.paymob.com/')) throw new Error('Invalid payment URL');
-        } catch {
-          setError(t('checkout.payment_retry_error'));
+        } catch (paymentReason) {
+          const paymentKey = paymentReason instanceof OrderRequestError ? orderErrorKey(paymentReason.message) : undefined;
+          setError(t(paymentKey ?? 'checkout.payment_retry_error'));
           return;
         }
         dispatch({ type: 'clear' });
@@ -103,7 +105,8 @@ function CheckoutForm({ user }: { user: AuthUser }) {
         void refreshUser();
         return;
       }
-      setError(t('checkout.order_error'));
+      const orderKey = reason instanceof OrderRequestError ? orderErrorKey(reason.message) : undefined;
+      setError(t(orderKey ?? 'checkout.order_error'));
     } finally {
       setIsSubmitting(false);
     }
