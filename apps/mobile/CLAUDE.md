@@ -162,7 +162,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 
 | Role | Registration Flow |
 |---|---|
-| Guest | No auth. Read-only: directory, announcements, governance. |
+| Guest | No auth. Home = landing page (mirrors web `/`), Directory (browse shops) and the Profile guest card. Orders, Community (announcements, reports, governance, feedback), cart and notifications open the Coming soon sheet (`useGuestGate`); guest deep links into Community/checkout go back to Home. |
 | Resident | Unit-registration lead (web `/register-unit`) → admin approval → invitation email → `accept-invitation` |
 | Merchant | Admin email invitation → one-time token → `accept-invitation` deep link → name + password |
 | Admin | Admin email invitation → one-time token → `accept-invitation` deep link → name + password |
