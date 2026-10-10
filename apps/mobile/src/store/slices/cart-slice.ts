@@ -2,6 +2,8 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 
 import { createSlice } from "@reduxjs/toolkit";
 
+import { CART_MAX_QUANTITY, cartAddBlock } from "@/lib/order-limits";
+
 import { login, logout } from "./auth-slice";
 
 export type CartItem = {
@@ -69,13 +71,17 @@ export const cartSlice = createSlice({
         return;
       }
 
+      // Backend caps: 50 distinct lines, 99 per line. The UI warns before dispatching.
+      if (cartAddBlock(state, item.productId))
+        return;
+
       state.shopId = shopId;
       state.shopName = shopName;
       state.shopNameAr = shopNameAr ?? null;
 
       const existing = state.items.find(i => i.productId === item.productId);
       if (existing) {
-        existing.quantity += item.quantity;
+        existing.quantity = Math.min(existing.quantity + item.quantity, CART_MAX_QUANTITY);
       }
       else {
         state.items.push(item);
@@ -131,7 +137,7 @@ export const cartSlice = createSlice({
           }
         }
         else {
-          item.quantity = action.payload.quantity;
+          item.quantity = Math.min(action.payload.quantity, CART_MAX_QUANTITY);
         }
       }
     },

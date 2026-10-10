@@ -200,6 +200,8 @@
     "clear_confirm_title": "Clear your cart?",
     "empty": "Your cart is empty",
     "empty_subtitle": "Browse the directory and add items",
+    "line_limit": "A cart holds up to 50 different items. Remove one to add another.",
+    "quantity_limit": "You can order at most 99 of one item.",
     "shop_conflict_body": "Your cart has items from {{shopName}}. Adding from a different shop will clear your current cart.",
     "shop_conflict_title": "Start a new cart?",
     "title": "Cart",
@@ -225,6 +227,7 @@
     "place_order": "Place order",
     "residents_only": "Only residents can place orders.",
     "title": "Checkout",
+    "total_too_large": "This order total is too large. Remove some items or lower the quantities and try again.",
     "unit": "Unit {{number}}",
     "unit_invalid": "That flat is not on your account. Pick one of your flats and try again.",
     "unit_missing": "Add your unit number to your profile before placing an order.",
@@ -668,6 +671,9 @@
     "min_3": "Enter at least 3 characters",
     "min_5": "Enter at least 5 characters",
     "min_options": "Add at least 2 options",
+    "price_decimals": "Use at most two decimal places",
+    "price_max": "The price must not be more than 100,000",
+    "price_min": "The price must be at least 0.01",
     "required": "This field is required"
   }
 }

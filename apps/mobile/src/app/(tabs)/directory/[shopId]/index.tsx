@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { cartAddBlock, cartAddBlockKey } from "@/lib/order-limits";
 import { openWhatsAppChat, toWhatsAppDigits } from "@/lib/whatsapp";
 import { DAY_KEYS, dayKeyFor, formatClockTime, hasSchedule, isShopOpenNow } from "@/lib/working-hours";
 import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
@@ -822,12 +823,19 @@ function ProductRow({ product, isAr, shopId, shopName, shopNameAr, styles, color
   const quantity = useAppSelector(s =>
     s.cart.shopId === shopId ? (s.cart.items.find((i: CartItem) => i.productId === product.id)?.quantity ?? 0) : 0,
   );
+  // Backend caps: 50 lines per order, 99 per line (a different shop opens the conflict sheet instead).
+  const addBlock = useAppSelector(s => (s.cart.shopId === shopId ? cartAddBlock(s.cart, product.id) : null));
   const name = isAr ? product.nameAr : product.name;
   const desc = isAr ? product.descriptionAr : product.description;
   // The public menu includes unavailable products; the backend rejects them at checkout.
   const available = product.isAvailable !== false;
 
   function handleAdd() {
+    if (addBlock) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      showMessage({ message: t(cartAddBlockKey(addBlock)), type: "warning" });
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // addItem keeps the auth wall and the multi-shop conflict guard in the path.
     requireAuth(() => {

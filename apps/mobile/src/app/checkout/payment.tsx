@@ -17,6 +17,7 @@ import { CARD_PAYMENTS_ENABLED, WHATSAPP_ORDER_HANDOFF } from "@/lib/features";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useEmptyCartGuard } from "@/lib/hooks/use-empty-cart-guard";
+import { ORDER_TOTAL_TOO_LARGE_CODE } from "@/lib/order-limits";
 import { resolveDeliveryUnit } from "@/lib/units";
 import { buildOrderMessage, openWhatsAppChat, setOrderHandoff, toWhatsAppDigits } from "@/lib/whatsapp";
 import { buildPlaceOrderPayload, getOrderItemTotal, ordersApi } from "@/services/api/orders";
@@ -192,7 +193,14 @@ export default function PaymentScreen() {
         const invalidUnit = getErrorCode(error) === "order.error.deliveryUnitInvalid";
         // POST /orders is RESIDENT-only: any other role gets a 403 that retrying never fixes.
         const forbidden = getErrorStatus(error) === 403;
-        const key = forbidden ? "checkout.residents_only" : invalidUnit ? "checkout.unit_invalid" : "checkout.order_failed";
+        const tooLarge = getErrorStatus(error) === 400 && getErrorCode(error) === ORDER_TOTAL_TOO_LARGE_CODE;
+        let key = "checkout.order_failed";
+        if (forbidden)
+          key = "checkout.residents_only";
+        else if (invalidUnit)
+          key = "checkout.unit_invalid";
+        else if (tooLarge)
+          key = "checkout.total_too_large";
         showMessage({ message: t(key), type: "danger", backgroundColor: SEMANTIC.error });
         return;
       }

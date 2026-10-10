@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { productPriceSchema } from "@/lib/order-limits";
 import { buildProductCreatePayload, buildProductUpdatePayload } from "@/lib/product-payload";
 import { merchantApi } from "@/services/api/merchant";
 import { invalidateProductQueries } from "@/services/query/client";
@@ -24,7 +25,7 @@ const schema = z.object({
   nameAr: z.string().trim().min(1, "validation.required").max(100, "validation.max_100"),
   description: z.string().max(500, "validation.max_500").optional(),
   descriptionAr: z.string().max(500, "validation.max_500").optional(),
-  price: z.coerce.number({ error: "validation.invalid_price" }).positive("validation.invalid_price"),
+  price: productPriceSchema,
   imageUrl: z.string().url("validation.invalid_url").optional().or(z.literal("")),
 });
 

@@ -7,6 +7,7 @@ import { Minus, Plus, ShoppingCart, Trash } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { showMessage } from "react-native-flash-message";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -15,6 +16,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { showConfirm } from "@/lib/confirm-dialog";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { CART_MAX_QUANTITY, cartAddBlockKey } from "@/lib/order-limits";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearCart, removeItem, updateQuantity } from "@/store/slices/cart-slice";
 import { BRAND, FONT, LIGHT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
@@ -176,6 +178,11 @@ export default function CartScreen() {
             isAr={isAr}
             colors={colors}
             onIncrease={() => {
+              if (item.quantity >= CART_MAX_QUANTITY) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                showMessage({ message: t(cartAddBlockKey("quantity")), type: "warning" });
+                return;
+              }
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               dispatch(updateQuantity({ productId: item.productId, quantity: item.quantity + 1 }));
             }}

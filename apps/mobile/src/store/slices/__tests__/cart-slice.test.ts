@@ -49,6 +49,17 @@ describe("cart slice", () => {
     expect(s.shopId).toBeNull();
   });
 
+  it("ignores a 51st line and clamps quantity at 99", () => {
+    let s = empty;
+    for (let i = 0; i < 52; i++)
+      s = reducer(s, addItem({ item: item(`p${i}`), shopId: "s1", shopName: "Shop 1" }));
+    expect(s.items).toHaveLength(50);
+    s = reducer(s, addItem({ item: item("p0", 200), shopId: "s1", shopName: "Shop 1" }));
+    expect(s.items[0].quantity).toBe(99);
+    s = reducer(s, updateQuantity({ productId: "p1", quantity: 150 }));
+    expect(s.items[1].quantity).toBe(99);
+  });
+
   it("clears the cart", () => {
     const s = reducer(empty, addItem({ item: item("a"), shopId: "s1", shopName: "Shop 1" }));
     expect(reducer(s, clearCart()).items).toHaveLength(0);
