@@ -3,6 +3,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
+import { formatNumber } from "@/lib/format-number";
 import { RADIUS, SPACING } from "@/theme/tokens";
 
 import { SealedHint, SoonPill, TeaserPoints } from "./soon-pill";
@@ -17,7 +18,7 @@ const BARS = ["80%", "60%", "40%"] as const;
  * vote bars; RN has no cheap blur, so they are drawn faint instead.
  */
 export function GovernancePreview({ body, points }: { body: string; points: string[] }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const palette = useTeaserPalette();
 
   return (
@@ -37,7 +38,7 @@ export function GovernancePreview({ body, points }: { body: string; points: stri
         {BARS.map((width, index) => (
           <View key={width} style={styles.barRow}>
             <Text numberOfLines={1} style={[TEASER_TYPE.caption, styles.barLabel, { color: palette.textMuted }]}>
-              {`${t("home.teaser.gov_option")} ${index + 1}`}
+              {`${t("home.teaser.gov_option")} ${formatNumber(index + 1, i18n.language)}`}
             </Text>
             <View style={[styles.barTrack, { backgroundColor: palette.muted }]}>
               <View style={[styles.barFill, { width, backgroundColor: `${palette.textMuted}40` }]} />

@@ -52,4 +52,11 @@ describe("guest landing", () => {
     fireEvent.press(screen.getAllByLabelText("landing.sign_in_cta")[0]);
     expect(mockPush).toHaveBeenCalledWith("/(auth)/login");
   });
+
+  it("renders step and option numbers with Arabic-Indic digits in Arabic", () => {
+    jest.requireMock("react-i18next").useTranslation.mockReturnValue({ t: (k: string) => k, i18n: { language: "ar" } });
+    render(<GuestLanding />);
+    expect(screen.getAllByText("١").length).toBeGreaterThan(0);
+    expect(screen.getByText("home.teaser.gov_option ٣", { includeHiddenElements: true })).toBeTruthy();
+  });
 });

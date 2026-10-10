@@ -1,8 +1,10 @@
 import type { TeaserPalette } from "./use-teaser-palette";
 import { Check, Lock } from "phosphor-react-native";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
+import { formatNumber } from "@/lib/format-number";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { SPACING } from "@/theme/tokens";
 
@@ -64,6 +66,7 @@ function TimelineStep({ item, index, last }: { item: TimelineItem; index: number
 }
 
 function StepNode({ status, index, palette }: { status: TimelineStatus; index: number; palette: TeaserPalette }) {
+  const { i18n } = useTranslation();
   switch (status) {
     case "live":
       return (
@@ -86,7 +89,7 @@ function StepNode({ status, index, palette }: { status: TimelineStatus; index: n
     default:
       return (
         <View style={[styles.node, { borderColor: palette.track }]}>
-          <Text style={[TEASER_TYPE.label, styles.number, { color: palette.text }]}>{index + 1}</Text>
+          <Text style={[TEASER_TYPE.label, styles.number, { color: palette.text }]}>{formatNumber(index + 1, i18n.language)}</Text>
         </View>
       );
   }
