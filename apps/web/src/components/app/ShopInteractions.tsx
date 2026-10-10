@@ -10,6 +10,7 @@ import { parseReview, parseReviewPage, reviewInputSchema } from "@/lib/api/shop-
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { loginPath } from "@/lib/auth/return-path";
 import { useTranslation } from "@/lib/i18n";
+import { displayUserName } from "@/lib/user-name";
 
 export function ShopInteractions({
   shopId,
@@ -225,7 +226,7 @@ export function ShopInteractions({
           {reviews.map((review) => (
             <li key={review.id} className="py-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <strong className="text-foreground">{review.user.name}</strong>
+                <strong className="text-foreground">{displayUserName(review.user.name, t("common.deleted_user"))}</strong>
                 <time dateTime={review.createdAt} className="text-[length:var(--text-caption)] text-muted-foreground">
                   {new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", { dateStyle: "medium" }).format(new Date(review.createdAt))}
                 </time>

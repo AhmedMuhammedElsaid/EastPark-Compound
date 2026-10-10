@@ -600,6 +600,7 @@
   },
   "common": {
     "admin": "Admin",
+    "deleted_user": "Deleted user",
     "back": "Back",
     "cancel": "Cancel",
     "clear": "Clear",

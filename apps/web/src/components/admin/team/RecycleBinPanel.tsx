@@ -16,6 +16,7 @@ import {
   type TrashType,
 } from '@/lib/api/super-admin';
 import { useTranslation } from '@/lib/i18n';
+import { displayUserName } from '@/lib/user-name';
 import { TRASH_TYPES, trashReasonKey } from '@/lib/validation/trash';
 
 import { ConfirmActionDialog, type ConfirmContent } from './ConfirmActionDialog';
@@ -225,7 +226,7 @@ function TrashRow({
   const reasonId = React.useId();
   const Icon = TYPE_ICONS[item.type];
   const label = item.label || t(`admin_trash.types.${item.type}`);
-  const deleter = item.deletedBy?.name.trim();
+  const deleter = item.deletedBy ? displayUserName(item.deletedBy.name.trim(), t('common.deleted_user')) : undefined;
 
   return (
     <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4">

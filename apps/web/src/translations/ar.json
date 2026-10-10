@@ -599,6 +599,7 @@
     "unit": "وحدة {{number}}"
   },
   "common": {
+    "deleted_user": "مستخدم محذوف",
     "admin": "مدير",
     "back": "رجوع",
     "cancel": "إلغاء",

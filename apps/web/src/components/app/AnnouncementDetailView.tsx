@@ -19,6 +19,7 @@ import type {
   AnnouncementDetail,
 } from '@/lib/api/announcements';
 import { useTranslation } from '@/lib/i18n';
+import { displayUserName } from '@/lib/user-name';
 
 const categoryIcons = {
   GENERAL: Megaphone,
@@ -137,7 +138,9 @@ function BackLink({ isRtl, label }: { isRtl: boolean; label: string }) {
 }
 
 function CommentItem({ comment, locale }: { comment: AnnouncementComment; locale: string }) {
-  const initial = Array.from(comment.user.name.trim())[0]?.toUpperCase() ?? '?';
+  const { t } = useTranslation();
+  const authorName = displayUserName(comment.user.name, t('common.deleted_user'));
+  const initial = Array.from(authorName.trim())[0]?.toUpperCase() ?? '?';
 
   return (
     <article className="grid grid-cols-[2.5rem_1fr] gap-3 py-5 sm:gap-4 sm:py-6">
@@ -146,7 +149,7 @@ function CommentItem({ comment, locale }: { comment: AnnouncementComment; locale
       </div>
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h3 className="text-[length:var(--text-label)] font-bold text-foreground">{comment.user.name}</h3>
+          <h3 className="text-[length:var(--text-label)] font-bold text-foreground">{authorName}</h3>
           <time dateTime={comment.createdAt} className="text-[length:var(--text-caption)] text-muted-foreground">
             {formatDate(comment.createdAt, locale)}
           </time>

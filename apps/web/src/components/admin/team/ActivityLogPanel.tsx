@@ -15,6 +15,7 @@ import {
   type AdminUserItem,
 } from '@/lib/api/super-admin';
 import { useTranslation } from '@/lib/i18n';
+import { displayUserName } from '@/lib/user-name';
 
 import { EmptyState, ErrorState, FOCUS, initialOf, LoadMoreButton, PanelHeader, RowsSkeleton, SELECT_CLASS } from './panel-parts';
 import { RoleBadge } from './RoleBadge';
@@ -123,7 +124,7 @@ export function ActivityLogPanel() {
           <option value="">{t('admin_activity.filter_all')}</option>
           {actors.map((actor) => (
             <option key={actor.id} value={actor.id}>
-              {actor.name || actor.email}
+              {displayUserName(actor.name, t('common.deleted_user')) || actor.email}
             </option>
           ))}
         </select>
