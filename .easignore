@@ -4,9 +4,10 @@
 # REPLACES every .gitignore in the repo (root, apps/*, nested ones). Any secret
 # rule added to a .gitignore must therefore be repeated here.
 #
-# Directory patterns deliberately have NO trailing slash: eas-cli matches paths
-# without one, so "dir/" style rules never fire (that is why .next, coverage and
-# .expo were uploaded under the .gitignore rules).
+# Every rule is written root-relative (or as a bare name) on purpose: under the
+# .gitignore fallback, eas-cli on Windows applied only the ROOT .gitignore and
+# skipped the nested apps/*/.gitignore files, so apps/web/.next, coverage and
+# .expo were uploaded. Rules here must not rely on any nested ignore file.
 #
 # The other workspace apps stay in the upload (only their build output is
 # dropped): the root pnpm-lock.yaml lists them as importers, so EAS's frozen
