@@ -5,6 +5,7 @@ import axios, { AxiosError } from "axios";
 import { revokeRefreshToken } from "@/services/api/auth";
 import { client, injectStore, isRefreshExemptUrl, setSessionExpiredHandler } from "@/services/api/client";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
+import { bumpSessionEpoch, withAuthStorageLock } from "@/services/api/session-epoch";
 
 jest.mock("env", () => ({
   __esModule: true,
@@ -348,5 +349,184 @@ describe("401 while signed out", () => {
     expect(refreshPost).not.toHaveBeenCalled();
     expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("rotated-refresh");
+  });
+});
+
+describe("sign-out / sign-in while a refresh is in flight", () => {
+  let adapter: jest.Mock;
+  let refreshPost: jest.SpyInstance;
+  let onExpired: jest.Mock;
+  let dispatch: jest.Mock;
+  let authState: { isAuthenticated: boolean };
+  let releaseRefresh: (outcome: { tokens?: { accessToken: string; refreshToken: string }; status?: number }) => void;
+
+  beforeEach(() => {
+    Object.keys(mockSecureStore).forEach(k => delete mockSecureStore[k]);
+    mockSecureStore[SECURE_KEY_ACCESS] = "old-access";
+    mockSecureStore[SECURE_KEY_REFRESH] = "refresh-1";
+    authState = { isAuthenticated: true };
+    dispatch = jest.fn();
+    injectStore({ getState: () => ({ auth: authState }), dispatch } as never);
+    adapter = jest.fn(async (config: InternalAxiosRequestConfig) => {
+      if (authHeader(config) === "Bearer new-access" || authHeader(config) === "Bearer b-access")
+        return ok(config);
+      throw fail(config, 401);
+    });
+    client.defaults.adapter = adapter as unknown as AxiosAdapter;
+    onExpired = jest.fn();
+    setSessionExpiredHandler(onExpired);
+    refreshPost = jest.spyOn(axios, "post").mockImplementation(((url: string) => {
+      if (!url.endsWith("/auth/refresh"))
+        return Promise.resolve({ data: { data: { message: "ok" } } });
+      return new Promise((resolve, reject) => {
+        releaseRefresh = ({ tokens, status }) => tokens
+          ? resolve({ data: { data: tokens } })
+          : reject(fail(bareConfig, status));
+      });
+    }) as never);
+  });
+
+  afterEach(() => {
+    refreshPost.mockRestore();
+    injectStore(null as never);
+  });
+
+  const refreshCalls = () => refreshPost.mock.calls.filter(c => String(c[0]).endsWith("/auth/refresh"));
+  const logoutCalls = () => refreshPost.mock.calls.filter(c => String(c[0]).endsWith("/auth/logout"));
+  const tick = () => new Promise(r => setTimeout(r, 10));
+
+  /** Mirrors teardownSession's token handling. */
+  async function signOutLocally({ keepRefreshToken }: { keepRefreshToken: boolean }) {
+    bumpSessionEpoch();
+    await withAuthStorageLock(async () => {
+      delete mockSecureStore[SECURE_KEY_ACCESS];
+      if (!keepRefreshToken)
+        delete mockSecureStore[SECURE_KEY_REFRESH];
+    });
+    authState.isAuthenticated = false;
+  }
+
+  it("full sign-out: the rotated pair is never stored or dispatched, and is revoked", async () => {
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+    expect(refreshCalls()).toHaveLength(1);
+
+    await signOutLocally({ keepRefreshToken: false });
+    releaseRefresh({ tokens: { accessToken: "new-access", refreshToken: "refresh-2" } });
+    const err = await pending;
+    await tick();
+
+    expect(err.response.status).toBe(401);
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBeUndefined();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(onExpired).not.toHaveBeenCalled();
+    // Not replayed with any token.
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(logoutCalls()).toHaveLength(1);
+    const [, body, config] = logoutCalls()[0];
+    expect(body).toEqual({ refreshToken: "refresh-2" });
+    expect(config.headers.Authorization).toBe("Bearer new-access");
+  });
+
+  it("biometric sign-out: the rotated refresh token replaces the spent kept one, nothing else is stored", async () => {
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+
+    await signOutLocally({ keepRefreshToken: true });
+    releaseRefresh({ tokens: { accessToken: "new-access", refreshToken: "refresh-2" } });
+    await pending;
+    await tick();
+
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBeUndefined();
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("refresh-2");
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(logoutCalls()).toHaveLength(0);
+    expect(onExpired).not.toHaveBeenCalled();
+  });
+
+  it("sign-out then another sign-in: the new session's tokens win and the old pair is revoked", async () => {
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+
+    await signOutLocally({ keepRefreshToken: false });
+    bumpSessionEpoch();
+    await withAuthStorageLock(async () => {
+      mockSecureStore[SECURE_KEY_ACCESS] = "b-access";
+      mockSecureStore[SECURE_KEY_REFRESH] = "b-refresh";
+    });
+    authState.isAuthenticated = true;
+    releaseRefresh({ tokens: { accessToken: "new-access", refreshToken: "refresh-2" } });
+    await pending;
+    await tick();
+
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBe("b-access");
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("b-refresh");
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(logoutCalls()).toHaveLength(1);
+    expect(logoutCalls()[0][1]).toEqual({ refreshToken: "refresh-2" });
+  });
+
+  it("a rejected refresh of the old session never tears down the new one", async () => {
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+
+    await signOutLocally({ keepRefreshToken: false });
+    bumpSessionEpoch();
+    mockSecureStore[SECURE_KEY_ACCESS] = "b-access";
+    mockSecureStore[SECURE_KEY_REFRESH] = "b-refresh";
+    authState.isAuthenticated = true;
+    releaseRefresh({ status: 401 });
+    await pending;
+    await tick();
+
+    expect(onExpired).not.toHaveBeenCalled();
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("b-refresh");
+  });
+
+  it("the new session never joins the old session's in-flight refresh", async () => {
+    const oldPending = client.get("/orders").catch(e => e);
+    await tick();
+    const oldRelease = releaseRefresh;
+
+    await signOutLocally({ keepRefreshToken: false });
+    bumpSessionEpoch();
+    mockSecureStore[SECURE_KEY_ACCESS] = "b-expired";
+    mockSecureStore[SECURE_KEY_REFRESH] = "b-refresh";
+    authState.isAuthenticated = true;
+
+    const newPending = client.get("/profile");
+    await tick();
+    expect(refreshCalls()).toHaveLength(2);
+    expect(refreshCalls()[1][1]).toEqual({ refreshToken: "b-refresh" });
+
+    releaseRefresh({ tokens: { accessToken: "b-access", refreshToken: "b-refresh-2" } });
+    oldRelease({ tokens: { accessToken: "new-access", refreshToken: "refresh-2" } });
+    await expect(newPending).resolves.toMatchObject({ status: 200 });
+    await oldPending;
+    await tick();
+
+    expect(mockSecureStore[SECURE_KEY_ACCESS]).toBe("b-access");
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("b-refresh-2");
+    expect(logoutCalls().map(c => c[1])).toEqual([{ refreshToken: "refresh-2" }]);
+  });
+
+  it("a 401 for a request sent by an ended session is not refreshed or replayed", async () => {
+    let releaseRequest: () => void = () => {};
+    adapter.mockImplementationOnce((config: InternalAxiosRequestConfig) => new Promise((_resolve, reject) => {
+      releaseRequest = () => reject(fail(config, 401));
+    }));
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+
+    bumpSessionEpoch();
+    mockSecureStore[SECURE_KEY_ACCESS] = "b-access";
+    mockSecureStore[SECURE_KEY_REFRESH] = "b-refresh";
+    releaseRequest();
+    const err = await pending;
+
+    expect(err.response.status).toBe(401);
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(refreshCalls()).toHaveLength(0);
   });
 });

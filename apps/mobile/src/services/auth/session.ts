@@ -17,6 +17,7 @@ import {
 import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
 import { authApi, revokeRefreshToken } from "@/services/api/auth";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
+import { bumpSessionEpoch, withAuthStorageLock } from "@/services/api/session-epoch";
 import { usersApi } from "@/services/api/users";
 import { clearRegisteredPushToken, registerPushToken } from "@/services/push";
 import { queryClient } from "@/services/query/client";
@@ -51,9 +52,13 @@ export async function completeLogin({ user, accessToken, refreshToken }: {
 }): Promise<void> {
   // Biometric sign-in belongs to one account: a login by another account
   // forgets it (and the refresh token kept for it) BEFORE the new tokens land.
-  await reconcileBiometricForLogin(user.email);
-  await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-  await setSecureItem(SECURE_KEY_REFRESH, refreshToken);
+  // A new session: a refresh still in flight for an older one never writes.
+  bumpSessionEpoch();
+  await withAuthStorageLock(async () => {
+    await reconcileBiometricForLogin(user.email);
+    await setSecureItem(SECURE_KEY_ACCESS, accessToken);
+    await setSecureItem(SECURE_KEY_REFRESH, refreshToken);
+  });
   // A socket opened by a previous session must not keep the old identity.
   disconnectSocket();
   queryClient.clear();
@@ -69,16 +74,23 @@ export async function completeLogin({ user, accessToken, refreshToken }: {
  * which re-uses the stored refresh token after a local-only logout.
  * Never touches the network. The store is signed out and the login screen
  * shown even if a SecureStore delete throws.
+ *
+ * The session epoch moves on before anything else, so a token refresh still
+ * in flight can never write its rotated pair back (it revokes it instead, or
+ * swaps it in for a biometric-kept refresh token it just spent).
  */
 export async function teardownSession({ keepRefreshToken = false, redirectToLogin = true }: {
   keepRefreshToken?: boolean;
   redirectToLogin?: boolean;
 } = {}): Promise<void> {
+  bumpSessionEpoch();
   try {
     disconnectSocket();
-    await deleteSecureItem(SECURE_KEY_ACCESS);
-    if (!keepRefreshToken)
-      await deleteSecureItem(SECURE_KEY_REFRESH);
+    await withAuthStorageLock(async () => {
+      await deleteSecureItem(SECURE_KEY_ACCESS);
+      if (!keepRefreshToken)
+        await deleteSecureItem(SECURE_KEY_REFRESH);
+    });
     await clearRegisteredPushToken();
   }
   finally {

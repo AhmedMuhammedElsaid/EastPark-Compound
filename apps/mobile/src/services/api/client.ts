@@ -19,6 +19,7 @@ import { getSecureItem, setSecureItem } from "@/lib/secure-storage";
 
 import { updateTokens } from "@/store/slices/auth-slice";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "./secure-keys";
+import { getSessionEpoch, withAuthStorageLock } from "./session-epoch";
 
 export {
   SECURE_KEY_ACCESS,
@@ -111,8 +112,36 @@ export function isRefreshExemptUrl(url?: string): boolean {
   return REFRESH_EXEMPT_PATHS.some(p => path === p || path.endsWith(p));
 }
 
+/** Upper bound for the best-effort revocation of a rotated pair nobody keeps. */
+export const STALE_REFRESH_REVOKE_TIMEOUT_MS = 15_000;
+
+/**
+ * Fire-and-forget logout of a token pair rotated for a session that ended
+ * meanwhile. Raw axios with the explicit fresh access token: `client` would
+ * attach whatever access token is stored now (another session's, or none).
+ */
+function revokeStalePair(refreshToken: string, accessToken: string): void {
+  axios
+    .post(
+      `${API_ROOT_URL}/v1/auth/logout`,
+      { refreshToken },
+      {
+        timeout: STALE_REFRESH_REVOKE_TIMEOUT_MS,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+      },
+    )
+    .catch(() => {});
+}
+
+type EpochConfig = InternalAxiosRequestConfig & { _sessionEpoch?: number };
+
 // ─── Request interceptor — attach Bearer token ────────────────────────────────
 client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  // Stamped before any await: a request belongs to the session that sent it.
+  (config as EpochConfig)._sessionEpoch = getSessionEpoch();
   if (!config.headers.Authorization) {
     const token = await getSecureItem(SECURE_KEY_ACCESS);
     if (token) {
@@ -126,9 +155,11 @@ client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 // Refresh tokens are SINGLE-USE on the backend (rotated; reuse → 401). Every
 // concurrent 401 must therefore share ONE refresh call, and the rotated pair
 // is persisted to SecureStore before any waiting request is released.
-type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+type RetriableConfig = EpochConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string> | null = null;
+/** Session epoch the in-flight refresh belongs to. */
+let refreshEpoch = -1;
 
 /** No refresh token is stored, so the session can never be renewed. */
 class MissingRefreshTokenError extends Error {
@@ -138,6 +169,36 @@ class MissingRefreshTokenError extends Error {
   }
 }
 
+/** The session that started a refresh ended (sign-out / new sign-in) before it finished. */
+export class StaleSessionRefreshError extends Error {
+  constructor() {
+    super("The session ended while the token refresh was in flight");
+    this.name = "StaleSessionRefreshError";
+  }
+}
+
+/**
+ * The session that spent `spentRefresh` ended while its refresh was in
+ * flight. Runs under the auth-storage lock, so teardown/login writes are
+ * settled. If the spent token is still the stored one, a biometric sign-out
+ * kept it: the rotated token takes its place (the spent one is dead), and
+ * nothing else is written. Otherwise nobody keeps the rotated pair: revoke it.
+ */
+async function settleStaleRefresh(spentRefresh: string, accessToken: string, rotatedRefresh: string): Promise<void> {
+  let stored: string | null;
+  try {
+    stored = await getSecureItem(SECURE_KEY_REFRESH);
+  }
+  catch {
+    stored = null;
+  }
+  if (stored === spentRefresh) {
+    await setSecureItem(SECURE_KEY_REFRESH, rotatedRefresh);
+    return;
+  }
+  revokeStalePair(rotatedRefresh, accessToken);
+}
+
 function isAuthRejection(err: unknown): boolean {
   if (err instanceof MissingRefreshTokenError)
     return true;
@@ -145,26 +206,40 @@ function isAuthRejection(err: unknown): boolean {
   return status === 401 || status === 403;
 }
 
-async function runTokenRefresh(): Promise<string> {
+async function runTokenRefresh(epoch: number): Promise<string> {
   try {
     // Read inside the single-flight so a caller that arrived after another
     // refresh rotated the token never submits the already-spent one.
     const refreshToken = await getSecureItem(SECURE_KEY_REFRESH);
+    if (getSessionEpoch() !== epoch)
+      throw new StaleSessionRefreshError();
     if (!refreshToken)
       throw new MissingRefreshTokenError();
     const { data } = await requestTokenRefresh(refreshToken);
     const { accessToken, refreshToken: newRefresh } = data.data;
-    await setSecureItem(SECURE_KEY_ACCESS, accessToken);
-    await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
-    storeRef?.dispatch(updateTokens({ accessToken, refreshToken: newRefresh }));
+    // Sign-out / sign-in may have run while the request was in flight: the
+    // rotated pair is written only while this is still the same session.
+    const current = await withAuthStorageLock(async () => {
+      if (getSessionEpoch() !== epoch) {
+        await settleStaleRefresh(refreshToken, accessToken, newRefresh);
+        return false;
+      }
+      await setSecureItem(SECURE_KEY_ACCESS, accessToken);
+      await setSecureItem(SECURE_KEY_REFRESH, newRefresh);
+      storeRef?.dispatch(updateTokens({ accessToken, refreshToken: newRefresh }));
+      return true;
+    });
+    if (!current)
+      throw new StaleSessionRefreshError();
     return accessToken;
   }
   catch (refreshError) {
     // Only a definitive rejection of the refresh token (or no token at all)
     // ends the session. Network errors, timeouts (cold start) and 5xx keep the
-    // tokens. A session that is already signed out is not torn down twice.
+    // tokens. A session that is already signed out is not torn down twice,
+    // and a newer session is never torn down by an older session's refresh.
     const signedIn = storeRef ? storeRef.getState().auth.isAuthenticated : true;
-    if (isAuthRejection(refreshError) && signedIn) {
+    if (isAuthRejection(refreshError) && signedIn && getSessionEpoch() === epoch) {
       try {
         await sessionExpiredHandler?.();
       }
@@ -178,12 +253,22 @@ async function runTokenRefresh(): Promise<string> {
 
 /** Returns a fresh access token, sharing one refresh call across callers. */
 export function refreshAccessToken(): Promise<string> {
-  if (!refreshPromise) {
-    refreshPromise = runTokenRefresh().finally(() => {
-      refreshPromise = null;
+  const epoch = getSessionEpoch();
+  // A refresh started by an ended session is never shared with a newer one.
+  if (!refreshPromise || refreshEpoch !== epoch) {
+    const promise: Promise<string> = runTokenRefresh(epoch).finally(() => {
+      if (refreshPromise === promise)
+        refreshPromise = null;
     });
+    refreshPromise = promise;
+    refreshEpoch = epoch;
   }
   return refreshPromise;
+}
+
+/** The current session's in-flight refresh, if any. */
+function currentRefresh(): Promise<string> | null {
+  return refreshPromise && refreshEpoch === getSessionEpoch() ? refreshPromise : null;
 }
 
 client.interceptors.response.use(
@@ -207,6 +292,11 @@ client.interceptors.response.use(
     if (storeRef && !storeRef.getState().auth.isAuthenticated)
       return Promise.reject(error);
 
+    // Sent by a session that has ended since: never refresh it, nor replay
+    // it with the next session's token.
+    if (originalRequest._sessionEpoch !== undefined && originalRequest._sessionEpoch !== getSessionEpoch())
+      return Promise.reject(error);
+
     originalRequest._retry = true;
 
     // Another request already rotated the tokens while this one was in
@@ -214,19 +304,14 @@ client.interceptors.response.use(
     // (a second refresh would be wasted work; the old refresh token is spent).
     const sentAuth = String(originalRequest.headers.Authorization);
     const currentAccess = await getSecureItem(SECURE_KEY_ACCESS);
-    if (!refreshPromise && currentAccess && sentAuth !== `Bearer ${currentAccess}`) {
+    if (!currentRefresh() && currentAccess && sentAuth !== `Bearer ${currentAccess}`) {
       originalRequest.headers.Authorization = `Bearer ${currentAccess}`;
       return client(originalRequest);
     }
 
     let accessToken: string;
     try {
-      if (refreshPromise) {
-        accessToken = await refreshPromise;
-      }
-      else {
-        accessToken = await refreshAccessToken();
-      }
+      accessToken = await refreshAccessToken();
     }
     catch {
       // Propagate the ORIGINAL request error, never the refresh error.
