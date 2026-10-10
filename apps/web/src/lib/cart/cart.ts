@@ -1,5 +1,13 @@
 export const CART_STORAGE_KEY = 'eastpark_cart_v1';
 
+/** Distinct products per order; the backend rejects more than this. */
+export const CART_MAX_LINES = 50;
+
+/** True when adding this product would open a new line beyond the cap. */
+export function cartLineLimitReached(state: Pick<CartState, 'items'>, productId: string): boolean {
+  return state.items.length >= CART_MAX_LINES && !state.items.some((item) => item.productId === productId);
+}
+
 export type CartItem = {
   productId: string;
   name: string;
@@ -54,6 +62,8 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
           pending: { item: action.item, shopId: action.shopId, shopName: action.shopName },
         };
       }
+
+      if (cartLineLimitReached(state, action.item.productId)) return state;
 
       const existing = state.items.find((item) => item.productId === action.item.productId);
       const items = existing
@@ -124,6 +134,7 @@ export function parseStoredCart(value: string | null): CartState {
         (typeof item.imageUrl === 'string' || item.imageUrl === null),
     );
 
+    items.length = Math.min(items.length, CART_MAX_LINES);
     if (items.length === 0 || typeof parsed.shopId !== 'string') return { ...emptyCart };
     return {
       items,

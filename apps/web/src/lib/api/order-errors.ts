@@ -9,6 +9,7 @@ const ORDER_ERROR_KEYS: Record<string, TranslationKey> = {
   order_status_changed: 'orders.errors.status_changed',
   payment_already_paid: 'orders.errors.already_paid',
   payment_order_cancelled: 'orders.errors.order_cancelled',
+  order_total_too_large: 'orders.errors.total_too_large',
 };
 
 /** The translation key for a known order/payment error code, or undefined for anything else. */

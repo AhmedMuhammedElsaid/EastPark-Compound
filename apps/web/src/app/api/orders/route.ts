@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     // The delivery flat is not one of the caller's flats: its own copy, not a generic failure.
     if (response.status === 400) {
       const code = await knownBackendErrorCode(response);
-      return NextResponse.json({ error: code === 'delivery_unit_invalid' ? code : 'request_failed' }, { status: 400, headers: PRIVATE_NO_STORE });
+      return NextResponse.json({ error: code === 'delivery_unit_invalid' || code === 'order_total_too_large' ? code : 'request_failed' }, { status: 400, headers: PRIVATE_NO_STORE });
     }
     return relayBackendResponse(response);
   } catch (error) {

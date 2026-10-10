@@ -16,6 +16,8 @@ const CASES: Array<[string, string]> = [
   ['payments.error.orderCancelled', 'payment_order_cancelled'],
 ];
 
+const CASES_400: Array<[string, string]> = [['order.error.totalTooLarge', 'order_total_too_large']];
+
 describe('order 409 codes', () => {
   it.each(CASES)('relays %s as %s with copy in both languages', async (backendCode, bffCode) => {
     const response = await relayBackendResponse(
@@ -23,6 +25,18 @@ describe('order 409 codes', () => {
     );
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: bffCode });
+    const key = orderErrorKey(bffCode);
+    expect(key).toBeDefined();
+    expect(translate(en, key!)).not.toBe(key);
+    expect(translate(ar, key!)).not.toBe(key);
+  });
+
+  it.each(CASES_400)('maps the 400 code %s to %s with copy in both languages', async (backendCode, bffCode) => {
+    const { knownBackendErrorCode } = await import('@/lib/api/bff-errors');
+    const code = await knownBackendErrorCode(
+      new Response(JSON.stringify({ statusCode: 400, code: backendCode, message: backendCode }), { status: 400 }),
+    );
+    expect(code).toBe(bffCode);
     const key = orderErrorKey(bffCode);
     expect(key).toBeDefined();
     expect(translate(en, key!)).not.toBe(key);

@@ -973,6 +973,7 @@
     "quantity": "Quantity: {{count}}",
     "refresh": "Refresh",
     "reorder": "Reorder",
+    "cart_limit": "Your cart is full: an order holds at most 50 different items.",
     "ordering_paused": "Ordering is temporarily unavailable",
     "summary": "Order summary",
     "total": "Total",
@@ -988,6 +989,7 @@
       "paid_cannot_cancel": "This order is already paid and can't be cancelled here. Contact the shop.",
       "status_changed": "This order was just updated by someone else. We refreshed it. Please try again.",
       "already_paid": "This order is already paid.",
+      "total_too_large": "This order is too large. Split it into smaller orders.",
       "order_cancelled": "This order was cancelled, so it can't be paid."
     }
   },
@@ -1258,6 +1260,10 @@
     "advance_status": "Advance order status",
     "error_load": "We couldn't load merchant data. Try again.",
     "error_save": "We couldn't save that change. Try again.",
+    "price_required": "Enter a price.",
+    "price_min": "The price must be at least 0.01 EGP.",
+    "price_max": "The price must not exceed 100,000 EGP.",
+    "price_decimals": "Use at most two decimal places.",
     "status_PLACED": "Placed",
     "status_CONFIRMED": "Confirmed",
     "status_PREPARING": "Preparing",

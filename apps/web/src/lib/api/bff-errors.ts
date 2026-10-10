@@ -62,6 +62,8 @@ const KNOWN_BACKEND_CODES: Record<string, string> = {
   'unit.error.alreadyOwned': 'unit_already_owned',
   'user.error.unitNotOwned': 'unit_not_owned',
   'order.error.deliveryUnitInvalid': 'delivery_unit_invalid',
+  // POST /orders (400): the computed total is above the backend cap.
+  'order.error.totalTooLarge': 'order_total_too_large',
   // Admin create shop: the owner is not a live merchant (400) / already runs a shop (409).
   'shop.error.merchantInvalid': 'merchant_invalid',
   'shop.error.merchantHasShop': 'merchant_has_shop',

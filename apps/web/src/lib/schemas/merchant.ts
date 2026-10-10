@@ -72,7 +72,11 @@ export const productInputSchema = z.object({
   nameAr: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   descriptionAr: z.string().trim().max(1000).optional(),
-  price: z.number().nonnegative().max(1_000_000),
+  price: z
+    .number()
+    .min(0.01)
+    .max(100_000)
+    .refine((value) => Math.round(value * 100) / 100 === value, 'At most two decimals'),
   imageUrl: z.union([z.url(), z.literal('').transform(() => undefined)]).optional(),
   isAvailable: z.boolean().optional(),
 });

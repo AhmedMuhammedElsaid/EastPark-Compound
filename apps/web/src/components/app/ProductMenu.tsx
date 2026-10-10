@@ -10,7 +10,7 @@ import type { Shop } from '@/lib/api/shops';
 import { residentOrderingEnabled } from '@/config/features';
 import { GatedLink } from '@/lib/access/ComingSoon';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { cartTotal } from '@/lib/cart/cart';
+import { cartLineLimitReached, cartTotal } from '@/lib/cart/cart';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
 
@@ -24,6 +24,7 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [error, setError] = React.useState(initialPage === null);
   const [showAuthWall, setShowAuthWall] = React.useState(false);
+  const [cartFull, setCartFull] = React.useState(false);
 
   async function loadMore() {
     if (!nextCursor || isLoadingMore) return;
@@ -55,6 +56,11 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
       setShowAuthWall(true);
       return;
     }
+    if (state.shopId === shop.id && cartLineLimitReached(state, product.id)) {
+      setCartFull(true);
+      return;
+    }
+    setCartFull(false);
     dispatch({
       type: 'add',
       shopId: shop.id,
@@ -93,6 +99,12 @@ export function ProductMenu({ shop, initialPage }: { shop: Shop; initialPage: Pr
       {!residentOrderingEnabled && (
         <p role="status" className="mt-5 border-y border-border bg-muted/35 px-4 py-3 text-[length:var(--text-body)] font-semibold text-muted-foreground">
           {t('orders.ordering_paused')}
+        </p>
+      )}
+
+      {cartFull && (
+        <p role="status" className="mt-5 border-y border-border bg-muted/35 px-4 py-3 text-[length:var(--text-body)] font-semibold text-muted-foreground">
+          {t('orders.cart_limit')}
         </p>
       )}
 
