@@ -30,6 +30,17 @@ describe("useGuestGate", () => {
     expect(result.current.sheet).toEqual({ visible: true, feature: "community" });
   });
 
+  it("opens the market Coming soon sheet for a guest add-to-cart / cart bar action", () => {
+    mockIsAuthenticated = false;
+    const addToCart = jest.fn();
+    const { result } = renderHook(() => ({ gate: useGuestGate(), sheet: useComingSoonState() }));
+
+    act(() => result.current.gate.gate(addToCart, "market"));
+
+    expect(addToCart).not.toHaveBeenCalled();
+    expect(result.current.sheet).toEqual({ visible: true, feature: "market" });
+  });
+
   it("does not navigate for a guest", () => {
     mockIsAuthenticated = false;
     const { result } = renderHook(() => ({ gate: useGuestGate(), sheet: useComingSoonState() }));

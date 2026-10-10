@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { useGuestGate } from "@/lib/hooks/use-guest-gate";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cartAddBlock, cartAddBlockKey } from "@/lib/order-limits";
 import { displayUserName } from "@/lib/user-name";
@@ -819,7 +820,8 @@ type ProductRowProps = {
 
 function ProductRow({ product, isAr, shopId, shopName, shopNameAr, styles, colors }: ProductRowProps) {
   const { t } = useTranslation();
-  const { requireAuth } = useAuthGuard();
+  // Ordering is "Coming soon" for guests (the sign-in wall is only for save/review).
+  const { gate } = useGuestGate();
   const dispatch = useAppDispatch();
   const quantity = useAppSelector(s =>
     s.cart.shopId === shopId ? (s.cart.items.find((i: CartItem) => i.productId === product.id)?.quantity ?? 0) : 0,
@@ -838,15 +840,15 @@ function ProductRow({ product, isAr, shopId, shopName, shopNameAr, styles, color
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // addItem keeps the auth wall and the multi-shop conflict guard in the path.
-    requireAuth(() => {
+    // addItem keeps the multi-shop conflict guard in the path; guests get Coming soon instead.
+    gate(() => {
       dispatch(addItem({
         item: { productId: product.id, name: product.name, nameAr: product.nameAr, price: product.price, quantity: 1, imageUrl: product.imageUrl ?? null },
         shopId,
         shopName,
         shopNameAr,
       }));
-    });
+    }, "market");
   }
 
   function handleDecrease() {
@@ -952,6 +954,7 @@ function ReviewRow({ review, isAr, styles, colors }: { review: Review; isAr: boo
 
 function CartBar({ shopId, styles }: { shopId: string; styles: Styles }) {
   const { t } = useTranslation();
+  const { gate } = useGuestGate();
   const { items, shopId: cartShopId } = useAppSelector(s => s.cart);
 
   if (cartShopId !== shopId || !items.length)
@@ -965,7 +968,7 @@ function CartBar({ shopId, styles }: { shopId: string; styles: Styles }) {
       style={({ pressed }) => [styles.cartBar, pressed && { opacity: 0.92 }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push("/checkout/cart");
+        gate(() => router.push("/checkout/cart"), "market");
       }}
       accessibilityRole="button"
       accessibilityLabel={`${t("cart.checkout")} ${formatCurrency(total)}`}
