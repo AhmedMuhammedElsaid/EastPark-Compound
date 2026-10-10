@@ -108,7 +108,6 @@
     },
     "showing": "Showing {{shown}} of {{loaded}} loaded",
     "showing_of_total": "Showing {{shown}} of {{total}}",
-    "search_scope": "Search covers loaded requests. Load more to search further.",
     "columns": {
       "resident": "Resident",
       "unit": "Unit",

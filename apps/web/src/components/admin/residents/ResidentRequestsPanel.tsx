@@ -10,7 +10,6 @@ import {
   fetchLeadStats,
   inviteLead,
   leadErrorKey,
-  leadMatches,
   LeadRequestError,
   rejectLead,
   shiftStats,
@@ -46,6 +45,9 @@ function sortKeyFor(sorting: SortingState): SortKey | '' {
   return match ?? '';
 }
 
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MAX_LENGTH = 100;
+
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500';
 
 export function ResidentRequestsPanel() {
@@ -65,7 +67,8 @@ export function ResidentRequestsPanel() {
   const [statsKey, setStatsKey] = React.useState(0);
 
   const [query, setQuery] = React.useState('');
-  const deferredQuery = React.useDeferredValue(query);
+  // The server does the searching; the trimmed query that is actually sent trails typing by 300 ms.
+  const [activeQuery, setActiveQuery] = React.useState('');
   const [sorting, setSorting] = React.useState<SortingState>(SORTS.newest);
   const [pending, setPending] = React.useState<PendingMap>({});
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
@@ -76,7 +79,7 @@ export function ResidentRequestsPanel() {
     const seq = ++listSeq.current;
     void (async () => {
       try {
-        const page = await fetchLeadPage(filter);
+        const page = await fetchLeadPage(filter, undefined, activeQuery);
         if (seq !== listSeq.current) return;
         setRows(page.items);
         setNextCursor(page.nextCursor);
@@ -85,7 +88,7 @@ export function ResidentRequestsPanel() {
         if (seq === listSeq.current) setListState('error');
       }
     })();
-  }, [filter, reloadKey]);
+  }, [filter, activeQuery, reloadKey]);
 
   // Counts load independently: if the stats endpoint is unavailable the list still works.
   React.useEffect(() => {
@@ -106,6 +109,28 @@ export function ResidentRequestsPanel() {
   }, [statsKey]);
 
   const refreshStats = React.useCallback(() => setStatsKey((key) => key + 1), []);
+
+  // Debounce typing, then restart pagination from the first page for the new query.
+  React.useEffect(() => {
+    const next = query.trim().slice(0, SEARCH_MAX_LENGTH);
+    if (next === activeQuery) return;
+    const timer = window.setTimeout(() => {
+      setListState('loading');
+      setRows([]);
+      setNextCursor(undefined);
+      setActiveQuery(next);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, activeQuery]);
+
+  function clearSearch() {
+    setQuery('');
+    if (activeQuery === '') return;
+    setListState('loading');
+    setRows([]);
+    setNextCursor(undefined);
+    setActiveQuery('');
+  }
 
   function selectFilter(next: LeadFilter) {
     if (next === filter && listState !== 'error') return;
@@ -130,7 +155,7 @@ export function ResidentRequestsPanel() {
     const seq = listSeq.current;
     setLoadingMore(true);
     try {
-      const page = await fetchLeadPage(filter, nextCursor);
+      const page = await fetchLeadPage(filter, nextCursor, activeQuery);
       if (seq !== listSeq.current) return;
       setRows((current) => {
         const seen = new Set(current.map((lead) => lead.id));
@@ -198,11 +223,7 @@ export function ResidentRequestsPanel() {
   const closeConfirm = React.useCallback(() => setConfirm(null), []);
   const closeDetails = React.useCallback(() => setDetailsId(null), []);
 
-  const visibleRows = React.useMemo(
-    () => (deferredQuery.trim() ? rows.filter((lead) => leadMatches(lead, deferredQuery)) : rows),
-    [rows, deferredQuery],
-  );
-  const searching = deferredQuery.trim().length > 0;
+  const searching = activeQuery.length > 0;
   const detailsLead = detailsId ? (rows.find((lead) => lead.id === detailsId) ?? null) : null;
   const filterTotal = stats ? (filter === 'ALL' ? stats.total : stats[filter]) : null;
   const sortKey = sortKeyFor(sorting);
@@ -249,6 +270,7 @@ export function ResidentRequestsPanel() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              maxLength={SEARCH_MAX_LENGTH}
               placeholder={t('admin_leads.search_placeholder')}
               autoComplete="off"
               enterKeyHint="search"
@@ -257,7 +279,7 @@ export function ResidentRequestsPanel() {
             {query && (
               <button
                 type="button"
-                onClick={() => setQuery('')}
+                onClick={clearSearch}
                 aria-label={t('admin_leads.clear_search')}
                 className={`absolute end-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground ${FOCUS}`}
               >
@@ -292,9 +314,8 @@ export function ResidentRequestsPanel() {
       {listState === 'ready' && rows.length > 0 && (
         <p className="mt-4 text-[length:var(--text-label)] text-muted-foreground" aria-live="polite">
           {!searching && filterTotal !== null
-            ? t('admin_leads.showing_of_total', { shown: formatCount(visibleRows.length, lang), total: formatCount(Math.max(filterTotal, rows.length), lang) })
-            : t('admin_leads.showing', { shown: formatCount(visibleRows.length, lang), loaded: formatCount(rows.length, lang) })}
-          {searching && nextCursor && <span className="block sm:inline sm:ms-2">{t('admin_leads.search_scope')}</span>}
+            ? t('admin_leads.showing_of_total', { shown: formatCount(rows.length, lang), total: formatCount(Math.max(filterTotal, rows.length), lang) })
+            : t('admin_leads.showing', { shown: formatCount(rows.length, lang), loaded: formatCount(rows.length, lang) })}
         </p>
       )}
 
@@ -317,7 +338,7 @@ export function ResidentRequestsPanel() {
           </div>
         )}
 
-        {listState === 'ready' && rows.length === 0 && (
+        {listState === 'ready' && rows.length === 0 && !searching && (
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-6 py-12 text-center">
             <Inbox aria-hidden="true" className="size-8 text-muted-foreground" />
             <p className="text-[length:var(--text-body-lg)] font-bold">{t('admin_leads.empty_title')}</p>
@@ -327,20 +348,20 @@ export function ResidentRequestsPanel() {
           </div>
         )}
 
-        {listState === 'ready' && rows.length > 0 && visibleRows.length === 0 && (
+        {listState === 'ready' && rows.length === 0 && searching && (
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-6 py-12 text-center">
             <SearchX aria-hidden="true" className="size-8 text-muted-foreground" />
             <p className="text-[length:var(--text-body-lg)] font-bold">{t('admin_leads.no_matches_title')}</p>
-            <p className="text-[length:var(--text-body)] text-muted-foreground">{t('admin_leads.no_matches_body', { query: deferredQuery.trim() })}</p>
-            <button type="button" onClick={() => setQuery('')} className={`mt-1 inline-flex min-h-11 items-center rounded-md px-4 font-semibold text-primary hover:bg-muted ${FOCUS}`}>
+            <p className="text-[length:var(--text-body)] text-muted-foreground">{t('admin_leads.no_matches_body', { query: activeQuery })}</p>
+            <button type="button" onClick={clearSearch} className={`mt-1 inline-flex min-h-11 items-center rounded-md px-4 font-semibold text-primary hover:bg-muted ${FOCUS}`}>
               {t('admin_leads.clear_search')}
             </button>
           </div>
         )}
 
-        {listState === 'ready' && visibleRows.length > 0 && (
+        {listState === 'ready' && rows.length > 0 && (
           <LeadsTable
-            rows={visibleRows}
+            rows={rows}
             sorting={sorting}
             onSortingChange={setSorting}
             pending={pending}

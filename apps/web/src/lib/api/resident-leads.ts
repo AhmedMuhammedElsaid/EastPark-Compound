@@ -114,19 +114,6 @@ export function unitLabel(lead: Pick<ResidentLead, 'building' | 'floor' | 'flatN
   return `${lead.building} · ${lead.floor} · ${lead.flatNumber}`;
 }
 
-/** Client-side search over loaded rows: name, email, phone (digits only) and unit. */
-export function leadMatches(lead: ResidentLead, rawQuery: string): boolean {
-  const query = normalizeSearch(rawQuery);
-  if (!query) return true;
-  const digits = query.replace(/[^\d]/g, '');
-  const haystack = normalizeSearch(
-    [lead.name, lead.email, `${lead.building} ${lead.floor} ${lead.flatNumber}`, unitLabel(lead)].join(' '),
-  );
-  if (haystack.includes(query)) return true;
-  // Phones are matched on digits so "010 0040" and "+2010..." both find "01000400163".
-  return digits.length >= 3 && lead.phone.replace(/[^\d]/g, '').includes(digits);
-}
-
 /** Masks an identity document number, keeping only the last four characters. */
 export function maskIdentifier(value: string): string {
   const visible = value.slice(-4);
@@ -150,10 +137,14 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 20_0
   return payload?.data;
 }
 
-export async function fetchLeadPage(filter: LeadFilter, cursor?: string): Promise<LeadPage> {
+export const LEAD_SEARCH_MAX_LENGTH = 100;
+
+export async function fetchLeadPage(filter: LeadFilter, cursor?: string, q?: string): Promise<LeadPage> {
   const params = new URLSearchParams();
   if (filter !== 'ALL') params.set('status', filter);
   if (cursor) params.set('cursor', cursor);
+  const search = q?.trim().slice(0, LEAD_SEARCH_MAX_LENGTH);
+  if (search) params.set('q', search);
   const query = params.toString();
   const data = await request<LeadPage>(`/api/admin/residents/leads${query ? `?${query}` : ''}`);
   return { items: data?.items ?? [], nextCursor: data?.nextCursor ?? undefined };

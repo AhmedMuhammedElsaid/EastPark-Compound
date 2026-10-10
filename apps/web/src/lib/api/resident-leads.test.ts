@@ -1,27 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type LeadStats,
-  type ResidentLead,
   leadActions,
+  fetchLeadPage,
   leadErrorKey,
-  leadMatches,
   maskIdentifier,
   normalizeSearch,
   shiftStats,
 } from './resident-leads';
-
-const lead: ResidentLead = {
-  id: 'lead-1',
-  name: 'Jane Doe',
-  email: 'jane@example.com',
-  phone: '01000400163',
-  building: 'A2',
-  floor: 'G',
-  flatNumber: '3',
-  status: 'PENDING',
-  createdAt: '2026-10-01T10:00:00.000Z',
-};
 
 describe('leadActions', () => {
   it('offers invite + reject while pending or invited', () => {
@@ -73,20 +60,34 @@ describe('shiftStats', () => {
   });
 });
 
+describe('fetchLeadPage search', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stub() {
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ data: { items: [] } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('sends a trimmed q alongside status and cursor', async () => {
+    const fetchMock = stub();
+    await fetchLeadPage('PENDING', 'c1', '  A1-1-4  ');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/admin/residents/leads?status=PENDING&cursor=c1&q=A1-1-4');
+  });
+
+  it('omits an empty q and caps a long one at 100 characters', async () => {
+    const fetchMock = stub();
+    await fetchLeadPage('ALL', undefined, '   ');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/admin/residents/leads');
+    await fetchLeadPage('ALL', undefined, 'x'.repeat(150));
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(`/api/admin/residents/leads?q=${'x'.repeat(100)}`);
+  });
+});
+
 describe('search', () => {
   it('folds Arabic-Indic digits', () => {
     expect(normalizeSearch(' ٠١٠ ')).toBe('010');
     expect(normalizeSearch('۱۲۳')).toBe('123');
-  });
-
-  it('matches name, email, unit and phone digits', () => {
-    expect(leadMatches(lead, 'jane')).toBe(true);
-    expect(leadMatches(lead, 'EXAMPLE.com')).toBe(true);
-    expect(leadMatches(lead, 'a2 g 3')).toBe(true);
-    expect(leadMatches(lead, '0100 0400')).toBe(true);
-    expect(leadMatches(lead, '٠١٠٠٠٤')).toBe(true);
-    expect(leadMatches(lead, 'someone else')).toBe(false);
-    expect(leadMatches(lead, '   ')).toBe(true);
   });
 });
 

@@ -108,7 +108,6 @@
     },
     "showing": "عرض {{shown}} من {{loaded}} محمّلة",
     "showing_of_total": "عرض {{shown}} من {{total}}",
-    "search_scope": "البحث يشمل الطلبات المحمّلة فقط. حمّل المزيد للبحث في باقي الطلبات.",
     "columns": {
       "resident": "الساكن",
       "unit": "الوحدة",

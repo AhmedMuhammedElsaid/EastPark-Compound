@@ -147,3 +147,18 @@ describe('admin routes accept SUPER_ADMIN', () => {
     expect(response.status).toBe(200);
   });
 });
+
+describe('GET /api/admin/residents/leads q', () => {
+  it('forwards a trimmed q (capped at 100) with status and cursor, and drops an empty one', async () => {
+    asViewer('ADMIN', () => json(200, { data: { items: [] } }));
+    const { GET } = await import('@/app/api/admin/residents/leads/route');
+    const { NextRequest } = await import('next/server');
+    await GET(new NextRequest(`https://web.test/api/admin/residents/leads?status=INVITED&cursor=c1&q=${encodeURIComponent('  A1-1-4 ')}`));
+    await GET(new NextRequest('https://web.test/api/admin/residents/leads?q=%20%20'));
+    await GET(new NextRequest(`https://web.test/api/admin/residents/leads?q=${'y'.repeat(150)}`));
+    const calls = backendCalls().filter((url) => url.includes('/admin/residents/leads'));
+    expect(calls[0]).toBe('https://api.example.test/v1/admin/residents/leads?limit=50&cursor=c1&q=A1-1-4&status=INVITED');
+    expect(calls[1]).toBe('https://api.example.test/v1/admin/residents/leads?limit=50');
+    expect(calls[2]).toBe(`https://api.example.test/v1/admin/residents/leads?limit=50&q=${'y'.repeat(100)}`);
+  });
+});

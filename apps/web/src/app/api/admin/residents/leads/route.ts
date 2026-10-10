@@ -11,6 +11,8 @@ export function GET(request: NextRequest) {
   const cursor = request.nextUrl.searchParams.get('cursor');
   const status = request.nextUrl.searchParams.get('status');
   if (cursor) params.set('cursor', cursor);
+  const q = request.nextUrl.searchParams.get('q')?.trim().slice(0, 100);
+  if (q) params.set('q', q);
   if (status && STATUSES.has(status)) params.set('status', status);
   return forwardAdminRequest(`/admin/residents/leads?${params.toString()}`);
 }
