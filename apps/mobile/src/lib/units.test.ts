@@ -1,6 +1,6 @@
 import type { AuthUser, ResidentUnit } from "@/store/slices/auth-slice";
 import authReducer, { login, mergeUserKeepingUnits, updateUser } from "@/store/slices/auth-slice";
-import { getDeliveryUnitOptions, getPrimaryUnit, getUnitLabels, resolveDeliveryUnit } from "./units";
+import { canChoosePrimaryFlat, getDeliveryUnitOptions, getPrimaryUnit, getUnitLabels, resolveDeliveryUnit } from "./units";
 
 function unit(label: string): ResidentUnit {
   const [building, floor, flatNumber] = label.split("-");
@@ -61,5 +61,14 @@ describe("units preservation on user replace", () => {
     expect(relogin.user?.units).toHaveLength(1);
     const updated = authReducer(relogin, updateUser({ units: [unit("A1-3-2"), unit("B2-1-4")] }));
     expect(updated.user?.units).toHaveLength(2);
+  });
+});
+
+describe("primary flat choice", () => {
+  it("needs two or more real flats", () => {
+    expect(canChoosePrimaryFlat({ ...base, unitNumber: "A1-3-2" })).toBe(false);
+    expect(canChoosePrimaryFlat({ ...base, units: [unit("A1-3-2")] })).toBe(false);
+    expect(canChoosePrimaryFlat({ ...base, units: [unit("A1-3-2"), unit("B2-1-4")] })).toBe(true);
+    expect(canChoosePrimaryFlat(null)).toBe(false);
   });
 });

@@ -64,7 +64,7 @@ describe('fetchLeadPage search', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   function stub() {
-    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ data: { items: [] } }), { status: 200 }));
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>(async () => new Response(JSON.stringify({ data: { items: [] } }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     return fetchMock;
   }

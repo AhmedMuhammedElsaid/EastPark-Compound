@@ -11,7 +11,8 @@ export const usersApi = {
       accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
     ),
 
-  updateProfile: (data: Partial<Pick<AuthUser, "name" | "phone" | "unitNumber" | "avatarUrl">>) =>
+  /** `PUT /user`. Phone and photo are cleared with null; `unitNumber` picks the primary flat. */
+  updateProfile: (data: { name?: string; phone?: string | null; unitNumber?: string | null; avatarUrl?: string | null }) =>
     client.put<{ data: AuthUser }>("/user", data),
 
   deleteAccount: () =>

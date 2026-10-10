@@ -37,3 +37,14 @@ export function resolveDeliveryUnit(user: UnitSource, chosen?: string | null): s
     return wanted;
   return options[0] ?? "";
 }
+
+/**
+ * Choosing the primary flat needs two or more real flats (`units`); a legacy
+ * single `unitNumber` cannot be changed by the resident (same rule as web).
+ */
+export function canChoosePrimaryFlat(user: UnitSource): boolean {
+  return (user?.units?.length ?? 0) > 1;
+}
+
+/** `PUT /user` 400 when the chosen primary flat is not one of the account's flats. */
+export const UNIT_NOT_OWNED_CODE = "user.error.unitNotOwned";

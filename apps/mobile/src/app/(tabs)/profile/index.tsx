@@ -2,8 +2,9 @@ import type { ColorSchemeType } from "@/lib/hooks/use-selected-theme";
 import type { LIGHT } from "@/theme/tokens";
 import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router } from "expo-router";
-import { CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { Bell, CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -19,7 +20,7 @@ import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
 import { isAdminRole, roleLabelKey } from "@/lib/roles";
-import { getPrimaryUnit, getUnitLabels } from "@/lib/units";
+import { getPrimaryUnit } from "@/lib/units";
 import { usersApi } from "@/services/api/users";
 import { endDeletedAccountSession, signOut } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
@@ -32,7 +33,6 @@ type AppStyles = ReturnType<typeof buildStyles>;
 
 // ─── Style factory (pure — no hook calls) ─────────────────────────────────────
 
-// eslint-disable-next-line max-lines-per-function -- one flat style sheet
 function buildStyles(colors: AppColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
@@ -79,7 +79,9 @@ function buildStyles(colors: AppColors) {
       borderColor: BRAND.gold,
       justifyContent: "center" as const,
       alignItems: "center" as const,
+      overflow: "hidden" as const,
     },
+    avatarImage: { width: "100%", height: "100%" },
     avatarInitial: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 26, lineHeight: 40, color: gold(colors) },
     avatarInfo: { flex: 1, gap: 2 },
     userName: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 28, color: colors.text },
@@ -87,7 +89,6 @@ function buildStyles(colors: AppColors) {
     badgeRow: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: SPACING.xs, marginTop: SPACING.xs },
     badge: { backgroundColor: `${BRAND.gold}1f`, paddingHorizontal: SPACING.md, paddingVertical: 2, borderRadius: RADIUS.full },
     badgeText: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 12, lineHeight: 18, color: gold(colors) },
-    userUnit: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: gold(colors), fontWeight: "600" },
     section: {
       backgroundColor: colors.card,
       borderRadius: RADIUS.lg,
@@ -101,14 +102,6 @@ function buildStyles(colors: AppColors) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       minHeight: 52,
-      gap: SPACING.md,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
-    },
-    unitRow: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      minHeight: 48,
       gap: SPACING.md,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
@@ -254,8 +247,7 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 
   return (
     <>
-      <UserAvatar name={user.name} unitNumber={getPrimaryUnit(user)} email={user.email} role={user.role} styles={styles} />
-      <UnitsSection units={getUnitLabels(user)} primary={getPrimaryUnit(user)} styles={styles} />
+      <UserAvatar user={user} unitNumber={getPrimaryUnit(user)} styles={styles} colors={colors} />
       <ManagementSection role={user.role} styles={styles} colors={colors} />
       <AccountSection role={user.role} styles={styles} colors={colors} />
       {biometric.ready && biometric.isAvailable && (
@@ -275,20 +267,36 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
 
 // ─── Section sub-components ───────────────────────────────────────────────────
 
-function UserAvatar({ name, unitNumber, email, role, styles }: { name: string; unitNumber?: string; email: string; role: string; styles: AppStyles }) {
+/** The profile card opens Edit profile. */
+function UserAvatar({ user, unitNumber, styles, colors }: {
+  user: { name: string; email: string; role: string; avatarUrl?: string | null };
+  unitNumber?: string;
+  styles: AppStyles;
+  colors: AppColors;
+}) {
   const { t } = useTranslation();
-  const initial = (name.trim().charAt(0) || "?").toUpperCase();
+  const initial = (user.name.trim().charAt(0) || "?").toUpperCase();
   return (
-    <View style={styles.avatarCard}>
+    <Pressable
+      style={({ pressed }) => [styles.avatarCard, pressed && styles.pressed]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push("/(tabs)/profile/edit");
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${user.name}, ${t("profile.edit")}`}
+    >
       <View style={styles.avatar}>
-        <Text style={styles.avatarInitial}>{initial}</Text>
+        {user.avatarUrl
+          ? <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} contentFit="cover" accessibilityIgnoresInvertColors />
+          : <Text style={styles.avatarInitial}>{initial}</Text>}
       </View>
       <View style={styles.avatarInfo}>
-        <Text style={styles.userName} numberOfLines={1}>{name}</Text>
-        <Text style={styles.userEmail} numberOfLines={1}>{email}</Text>
+        <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
+        <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
         <View style={styles.badgeRow}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{t(roleLabelKey(role))}</Text>
+            <Text style={styles.badgeText}>{t(roleLabelKey(user.role))}</Text>
           </View>
           {unitNumber
             ? (
@@ -299,24 +307,8 @@ function UserAvatar({ name, unitNumber, email, role, styles }: { name: string; u
             : null}
         </View>
       </View>
-    </View>
-  );
-}
-
-function UnitsSection({ units, primary, styles }: { units: string[]; primary: string; styles: AppStyles }) {
-  const { t } = useTranslation();
-  if (units.length < 2)
-    return null;
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t("profile.my_units")}</Text>
-      {units.map(label => (
-        <View key={label} style={styles.unitRow}>
-          <Text style={styles.rowLabel}>{t("checkout.unit", { number: label })}</Text>
-          {label === primary ? <Text style={styles.userUnit}>{t("profile.primary_unit")}</Text> : null}
-        </View>
-      ))}
-    </View>
+      <CaretRight mirrored={I18nManager.isRTL} size={16} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -345,6 +337,12 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
+      <ProfileRow icon={<IdentificationCard size={20} color={g} />} label={t("profile.personal_details")} onPress={() => router.push("/(tabs)/profile/edit")} styles={styles} colors={colors} />
+      {/* Flats belong to residents only. */}
+      {role === "RESIDENT" && (
+        <ProfileRow icon={<House size={20} color={g} />} label={t("profile.my_units")} onPress={() => router.push("/(tabs)/profile/flats")} styles={styles} colors={colors} />
+      )}
+      <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
       <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
