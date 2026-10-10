@@ -29,6 +29,18 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-10-10 — MOBILE GUEST LANDING + GUEST LOCKDOWN (live in git at `a5f8e8c`; needs EAS build)
+>
+> Signed-out Home tab = RN mirror of web `/` (`apps/mobile/src/components/teaser/*`, `GuestLanding`); signed-in Home
+> unchanged (`components/home/resident-home.tsx`, byte-equal move). Guests: Orders/Community tabs, header cart, bell,
+> shop add-to-cart + cart bar open the Coming soon sheet (`useGuestGate`, `lib/coming-soon.ts`,
+> `components/auth/coming-soon-sheet.tsx`); Directory + Profile open; guest deep links to Community/checkout → Home.
+> Register CTA opens web `/register-unit` in the system browser (`lib/web-links.ts`; no expo-web-browser). Commits
+> `99f8ef5 6eb72dc 12c5ba4 35b856c e05a25f 16a9d86 2d59332 c319737 a5f8e8c`. Owner decisions: Community stays locked
+> for guests (no read-only); signed-in users keep every feature. Kept on purpose: guest Orders/notifications deep
+> links still go to login; Android back can leave the sheet open (same as AuthWallSheet). No OTA (`expo-updates` not
+> installed) → JS changes need an EAS build; build only on Ahmed's "build".
+
 > ### 2026-10-08 — MOBILE DEVICE AUDIT + FIX BATCHES (NEWEST — READ FIRST)
 >
 > **State:** `main` pushed through `b0c77e8` (Render + Vercel live: password rule for existing owners `ea6e861`/
