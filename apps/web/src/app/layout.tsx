@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Alexandria, Cormorant_Garamond } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Analytics } from '@vercel/analytics/next';
 
 import { AuthProvider } from '@/lib/auth/AuthProvider';
@@ -32,18 +32,32 @@ const websiteJsonLd = {
   },
 };
 
+// Self-hosted (OFL, see src/fonts/OFL-*.txt) so `next build` never downloads from Google Fonts.
 // Alexandria — bilingual functional UI with a geometric, architectural character.
-const alexandria = Alexandria({
-  variable: '--font-family-sans',
-  subsets: ['latin', 'arabic'],
-  weight: ['400', '500', '600', '700'],
+// Variable wght 400-700, split by script (same subsets as the Google CSS) and joined by
+// unicode-range (literals: next/font needs static values) through the `--font-family-sans` stack in globals.css.
+const alexandriaArabic = localFont({
+  variable: '--font-alexandria-arabic',
+  src: [{ path: '../fonts/Alexandria-arabic.woff2', weight: '400 700', style: 'normal' }],
+  declarations: [{ prop: 'unicode-range', value: 'U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC' }],
+  display: 'swap',
+  fallback: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+});
+
+const alexandriaLatin = localFont({
+  variable: '--font-alexandria-latin',
+  src: [{ path: '../fonts/Alexandria-latin.woff2', weight: '400 700', style: 'normal' }],
+  declarations: [{ prop: 'unicode-range', value: 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD' }],
+  display: 'swap',
+  fallback: ['ui-sans-serif', 'system-ui', 'sans-serif'],
 });
 
 // Cormorant Garamond — English display/hero only. Never functional UI, never Arabic.
-const cormorantGaramond = Cormorant_Garamond({
+const cormorantGaramond = localFont({
   variable: '--font-family-display',
-  subsets: ['latin'],
-  weight: '700',
+  src: [{ path: '../fonts/CormorantGaramond-700-latin.woff2', weight: '700', style: 'normal' }],
+  display: 'swap',
+  fallback: ['Georgia', 'serif'],
 });
 
 export const metadata: Metadata = {
@@ -118,7 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="ar"
       dir="rtl"
-      className={`${alexandria.variable} ${cormorantGaramond.variable}`}
+      className={`${alexandriaLatin.variable} ${alexandriaArabic.variable} ${cormorantGaramond.variable}`}
       suppressHydrationWarning
     >
       <head>
