@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Animated, Easing, I18nManager, StyleSheet, Text, View } from "react-native";
 
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { RADIUS, SPACING } from "@/theme/tokens";
 
 import { TEASER_TYPE } from "./teaser-type";
@@ -46,9 +47,10 @@ export function TeaserTicker() {
 function TickerTrack({ labels }: { labels: string[] }) {
   const [shift] = React.useState(() => new Animated.Value(0));
   const [copyWidth, setCopyWidth] = React.useState(0);
+  const screenActive = useScreenActive();
 
   React.useEffect(() => {
-    if (!copyWidth)
+    if (!copyWidth || !screenActive)
       return;
     shift.setValue(0);
     const loop = Animated.loop(
@@ -61,7 +63,7 @@ function TickerTrack({ labels }: { labels: string[] }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [copyWidth, shift]);
+  }, [copyWidth, shift, screenActive]);
 
   // RTL lays the copies out from the right, so the track travels the other way.
   const direction = I18nManager.isRTL ? 1 : -1;

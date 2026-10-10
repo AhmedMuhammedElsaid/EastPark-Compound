@@ -7,6 +7,7 @@ import { GuestLanding } from "./guest-landing";
 const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), navigate: jest.fn() } }));
+jest.mock("@react-navigation/native", () => ({ useIsFocused: jest.fn(() => true) }));
 jest.mock("expo-haptics", () => ({ impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: "light" } }));
 jest.mock("react-native-flash-message", () => ({ showMessage: jest.fn() }));
 jest.mock("react-i18next", () => ({ useTranslation: jest.fn(() => ({ t: (k: string) => k, i18n: { language: "en" } })) }));

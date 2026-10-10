@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { BRAND, RADIUS, SPACING } from "@/theme/tokens";
 
 import { SealedHint, SoonPill } from "./soon-pill";
@@ -24,15 +25,16 @@ export function OrderTrackingPreview() {
   const { t } = useTranslation();
   const palette = useTeaserPalette();
   const reduced = useReducedMotion();
+  const screenActive = useScreenActive();
   const [step, setStep] = React.useState(STATIC_STEP);
   const active = reduced ? STATIC_STEP : step;
 
   React.useEffect(() => {
-    if (reduced)
+    if (reduced || !screenActive)
       return;
     const id = setInterval(() => setStep(current => (current + 1) % STEPS.length), STEP_MS);
     return () => clearInterval(id);
-  }, [reduced]);
+  }, [reduced, screenActive]);
 
   return (
     <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
