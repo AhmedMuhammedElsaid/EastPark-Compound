@@ -39,13 +39,18 @@ jest.mock("@/services/api/auth", () => ({
   },
   revokeRefreshToken: jest.fn(async () => {}),
 }));
-jest.mock("@/services/api/client", () => jest.requireActual("@/services/api/secure-keys"));
+const mockWaitForRefreshToSettle = jest.fn(async () => {});
+jest.mock("@/services/api/client", () => ({
+  ...jest.requireActual("@/services/api/secure-keys"),
+  waitForRefreshToSettle: () => mockWaitForRefreshToSettle(),
+}));
 jest.mock("@/services/api/users", () => ({ usersApi: { getProfile: (...args: unknown[]) => mockGetProfile(...args) } }));
 jest.mock("@/services/push", () => ({ clearRegisteredPushToken: jest.fn(), registerPushToken: jest.fn() }));
 jest.mock("@/services/query/client", () => ({ queryClient: { clear: jest.fn() } }));
 jest.mock("@/services/socket/client", () => ({ disconnectSocket: jest.fn() }));
 
 const { rehydrateSession } = require("@/lib/hooks/use-auth-rehydration");
+const { withAuthStorageLock } = require("@/services/api/session-epoch");
 const { signInWithKeptBiometricSession } = require("./session");
 
 const owner = { id: "u1", email: "OWNER@example.com", name: "O", role: "RESIDENT" };
@@ -76,6 +81,8 @@ beforeEach(() => {
   mockLogout.mockResolvedValue({});
   mockGetProfile.mockReset();
   mockReplace.mockReset();
+  mockWaitForRefreshToSettle.mockReset();
+  mockWaitForRefreshToSettle.mockResolvedValue(undefined);
 });
 
 describe("biometric sign-in (RW-5b)", () => {
@@ -226,6 +233,59 @@ describe("biometric sign-in (RW-5b)", () => {
     await expect(signInWithKeptBiometricSession()).resolves.toBe("no_kept_session");
     expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBeUndefined();
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("biometric sign-in right after a sign-out with a refresh in flight (L1)", () => {
+  // The signed-out session's refresh already spent "kept-refresh"; the server
+  // only accepts the token that refresh rotated to.
+  function serverAcceptsOnlyTheSwappedToken() {
+    mockRefresh.mockImplementation(async (token: string) => {
+      if (token !== "swapped-refresh")
+        throw httpError(401);
+      return rotated();
+    });
+    mockGetProfile.mockResolvedValue({ data: { data: owner } });
+  }
+
+  /** Mirrors client.ts settleStaleRefresh: swaps the rotated token in under the storage lock. */
+  function staleRefreshSwap(): Promise<void> {
+    return withAuthStorageLock(async () => {
+      await Promise.resolve();
+      if (mockSecureStore[SECURE_KEY_REFRESH] === "kept-refresh")
+        mockSecureStore[SECURE_KEY_REFRESH] = "swapped-refresh";
+    });
+  }
+
+  it("waits for the in-flight refresh and sends the token it swapped in", async () => {
+    serverAcceptsOnlyTheSwappedToken();
+    let settle: () => void = () => {};
+    const inFlight = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    mockWaitForRefreshToSettle.mockImplementation(() => inFlight);
+
+    const result = signInWithKeptBiometricSession();
+    await new Promise(r => setTimeout(r, 0));
+    expect(mockRefresh).not.toHaveBeenCalled();
+    await staleRefreshSwap();
+    settle();
+
+    await expect(result).resolves.toBe("signed_in");
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockRefresh).toHaveBeenCalledWith("swapped-refresh");
+    expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBe("1");
+    expect(mockSecureStore[SECURE_KEY_BIOMETRIC_EMAIL]).toBe("owner@example.com");
+  });
+
+  it("reads the kept token under the storage lock, after a swap that is still writing", async () => {
+    serverAcceptsOnlyTheSwappedToken();
+    const swap = staleRefreshSwap();
+
+    await expect(signInWithKeptBiometricSession()).resolves.toBe("signed_in");
+    await swap;
+    expect(mockRefresh).toHaveBeenCalledWith("swapped-refresh");
+    expect(mockSecureStore[SECURE_KEY_BIOMETRIC_ENABLED]).toBe("1");
   });
 });
 

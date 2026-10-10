@@ -3,7 +3,7 @@ import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from "ax
 import axios, { AxiosError } from "axios";
 
 import { revokeRefreshToken } from "@/services/api/auth";
-import { client, injectStore, isRefreshExemptUrl, setSessionExpiredHandler } from "@/services/api/client";
+import { client, injectStore, isRefreshExemptUrl, setSessionExpiredHandler, waitForRefreshToSettle } from "@/services/api/client";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
 import { bumpSessionEpoch, withAuthStorageLock } from "@/services/api/session-epoch";
 
@@ -537,6 +537,38 @@ describe("sign-out / sign-in while a refresh is in flight", () => {
     expect(mockSecureStore[SECURE_KEY_ACCESS]).toBe("b-access");
     expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("b-refresh-2");
     expect(logoutCalls().map(c => c[1])).toEqual([{ refreshToken: "refresh-2" }]);
+  });
+
+  it("waitForRefreshToSettle resolves only after a stale refresh swapped in the biometric-kept token", async () => {
+    await expect(waitForRefreshToSettle()).resolves.toBeUndefined();
+
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+    await signOutLocally({ keepRefreshToken: true });
+
+    let settled = false;
+    const waiting = waitForRefreshToSettle().then(() => {
+      settled = true;
+    });
+    await tick();
+    expect(settled).toBe(false);
+
+    releaseRefresh({ tokens: { accessToken: "new-access", refreshToken: "refresh-2" } });
+    await waiting;
+    expect(mockSecureStore[SECURE_KEY_REFRESH]).toBe("refresh-2");
+    await pending;
+  });
+
+  it("waitForRefreshToSettle resolves (never rejects) when the in-flight refresh fails", async () => {
+    const pending = client.get("/orders").catch(e => e);
+    await tick();
+    await signOutLocally({ keepRefreshToken: true });
+
+    const waiting = waitForRefreshToSettle();
+    releaseRefresh({ status: 401 });
+
+    await expect(waiting).resolves.toBeUndefined();
+    await pending;
   });
 
   it("a 401 for a request sent by an ended session is not refreshed or replayed", async () => {

@@ -266,6 +266,19 @@ export function refreshAccessToken(): Promise<string> {
   return refreshPromise;
 }
 
+/**
+ * Resolves once no token refresh is in flight, whether it succeeded or failed,
+ * including one started by a session that has just ended. By then a stale
+ * refresh has already settled its rotated pair under the auth-storage lock
+ * (swapped it in for a biometric-kept refresh token, or revoked it).
+ */
+export async function waitForRefreshToSettle(): Promise<void> {
+  // The `finally` that clears `refreshPromise` has run once it settles; loop
+  // in case another refresh started meanwhile.
+  for (let pending = refreshPromise; pending; pending = refreshPromise)
+    await pending.catch(() => {});
+}
+
 /** The current session's in-flight refresh, if any. */
 function currentRefresh(): Promise<string> | null {
   return refreshPromise && refreshEpoch === getSessionEpoch() ? refreshPromise : null;

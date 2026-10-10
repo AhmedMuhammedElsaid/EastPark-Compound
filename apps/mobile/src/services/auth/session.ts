@@ -16,6 +16,7 @@ import {
 } from "@/lib/biometric-binding";
 import { deleteSecureItem, getSecureItem, setSecureItem } from "@/lib/secure-storage";
 import { authApi, revokeRefreshToken } from "@/services/api/auth";
+import { waitForRefreshToSettle } from "@/services/api/client";
 import { SECURE_KEY_ACCESS, SECURE_KEY_REFRESH } from "@/services/api/secure-keys";
 import { bumpSessionEpoch, withAuthStorageLock } from "@/services/api/session-epoch";
 import { usersApi } from "@/services/api/users";
@@ -218,7 +219,11 @@ async function forgetDeadKeptSession(): Promise<void> {
 export async function signInWithKeptBiometricSession(): Promise<BiometricSignInResult> {
   if (isSignedIn())
     return "aborted";
-  const keptRefresh = await getSecureItem(SECURE_KEY_REFRESH);
+  // A refresh still in flight from the session that just signed out may be
+  // spending the kept token right now: wait for it, then read the kept token
+  // under the storage lock, so the rotated token it swapped in is the one sent.
+  await waitForRefreshToSettle();
+  const keptRefresh = await withAuthStorageLock(() => getSecureItem(SECURE_KEY_REFRESH));
   if (!keptRefresh) {
     await forgetDeadKeptSession();
     return "no_kept_session";
