@@ -203,7 +203,6 @@ function EditProfileForm({ profile, styles, colors }: { profile: LoadedProfile; 
             ltr
             keyboardType="phone-pad"
             autoComplete="tel"
-            placeholder="+20 10 1234 5678"
           />
           <Text style={styles.hint}>{t("profile.phone_hint")}</Text>
           <View>

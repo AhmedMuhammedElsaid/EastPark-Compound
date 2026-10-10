@@ -337,7 +337,7 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.account")}</Text>
-      <ProfileRow icon={<IdentificationCard size={20} color={g} />} label={t("profile.personal_details")} onPress={() => router.push("/(tabs)/profile/edit")} styles={styles} colors={colors} />
+      <ProfileRow icon={<IdentificationCard size={20} color={g} />} label={t("profile.edit")} onPress={() => router.push("/(tabs)/profile/edit")} styles={styles} colors={colors} />
       {/* Flats belong to residents only. */}
       {role === "RESIDENT" && (
         <ProfileRow icon={<House size={20} color={g} />} label={t("profile.my_units")} onPress={() => router.push("/(tabs)/profile/flats")} styles={styles} colors={colors} />
