@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { GoldButton } from "@/components/auth/gold-button";
 import { LandingButton } from "@/components/teaser/landing-button";
 import { closeComingSoon, useComingSoonState } from "@/lib/coming-soon";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -59,7 +58,7 @@ export function ComingSoonSheet() {
           {feature ? t(`home.teaser.popup_${feature}`) : t("access.coming_soon_body")}
         </Text>
         <View style={styles.actions}>
-          <GoldButton label={t("access.coming_soon_dismiss")} onPress={closeComingSoon} variant="filled" />
+          <LandingButton label={t("access.coming_soon_dismiss")} onPress={closeComingSoon} fullWidth />
           <LandingButton label={t("landing.sign_in_cta")} onPress={handleSignIn} variant="outline" fullWidth />
         </View>
       </BottomSheetView>
