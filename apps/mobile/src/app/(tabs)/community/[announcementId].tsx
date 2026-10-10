@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { COMMENT_ERROR_KEYS, pickErrorKey } from "@/lib/api-error";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { displayUserName } from "@/lib/user-name";
 import { openDocument } from "@/lib/utils";
 import { communityApi } from "@/services/api/community";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
@@ -206,13 +207,15 @@ function CommentsSection({ comments, styles }: { comments: Comment[]; styles: an
 }
 
 function CommentRow({ comment, styles }: { comment: Comment; styles: any }) {
+  const { t } = useTranslation();
+  const name = displayUserName(comment.user?.name, t("common.deleted_user"));
   return (
     <View style={styles.commentRow}>
       <View style={styles.commentAvatar}>
-        <Text style={styles.commentAvatarText}>{(comment.user?.name ?? "?").charAt(0).toUpperCase()}</Text>
+        <Text style={styles.commentAvatarText}>{(name || "?").charAt(0).toUpperCase()}</Text>
       </View>
       <View style={styles.commentContent}>
-        <Text style={styles.commentName}>{comment.user?.name ?? ""}</Text>
+        <Text style={styles.commentName}>{name}</Text>
         <Text style={styles.commentBody}>{comment.body}</Text>
       </View>
     </View>

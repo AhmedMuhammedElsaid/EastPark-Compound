@@ -22,6 +22,7 @@ import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cartAddBlock, cartAddBlockKey } from "@/lib/order-limits";
+import { displayUserName } from "@/lib/user-name";
 import { openWhatsAppChat, toWhatsAppDigits } from "@/lib/whatsapp";
 import { DAY_KEYS, dayKeyFor, formatClockTime, hasSchedule, isShopOpenNow } from "@/lib/working-hours";
 import { getAllSavedShopIds, shopsApi } from "@/services/api/shops";
@@ -923,6 +924,7 @@ function ProductRow({ product, isAr, shopId, shopName, shopNameAr, styles, color
 }
 
 function ReviewRow({ review, isAr, styles, colors }: { review: Review; isAr: boolean; styles: Styles; colors: Colors }) {
+  const { t } = useTranslation();
   const date = new Date(review.createdAt);
   const dateLabel = Number.isNaN(date.getTime())
     ? null
@@ -930,7 +932,7 @@ function ReviewRow({ review, isAr, styles, colors }: { review: Review; isAr: boo
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
-        <Text style={styles.reviewerName} numberOfLines={1}>{review.user.name}</Text>
+        <Text style={styles.reviewerName} numberOfLines={1}>{displayUserName(review.user.name, t("common.deleted_user"))}</Text>
         <View style={styles.reviewStars} accessibilityLabel={formatRating(review.rating)}>
           {[0, 1, 2, 3, 4].map(i => (
             <Star
