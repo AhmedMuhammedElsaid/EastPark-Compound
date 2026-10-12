@@ -42,6 +42,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
+  // OTA: a JS-only fix ships with `eas update --channel <profile>`. The fingerprint policy ties each
+  // update to the native code it was built against, so a binary never receives an incompatible bundle.
+  runtimeVersion: { policy: "fingerprint" },
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+  },
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: false,
