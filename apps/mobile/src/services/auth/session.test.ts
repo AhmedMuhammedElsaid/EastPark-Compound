@@ -62,11 +62,11 @@ describe("getPostLoginRoute", () => {
   it("sends each role to its home", () => {
     expect(getPostLoginRoute("RESIDENT", null)).toBe(DEFAULT_HOME_ROUTE);
     expect(getPostLoginRoute("MERCHANT", null)).toBe("/(merchant)/dashboard");
-    expect(getPostLoginRoute("ADMIN", null)).toBe("/(admin)");
+    expect(getPostLoginRoute("ADMIN", null)).toBe(DEFAULT_HOME_ROUTE);
   });
 
   it("sends SUPER_ADMIN to the admin home", () => {
-    expect(getPostLoginRoute("SUPER_ADMIN", undefined)).toBe("/(admin)");
+    expect(getPostLoginRoute("SUPER_ADMIN", undefined)).toBe(DEFAULT_HOME_ROUTE);
   });
 
   it("falls back to the default home without a role", () => {
@@ -75,7 +75,7 @@ describe("getPostLoginRoute", () => {
 
   it("prefers a pending redirect except for auth routes", () => {
     expect(getPostLoginRoute("SUPER_ADMIN", "/(tabs)/orders")).toBe("/(tabs)/orders");
-    expect(getPostLoginRoute("SUPER_ADMIN", "/(auth)/login")).toBe("/(admin)");
+    expect(getPostLoginRoute("SUPER_ADMIN", "/(auth)/login")).toBe(DEFAULT_HOME_ROUTE);
   });
 });
 

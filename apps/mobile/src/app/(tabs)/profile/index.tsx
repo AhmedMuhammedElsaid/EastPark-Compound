@@ -323,7 +323,7 @@ function ManagementSection({ role, styles, colors }: { role: string; styles: App
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t("profile.management")}</Text>
       {admin && (
-        <ProfileRow icon={<ShieldCheck size={20} color={g} />} label={t("profile.admin_dashboard")} onPress={() => router.push("/(admin)")} styles={styles} colors={colors} />
+        <ProfileRow icon={<ShieldCheck size={20} color={g} />} label={t("profile.admin_dashboard")} onPress={() => router.push("/(admin)/overview")} styles={styles} colors={colors} />
       )}
       {role === "MERCHANT" && (
         <ProfileRow icon={<Storefront size={20} color={g} />} label={t("profile.merchant_dashboard")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />

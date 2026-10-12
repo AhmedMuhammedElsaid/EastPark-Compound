@@ -31,8 +31,8 @@ export const DEFAULT_HOME_ROUTE = "/(tabs)";
 const ROLE_HOME_ROUTE: Record<AuthUser["role"], string> = {
   RESIDENT: DEFAULT_HOME_ROUTE,
   MERCHANT: "/(merchant)/dashboard",
-  ADMIN: "/(admin)",
-  SUPER_ADMIN: "/(admin)",
+  ADMIN: DEFAULT_HOME_ROUTE,
+  SUPER_ADMIN: DEFAULT_HOME_ROUTE,
 };
 
 /**
