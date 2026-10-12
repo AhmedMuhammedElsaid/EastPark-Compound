@@ -930,3 +930,11 @@ Gates (from `apps/mobile`, full gate after every finding; RW-3 was committed aft
 - RW-12 -> `3234ab0`. The cancel-order confirm reads "إلغاء هذا الطلب؟" with "تراجع" / "Keep order" vs the destructive
   "إلغاء الطلب". It is still a native dialog.
 - RW-13: skipped. Latin digits in product names/descriptions are shop content (seed data), not code.
+
+## Merchant walk — DEFERRED (2026-10-12)
+
+Owner decision: skip for now, do it later (preferably on the v8 build). Ready to go:
+- Prod test accounts `ahmed.admin@`, `ahmed.merchant@`, `ahmed.resider@eastpark.com` (resident flat QA-0-1); logins in root `.env` `WALK_*`.
+- Test shop "Test Shop — QA" (`cmv2hplle0001hm018cqagrih`, WhatsApp +201000000000) with 3 products (25.50 / 60.00 / 145.75). Don't create another.
+- To do: merchant dashboard, menu CRUD, shop profile, orders; one resident COD order advanced to DELIVERED; RW-10 retest; English pass.
+- The 2026-10-10 attempt stopped at the phone's lock screen; unlock it and turn on Stay awake first. Soft-delete the test shop afterwards.
