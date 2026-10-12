@@ -121,7 +121,13 @@ export function Footer() {
                   <MapPin className="size-4 shrink-0" aria-hidden="true" /><span>{t('footer.eastpark_location')}</span>
                 </a>
               </div>
-              <p className="mt-5 text-caption text-muted-foreground lg:mt-2">
+              <Link
+                href="/privacy"
+                className="mt-3 inline-flex min-h-11 items-center text-body text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 motion-reduce:transition-none"
+              >
+                {t('footer.privacy')}
+              </Link>
+              <p className="mt-2 text-caption text-muted-foreground lg:mt-1">
                 © {new Date().getFullYear()} {t('nav.brand')}
               </p>
             </div>

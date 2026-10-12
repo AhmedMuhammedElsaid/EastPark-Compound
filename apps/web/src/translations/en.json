@@ -1295,6 +1295,7 @@
     "github": "GitHub",
     "portfolio": "Portfolio",
     "company_location": "Company location",
-    "eastpark_location": "EastPark Compound location"
+    "eastpark_location": "EastPark Compound location",
+    "privacy": "Privacy policy"
   }
 }

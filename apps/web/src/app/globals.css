@@ -835,3 +835,9 @@ button:disabled {
     box-shadow: 0 2px 12px rgba(184, 150, 106, 0.20);
   }
 }
+
+/* Privacy policy: both languages are server-rendered; show the one matching the page language. */
+html[lang='en'] .privacy-doc-ar,
+html:not([lang='en']) .privacy-doc-en {
+  display: none;
+}

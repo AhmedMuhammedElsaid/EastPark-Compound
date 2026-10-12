@@ -4,6 +4,7 @@ import type { ProfileFormInput } from '@/lib/validation/profile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Globe2, House, LogOut, Moon, ShieldCheck, Sun, Trash2, Upload, UserRound } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -322,6 +323,7 @@ export function ProfileManager() {
               <button type="button" onClick={() => void logout()} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border px-4 text-[length:var(--text-button)] font-bold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">
                 <LogOut aria-hidden="true" className="size-4.5" />{t('auth.logout')}
               </button>
+              <Link href="/privacy" className="mt-3 inline-flex min-h-11 items-center text-[length:var(--text-body)] text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500">{t('footer.privacy')}</Link>
             </section>
           </aside>
         </div>
