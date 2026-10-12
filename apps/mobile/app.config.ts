@@ -42,9 +42,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
-  // OTA: a JS-only fix ships with `eas update --channel <profile>`. The fingerprint policy ties each
-  // update to the native code it was built against, so a binary never receives an incompatible bundle.
-  runtimeVersion: { policy: "fingerprint" },
+  // OTA: a JS-only fix ships with `eas update --channel <profile>`. An update only reaches binaries with the
+  // same app version, so bump `version` (package.json / EXPO_PUBLIC_VERSION) whenever native code changes.
+  // The fingerprint policy was tried and rejected: EAS compares it with a local calculation that fails here
+  // (pnpm workspace, expo-updates not resolvable locally), which aborts the build in "Configure expo-updates".
+  runtimeVersion: { policy: "appVersion" },
   updates: {
     url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
   },

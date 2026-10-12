@@ -45,11 +45,12 @@ The parent repository has a deferred pnpm workspace experiment and private `pack
 package. This mobile repository remains independently installable and does not consume it. Read
 parent `restructure.md` before changing workspace resolution.
 
-> **OTA updates are configured (2026-10-12).** `expo-updates ~29.0.20`, `runtimeVersion: { policy: "fingerprint" }`
+> **OTA updates are configured (2026-10-12).** `expo-updates ~29.0.20`, `runtimeVersion: { policy: "appVersion" }`
 > and `updates.url` in `app.config.ts`; one `channel` per `eas.json` build profile (`production`, `preview`,
 > `development`). Ship a JS-only fix with `eas update --channel <profile> --environment <profile>` (the
 > `EXPO_PUBLIC_*` values come from the environment). Anything that changes native code (a new native module,
-> permissions, `app.config.ts` plugins, SDK bump) changes the fingerprint and needs a new EAS build; ask the owner
+> permissions, `app.config.ts` plugins, SDK bump) needs a new EAS build AND an app `version` bump (an update only
+> reaches binaries with the same version; `fingerprint` was tried and breaks the EAS build here); ask the owner
 > before every build. The first build with `expo-updates` embedded is required before any update can reach a device.
 
 ✅ **2026-09-30 production integration update:**
