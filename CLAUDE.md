@@ -29,6 +29,21 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 
 ## Current Status
 
+> ### 2026-10-12 — STORE-PUBLISH PREP, LAUNCH FIX, OTA, PRIVACY POLICY (NEWEST; 5 commits local, NOT pushed)
+>
+> `ab5c30d` web `/privacy` (bilingual, one content module `apps/web/src/content/privacy-policy.ts`; store URL
+> `https://eastpark-web-app.vercel.app/privacy` after deploy) · `10da397` mobile privacy row (Profile + guest landing) ·
+> `1479c9e` **launch fix**: `(admin)/index` and `(tabs)/index` both resolved to `/`, the admin guard sent every signed-out
+> launch to login so the guest landing never showed; dashboard is now `(admin)/overview`, admin sign-in lands on Home,
+> test `apps/mobile/src/lib/route-collisions.test.ts` · `a4db141` + `ce9304a` **OTA**: `expo-updates ~29.0.20`,
+> `runtimeVersion: appVersion` (fingerprint aborts the EAS build here), channel per `eas.json` profile; bump `version` on
+> native changes. EAS v11 `f70cef70` (preview, `ce9304a`) installed on the A72, not yet verified on device.
+> **Prod DB (run by Ahmed):** `seedshot_*` demo rows seeded for screenshots — MUST be cleaned up after capture (cleanup
+> steps in memory `eastpark-store-publish-2026-10-12`); `Test Shop — QA` soft-deleted; Adam Cafe renamed Mood Cafe.
+> **Pending:** final Play screenshots (1080x2160, Arabic) → `~/Downloads/EastPark-Play-Screenshots`; push + deploy web;
+> Apple/Play setup needs Ahmed's ASC Apple ID, Team ID, Play service-account JSON (outside repo), live-app identifiers
+> (`eas.json` `submit.production` still empty); privacy-policy open questions (entity/address, deletion, Brevo, regions).
+
 > ### 2026-10-10 — MOBILE GUEST LANDING + GUEST LOCKDOWN (live in git at `a5f8e8c`; needs EAS build)
 >
 > Signed-out Home tab = RN mirror of web `/` (`apps/mobile/src/components/teaser/*`, `GuestLanding`); signed-in Home
