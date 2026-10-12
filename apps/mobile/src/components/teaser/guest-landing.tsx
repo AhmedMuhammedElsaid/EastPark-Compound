@@ -1,12 +1,12 @@
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/ui/app-header";
-import { openRegisterUnit } from "@/lib/web-links";
+import { openPrivacyPolicy, openRegisterUnit } from "@/lib/web-links";
 import { SEMANTIC, SPACING } from "@/theme/tokens";
 
 import { ClosingCta } from "./closing-cta";
@@ -15,6 +15,7 @@ import { LandingButton } from "./landing-button";
 import { SealedVault } from "./sealed-vault";
 import { TeaserHero } from "./teaser-hero";
 import { TeaserTicker } from "./teaser-ticker";
+import { TEASER_TYPE } from "./teaser-type";
 import { useTeaserPalette } from "./use-teaser-palette";
 
 /**
@@ -29,6 +30,9 @@ export function GuestLanding() {
 
   const register = React.useCallback(() => {
     openRegisterUnit(() => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }));
+  }, [t]);
+  const openPrivacy = React.useCallback(() => {
+    openPrivacyPolicy(() => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }));
   }, [t]);
   const signIn = React.useCallback(() => router.push("/(auth)/login"), []);
 
@@ -67,6 +71,9 @@ export function GuestLanding() {
           }}
         />
         <ClosingCta onRegister={register} onSignIn={signIn} />
+        <Pressable onPress={openPrivacy} accessibilityRole="link" accessibilityLabel={t("profile.privacy_policy")} style={styles.privacyLink}>
+          <Text style={[TEASER_TYPE.label, styles.privacyText, { color: palette.textMuted }]}>{t("profile.privacy_policy")}</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -75,5 +82,7 @@ export function GuestLanding() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: SPACING.base, paddingBottom: SPACING["3xl"], gap: SPACING["2xl"] },
+  privacyLink: { minHeight: 48, alignItems: "center", justifyContent: "center" },
+  privacyText: { textDecorationLine: "underline" },
   actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING.md },
 });

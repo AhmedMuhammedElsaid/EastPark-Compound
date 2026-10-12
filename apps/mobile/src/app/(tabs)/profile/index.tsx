@@ -21,6 +21,7 @@ import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
 import { isAdminRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit } from "@/lib/units";
+import { openPrivacyPolicy } from "@/lib/web-links";
 import { usersApi } from "@/services/api/users";
 import { endDeletedAccountSession, signOut } from "@/services/auth/session";
 import { useAppSelector } from "@/store";
@@ -357,6 +358,7 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
   const { t } = useTranslation();
   const { language, setLanguage } = useSelectedLanguage();
   const { selectedTheme, setSelectedTheme } = useSelectedTheme();
+  const colors = useAppColors();
 
   const themes: { value: ColorSchemeType; label: string }[] = [
     { value: "dark", label: t("profile.dark") },
@@ -416,6 +418,13 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
           </Pressable>
         ))}
       </View>
+      <ProfileRow
+        icon={<ShieldCheck size={20} color={gold(colors)} />}
+        label={t("profile.privacy_policy")}
+        onPress={() => openPrivacyPolicy(() => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }))}
+        styles={styles}
+        colors={colors}
+      />
     </View>
   );
 }

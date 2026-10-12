@@ -1,6 +1,6 @@
 import { Linking } from "react-native";
 
-import { openRegisterUnit, REGISTER_UNIT_URL } from "@/lib/web-links";
+import { openPrivacyPolicy, openRegisterUnit, PRIVACY_POLICY_URL, REGISTER_UNIT_URL } from "@/lib/web-links";
 
 describe("web links", () => {
   afterEach(() => jest.restoreAllMocks());
@@ -26,5 +26,16 @@ describe("web links", () => {
     await openRegisterUnit(onError);
 
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("points the privacy policy at the public web page and opens it in the browser", async () => {
+    expect(PRIVACY_POLICY_URL).toBe("https://eastpark-web-app.vercel.app/privacy");
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    const onError = jest.fn();
+
+    await openPrivacyPolicy(onError);
+
+    expect(openURL).toHaveBeenCalledWith(PRIVACY_POLICY_URL);
+    expect(onError).not.toHaveBeenCalled();
   });
 });
