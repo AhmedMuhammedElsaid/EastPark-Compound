@@ -16,6 +16,11 @@ const ANY_USER: readonly Role[] = [
 ];
 const STAFF: readonly Role[] = [Role.MERCHANT, Role.ADMIN, Role.SUPER_ADMIN];
 const ADMIN_ONLY: readonly Role[] = [Role.ADMIN, Role.SUPER_ADMIN];
+const LISTING_UPLOADERS: readonly Role[] = [
+    Role.RESIDENT,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+];
 
 /** `POST /uploads/image?purpose=` — default `avatar` keeps old clients working. */
 export const IMAGE_UPLOAD_PURPOSES = {
@@ -25,6 +30,10 @@ export const IMAGE_UPLOAD_PURPOSES = {
     product: { store: ENUM_FILE_STORE.PRODUCT_IMAGES, roles: STAFF },
     candidate: { store: ENUM_FILE_STORE.CANDIDATE_PHOTOS, roles: ADMIN_ONLY },
     announcement: { store: ENUM_FILE_STORE.ANNOUNCEMENTS, roles: ADMIN_ONLY },
+    listing: {
+        store: ENUM_FILE_STORE.LISTING_PHOTOS,
+        roles: LISTING_UPLOADERS,
+    },
 } as const satisfies Record<string, PurposeRule>;
 
 /** `POST /uploads/pdf?purpose=` — the whole route is ADMIN-only. */
