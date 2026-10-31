@@ -1,10 +1,11 @@
+import type { Href } from "expo-router";
 import type { ColorSchemeType } from "@/lib/hooks/use-selected-theme";
 import type { LIGHT } from "@/theme/tokens";
 import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Bell, CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { Bell, Buildings, CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -342,6 +343,10 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
       {/* Flats belong to residents only. */}
       {role === "RESIDENT" && (
         <ProfileRow icon={<House size={20} color={g} />} label={t("profile.my_units")} onPress={() => router.push("/(tabs)/profile/flats")} styles={styles} colors={colors} />
+      )}
+      {/* Only residents list flats for sale or rent. */}
+      {role === "RESIDENT" && (
+        <ProfileRow icon={<Buildings size={20} color={g} />} label={t("listings.my_listings")} onPress={() => router.push("/(tabs)/profile/listings" as Href)} styles={styles} colors={colors} />
       )}
       <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
       <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />

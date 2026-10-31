@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { ChatCircle, CheckSquare, FileText, Megaphone, Package, Storefront } from "phosphor-react-native";
+import { Buildings, ChatCircle, CheckSquare, FileText, Megaphone, Package, Storefront } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -12,6 +12,7 @@ import { AppHeader } from "@/components/ui/app-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
+import { canBrowseListings } from "@/lib/listings-access";
 import { communityApi } from "@/services/api/community";
 import { shopsApi } from "@/services/api/shops";
 import { useAppSelector } from "@/store";
@@ -206,8 +207,11 @@ const QUICK_ACTIONS: Array<{
   labelKey: string;
   route: string;
   authRequired?: boolean;
+  /** Hidden for roles the backend refuses (merchants cannot browse listings). */
+  visible?: (role: string | undefined) => boolean;
 }> = [
   { renderIcon: color => <Storefront size={24} color={color} />, labelKey: "home.shops", route: "/(tabs)/directory" },
+  { renderIcon: color => <Buildings size={24} color={color} />, labelKey: "listings.title", route: "/(tabs)/flats", visible: canBrowseListings },
   { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community" },
   { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false },
   { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders", authRequired: true },
@@ -218,9 +222,10 @@ const QUICK_ACTIONS: Array<{
 function QuickActionsGrid({ requireAuthNavigation, colors }: { requireAuthNavigation: (href: string) => void; colors: any }) {
   const { t } = useTranslation();
   const styles = useStyles();
+  const role = useAppSelector(s => s.auth.user?.role);
   return (
     <View style={styles.quickGrid}>
-      {QUICK_ACTIONS.map(action => (
+      {QUICK_ACTIONS.filter(action => !action.visible || action.visible(role)).map(action => (
         <Pressable
           key={action.route}
           style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}

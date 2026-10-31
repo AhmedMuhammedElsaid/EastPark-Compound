@@ -1,7 +1,7 @@
 import * as React from "react";
 
 /** Which phase copy the Coming soon sheet shows (mirrors the web `ComingSoonFeature`). */
-export type ComingSoonFeature = "market" | "governance" | "community";
+export type ComingSoonFeature = "market" | "governance" | "community" | "listings";
 
 type ComingSoonState = { visible: boolean; feature?: ComingSoonFeature };
 

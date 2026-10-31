@@ -130,10 +130,12 @@ describe("notification routing", () => {
     expect(getNotificationHref("ANNOUNCEMENT", { referenceId: "a1" })).toBe("/(tabs)/community/a1");
     expect(getNotificationHref("POLL", { pollId: "p1" })).toBe("/(tabs)/community/governance/polls/p1");
     expect(getNotificationHref("ELECTION", { electionId: "e1" })).toBe("/(tabs)/community/governance/elections/e1");
+    expect(getNotificationHref("LISTING_UPDATE", { listingId: "l1", status: "APPROVED" })).toBe("/(tabs)/profile/listings/l1");
   });
 
   it("infers the type from a push payload without `type`", () => {
     expect(getNotificationHref(undefined, { orderId: "o9", status: "PLACED" })).toBe("/(tabs)/orders/o9");
+    expect(getNotificationHref(undefined, { type: "LISTING_UPDATE", listingId: "l9", status: "EXPIRED" })).toBe("/(tabs)/profile/listings/l9");
   });
 
   it("returns null for unknown or empty payloads", () => {
