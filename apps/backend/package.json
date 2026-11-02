@@ -27,6 +27,7 @@
         "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
         "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
         "test": "jest --config test/jest.json --coverage --runInBand --passWithNoTests --forceExit",
+        "test:db": "jest --config test/jest.db.json --runInBand --forceExit",
         "test:watch": "jest --config test/jest.json --no-coverage --watch",
         "test:ci": "jest --config test/jest.json --coverage --ci --runInBand --forceExit",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config test/jest.json --runInBand",
