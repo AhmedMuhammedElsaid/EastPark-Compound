@@ -64,6 +64,21 @@ export function financeErrorKey(error: unknown): string {
   return "common.error";
 }
 
+/**
+ * A `POST /finance/payments` failure that does not prove the payment was NOT
+ * recorded: no response, a timeout (408), a throttle (429) or any 5xx (gateway,
+ * cold start). The same body must be re-sent with the same key.
+ */
+export function isUnconfirmedPaymentError(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  return status === undefined || status === 408 || status === 429 || status >= 500;
+}
+
+/** Today's payments that count as money collected: uncleared and bounced cheques are left out. */
+export function isCollectedPayment(payment: { status: string; chequeState: string }): boolean {
+  return payment.status === "POSTED" && payment.chequeState !== "PENDING_CLEARANCE" && payment.chequeState !== "BOUNCED";
+}
+
 export function isDuplicateReferenceError(error: unknown): boolean {
   return getErrorStatus(error) === 409 && getErrorCode(error) === DUPLICATE_REFERENCE_CODE;
 }

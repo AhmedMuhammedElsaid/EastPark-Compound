@@ -109,3 +109,18 @@ Independent review; no source changed.
 No High findings. Two Medium mobile issues (stale money screens after a payment; editable/rebuilt
 unconfirmed retry) should be fixed before the accountant pilot; the Lows are hardening. Web slice is
 sound.
+
+## Resolution (mobile)
+
+- M1 fixed: a recorded payment and apply-credit invalidate `financeKeys.all`; Today and the flat ledger refetch on refocus (`use-refocus-effect.ts`); test in `use-payment-submission.test.tsx`.
+- M2 fixed: an unconfirmed attempt re-sends its first body (`receivedAt`, `force`, `attachmentPath`) and key verbatim, the form is locked, "Discard and edit" and "Start a new payment" (after `idempotencyConflict`) first warn to check the flat's recent payments; hook + screen tests.
+- L3 fixed: "Collected today" leaves out `PENDING_CLEARANCE`/`BOUNCED` cheques (hint says so, AR+EN); the Cairo date is recomputed on focus.
+- L4 fixed: `isUnconfirmedPaymentError` treats no response, 408, 429 and 5xx on payment create as unconfirmed (`retry_safe` copy, locked retry).
+- L5 (mobile) fixed: leaving the screen while unconfirmed (or after a conflict) asks for confirmation and points to the flat's recent payments; the pending attempt stays in memory only.
+
+## Resolution (web, 2026-11-02, `3ba205c`)
+
+- L1 fixed: `financeIdSchema` rejects dot-only ids; two route tests.
+- L2 fixed: web slip cap 4.4 MB (envelope headroom), hint says to photograph larger slips with the mobile app.
+- L5 (web) fixed: `beforeunload` warning while a payment is unconfirmed; banner says to check the flat's recent payments before recording again.
+

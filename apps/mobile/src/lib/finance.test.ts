@@ -2,7 +2,9 @@ import {
   amountToString,
   cairoToday,
   financeErrorKey,
+  isCollectedPayment,
   isDuplicateReferenceError,
+  isUnconfirmedPaymentError,
   newIdempotencyKey,
   normalizeFlatQuery,
   shiftDate,
@@ -50,6 +52,24 @@ describe("financeErrorKey", () => {
   it("recognises the duplicate-reference warning", () => {
     expect(isDuplicateReferenceError(httpError(409, "finance.error.duplicateReference"))).toBe(true);
     expect(isDuplicateReferenceError(httpError(409, "finance.error.periodClosed"))).toBe(false);
+  });
+
+  it("treats no response, 408, 429 and 5xx on payment create as unconfirmed", () => {
+    expect(isUnconfirmedPaymentError(new Error("offline"))).toBe(true);
+    for (const status of [408, 429, 500, 502, 503, 504])
+      expect(isUnconfirmedPaymentError(httpError(status))).toBe(true);
+    for (const status of [400, 403, 404, 409, 422])
+      expect(isUnconfirmedPaymentError(httpError(status))).toBe(false);
+  });
+});
+
+describe("isCollectedPayment", () => {
+  it("leaves uncleared and bounced cheques out of today's collection", () => {
+    expect(isCollectedPayment({ status: "POSTED", chequeState: "NOT_APPLICABLE" })).toBe(true);
+    expect(isCollectedPayment({ status: "POSTED", chequeState: "CLEARED" })).toBe(true);
+    expect(isCollectedPayment({ status: "POSTED", chequeState: "PENDING_CLEARANCE" })).toBe(false);
+    expect(isCollectedPayment({ status: "POSTED", chequeState: "BOUNCED" })).toBe(false);
+    expect(isCollectedPayment({ status: "VOID", chequeState: "NOT_APPLICABLE" })).toBe(false);
   });
 });
 

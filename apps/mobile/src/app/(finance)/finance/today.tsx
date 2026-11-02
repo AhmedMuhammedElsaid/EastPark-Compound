@@ -10,9 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoldButton } from "@/components/auth/gold-button";
 import { FinanceFlatRowSkeleton, StatTile, StatTileSkeleton } from "@/components/finance/finance-ui";
+import { useRefocusEffect } from "@/components/finance/use-refocus-effect";
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { cairoToday, formatFinanceDate } from "@/lib/finance";
+import { cairoToday, formatFinanceDate, isCollectedPayment } from "@/lib/finance";
 import { formatCurrency } from "@/lib/format-currency";
 import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -69,10 +70,18 @@ export default function FinanceToday() {
   const insets = useSafeAreaInsets();
   const { styles, colors } = useStyles();
   const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
-  const today = React.useMemo(() => cairoToday(), []);
+  // Recomputed on every focus, so a screen left open past Cairo midnight moves to the new day.
+  const [today, setToday] = React.useState(() => cairoToday());
 
   const posted = useFinancePayments({ from: today, to: today, status: "POSTED" }, TODAY_LIMIT);
+  // A new Cairo day changes the query key (fresh fetch); the same day refetches.
+  useRefocusEffect(() => {
+    const now = cairoToday();
+    return now === today ? void posted.refetch() : setToday(now);
+  });
+
   const items = posted.data?.items ?? [];
+  const collected = items.filter(isCollectedPayment);
   const pendingCheques = items.filter(p => p.chequeState === "PENDING_CLEARANCE").length;
   const more = posted.data?.hasMore ? "+" : "";
 
@@ -91,8 +100,8 @@ export default function FinanceToday() {
               <>
                 <StatTile
                   label={t("finance.collected_today")}
-                  value={`${formatCurrency(sumAmounts(items))}${more}`}
-                  hint={t("finance.payments_count", { total: `${formatNumber(items.length, i18n.language)}${more}` })}
+                  value={`${formatCurrency(sumAmounts(collected))}${more}`}
+                  hint={t("finance.collected_today_hint", { total: `${formatNumber(collected.length, i18n.language)}${more}` })}
                 />
                 <StatTile label={t("finance.pending_cheques")} value={`${formatNumber(pendingCheques, i18n.language)}${more}`} hint={t("finance.pending_cheques_hint")} />
               </>

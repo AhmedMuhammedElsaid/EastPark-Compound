@@ -1,7 +1,7 @@
 import type { Href } from "expo-router";
 import type { FinanceOpenCharge, FinancePayment } from "@/services/api/finance";
 import { FlashList } from "@shopify/flash-list";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { Phone } from "phosphor-react-native";
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoldButton } from "@/components/auth/gold-button";
 import { FinanceFlatRowSkeleton, OverdueBadge, StatTile, StatTileSkeleton } from "@/components/finance/finance-ui";
+import { useRefocusEffect } from "@/components/finance/use-refocus-effect";
 import { DetailErrorScreen } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { showConfirm } from "@/lib/confirm-dialog";
@@ -20,7 +21,7 @@ import { amountToString, balanceLabel, financeErrorKey, formatFinanceDate } from
 import { formatCurrency } from "@/lib/format-currency";
 import { formatNumber } from "@/lib/format-number";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
-import { financeApi, useFinanceFlat, useFinancePayments } from "@/services/api/finance";
+import { financeApi, financeKeys, useFinanceFlat, useFinancePayments } from "@/services/api/finance";
 import { BRAND, DARK, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 const RECENT_PAYMENTS = 10;
@@ -92,14 +93,21 @@ export default function FinanceFlatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flat = useFinanceFlat(id);
   const payments = useFinancePayments({ flatId: id }, RECENT_PAYMENTS, !!id);
+  const queryClient = useQueryClient();
+  // The ledger stays mounted under "Record payment": reload it whenever it is shown again.
+  useRefocusEffect(() => {
+    if (id) {
+      flat.refetch();
+      payments.refetch();
+    }
+  });
 
   const applyCredit = useMutation({
     mutationFn: (expectedCredit: string) => financeApi.applyCredit(id as string, expectedCredit).then(r => r.data.data),
     onSuccess: (result) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showMessage({ message: t("finance.credit_applied", { amount: formatCurrency(result.applied) }), type: "success", backgroundColor: SEMANTIC.success });
-      flat.refetch();
-      payments.refetch();
+      return queryClient.invalidateQueries({ queryKey: financeKeys.all });
     },
     onError: (error) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

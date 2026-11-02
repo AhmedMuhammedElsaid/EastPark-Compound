@@ -4,7 +4,7 @@ import type { FinanceFlatListItem, FinancePaymentInput, FinancePaymentMethod, Pa
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { Camera, Image as ImageIcon, MagnifyingGlass, WarningCircle, X } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +27,7 @@ import {
   financeErrorKey,
   isDuplicateReferenceError,
   isIdempotencyConflictError,
+  isUnconfirmedPaymentError,
   normalizeFlatQuery,
   shiftDate,
   toAmountString,
@@ -104,6 +105,32 @@ function useStyles() {
 type Styles = ReturnType<typeof useStyles>["styles"];
 type Colors = ReturnType<typeof useStyles>["colors"];
 
+/**
+ * Leaving while a payment is unconfirmed drops its in-memory key: warn first
+ * that it may already be recorded and the flat's recent payments must be checked.
+ */
+function useLeaveUnconfirmedGuard(active: boolean) {
+  const navigation = useNavigation();
+  const { t } = useTranslation();
+  React.useEffect(() => {
+    if (!active)
+      return;
+    return navigation.addListener("beforeRemove", (event) => {
+      event.preventDefault();
+      void showConfirm({
+        title: t("finance.leave_unconfirmed_title"),
+        message: t("finance.leave_unconfirmed_body"),
+        confirmLabel: t("finance.leave_anyway"),
+        cancelLabel: t("finance.stay"),
+        destructive: true,
+      }).then((confirmed) => {
+        if (confirmed)
+          navigation.dispatch(event.data.action);
+      });
+    });
+  }, [navigation, active, t]);
+}
+
 /** Record a payment (`/finance/payment/new?flatId=`): one idempotency key per submission, kept across retries. */
 // eslint-disable-next-line max-lines-per-function
 export default function NewPaymentScreen() {
@@ -129,6 +156,10 @@ export default function NewPaymentScreen() {
 
   const submission = usePaymentSubmission();
   const busy = submission.isPending;
+  const conflict = !!failure?.conflict;
+  // While the outcome is unconfirmed the sent body is re-sent verbatim, so the form is locked.
+  const locked = busy || submission.unconfirmed || conflict;
+  useLeaveUnconfirmedGuard(submission.unconfirmed || conflict);
 
   const presetFlat: SelectedFlat | null = preset.data && !presetDismissed
     ? { id: preset.data.id, label: preset.data.label, ownerName: preset.data.owner?.name ?? null, balance: preset.data.balance }
@@ -175,36 +206,88 @@ export default function NewPaymentScreen() {
     };
   }
 
+  const handlers = {
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: async (error: unknown) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (isDuplicateReferenceError(error)) {
+        const ok = await showConfirm({
+          title: t("finance.duplicate_title"),
+          message: t("finance.errors.duplicateReference"),
+          confirmLabel: t("finance.record_anyway"),
+        });
+        if (ok)
+          submit(true);
+        return;
+      }
+      if (!(error instanceof SlipUploadError) && isUnconfirmedPaymentError(error)) {
+        // The payment may or may not be recorded. Retrying is safe: same body, same key.
+        setFailure({ key: "finance.retry_safe", conflict: false });
+        return;
+      }
+      const source = error instanceof SlipUploadError ? error.original : error;
+      const key = error instanceof SlipUploadError && financeErrorKey(source) === "finance.errors.check_form"
+        ? "finance.errors.attachmentType"
+        : financeErrorKey(source);
+      setFailure({ key, conflict: isIdempotencyConflictError(error) });
+    },
+  };
+
   function submit(force = false) {
+    if (submission.pending()) {
+      retry();
+      return;
+    }
     setShowErrors(true);
     const input = buildInput(force);
     if (!input || busy)
       return;
     setFailure(null);
-    submission.mutate({ input, slip }, {
-      onSuccess: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      },
-      onError: async (error) => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        if (isDuplicateReferenceError(error)) {
-          const ok = await showConfirm({
-            title: t("finance.duplicate_title"),
-            message: t("finance.errors.duplicateReference"),
-            confirmLabel: t("finance.record_anyway"),
-          });
-          if (ok)
-            submit(true);
-          return;
-        }
-        const source = error instanceof SlipUploadError ? error.original : error;
-        const key = error instanceof SlipUploadError && financeErrorKey(source) === "finance.errors.check_form"
-          ? "finance.errors.attachmentType"
-          : financeErrorKey(source);
-        // No response: the payment may or may not be recorded. Retrying is safe (same key).
-        setFailure({ key: key === "errors.unreachable" ? "finance.retry_safe" : key, conflict: isIdempotencyConflictError(error) });
-      },
+    submission.submit({ input, slip }, handlers);
+  }
+
+  function retry() {
+    if (busy)
+      return;
+    setFailure(null);
+    submission.retry(handlers);
+  }
+
+  function pendingFlatId(): string | undefined {
+    return submission.pending()?.body.flatId ?? flat?.id;
+  }
+
+  function openRecentPayments() {
+    const id = pendingFlatId();
+    if (id)
+      router.push(`/finance/flats/${encodeURIComponent(id)}` as Href);
+  }
+
+  async function discardAndEdit() {
+    const ok = await showConfirm({
+      title: t("finance.discard_unconfirmed_title"),
+      message: t("finance.discard_unconfirmed_body"),
+      confirmLabel: t("finance.discard_and_edit"),
+      cancelLabel: t("finance.keep_waiting"),
+      destructive: true,
     });
+    if (!ok)
+      return;
+    submission.discard();
+    setFailure(null);
+  }
+
+  async function startNewAfterConflict() {
+    const ok = await showConfirm({
+      title: t("finance.start_new_title"),
+      message: t("finance.start_new_body"),
+      confirmLabel: t("finance.start_new_payment"),
+      destructive: true,
+    });
+    if (ok)
+      resetAll();
   }
 
   if (submission.data) {
@@ -235,7 +318,7 @@ export default function NewPaymentScreen() {
           loadingPreset={!!params.flatId && !presetDismissed && preset.isLoading}
           onSelect={setFlat}
           onClear={() => setFlat(null)}
-          disabled={busy}
+          disabled={locked}
           error={flatError}
           styles={styles}
           colors={colors}
@@ -246,7 +329,7 @@ export default function NewPaymentScreen() {
           <TextInput
             value={amount}
             onChangeText={setAmount}
-            editable={!busy}
+            editable={!locked}
             keyboardType="decimal-pad"
             placeholder="0.00"
             placeholderTextColor={colors.textMuted}
@@ -258,7 +341,7 @@ export default function NewPaymentScreen() {
           {amountError ? <Text style={styles.fieldError}>{amountError}</Text> : null}
           {flat && flat.balance > 0 && (
             <View style={styles.chips}>
-              <Chip label={t("finance.pay_full_balance", { amount: formatCurrency(flat.balance) })} active={amount === amountToString(flat.balance)} onPress={() => setAmount(amountToString(flat.balance))} disabled={busy} styles={styles} />
+              <Chip label={t("finance.pay_full_balance", { amount: formatCurrency(flat.balance) })} active={amount === amountToString(flat.balance)} onPress={() => setAmount(amountToString(flat.balance))} disabled={locked} styles={styles} />
             </View>
           )}
         </View>
@@ -267,7 +350,7 @@ export default function NewPaymentScreen() {
           <Text style={styles.label}>{t("finance.method")}</Text>
           <View style={styles.chips} accessibilityRole="radiogroup">
             {FINANCE_PAYMENT_METHODS.map(m => (
-              <Chip key={m} label={t(`finance.method_${m}`)} active={method === m} onPress={() => setMethod(m)} disabled={busy} styles={styles} radio />
+              <Chip key={m} label={t(`finance.method_${m}`)} active={method === m} onPress={() => setMethod(m)} disabled={locked} styles={styles} radio />
             ))}
           </View>
         </View>
@@ -278,7 +361,7 @@ export default function NewPaymentScreen() {
           value={reference}
           onChangeText={setReference}
           maxLength={100}
-          disabled={busy}
+          disabled={locked}
           styles={styles}
           colors={colors}
         />
@@ -286,8 +369,8 @@ export default function NewPaymentScreen() {
         <View style={styles.section}>
           <Text style={styles.label}>{t("finance.received_on")}</Text>
           <View style={styles.chips} accessibilityRole="radiogroup">
-            <Chip label={t("finance.today")} active={dateChoice === "today"} onPress={() => setDateChoice("today")} disabled={busy} styles={styles} radio />
-            <Chip label={t("finance.yesterday")} active={dateChoice === "yesterday"} onPress={() => setDateChoice("yesterday")} disabled={busy} styles={styles} radio />
+            <Chip label={t("finance.today")} active={dateChoice === "today"} onPress={() => setDateChoice("today")} disabled={locked} styles={styles} radio />
+            <Chip label={t("finance.yesterday")} active={dateChoice === "yesterday"} onPress={() => setDateChoice("yesterday")} disabled={locked} styles={styles} radio />
           </View>
           <Text style={styles.hint}>{t("finance.older_dates_hint")}</Text>
         </View>
@@ -296,24 +379,35 @@ export default function NewPaymentScreen() {
           <Text style={styles.label}>{t("finance.pay_for")}</Text>
           <View style={styles.chips} accessibilityRole="radiogroup">
             {PAY_FOR.map(p => (
-              <Chip key={p} label={t(`finance.pay_for_${p}`)} active={payFor === p} onPress={() => setPayFor(p)} disabled={busy} styles={styles} radio />
+              <Chip key={p} label={t(`finance.pay_for_${p}`)} active={payFor === p} onPress={() => setPayFor(p)} disabled={locked} styles={styles} radio />
             ))}
           </View>
           <Text style={styles.hint}>{t(`finance.pay_for_${payFor}_hint`)}</Text>
         </View>
 
-        <TextField label={t("finance.payer_name")} hint={t("common.optional")} value={payerName} onChangeText={setPayerName} maxLength={120} disabled={busy} styles={styles} colors={colors} />
-        <TextField label={t("finance.note")} hint={t("common.optional")} value={note} onChangeText={setNote} maxLength={500} multiline disabled={busy} styles={styles} colors={colors} />
+        <TextField label={t("finance.payer_name")} hint={t("common.optional")} value={payerName} onChangeText={setPayerName} maxLength={120} disabled={locked} styles={styles} colors={colors} />
+        <TextField label={t("finance.note")} hint={t("common.optional")} value={note} onChangeText={setNote} maxLength={500} multiline disabled={locked} styles={styles} colors={colors} />
 
-        <SlipField slip={slip} onChange={setSlip} disabled={busy} styles={styles} colors={colors} />
+        <SlipField slip={slip} onChange={setSlip} disabled={locked} styles={styles} colors={colors} />
 
         {failure && (
           <View style={styles.banner} accessibilityRole="alert" accessibilityLiveRegion="assertive">
             <WarningCircle size={20} color={DARK.text} />
             <View style={styles.bannerBody}>
               <Text style={styles.bannerText}>{t(failure.key as any)}</Text>
-              {failure.conflict && (
-                <Pressable style={styles.bannerAction} onPress={resetAll} accessibilityRole="button" accessibilityLabel={t("finance.start_new_payment")}>
+              {submission.unconfirmed && <Text style={styles.bannerText}>{t("finance.unconfirmed_locked")}</Text>}
+              {(submission.unconfirmed || conflict) && (
+                <Pressable style={styles.bannerAction} onPress={openRecentPayments} accessibilityRole="button" accessibilityLabel={t("finance.check_recent_payments")}>
+                  <Text style={styles.bannerActionText}>{t("finance.check_recent_payments")}</Text>
+                </Pressable>
+              )}
+              {submission.unconfirmed && !busy && (
+                <Pressable style={styles.bannerAction} onPress={discardAndEdit} accessibilityRole="button" accessibilityLabel={t("finance.discard_and_edit")}>
+                  <Text style={styles.bannerActionText}>{t("finance.discard_and_edit")}</Text>
+                </Pressable>
+              )}
+              {conflict && (
+                <Pressable style={styles.bannerAction} onPress={startNewAfterConflict} accessibilityRole="button" accessibilityLabel={t("finance.start_new_payment")}>
                   <Text style={styles.bannerActionText}>{t("finance.start_new_payment")}</Text>
                 </Pressable>
               )}
@@ -321,12 +415,14 @@ export default function NewPaymentScreen() {
           </View>
         )}
 
-        <GoldButton
-          label={failure ? t("finance.try_again") : t("finance.record_payment")}
-          onPress={() => submit()}
-          loading={busy}
-          disabled={busy}
-        />
+        {!conflict && (
+          <GoldButton
+            label={failure ? t("finance.try_again") : t("finance.record_payment")}
+            onPress={() => submit()}
+            loading={busy}
+            disabled={busy}
+          />
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
