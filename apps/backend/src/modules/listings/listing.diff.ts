@@ -77,7 +77,7 @@ export function normalizeFields(dto: {
     const description = dto.description?.trim();
     return {
         type: dto.type,
-        building: dto.building.trim(),
+        building: dto.building.trim().toUpperCase(),
         floor: dto.floor,
         flatNumber: dto.flatNumber,
         price: toMoneyNumber(dto.price),

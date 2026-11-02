@@ -146,6 +146,7 @@ describe('normalizeFields / toFields', () => {
             price: 100.004,
         });
         expect(out.building).toBe('A1');
+        expect(normalizeFields({ ...(body() as never), building: ' b2 ' }).building).toBe('B2');
         expect(out.description).toBeNull();
         expect(out.price).toBe(100);
     });
@@ -226,6 +227,12 @@ describe('ListingUpsertDto validation', () => {
         expect(dto.building).toBe('A1');
         expect(dto.contactPhone).toBe('01012345678');
         expect(dto.description).toBe('Nice flat');
+    });
+
+    it('upper-cases and trims the building in the DTO transform', async () => {
+        const dto = plainToInstance(ListingUpsertDto, body({ building: ' a1 ' }));
+        expect(await validate(dto)).toEqual([]);
+        expect(dto.building).toBe('A1');
     });
 
     it.each([

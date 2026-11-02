@@ -127,7 +127,7 @@ export class ListingsService {
     // ── Create / edit ─────────────────────────────────────────────────────────
 
     async create(dto: ListingUpsertDto, actor: IAuthUser): Promise<MyListingDto> {
-        await this.enforceCreateCap(actor.userId);
+        await this.assertUnderCreateCap(actor.userId);
 
         const fields = normalizeFields(dto);
         assertListingPhotos(this.config, fields.photos);
@@ -145,6 +145,8 @@ export class ListingsService {
                 },
                 include: WITH_OWNER,
             });
+            // Only a successful create counts toward the cap.
+            await this.countCreate(actor.userId);
             return toMyListingDto(row);
         } catch (error) {
             throw this.mapUnique(error);
@@ -232,20 +234,29 @@ export class ListingsService {
     /** APPROVED only: a fresh 60-day window, no re-review. */
     async renew(id: string, actor: IAuthUser): Promise<MyListingDto> {
         const current = await this.ownedOrThrow(id, actor);
-        return this.transition(current, [ListingStatus.APPROVED], {
-            expiresAt: new Date(Date.now() + LISTING_VALIDITY_MS),
-        });
+        return this.transition(
+            current,
+            [ListingStatus.APPROVED],
+            { expiresAt: new Date(Date.now() + LISTING_VALIDITY_MS) },
+            { expiresAt: { gt: new Date() } }
+        );
     }
 
     /** APPROVED only: SALE becomes SOLD, RENT becomes RENTED. */
     async close(id: string, actor: IAuthUser): Promise<MyListingDto> {
         const current = await this.ownedOrThrow(id, actor);
-        return this.transition(current, [ListingStatus.APPROVED], {
-            status:
-                current.type === ListingType.SALE
-                    ? ListingStatus.SOLD
-                    : ListingStatus.RENTED,
-        });
+        return this.transition(
+            current,
+            [ListingStatus.APPROVED],
+            {
+                status:
+                    current.type === ListingType.SALE
+                        ? ListingStatus.SOLD
+                        : ListingStatus.RENTED,
+            },
+            // Past `expiresAt` the hourly cron owns the row (-> EXPIRED).
+            { expiresAt: { gt: new Date() } }
+        );
     }
 
     /** PENDING / APPROVED / REJECTED. */
@@ -314,18 +325,20 @@ export class ListingsService {
 
     /**
      * Compare-and-set status change: applies `data` only while the row still has
-     * one of the `allowed` statuses, else 409 `listing.error.invalidStatus`.
+     * one of the `allowed` statuses (and matches `extraWhere`), else 409
+     * `listing.error.invalidStatus`.
      */
     private async transition(
         current: Listing,
         allowed: readonly ListingStatus[],
-        data: Prisma.ListingUpdateManyMutationInput
+        data: Prisma.ListingUpdateManyMutationInput,
+        extraWhere: Prisma.ListingWhereInput = {}
     ): Promise<MyListingDto> {
         if (!allowed.includes(current.status))
             throw new ConflictException('listing.error.invalidStatus');
 
         const claimed = await this.db.listing.updateMany({
-            where: { id: current.id, status: { in: [...allowed] } },
+            where: { id: current.id, status: { in: [...allowed] }, ...extraWhere },
             data,
         });
         if (claimed.count !== 1)
@@ -338,17 +351,30 @@ export class ListingsService {
         return toMyListingDto(row);
     }
 
-    /** 5 creates per user per hour; INCR-first so a burst cannot slip past. */
-    private async enforceCreateCap(userId: string): Promise<void> {
-        const attempts = await this.cache.incrWithTtl(
-            `listing-create:${userId}`,
-            LISTING_CREATE_WINDOW_SECONDS
-        );
-        if (attempts > LISTING_CREATE_LIMIT)
+    private createCapKey(userId: string): string {
+        return `listing-create:${userId}`;
+    }
+
+    /**
+     * 5 successful creates per user per hour. Read-only check before the work;
+     * the counter is bumped after the insert (`countCreate`), so failed
+     * attempts (409 / 400) never burn the quota. A small overshoot under
+     * concurrency is accepted.
+     */
+    private async assertUnderCreateCap(userId: string): Promise<void> {
+        const created = await this.cache.get<number>(this.createCapKey(userId));
+        if (Number(created ?? 0) >= LISTING_CREATE_LIMIT)
             throw new HttpException(
                 'listing.error.tooManyCreated',
                 HttpStatus.TOO_MANY_REQUESTS
             );
+    }
+
+    private async countCreate(userId: string): Promise<void> {
+        await this.cache.incrWithTtl(
+            this.createCapKey(userId),
+            LISTING_CREATE_WINDOW_SECONDS
+        );
     }
 
     private mapUnique(error: unknown): unknown {

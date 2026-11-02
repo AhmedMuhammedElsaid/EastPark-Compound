@@ -34,12 +34,18 @@ import { ListingNotifier } from './listing.notifier';
 import { findActiveListingForFlat } from './listing.queries';
 
 const ADMIN_INCLUDE = {
-    owner: { select: LISTING_ADMIN_OWNER_SELECT },
+    owner: { select: { ...LISTING_ADMIN_OWNER_SELECT, deletedAt: true } },
     _count: { select: { revisions: true } },
 } as const;
 
 type AdminRow = Listing & {
-    owner: { id: string; name: string; email: string; phone: string | null };
+    owner: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string | null;
+        deletedAt: Date | null;
+    };
     _count: { revisions: number };
 };
 
@@ -133,11 +139,16 @@ export class ListingsAdminService {
         return toListingPage(rows, limit, toRevisionDto);
     }
 
-    /** PENDING only. Re-checks the one-active-per-flat rule; fresh 60-day window. */
+    /** PENDING only, owner not soft-deleted. Re-checks the one-active-per-flat rule; fresh 60-day window. */
     async approve(id: string, actor: IAuthUser): Promise<AdminListingDto> {
         const current = await this.loadOrThrow(id);
         if (current.status !== ListingStatus.PENDING)
             throw new ConflictException('listing.error.invalidStatus');
+
+        // A soft-deleted owner's listing is never visible; approving it would
+        // only hold the flat for another 60 days.
+        if (current.owner.deletedAt)
+            throw new ConflictException('listing.error.ownerDeleted');
 
         if (await findActiveListingForFlat(this.db, current, current.id))
             throw new ConflictException('listing.error.unitAlreadyListed');

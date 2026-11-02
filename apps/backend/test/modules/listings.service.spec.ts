@@ -80,7 +80,10 @@ function build() {
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
         fn(db)
     );
-    const cache = { incrWithTtl: jest.fn().mockResolvedValue(1) };
+    const cache = {
+        get: jest.fn().mockResolvedValue(null),
+        incrWithTtl: jest.fn().mockResolvedValue(1),
+    };
     const notifier = { notify: jest.fn().mockResolvedValue(undefined) };
     const config = {
         getOrThrow: (key: string) =>
@@ -173,23 +176,60 @@ describe('ListingsService create', () => {
         }
     });
 
-    it('allows 5 creates per hour and answers 429 on the 6th', async () => {
+    it('allows 5 creates per hour and answers 429 once 5 have succeeded', async () => {
         const { db, cache, service } = build();
         db.listing.findFirst.mockResolvedValue(null);
         db.listing.create.mockResolvedValue(row());
 
-        cache.incrWithTtl.mockResolvedValue(5);
+        cache.get.mockResolvedValue(4);
         await expect(service.create(dto(), owner)).resolves.toBeDefined();
+        expect(cache.get).toHaveBeenCalledWith('listing-create:u1');
         expect(cache.incrWithTtl).toHaveBeenCalledWith(
             'listing-create:u1',
             3600
         );
 
-        cache.incrWithTtl.mockResolvedValue(6);
+        cache.incrWithTtl.mockClear();
+        db.listing.create.mockClear();
+        cache.get.mockResolvedValue(5);
         const error = await service.create(dto(), owner).catch(e => e);
         expect(error).toBeInstanceOf(HttpException);
         expect(error.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
         expect(error.message).toBe('listing.error.tooManyCreated');
+        expect(db.listing.create).not.toHaveBeenCalled();
+        expect(cache.incrWithTtl).not.toHaveBeenCalled();
+    });
+
+    it('failed attempts (409, 400, db error) do not count toward the cap', async () => {
+        const { db, cache, service } = build();
+
+        db.listing.findFirst.mockResolvedValueOnce({ id: 'other' });
+        await expect(service.create(dto(), owner)).rejects.toBeInstanceOf(
+            ConflictException
+        );
+
+        await expect(
+            service.create(dto({ photos: [] }), owner)
+        ).rejects.toBeInstanceOf(BadRequestException);
+
+        db.listing.findFirst.mockResolvedValueOnce(null);
+        db.listing.create.mockRejectedValueOnce({ code: 'P2002' });
+        await expect(service.create(dto(), owner)).rejects.toBeInstanceOf(
+            ConflictException
+        );
+
+        expect(cache.incrWithTtl).not.toHaveBeenCalled();
+    });
+
+    it('stores the building upper-cased and trimmed', async () => {
+        const { db, service } = build();
+        db.listing.findFirst.mockResolvedValue(null);
+        db.listing.create.mockResolvedValue(row());
+
+        await service.create(dto({ building: ' a1 ' }), owner);
+
+        expect(db.listing.create.mock.calls[0][0].data.building).toBe('A1');
+        expect(db.listing.findFirst.mock.calls[0][0].where.building).toBe('A1');
     });
 });
 
@@ -364,6 +404,46 @@ describe('ListingsService owner status machine', () => {
             }
         });
     }
+
+    it.each(['renew', 'close'] as const)(
+        '%s only matches a listing that has not expired yet',
+        async action => {
+            const { db, result } = run(action, ListingStatus.APPROVED);
+            await result;
+            expect(db.listing.updateMany.mock.calls[0][0].where).toEqual({
+                id: 'l1',
+                status: { in: [ListingStatus.APPROVED] },
+                expiresAt: { gt: expect.any(Date) },
+            });
+        }
+    );
+
+    it.each(['renew', 'close'] as const)(
+        '%s of an expired-but-not-yet-cronned listing answers 409',
+        async action => {
+            const { db, service } = build();
+            db.listing.findUnique.mockResolvedValue(
+                row({
+                    status: ListingStatus.APPROVED,
+                    expiresAt: new Date(Date.now() - 1000),
+                })
+            );
+            // The DB no longer matches expiresAt > now.
+            db.listing.updateMany.mockResolvedValue({ count: 0 });
+
+            await expect(service[action]('l1', owner)).rejects.toThrow(
+                new ConflictException('listing.error.invalidStatus')
+            );
+        }
+    );
+
+    it('withdraw does not filter on expiresAt', async () => {
+        const { db, result } = run('withdraw', ListingStatus.APPROVED);
+        await result;
+        expect(
+            db.listing.updateMany.mock.calls[0][0].where
+        ).not.toHaveProperty('expiresAt');
+    });
 
     it('renew extends the expiry by 60 days from now', async () => {
         const fixed = new Date('2026-11-01T00:00:00.000Z').getTime();

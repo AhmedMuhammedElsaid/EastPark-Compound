@@ -82,7 +82,10 @@ function build() {
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
         fn(db)
     );
-    const cache = { incrWithTtl: jest.fn().mockResolvedValue(1) };
+    const cache = {
+        get: jest.fn().mockResolvedValue(null),
+        incrWithTtl: jest.fn().mockResolvedValue(1),
+    };
     const notifier = { notify: jest.fn().mockResolvedValue(undefined) };
     const config = {
         getOrThrow: (key: string) =>

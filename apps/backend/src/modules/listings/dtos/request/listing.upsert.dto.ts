@@ -32,8 +32,13 @@ export class ListingUpsertDto {
     @IsEnum(ListingType)
     type: ListingType;
 
-    @ApiProperty({ example: 'A1', description: 'Typed by hand, trimmed, 1-10 chars' })
-    @Transform(trim)
+    @ApiProperty({
+        example: 'A1',
+        description: 'Typed by hand, trimmed and upper-cased, 1-10 chars',
+    })
+    @Transform(({ value }) =>
+        typeof value === 'string' ? value.trim().toUpperCase() : value
+    )
     @IsString()
     @IsNotEmpty()
     @MaxLength(LISTING_LIMITS.buildingMax)

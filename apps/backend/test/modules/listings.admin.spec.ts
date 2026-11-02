@@ -38,6 +38,7 @@ const row = (overrides: Record<string, unknown> = {}) => ({
         name: 'Sara',
         email: 'sara@example.com',
         phone: '01012345678',
+        deletedAt: null,
     },
     _count: { revisions: 2 },
     ...overrides,
@@ -116,6 +117,28 @@ describe('ListingsAdminService approve', () => {
             phone: '01012345678',
         });
         expect(out.revisionCount).toBe(2);
+    });
+
+    it('refuses to approve a listing whose owner is soft-deleted', async () => {
+        const { db, audit, notifier, service } = build();
+        db.listing.findUnique.mockResolvedValue(
+            row({
+                owner: {
+                    id: 'u1',
+                    name: 'Sara',
+                    email: 'sara@example.com',
+                    phone: null,
+                    deletedAt: new Date(),
+                },
+            })
+        );
+
+        await expect(service.approve('l1', admin)).rejects.toThrow(
+            new ConflictException('listing.error.ownerDeleted')
+        );
+        expect(db.listing.updateMany).not.toHaveBeenCalled();
+        expect(audit.record).not.toHaveBeenCalled();
+        expect(notifier.notify).not.toHaveBeenCalled();
     });
 
     it('re-checks one-active-per-flat and refuses when another listing holds it', async () => {

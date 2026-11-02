@@ -159,13 +159,14 @@ Every admin action writes an `AuditLog` row: `action` = `LISTING_APPROVED` | `LI
 |---|---|---|
 | 404 | `listing.error.notFound` | missing, not visible, or not the owner |
 | 409 | `listing.error.unitAlreadyListed` | another ACTIVE listing exists for the same flat (create, edit that changes the flat, approve). DB partial unique index enforces it; Prisma P2002 maps here. |
-| 409 | `listing.error.invalidStatus` | transition not allowed |
+| 409 | `listing.error.invalidStatus` | transition not allowed (also owner renew / close once `expiresAt` has passed but the cron has not yet marked it EXPIRED) |
+| 409 | `listing.error.ownerDeleted` | admin approve of a listing whose owner account is soft-deleted |
 | 400 | `listing.error.noChanges` | edit with nothing changed |
 | 400 | `listing.error.photosRequired` | 0 photos or more than 8 |
 | 400 | `file.error.urlNotStored` | a photo URL is not in our bucket (existing code) |
 | 400 | validation array | field rules (§2), standard `message[]` |
 
-Create is throttled: max 5 `POST /listings` per user per hour (returns the existing 429 shape).
+Create is throttled: max 5 successful `POST /listings` per user per hour (returns the existing 429 shape). Failed attempts (400 / 409) do not count. `building` is upper-cased server-side.
 
 ---
 

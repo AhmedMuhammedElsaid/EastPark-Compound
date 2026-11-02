@@ -11,6 +11,7 @@
     "error": {
         "notFound": "Listing not found",
         "unitAlreadyListed": "This flat already has an active listing",
+        "ownerDeleted": "The owner's account was deleted, so this listing cannot be approved",
         "invalidStatus": "This action is not allowed for the listing's current status",
         "noChanges": "Nothing was changed in the listing",
         "photosRequired": "A listing needs between 1 and 8 photos",
