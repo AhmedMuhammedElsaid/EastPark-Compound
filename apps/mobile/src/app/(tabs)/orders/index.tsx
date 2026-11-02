@@ -8,13 +8,13 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GoldButton } from "@/components/auth/gold-button";
-import { AppHeader } from "@/components/ui/app-header";
 import { ErrorState } from "@/components/ui/error-state";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useOriginBack } from "@/lib/hooks/use-origin-back";
 import { getOrderStatusAccent } from "@/lib/order-status-style";
 import { formatOrderNumber } from "@/lib/whatsapp";
 import { ordersApi } from "@/services/api/orders";
@@ -25,8 +25,6 @@ import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 function buildStyles(colors: ReturnType<typeof useAppColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.base, paddingBottom: SPACING.xs },
-    headerTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 24, lineHeight: 36, color: colors.text },
     loadingPad: { padding: SPACING.base },
     listContent: { padding: SPACING.base, paddingBottom: SPACING["2xl"] },
     card: {
@@ -100,10 +98,10 @@ type Colors = ReturnType<typeof useAppColors>;
 
 export default function OrdersScreen() {
   const { t, i18n } = useTranslation();
-  const insets = useSafeAreaInsets();
   const { styles, colors } = useStyles();
   const isAr = i18n.language === "ar";
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  const goBack = useOriginBack({ fallback: "profile", popFirst: false });
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isError, isLoading, isRefetching, refetch }
     = useInfiniteQuery<
@@ -124,11 +122,9 @@ export default function OrdersScreen() {
   const orders = data?.pages.flatMap(p => p.data.data.items).filter(Boolean) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <AppHeader />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle} accessibilityRole="header">{t("orders.title")}</Text>
-      </View>
+    <View style={styles.container}>
+      {/* Hidden tab: Back returns to where Orders was opened (Home tile) or Profile. Root of its stack, so no pop first. */}
+      <ScreenHeader title={t("orders.title")} onBack={goBack} />
 
       {!isAuthenticated
         ? <GuestOrders styles={styles} colors={colors} />

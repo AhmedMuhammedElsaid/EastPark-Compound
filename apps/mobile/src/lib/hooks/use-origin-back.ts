@@ -14,25 +14,37 @@ export function getOriginRoute(from: string | string[] | undefined): string | un
   return key && Object.hasOwn(ORIGIN_ROUTES, key) ? ORIGIN_ROUTES[key] : undefined;
 }
 
+export type OriginBackOptions = {
+  /**
+   * Origin used when there is no `?from=`. With a fallback the hook always
+   * returns a handler and always takes over hardware Back.
+   */
+  fallback?: "home" | "profile";
+  /** Pop this screen first (default true). False for the root screen of its own stack. */
+  popFirst?: boolean;
+};
+
 /**
- * Community sub-screens opened from another tab (Home quick actions, Profile
- * rows) are pushed onto the Community stack, so plain Back would land on the
- * Community feed. When the launcher passed `?from=home|profile`, this returns
- * a handler for the header Back and also takes over the hardware Back button
- * while the screen is focused. Undefined when there is no origin.
+ * Screens opened from another tab (Home quick actions, Profile rows) are
+ * pushed onto their own tab's stack, so plain Back would land on that tab's
+ * root. When the launcher passed `?from=home|profile` (or a `fallback` is
+ * given), this returns a handler for the header Back and also takes over the
+ * hardware Back button while the screen is focused. Undefined when there is
+ * no origin.
  */
-export function useOriginBack(): (() => void) | undefined {
+export function useOriginBack(options: OriginBackOptions = {}): (() => void) | undefined {
+  const { fallback, popFirst = true } = options;
   const { from } = useLocalSearchParams<{ from?: string }>();
-  const origin = getOriginRoute(from);
+  const origin = getOriginRoute(from) ?? (fallback ? ORIGIN_ROUTES[fallback] : undefined);
   const goOrigin = React.useCallback(() => {
     if (!origin)
       return;
-    // Pop this screen off the Community stack first so the Community tab
-    // shows its feed again next time, then return to the launching tab.
-    if (router.canGoBack())
+    // Pop this screen off its stack first so the tab shows its root again
+    // next time, then return to the launching tab.
+    if (popFirst && router.canGoBack())
       router.back();
     router.navigate(origin as never);
-  }, [origin]);
+  }, [origin, popFirst]);
 
   useFocusEffect(
     React.useCallback(() => {

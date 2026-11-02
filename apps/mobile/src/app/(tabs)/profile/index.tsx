@@ -349,7 +349,7 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
         <ProfileRow icon={<Buildings size={20} color={g} />} label={t("listings.my_listings")} onPress={() => router.push("/(tabs)/profile/listings" as Href)} styles={styles} colors={colors} />
       )}
       <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
-      <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders")} styles={styles} colors={colors} />
+      <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
       {role === "RESIDENT" && (
