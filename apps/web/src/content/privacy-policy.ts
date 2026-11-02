@@ -72,7 +72,7 @@ const en: PolicyDocument = {
         'What is recorded for each flat: the charges raised, the payments received (amount, date, method, reference and, for a cheque, its status), receipt numbers, any credit and the balance, and the ownership periods that show which account owned the flat, from when and until when.',
         'Data about other people: when someone other than the owner pays, the payer name written on the payment. Photos of payment slips or cheques may show names, bank names and account numbers.',
         'Audit: every finance entry and every opening of a payment slip or cheque photo is recorded together with the account that did it.',
-        'Corrections: a finance entry is never edited or deleted. A mistake is corrected with a reversing entry, so the history stays complete.',
+        'Corrections: the amount, date and flat of a finance entry are never changed and an entry is never deleted. A mistake is corrected with a reversing entry, so the history stays complete. Only a note, a reference or an attached photo can be updated, and that update is recorded in the audit log.',
       ],
     },
     {
@@ -145,7 +145,7 @@ const en: PolicyDocument = {
       items: [
         'Account, order, vote, review, comment and feedback data is kept while your account is active and afterwards as described below. We do not currently run an automatic job that permanently erases old records.',
         'When you delete your account, it is deactivated: you are signed out of every device, you can no longer sign in, your push token is removed, and your account is hidden from the app. The record is not erased immediately; it is held in an administrator recycle bin so that it can be restored if you ask. Your orders, votes, comments, reviews, feedback and audit entries are kept as they are, because other people and the compound rely on those records. Your email address stays reserved so it cannot be reused by a different account.',
-        'Compound account records (section 3) are kept for 7 years, then archived or deleted. Deleting your account ends your ownership period but does not remove these records, because they belong to the flat; they then show you as a former owner.',
+        'Compound account records (section 3) are kept for 7 years, then archived or deleted. Deleting your account ends your ownership period but does not remove these records, because they belong to the flat; they stay with the flat as the records of a former owner.',
         'Unit registration requests, including the optional national ID or passport number, are kept as an administrative record and are not automatically removed when an account is deleted.',
         'Short-lived data expires on its own: password reset tokens after 30 minutes, access tokens after 15 minutes, sign-in sessions after 7 days, and rate-limit counters after their window.',
         'You can ask us to permanently erase your data, see section 11. Some records may have to be kept where the law or an open dispute requires it, or may remain in backups for a limited time.',
@@ -170,7 +170,7 @@ const en: PolicyDocument = {
       ],
       items: [
         'Correct your data: edit your name, phone number, photo and other details in your profile.',
-        'Compound account records: you can ask to see the records about your flat and to have a mistake corrected. Corrections are made with reversing entries, not edits, and these records cannot be erased during the 7-year retention period.',
+        'Compound account records: you can ask to see the records about your flat and to have a mistake corrected. The correction is made with a reversing entry rather than by changing the original, and these records cannot be erased during the 7-year retention period.',
         'Delete your account: in the app or website open Profile and choose Delete account. A merchant who still owns a shop must first have the shop removed.',
         'Access, full erasure, restoring a deactivated account, or any other request: email us at ' +
           `${PRIVACY_CONTACT_EMAIL} from the email address on your account. We may ask you to confirm your identity before acting, and we will reply within a reasonable time.`,
@@ -255,7 +255,7 @@ const ar: PolicyDocument = {
         'ما يُسجَّل لكل شقة: المطالبات المقيّدة عليها، والمدفوعات المستلمة (المبلغ والتاريخ وطريقة الدفع والمرجع، وحالة الشيك إن كان الدفع بشيك)، وأرقام الإيصالات، وأي رصيد دائن والرصيد المستحق، وفترات الملكية التي تبيّن الحساب المالك للشقة ومن متى وإلى متى.',
         'بيانات أشخاص آخرين: إذا دفع شخص غير المالك يُسجَّل اسم الدافع كما ورد في الدفعة. وقد تظهر في صور إيصالات الدفع أو الشيكات أسماء وأسماء بنوك وأرقام حسابات.',
         'التدقيق: يُسجَّل كل قيد مالي وكل فتح لصورة إيصال دفع أو شيك مع الحساب الذي قام به.',
-        'التصحيح: لا يُعدَّل القيد المالي ولا يُحذف. يُصحَّح الخطأ بقيد عكسي حتى يبقى السجل كاملًا.',
+        'التصحيح: لا يُغيَّر مبلغ القيد المالي ولا تاريخه ولا الشقة المسجّل عليها، ولا يُحذف القيد أبدًا. يُصحَّح الخطأ بقيد عكسي حتى يبقى السجل كاملًا. ولا يمكن تحديث إلا الملاحظة أو المرجع أو الصورة المرفقة، ويُسجَّل هذا التحديث في سجل التدقيق.',
       ],
     },
     {
@@ -328,7 +328,7 @@ const ar: PolicyDocument = {
       items: [
         'تُحفظ بيانات الحساب والطلبات والأصوات والمراجعات والتعليقات والملاحظات ما دام حسابك نشطًا وبعد ذلك وفق ما يلي. لا يوجد حاليًا إجراء تلقائي يمسح السجلات القديمة نهائيًا.',
         'عند حذف حسابك يُعطَّل الحساب: يُسجَّل خروجك من كل الأجهزة ولا يمكنك الدخول مجددًا ويُزال رمز الإشعارات ويُخفى الحساب من التطبيق. لا يُمحى السجل فورًا بل يُحفظ في سلة محذوفات لدى المسؤولين ليمكن استرجاعه إذا طلبت ذلك. وتبقى طلباتك وأصواتك وتعليقاتك ومراجعاتك وملاحظاتك وإدخالات سجل التدقيق كما هي، لأن آخرين والمجمع يعتمدون على هذه السجلات. ويبقى بريدك الإلكتروني محجوزًا فلا يستخدمه حساب آخر.',
-        'تُحفظ سجلات حسابات المجمع (البند 3) لمدة 7 سنوات ثم تُؤرشف أو تُحذف. وحذف حسابك يُنهي فترة ملكيتك لكنه لا يزيل هذه السجلات لأنها تخص الشقة، وتظهر بعد ذلك باعتبارك مالكًا سابقًا.',
+        'تُحفظ سجلات حسابات المجمع (البند 3) لمدة 7 سنوات ثم تُؤرشف أو تُحذف. وحذف حسابك يُنهي فترة ملكيتك لكنه لا يزيل هذه السجلات لأنها تخص الشقة، وتبقى مع الشقة باعتبارها سجلات مالك سابق.',
         'تُحفظ طلبات تسجيل الوحدات، بما فيها رقم الهوية الوطنية أو جواز السفر الاختياري، كسجل إداري ولا تُزال تلقائيًا عند حذف الحساب.',
         'تنتهي البيانات قصيرة العمر من تلقاء نفسها: رموز إعادة تعيين كلمة المرور بعد 30 دقيقة ورموز الوصول بعد 15 دقيقة وجلسات الدخول بعد 7 أيام وعدّادات تحديد المعدل بعد انتهاء نافذتها.',
         'يمكنك أن تطلب محو بياناتك نهائيًا، راجع البند 11. وقد نضطر إلى الاحتفاظ ببعض السجلات إذا اقتضى القانون أو نزاع قائم ذلك، وقد تبقى في النسخ الاحتياطية لفترة محدودة.',
@@ -353,7 +353,7 @@ const ar: PolicyDocument = {
       ],
       items: [
         'تصحيح بياناتك: عدّل اسمك ورقم هاتفك وصورتك وبقية بياناتك من ملفك الشخصي.',
-        'سجلات حسابات المجمع: يمكنك طلب الاطلاع على سجلات شقتك وتصحيح أي خطأ فيها. يتم التصحيح بقيود عكسية لا بالتعديل، ولا يمكن محو هذه السجلات خلال مدة الاحتفاظ البالغة 7 سنوات.',
+        'سجلات حسابات المجمع: يمكنك طلب الاطلاع على سجلات شقتك وتصحيح أي خطأ فيها. يتم التصحيح بقيد عكسي بدلًا من تغيير القيد الأصلي، ولا يمكن محو هذه السجلات خلال مدة الاحتفاظ البالغة 7 سنوات.',
         'حذف حسابك: من التطبيق أو الموقع افتح الملف الشخصي واختر حذف الحساب. التاجر الذي ما زال يملك متجرًا يلزم أولًا إزالة المتجر.',
         'الاطلاع أو المحو الكامل أو استرجاع حساب معطّل أو أي طلب آخر: راسلنا على ' +
           `${PRIVACY_CONTACT_EMAIL} من البريد الإلكتروني المسجّل في حسابك. قد نطلب منك تأكيد هويتك قبل التنفيذ، وسنرد خلال مدة معقولة.`,
