@@ -205,6 +205,11 @@ describe('finance BFF route table', () => {
     const { GET, POST, NextRequest } = await financeRoute();
     expect((await GET(new NextRequest('https://web.test/api/finance/billing'), params('billing'))).status).toBe(404);
     expect((await GET(new NextRequest('https://web.test/api/finance/flats/..%2Fadmin'), params('flats', '../admin'))).status).toBe(404);
+    // Dot-only ids would be normalised away by fetch (`/payments/../void` → `/void`), review L1.
+    expect((await GET(new NextRequest('https://web.test/api/finance/flats/%2E%2E'), params('flats', '..'))).status).toBe(404);
+    expect(
+      (await POST(new NextRequest('https://web.test/api/finance/payments/%2E%2E/void', { method: 'POST', body: '{}' }), params('payments', '..', 'void'))).status,
+    ).toBe(404);
     expect((await POST(new NextRequest('https://web.test/api/finance/settings', { method: 'POST', body: '{}' }), params('settings'))).status).toBe(404);
     expect(backendCalls()).toEqual([]);
   });

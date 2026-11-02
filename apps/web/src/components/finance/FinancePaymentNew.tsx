@@ -39,8 +39,9 @@ import {
 type Mode = 'AUTO' | 'DEPOSIT' | 'EXPLICIT';
 type Slip = { status: 'idle' } | { status: 'uploading'; name: string } | { status: 'ready'; name: string; path: string };
 
-// The BFF (Vercel) caps request bodies at 4.5 MB; the backend allows photos to 5 MB, PDFs to 10 MB.
-const SLIP_MAX_BYTES = 4.5 * 1024 * 1024;
+// The BFF (Vercel) caps the whole request body at 4.5 MB; leave room for the multipart envelope.
+// The backend allows photos to 5 MB and PDFs to 10 MB, so larger slips go through the mobile app.
+const SLIP_MAX_BYTES = 4.4 * 1024 * 1024;
 const SLIP_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const ATTACHMENT_ERRORS = new Set(['finance.attachmentExpired', 'finance.attachmentMissing', 'finance.attachmentInvalid', 'finance.attachmentInUse']);
 
@@ -100,6 +101,18 @@ export function FinancePaymentNew({ initialFlatId }: { initialFlatId?: string })
     const timer = window.setTimeout(() => void pickFlat(initialFlatId), 0);
     return () => window.clearTimeout(timer);
   }, [initialFlatId, pickFlat]);
+
+  // Review L5: the idempotency key lives only in this page. While a payment may already be recorded,
+  // ask before the tab is closed or reloaded; the unconfirmed banner says to check recent payments.
+  React.useEffect(() => {
+    if (!unconfirmed) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unconfirmed]);
 
   const parsedAmount = parseAmount(amount);
   const amountCents = parsedAmount.ok ? parsedAmount.cents : 0;

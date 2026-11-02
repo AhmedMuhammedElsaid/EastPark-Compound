@@ -57,8 +57,8 @@ export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
 
 // ---- request (BFF) -------------------------------------------------------------------------
 
-/** Flat, charge and payment ids (`flat_A1-3-2`, cuids). */
-export const financeIdSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/);
+/** Flat, charge and payment ids (`flat_A1-3-2`, cuids). Dot-only ids (`.`, `..`) are path segments, not ids. */
+export const financeIdSchema = z.string().regex(/^(?!\.+$)[A-Za-z0-9_.-]{1,64}$/);
 /** Plain decimal string; the backend owns precision and range (its errors carry the reason). */
 export const decimalStringSchema = z.string().trim().regex(/^\d{1,12}(\.\d{1,6})?$/);
 export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
