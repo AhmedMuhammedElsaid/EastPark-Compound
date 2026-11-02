@@ -436,6 +436,9 @@ ALTER TABLE "payment_allocations" ADD CONSTRAINT "payment_allocations_amount_pos
 ALTER TABLE "fund_entries" ADD CONSTRAINT "fund_entries_amount_positive" CHECK ("amount" > 0);
 ALTER TABLE "billing_runs" ADD CONSTRAINT "billing_runs_amount_positive" CHECK ("amount" > 0);
 ALTER TABLE "fee_schedules" ADD CONSTRAINT "fee_schedules_amount_positive" CHECK ("amount" > 0);
+-- An ownership period never ends before it starts (toDate = fromDate is the empty
+-- period a same-day re-key leaves behind).
+ALTER TABLE "flat_ownerships" ADD CONSTRAINT "flat_ownerships_dates_ordered" CHECK ("toDate" IS NULL OR "toDate" >= "fromDate");
 
 -- Partial unique indexes. Prisma cannot model them: never let a generated diff drop
 -- them (see the WARNING comments above the models in schema.prisma).

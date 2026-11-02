@@ -210,6 +210,12 @@ describeDb('finance_foundations migration (real Postgres)', () => {
             ).status
         ).toBe(0);
         expect(open('o3').status).toBe(0);
+        // A period may be empty (toDate = fromDate) but never inverted.
+        expect(
+            db.exec(
+                `UPDATE "flat_ownerships" SET "toDate" = CURRENT_DATE - 1 WHERE id = 'o1'`
+            ).stderr
+        ).toMatch(/flat_ownerships_dates_ordered/);
         const pay = db.exec(
             `INSERT INTO "payments" ("id","receiptNo","amount","method","requestKey","requestHash","receivedAt","flatId","createdById")
              VALUES ('p1','R-2026-000001',0,'CASH','k','h',CURRENT_DATE,'${flat}','u1')`

@@ -134,6 +134,8 @@ describe('finance_foundations migration (file-level)', () => {
             'payments',
             'payment_allocations',
             'fund_entries',
+            'billing_runs',
+            'fee_schedules',
         ]) {
             expect(code).toMatch(
                 new RegExp(
@@ -141,6 +143,12 @@ describe('finance_foundations migration (file-level)', () => {
                 )
             );
         }
+    });
+
+    it('refuses an ownership period that ends before it starts', () => {
+        expect(code).toContain(
+            'ALTER TABLE "flat_ownerships" ADD CONSTRAINT "flat_ownerships_dates_ordered" CHECK ("toDate" IS NULL OR "toDate" >= "fromDate")'
+        );
     });
 
     it('asserts 690 flats and aborts on resident_units collisions, notice only for unknown keys', () => {

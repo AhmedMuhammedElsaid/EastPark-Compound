@@ -57,8 +57,9 @@ export class ResidentUnitsService {
     ) {}
 
     /**
-     * Every unit whose key normalises to `flat` (building/floor trimmed and
-     * upper-cased, flat number trimmed, same as `normaliseFlatKey`). Matching on
+     * Every unit whose key normalises to `flat` (building/floor trimmed of
+     * space/tab/CR/LF and upper-cased, flat number trimmed, the same expression
+     * as the finance migration and `check-flat-keys.sql`). Matching on
      * the normalised form, not the exact text, lets a stored `a1` / `A1 ` row
      * count as the holder of `A1`: the unique index is case-sensitive, so an
      * exact lookup would let a second unit slip in and later abort the finance
@@ -68,9 +69,9 @@ export class ResidentUnitsService {
         const key = normaliseFlatKey(flat);
         return this.db.$queryRaw<{ id: string; userId: string }[]>(
             Prisma.sql`SELECT "id", "userId" FROM "resident_units"
-                WHERE upper(btrim("building")) = ${key.building}
-                  AND upper(btrim("floor")) = ${key.floor}
-                  AND btrim("flatNumber") = ${key.flatNumber}
+                WHERE upper(btrim("building", E' \\t\\r\\n')) = ${key.building}
+                  AND upper(btrim("floor", E' \\t\\r\\n')) = ${key.floor}
+                  AND btrim("flatNumber", E' \\t\\r\\n') = ${key.flatNumber}
                 ORDER BY "createdAt" ASC`
         );
     }
@@ -94,9 +95,9 @@ export class ResidentUnitsService {
         const key = normaliseFlatKey(flat);
         const rows = await this.db.$queryRaw<{ id: string }[]>(
             Prisma.sql`SELECT "id" FROM "resident_leads"
-                WHERE upper(btrim("building")) = ${key.building}
-                  AND upper(btrim("floor")) = ${key.floor}
-                  AND btrim("flatNumber") = ${key.flatNumber}
+                WHERE upper(btrim("building", E' \\t\\r\\n')) = ${key.building}
+                  AND upper(btrim("floor", E' \\t\\r\\n')) = ${key.floor}
+                  AND btrim("flatNumber", E' \\t\\r\\n') = ${key.flatNumber}
                   AND "status" IN ('PENDING', 'INVITED')
                   AND (${exceptId ?? null}::text IS NULL OR "id" <> ${exceptId ?? null})
                 LIMIT 1`

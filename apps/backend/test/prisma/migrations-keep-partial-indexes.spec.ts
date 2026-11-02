@@ -60,9 +60,11 @@ function loadEvents(): Event[] {
                 });
                 continue;
             }
-            const drop = /DROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?"([^"]+)"/i.exec(
-                stmt
-            );
+            // Quoted or bare name, optional CONCURRENTLY / IF EXISTS / schema.
+            const drop =
+                /DROP\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+EXISTS\s+)?(?:"?public"?\.)?"?(\w+)"?/i.exec(
+                    stmt
+                );
             if (drop) {
                 events.push({
                     migration,

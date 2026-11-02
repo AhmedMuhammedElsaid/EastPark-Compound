@@ -165,7 +165,9 @@ describe('ResidentUnitsService', () => {
                 .map(c => c[0] as { sql: string; values: unknown[] })
                 .find(q => q.sql.includes('resident_leads'));
             expect(leadQuery?.sql).toContain("IN ('PENDING', 'INVITED')");
-            expect(leadQuery?.sql).toContain('upper(btrim("building"))');
+            expect(leadQuery?.sql).toContain(
+                String.raw`upper(btrim("building", E' \t\r\n'))`
+            );
             expect(leadQuery?.values).toEqual(
                 expect.arrayContaining(['A1', '3', '2'])
             );
@@ -438,7 +440,9 @@ describe('ResidentUnitsService', () => {
             const unitQuery = db.$queryRaw.mock.calls
                 .map(c => c[0] as { sql: string; values: unknown[] })
                 .find(q => q.sql.includes('resident_units'));
-            expect(unitQuery?.sql).toContain('upper(btrim("building"))');
+            expect(unitQuery?.sql).toContain(
+                String.raw`upper(btrim("building", E' \t\r\n'))`
+            );
             expect(unitQuery?.values).toEqual(['A2', 'G', '4']);
             expect(db.residentUnit.update).not.toHaveBeenCalled();
         });
