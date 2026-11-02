@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Bell, Buildings, CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { Bell, Buildings, CaretRight, ChatCircle, Coins, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -20,7 +20,7 @@ import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { isAdminRole, roleLabelKey } from "@/lib/roles";
+import { isAdminRole, isFinanceRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit } from "@/lib/units";
 import { openPrivacyPolicy } from "@/lib/web-links";
 import { usersApi } from "@/services/api/users";
@@ -317,7 +317,8 @@ function UserAvatar({ user, unitNumber, styles, colors }: {
 function ManagementSection({ role, styles, colors }: { role: string; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
   const admin = isAdminRole(role);
-  if (!admin && role !== "MERCHANT")
+  const finance = isFinanceRole(role);
+  if (!admin && role !== "MERCHANT" && !finance)
     return null;
   const g = gold(colors);
   return (
@@ -325,6 +326,9 @@ function ManagementSection({ role, styles, colors }: { role: string; styles: App
       <Text style={styles.sectionTitle}>{t("profile.management")}</Text>
       {admin && (
         <ProfileRow icon={<ShieldCheck size={20} color={g} />} label={t("profile.admin_dashboard")} onPress={() => router.push("/(admin)/overview")} styles={styles} colors={colors} />
+      )}
+      {finance && (
+        <ProfileRow icon={<Coins size={20} color={g} />} label={t("profile.finance_dashboard")} onPress={() => router.push("/finance/today" as Href)} styles={styles} colors={colors} />
       )}
       {role === "MERCHANT" && (
         <ProfileRow icon={<Storefront size={20} color={g} />} label={t("profile.merchant_dashboard")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />
@@ -349,7 +353,10 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
         <ProfileRow icon={<Buildings size={20} color={g} />} label={t("listings.my_listings")} onPress={() => router.push("/(tabs)/profile/listings" as Href)} styles={styles} colors={colors} />
       )}
       <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
-      <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
+      {/* The accountant role has no orders. */}
+      {!isFinanceRole(role) && (
+        <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
+      )}
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
       {role === "RESIDENT" && (

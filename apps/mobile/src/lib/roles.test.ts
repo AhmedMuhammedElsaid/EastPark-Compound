@@ -1,4 +1,4 @@
-import { isAdminRole, isSuperAdminRole, roleLabelKey } from "./roles";
+import { isAdminRole, isFinanceRole, isSuperAdminRole, roleLabelKey } from "./roles";
 
 describe("isAdminRole", () => {
   it("accepts ADMIN and SUPER_ADMIN", () => {
@@ -9,6 +9,7 @@ describe("isAdminRole", () => {
   it("rejects other roles and missing values", () => {
     expect(isAdminRole("RESIDENT")).toBe(false);
     expect(isAdminRole("MERCHANT")).toBe(false);
+    expect(isAdminRole("ACCOUNTANT")).toBe(false);
     expect(isAdminRole(undefined)).toBe(false);
     expect(isAdminRole(null)).toBe(false);
     expect(isAdminRole("admin")).toBe(false);
@@ -32,5 +33,17 @@ describe("roleLabelKey", () => {
     expect(roleLabelKey("MERCHANT")).toBe("auth.role_merchant");
     expect(roleLabelKey("ADMIN")).toBe("auth.role_admin");
     expect(roleLabelKey("SUPER_ADMIN")).toBe("profile.role_super_admin");
+    expect(roleLabelKey("ACCOUNTANT")).toBe("auth.role_accountant");
+  });
+});
+
+describe("isFinanceRole", () => {
+  it("accepts only ACCOUNTANT", () => {
+    expect(isFinanceRole("ACCOUNTANT")).toBe(true);
+    expect(isFinanceRole("ADMIN")).toBe(false);
+    expect(isFinanceRole("SUPER_ADMIN")).toBe(false);
+    expect(isFinanceRole("RESIDENT")).toBe(false);
+    expect(isFinanceRole(undefined)).toBe(false);
+    expect(isFinanceRole(null)).toBe(false);
   });
 });

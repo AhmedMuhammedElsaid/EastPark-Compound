@@ -33,6 +33,7 @@ const ROLE_HOME_ROUTE: Record<AuthUser["role"], string> = {
   MERCHANT: "/(merchant)/dashboard",
   ADMIN: DEFAULT_HOME_ROUTE,
   SUPER_ADMIN: DEFAULT_HOME_ROUTE,
+  ACCOUNTANT: "/finance/today",
 };
 
 /**

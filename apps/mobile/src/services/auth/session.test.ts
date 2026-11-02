@@ -65,6 +65,10 @@ describe("getPostLoginRoute", () => {
     expect(getPostLoginRoute("ADMIN", null)).toBe(DEFAULT_HOME_ROUTE);
   });
 
+  it("sends ACCOUNTANT to the finance placeholder", () => {
+    expect(getPostLoginRoute("ACCOUNTANT", null)).toBe("/finance/today");
+  });
+
   it("sends SUPER_ADMIN to the admin home", () => {
     expect(getPostLoginRoute("SUPER_ADMIN", undefined)).toBe(DEFAULT_HOME_ROUTE);
   });

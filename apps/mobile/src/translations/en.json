@@ -186,6 +186,7 @@
     "reset_link_expired": "This reset link has expired. Please request a new one.",
     "reset_link_sent": "Check your email",
     "reset_password": "Reset password",
+    "role_accountant": "Accountant",
     "role_admin": "Administrator",
     "role_merchant": "Merchant",
     "send_reset_link": "Send reset link",
@@ -389,6 +390,11 @@
     "upload_too_large": "That photo is larger than {{maxSize}} MB. Choose a smaller one.",
     "upload_unavailable": "Photo storage is unavailable right now. Try again shortly.",
     "uploading": "Uploading photos…"
+  },
+  "finance": {
+    "placeholder_body": "The finance tools are being prepared and will appear here soon.",
+    "title": "Finance",
+    "today": "Today"
   },
   "governance": {
     "active": "Active",
@@ -763,6 +769,7 @@
     "delete_account_error": "Could not delete account. Please try again.",
     "edit": "Edit profile",
     "english": "English",
+    "finance_dashboard": "Finance dashboard",
     "flats_empty": "No flat is linked to this account yet.",
     "flats_note": "Flats are added and removed by the compound administration.",
     "guest_prompt": "Sign in to access your profile",
