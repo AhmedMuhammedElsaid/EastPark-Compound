@@ -73,6 +73,12 @@ Total about 19 days: the guards and the role ripple all land in 1a.
   confirmed first.
 - **Owner step after deploy:** run `psql "$DIRECT_DATABASE_URL" -f prisma/scripts/check-flat-keys.sql` and fix
   every `resident_units` collision before slice 4 ships.
+- **Client copy (review L6):** `residentLead.error.notEditable` and `unit.error.unknownFlat` have no web or
+  mobile strings yet and no UI calls either PATCH. Add the en/ar copy with the admin UI; until then the
+  repairs run through Swagger or curl.
+- **Runbook note:** a legacy unit `a1-3-2` cannot be canonicalised to `A1-3-2` while an active lead exists for
+  that flat (409 `unitReserved`); reject that lead first.
+- **Owner confirmation (Q1):** the owner confirms 690 flats and phase 4 = C3/E2/F2 before the slice 4 seed.
 
 ## Slice 4: `finance_foundations` migration (2 commits: schema + SQL, then tests)
 
@@ -103,6 +109,9 @@ Total about 19 days: the guards and the role ripple all land in 1a.
   the seed key list matching slice 3.
 - **Risk:** if this migration fails on Render, every deploy blocks. Recovery is `migrate resolve
   --rolled-back`. Take a prod backup first.
+- **Runbook (review H1):** re-run `prisma/scripts/check-flat-keys.sql` immediately before the push that ships
+  this migration, and require `resident_units` `collision_groups = 0`. Ownership checks now match normalised
+  keys, but a row written after the owner's diagnostic run can still collide.
 - **Must ship with slice 5:** without the slice 5 writers, a new unit has no `flatId` and no period, and the
   invariant breaks.
 
@@ -116,6 +125,12 @@ Total about 19 days: the guards and the role ripple all land in 1a.
   - `ListingsService` sets `flatId`; `FLAT_KEY_STRICT` throws on an unknown key.
 - **Tests:** the ownership invariant over fixtures (delete/restore, delete then path 4 then restore, the
   three link cases), plus listing `flatId`.
+- **Checklist (review M3, L7):**
+  - Move the holder, active-lead and flat lookups of `updateKey` inside the interactive transaction and lock the
+    unit row (`SELECT ... FOR UPDATE`) so two concurrent PATCHes on one unit serialise. Today the checks run
+    before the transaction and the last write wins.
+  - The link-and-open step must skip opening a period when `user.deletedAt` is set (plan L-2); the unit PATCH
+    works on a soft-deleted owner's unit.
 - **Review focus:** every writer is covered; session `bump` stays outside the transactions.
 - **Risk:** live onboarding; a regression blocks invitations.
 
