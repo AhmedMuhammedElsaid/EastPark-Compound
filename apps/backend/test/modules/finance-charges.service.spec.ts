@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     ForbiddenException,
     NotFoundException,
@@ -95,6 +96,14 @@ function build(state: FakeFinanceState = fakeFinanceState()) {
                 }
             ),
             findMany: jest.fn().mockResolvedValue([]),
+            count: jest.fn(
+                async ({ where }: { where: { replacesId?: string } }) =>
+                    [...stored.values()].filter(
+                        c =>
+                            c.replacesId === where.replacesId &&
+                            c.status === PostingStatus.POSTED
+                    ).length
+            ),
         },
         paymentAllocation: {
             count: allocationCount,
@@ -110,7 +119,11 @@ function build(state: FakeFinanceState = fakeFinanceState()) {
         },
     });
 
+    const goLive = jest
+        .fn()
+        .mockResolvedValue({ value: '2026-10-01T00:00:00.000Z' });
     const db = {
+        financeSetting: { findUnique: goLive },
         charge: {
             findUnique: jest.fn(
                 async ({ where }: { where: { id: string } }) =>
@@ -143,8 +156,29 @@ function build(state: FakeFinanceState = fakeFinanceState()) {
         state,
         auditCreate,
         allocationCount,
+        goLive,
     };
 }
+
+/** Review L7: finance audit meta never carries an email or identity data. */
+function expectNoPersonalData(audits: unknown[]): void {
+    expect(audits.length).toBeGreaterThan(0);
+    for (const audit of audits) {
+        const meta = (audit as { meta: Record<string, unknown> }).meta;
+        expect(JSON.stringify(meta)).not.toContain('@');
+        for (const key of Object.keys(meta))
+            expect(key).not.toMatch(/email|national|passport|phone/i);
+    }
+}
+
+afterEach(() => jest.useRealTimers());
+
+const at = (iso: string) => {
+    jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+    });
+    jest.setSystemTime(new Date(iso));
+};
 
 const createDto = {
     flatId: 'flat-1',
@@ -156,6 +190,8 @@ const createDto = {
 };
 
 describe('FinanceChargesService.create', () => {
+    beforeEach(() => at('2026-11-02T10:00:00.000Z'));
+
     it('posts the charge and exactly one audit row, in one transaction, in lock order', async () => {
         const { service, db, committed, state } = build();
         const out = await service.create(createDto, accountant);
@@ -283,17 +319,105 @@ describe('FinanceChargesService.create', () => {
             new NotFoundException('finance.error.chargeNotFound')
         );
     });
+
+    it('locks the replaced charge after the flat and refuses a second correction (review L4)', async () => {
+        const { service, stored, state } = build();
+        stored.set('ch-1', chargeRow({ status: PostingStatus.VOID }));
+        await service.create({ ...createDto, replacesId: 'ch-1' }, accountant);
+        expect(state.log).toEqual([
+            'upsert-period:2026-11',
+            'lock-period:2026-11',
+            'lock-flat:flat-1',
+            'lock-charges:ch-1',
+        ]);
+        stored.set('ch-fix', chargeRow({ id: 'ch-fix', replacesId: 'ch-1' }));
+        await expect(
+            service.create({ ...createDto, replacesId: 'ch-1' }, accountant)
+        ).rejects.toThrow(
+            new ConflictException('finance.error.alreadyReplaced')
+        );
+        // a voided correction does not block a new one
+        stored.set(
+            'ch-fix',
+            chargeRow({
+                id: 'ch-fix',
+                replacesId: 'ch-1',
+                status: PostingStatus.VOID,
+            })
+        );
+        await expect(
+            service.create({ ...createDto, replacesId: 'ch-1' }, accountant)
+        ).resolves.toBeDefined();
+    });
+
+    it('bounds the accrual month to [go-live month, now + 12] (review L3)', async () => {
+        const { service, db, goLive } = build();
+        for (const accrualPeriod of ['2026-09', '2027-12', '2099-12'])
+            await expect(
+                service.create({ ...createDto, accrualPeriod }, accountant)
+            ).rejects.toThrow(
+                new BadRequestException('finance.error.periodOutOfRange')
+            );
+        // the dueDate-derived default is bounded too
+        await expect(
+            service.create({ ...createDto, dueDate: '2019-03-10' }, accountant)
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.periodOutOfRange')
+        );
+        expect(db.$transaction).not.toHaveBeenCalled();
+        for (const accrualPeriod of ['2026-10', '2027-11'])
+            await expect(
+                service.create({ ...createDto, accrualPeriod }, accountant)
+            ).resolves.toBeDefined();
+        // without go-live only the upper bound applies
+        goLive.mockResolvedValue(null);
+        await expect(
+            service.create(
+                { ...createDto, accrualPeriod: '2020-01' },
+                accountant
+            )
+        ).resolves.toBeDefined();
+        await expect(
+            service.create(
+                { ...createDto, accrualPeriod: '2027-12' },
+                accountant
+            )
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.periodOutOfRange')
+        );
+    });
+
+    it('audit meta carries no email or identity data (review L7)', async () => {
+        const { service, committed } = build();
+        await service.create(createDto, accountant);
+        expectNoPersonalData(committed.audits);
+    });
 });
 
 describe('FinanceChargesService.void', () => {
-    afterEach(() => jest.useRealTimers());
+    it('refuses a billing-run charge for every role: void the run instead (review M2)', async () => {
+        at('2026-11-02T20:00:00.000Z');
+        const { service, stored, committed } = build();
+        stored.set('ch-1', chargeRow({ billingRunId: 'run-1' }));
+        for (const actor of [
+            accountant,
+            admin,
+            { userId: 'sa', role: Role.SUPER_ADMIN },
+        ])
+            await expect(
+                service.void('ch-1', 'Billed by mistake', actor)
+            ).rejects.toThrow(
+                new ConflictException('finance.error.voidRunInstead')
+            );
+        expect(committed.updates).toHaveLength(0);
+    });
 
-    const at = (iso: string) => {
-        jest.useFakeTimers({
-            doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
-        });
-        jest.setSystemTime(new Date(iso));
-    };
+    it('void audit meta carries no email or identity data (review L7)', async () => {
+        at('2026-11-02T20:00:00.000Z');
+        const { service, committed } = build();
+        await service.void('ch-1', 'Typed the wrong flat', accountant);
+        expectNoPersonalData(committed.audits);
+    });
 
     it('lets the posting accountant void on the same Cairo day: one audit row with balances', async () => {
         at('2026-11-02T20:00:00.000Z');

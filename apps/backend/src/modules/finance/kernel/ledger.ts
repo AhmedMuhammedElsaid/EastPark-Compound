@@ -21,7 +21,8 @@ export interface OpenCharge {
 /**
  * A flat's figures as of D (plan 2.1.1), all from the shared predicates:
  * - `balance` = live charges − live payments (negative: the flat is in credit);
- * - `credit` = live payments − live allocations of those payments;
+ * - `credit` = live payments − live allocations (an allocation is live only
+ *   while its charge and its payment are live, so credit never goes negative);
  * - `availableCredit` = credit − pending refunds (Phase 1: no refunds, = credit);
  * - `openAmount` = Σ (charge − its live allocations) over live charges;
  * - `overdueAmount` / `oldestDueDays` over open charges due before D.
@@ -82,8 +83,10 @@ export async function summariseFlats(
         }),
         client.paymentAllocation.findMany({
             where: {
-                ...liveAllocationWhere(asOf),
-                payment: { flatId: { in: ids } },
+                AND: [
+                    liveAllocationWhere(asOf),
+                    { payment: { flatId: { in: ids } } },
+                ],
             },
             select: {
                 amount: true,

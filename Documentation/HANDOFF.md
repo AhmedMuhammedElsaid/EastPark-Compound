@@ -20,14 +20,14 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 3 | 690-flat layout, `check-flat-keys.sql`, unit/lead key-repair PATCHes | done, reviewed, fixed |
 | 4 | `finance_foundations` migration (14 tables, 690 flats, ownership backfill, view, RLS) | built (`e0596e2`, `b9f1e23`) and reviewed, M1/L1/L4/L5 fixed; SQL never executed (gate G1 in root `steps.md`) |
 | 5 | ownership writers + listings link, M2 catch-up + invariant SQL, M3 `finance.goLiveAt` | built (`cf20fc8`, `f327c19`), reviewed (`ACCOUNTING-SLICE-5-REVIEW.md`), M1/M2/L1–L4 fixed; scripts' db-spec runs at gate G1 |
-| 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | next |
-| 7 | payments + private attachments (`eastpark-finance` bucket) | todo |
+| 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | built (`37cf341` policy, `cd3a31f` kernel), reviewed (`ACCOUNTING-SLICE-6-REVIEW.md`), M1/M2/L1–L7 fixed; db-specs run at gate G1 |
+| 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | todo |
 | 8 | accountant UI, web + mobile | todo |
 
 **Immediate next steps:**
 1. (done) Slice 4 M1 and Lows fixed; M4/L3 are gates G1/G2 in root `steps.md`.
 2. (done) M2 and M3 carried into slice 5; slice 5 reviewed and fixed.
-3. Build slice 6, then 7 and 8, each with its own review. The review docs are `Documentation/ACCOUNTING-SLICE-*-REVIEW.md`.
+3. (done) Slice 6 built, reviewed and fixed. Next: slice 7, then 8, each with its own review. The review docs are `Documentation/ACCOUNTING-SLICE-*-REVIEW.md`.
 4. Root **`steps.md`** is started (pre-push gates, A1 catch-up). When all slices are done it absorbs the draft
    `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md`.
 

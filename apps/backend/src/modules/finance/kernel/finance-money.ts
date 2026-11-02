@@ -8,10 +8,11 @@ export const FINANCE_AMOUNT_MAX = new Prisma.Decimal('9999999.99');
 const NUMERIC = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 
 /**
- * Parses a request amount into a Decimal without float arithmetic. A JSON
- * number is read through its shortest decimal string (what the client
- * typed). Extra precision is rejected, never rounded (400
- * `finance.error.amountPrecision`), so the stored number is the typed one.
+ * Parses a request amount into a Decimal without float arithmetic. Clients
+ * must send amounts as decimal strings (`"450.25"`), the canonical form: a
+ * JSON number is accepted through its shortest decimal string, but
+ * `JSON.parse` has already rounded numbers beyond ~15 significant digits.
+ * Extra precision is rejected, never rounded (400 `finance.error.amountPrecision`).
  */
 export function parseFinanceAmount(value: unknown): Prisma.Decimal {
     const text =

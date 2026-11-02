@@ -55,12 +55,20 @@ export function liveChargeWhere(asOf: Date): Prisma.ChargeWhereInput {
     };
 }
 
-/** Live allocation as of D: allocated by D and not voided by D. */
+/**
+ * Live allocation as of D: allocated by D, not voided by D, AND its charge
+ * and its payment are both live as of D (review M1). Without the last two an
+ * allocation to a charge whose accrual month has not started, or one that
+ * outlives a bounced cheque, would count in `credit` but not in the open
+ * amount, and `balance = open − credit` would break.
+ */
 export function liveAllocationWhere(
     asOf: Date
 ): Prisma.PaymentAllocationWhereInput {
     return {
         allocatedAt: { lte: asOf },
         OR: [{ voidedAt: null }, { voidedAt: { gte: endOfCairoDay(asOf) } }],
+        charge: liveChargeWhere(asOf),
+        payment: livePaymentWhere(asOf),
     };
 }

@@ -1,12 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ChargeKind, PeriodStatus, Prisma, Role } from '@prisma/client';
 
+import { shiftPeriod } from 'src/common/finance/cairo-date';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { FINANCE_AUDIT_ACTIONS } from 'src/modules/audit/audit.actions';
-import {
-    FinanceDeskService,
-    shiftPeriod,
-} from 'src/modules/finance/finance-desk.service';
+import { FinanceDeskService } from 'src/modules/finance/finance-desk.service';
 import { FinanceFlatsService } from 'src/modules/finance/finance-flats.service';
 
 const D = (s: string) => new Prisma.Decimal(s);
@@ -84,6 +82,15 @@ describe('FinanceFlatsService.list', () => {
         expect(db.charge.findMany.mock.calls[0][0].where.flatId).toEqual({
             in: ['flat_A1-2-1', 'flat_A1-2-5'],
         });
+    });
+
+    it('400s an unknown cursor instead of restarting at page 1 (review L2)', async () => {
+        const { service } = buildFlats();
+        await expect(
+            service.list({ cursor: 'flat_gone', limit: 2 })
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.invalidCursor')
+        );
     });
 
     it('passes label, building and phase filters to the query', async () => {

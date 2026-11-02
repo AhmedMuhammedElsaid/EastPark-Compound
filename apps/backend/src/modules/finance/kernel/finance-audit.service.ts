@@ -18,7 +18,10 @@ import { FinanceTx } from './finance-tx';
  * - never catches: the request fails and the client retries with the same
  *   idempotency key.
  * `meta` carries ids, the flat label, amounts as 2-dp strings, old/new values
- * and void reasons; never a national id, passport, email or phone.
+ * and void reasons. It is shown to accountants on `/finance/audit`, so it must
+ * NEVER carry an email, national id, passport number or phone (do not copy
+ * the admin feed's "Name (email)" label style); a unit test checks the
+ * charge paths.
  */
 @Injectable()
 export class FinanceAuditService {

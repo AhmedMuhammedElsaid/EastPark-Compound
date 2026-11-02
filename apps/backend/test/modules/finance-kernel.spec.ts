@@ -182,10 +182,63 @@ describe('idempotency (plan 3.3)', () => {
         expect(canonicalJson({ b: 1, a: { d: undefined, c: [2, 1] } })).toBe(
             '{"a":{"c":[2,1]},"b":1}'
         );
-        expect(requestHashOf({ a: 1, b: 2 })).toBe(
-            requestHashOf({ b: 2, a: 1 })
+        expect(requestHashOf('u1', { a: 1, b: 2 })).toBe(
+            requestHashOf('u1', { b: 2, a: 1 })
         );
-        expect(requestHashOf({ a: 1 })).not.toBe(requestHashOf({ a: 2 }));
+        expect(requestHashOf('u1', { a: 1 })).not.toBe(
+            requestHashOf('u1', { a: 2 })
+        );
+    });
+
+    it('hashes the normalised request: number vs string amounts and dates match (review L5)', () => {
+        const asNumber = {
+            flatId: 'f',
+            amount: parseFinanceAmount(450),
+            receivedAt: day('2026-11-02'),
+        };
+        const asString = {
+            receivedAt: day('2026-11-02'),
+            amount: parseFinanceAmount('450.00'),
+            flatId: 'f',
+        };
+        expect(requestHashOf('u1', asNumber)).toBe(
+            requestHashOf('u1', asString)
+        );
+        expect(canonicalJson(asNumber)).toBe(
+            '{"amount":"450.00","flatId":"f","receivedAt":"2026-11-02"}'
+        );
+        expect(
+            requestHashOf('u1', {
+                ...asNumber,
+                amount: parseFinanceAmount('450.01'),
+            })
+        ).not.toBe(requestHashOf('u1', asNumber));
+    });
+
+    it('another user reusing a key gets idempotencyConflict, never a replay', async () => {
+        const request = { amount: parseFinanceAmount('450') };
+        const original = {
+            id: 'p1',
+            requestHash: requestHashOf('u1', request),
+        };
+        const create = jest.fn();
+        await expect(
+            runIdempotent({
+                requestHash: requestHashOf('u2', request),
+                find: jest.fn().mockResolvedValue(original),
+                create,
+            })
+        ).rejects.toThrow(
+            new ConflictException('finance.error.idempotencyConflict')
+        );
+        expect(create).not.toHaveBeenCalled();
+        await expect(
+            runIdempotent({
+                requestHash: requestHashOf('u1', request),
+                find: jest.fn().mockResolvedValue(original),
+                create,
+            })
+        ).resolves.toMatchObject({ replayed: true });
     });
 
     it('requires a sane Idempotency-Key header', () => {
@@ -408,10 +461,12 @@ describe('live predicates (plan 2.1.1)', () => {
         });
     });
 
-    it('liveAllocationWhere: allocated by D and not voided by D', () => {
+    it('liveAllocationWhere: allocated and not voided by D, with a live charge and payment', () => {
         expect(liveAllocationWhere(asOf)).toEqual({
             allocatedAt: { lte: asOf },
             OR: [{ voidedAt: null }, { voidedAt: { gte: end } }],
+            charge: liveChargeWhere(asOf),
+            payment: livePaymentWhere(asOf),
         });
     });
 });
@@ -563,8 +618,10 @@ describe('ledger figures (plan 2.1.1)', () => {
         expect(c.paymentAllocation.findMany).toHaveBeenCalledWith(
             expect.objectContaining({
                 where: {
-                    ...liveAllocationWhere(asOf),
-                    payment: { flatId: { in: ['f', 'g'] } },
+                    AND: [
+                        liveAllocationWhere(asOf),
+                        { payment: { flatId: { in: ['f', 'g'] } } },
+                    ],
                 },
             })
         );

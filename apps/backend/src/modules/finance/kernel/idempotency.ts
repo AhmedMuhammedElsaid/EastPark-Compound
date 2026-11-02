@@ -1,10 +1,12 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 
 import {
     isPrismaError,
     PRISMA_UNIQUE_VIOLATION,
 } from 'src/common/database/prisma-errors';
+import { dateOnlyString } from 'src/common/finance/cairo-date';
 
 /** Header carrying the client-generated request key (plan 3.3). */
 export const IDEMPOTENCY_HEADER = 'idempotency-key';
@@ -23,14 +25,21 @@ export function requireIdempotencyKey(value: unknown): string {
     return key.trim();
 }
 
-/** JSON with object keys sorted and `undefined` members dropped (stable hash input). */
+/**
+ * JSON with object keys sorted and `undefined` members dropped (stable hash
+ * input). Money (`Prisma.Decimal`) becomes its 2-dp string and a `Date` its
+ * `YYYY-MM-DD` (finance request dates are DATE values), so `450`, `"450"`
+ * and `"450.00"` hash alike once parsed.
+ */
 export function canonicalJson(value: unknown): string {
     return JSON.stringify(sortKeys(value));
 }
 
 function sortKeys(value: unknown): unknown {
+    if (value instanceof Prisma.Decimal) return value.toFixed(2);
+    if (value instanceof Date) return dateOnlyString(value);
     if (Array.isArray(value)) return value.map(sortKeys);
-    if (value && typeof value === 'object' && !(value instanceof Date)) {
+    if (value && typeof value === 'object') {
         const out: Record<string, unknown> = {};
         for (const key of Object.keys(value).sort()) {
             const member = (value as Record<string, unknown>)[key];
@@ -41,9 +50,16 @@ function sortKeys(value: unknown): unknown {
     return value;
 }
 
-/** sha256 (hex) of the canonical request body: the stored `requestHash`. */
-export function requestHashOf(body: unknown): string {
-    return createHash('sha256').update(canonicalJson(body)).digest('hex');
+/**
+ * sha256 (hex) of the actor plus the NORMALISED request (parsed amounts and
+ * dates, not the raw body): the stored `requestHash`. Including the actor
+ * makes another user's reuse of a key an `idempotencyConflict`, never a
+ * replay of someone else's posting (review L5).
+ */
+export function requestHashOf(actorId: string, request: unknown): string {
+    return createHash('sha256')
+        .update(canonicalJson({ actorId, request }))
+        .digest('hex');
 }
 
 export interface IdempotentOutcome<T> {

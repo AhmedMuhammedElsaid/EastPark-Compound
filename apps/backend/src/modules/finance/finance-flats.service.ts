@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { ChargeKind, Prisma } from '@prisma/client';
 
 import {
@@ -70,9 +74,13 @@ export class FinanceFlatsService {
             await this.db.flat.findMany({ where, select: FLAT_SELECT })
         ).sort(compareFlats);
 
-        const start = query.cursor
-            ? flats.findIndex(f => f.id === query.cursor) + 1
-            : 0;
+        let start = 0;
+        if (query.cursor) {
+            const index = flats.findIndex(f => f.id === query.cursor);
+            if (index < 0)
+                throw new BadRequestException('finance.error.invalidCursor');
+            start = index + 1;
+        }
         const rest = flats.slice(start);
         const filtered =
             query.hasBalance !== undefined || query.overdueDays !== undefined;

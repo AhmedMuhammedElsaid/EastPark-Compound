@@ -77,6 +77,19 @@ export function cairoPeriod(at: Date): string {
     return cairoDateString(at).slice(0, 7);
 }
 
+/** Months since year 0 of a `YYYY-MM` period (for period arithmetic). */
+export function periodIndex(period: string): number {
+    return Number(period.slice(0, 4)) * 12 + Number(period.slice(5, 7)) - 1;
+}
+
+/** `YYYY-MM` shifted by `months` (negative: earlier). */
+export function shiftPeriod(period: string, months: number): string {
+    const index = periodIndex(period) + months;
+    const year = Math.floor(index / 12);
+    const month = (index % 12) + 1;
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+}
+
 /** True when both instants fall on the same Cairo calendar day. */
 export function isSameCairoDay(a: Date, b: Date): boolean {
     return cairoDateString(a) === cairoDateString(b);

@@ -1,7 +1,11 @@
 import { ConflictException } from '@nestjs/common';
 import { ChargeKind, PrismaClient, Role } from '@prisma/client';
 
-import { parseDateOnly } from 'src/common/finance/cairo-date';
+import {
+    cairoPeriod,
+    parseDateOnly,
+    shiftPeriod,
+} from 'src/common/finance/cairo-date';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { FinanceChargesService } from 'src/modules/finance/finance-charges.service';
 import { FinanceAuditService } from 'src/modules/finance/kernel/finance-audit.service';
@@ -31,6 +35,10 @@ describeDb('finance kernel (real Postgres)', () => {
     const FLAT = 'flat_A1-1-1';
     const actor = { userId: 'acc_db', role: Role.ACCOUNTANT };
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    /** A month inside the charge bounds (review L3): current Cairo month + n. */
+    const ahead = (n: number) => shiftPeriod(cairoPeriod(new Date()), n);
+    const chargesIn = (period: string) =>
+        db.charge.count({ where: { accrualPeriod: period } });
 
     beforeAll(async () => {
         scratch = new ScratchDb(TEST_DATABASE_URL as string);
@@ -123,9 +131,6 @@ describeDb('finance kernel (real Postgres)', () => {
                 { maxWait: 30_000, timeout: 30_000 }
             );
 
-        const chargesIn = (period: string) =>
-            db.charge.count({ where: { accrualPeriod: period } });
-
         it('posting first: the close waits for it (payment committed, then close)', async () => {
             const period = '2032-10';
             let locked!: () => void;
@@ -159,7 +164,7 @@ describeDb('finance kernel (real Postgres)', () => {
         });
 
         it('close first: a posting that starts meanwhile fails periodClosed and writes nothing', async () => {
-            const period = '2032-11';
+            const period = ahead(2);
             let locked!: () => void;
             const closeHoldsLock = new Promise<void>(r => (locked = r));
             const close = rawClose(period, () => locked(), 400);
@@ -176,7 +181,7 @@ describeDb('finance kernel (real Postgres)', () => {
                     amount: 10,
                     description: 'x',
                     descriptionAr: 'x',
-                    dueDate: '2032-11-10',
+                    dueDate: `${period}-10`,
                 },
                 actor
             );
@@ -207,7 +212,7 @@ describeDb('finance kernel (real Postgres)', () => {
                     amount: '450.25',
                     description: 'Service charge',
                     descriptionAr: 'رسوم خدمة',
-                    dueDate: '2033-01-10',
+                    dueDate: `${ahead(3)}-10`,
                 },
                 actor
             );
@@ -217,6 +222,120 @@ describeDb('finance kernel (real Postgres)', () => {
                     where: { action: 'CHARGE_CREATED', entityId: out.id },
                 })
             ).toBe(1);
+        });
+    });
+
+    describe('audit atomicity and lock-order smoke (review L6)', () => {
+        /** A real audit insert that fails in the database: FK to a missing user. */
+        class BrokenFinanceAudit extends FinanceAuditService {
+            override record(
+                ...args: Parameters<FinanceAuditService['record']>
+            ): Promise<void> {
+                const [tx, who, ...rest] = args;
+                return super.record(
+                    tx,
+                    { ...who, userId: 'no_such_user' },
+                    ...rest
+                );
+            }
+        }
+
+        it('a failing audit insert rolls back the charge and the new period row', async () => {
+            const period = ahead(4);
+            const service = new FinanceChargesService(
+                db as unknown as DatabaseService,
+                new BrokenFinanceAudit()
+            );
+            await expect(
+                service.create(
+                    {
+                        flatId: FLAT,
+                        kind: ChargeKind.OTHER,
+                        amount: '12.00',
+                        description: 'x',
+                        descriptionAr: 'x',
+                        dueDate: `${period}-10`,
+                    },
+                    actor
+                )
+            ).rejects.toThrow();
+            expect(await chargesIn(period)).toBe(0);
+            expect(await db.fiscalPeriod.count({ where: { period } })).toBe(0);
+        });
+
+        it('a failing audit insert rolls back a reserved receipt number', async () => {
+            const date = parseDateOnly('2034-02-01');
+            const counter = () =>
+                db.receiptCounter.findUnique({
+                    where: { scope_year: { scope: 'V', year: 2034 } },
+                });
+            await db.$transaction(tx => nextReceiptNumber(tx, 'V', date));
+            const before = (await counter())?.last;
+            await expect(
+                db.$transaction(async tx => {
+                    await nextReceiptNumber(tx, 'V', date);
+                    await new BrokenFinanceAudit().record(
+                        tx,
+                        actor,
+                        'REVENUE_RECORDED',
+                        'Revenue',
+                        null,
+                        { label: 'x' }
+                    );
+                })
+            ).rejects.toThrow();
+            expect((await counter())?.last).toBe(before);
+        });
+
+        it('postings racing to create the same new period row all commit, one row', async () => {
+            const period = ahead(5);
+            const service = new FinanceChargesService(
+                db as unknown as DatabaseService,
+                new FinanceAuditService()
+            );
+            const flats = ['flat_A1-2-1', 'flat_A1-2-2', 'flat_A1-2-3', FLAT];
+            await Promise.all(
+                flats.map(flatId =>
+                    service.create(
+                        {
+                            flatId,
+                            kind: ChargeKind.OTHER,
+                            amount: '5',
+                            description: 'x',
+                            descriptionAr: 'x',
+                            dueDate: `${period}-10`,
+                        },
+                        actor
+                    )
+                )
+            );
+            expect(await chargesIn(period)).toBe(flats.length);
+            expect(await db.fiscalPeriod.count({ where: { period } })).toBe(1);
+        });
+
+        it('a void and a create racing on the same flat both finish (no deadlock)', async () => {
+            const period = ahead(1);
+            const service = new FinanceChargesService(
+                db as unknown as DatabaseService,
+                new FinanceAuditService()
+            );
+            const input = {
+                flatId: FLAT,
+                kind: ChargeKind.OTHER,
+                amount: '7.50',
+                description: 'x',
+                descriptionAr: 'x',
+                dueDate: `${period}-10`,
+            };
+            for (let round = 0; round < 5; round++) {
+                const victim = await service.create(input, actor);
+                const [voided, created] = await Promise.all([
+                    service.void(victim.id, 'Race smoke test', actor),
+                    service.create(input, actor),
+                ]);
+                expect(voided.status).toBe('VOID');
+                expect(created.status).toBe('POSTED');
+            }
         });
     });
 });

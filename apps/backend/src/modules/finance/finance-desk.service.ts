@@ -6,6 +6,8 @@ import {
     cairoDayStart,
     cairoPeriod,
     parseDateOnly,
+    periodIndex,
+    shiftPeriod,
 } from 'src/common/finance/cairo-date';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
@@ -23,20 +25,6 @@ import {
 
 /** Longest month range `GET /finance/periods` returns. */
 export const MAX_PERIOD_SPAN = 60;
-
-/** `YYYY-MM` shifted by `months`. */
-export function shiftPeriod(period: string, months: number): string {
-    const index = periodIndex(period) + months;
-    const year = Math.floor(index / 12);
-    const month = (index % 12) + 1;
-    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
-}
-
-function periodIndex(period: string): number {
-    const y = Number(period.slice(0, 4));
-    const m = Number(period.slice(5, 7));
-    return y * 12 + (m - 1);
-}
 
 function monthsInRange(from: string, to: string): string[] {
     const out: string[] = [];
