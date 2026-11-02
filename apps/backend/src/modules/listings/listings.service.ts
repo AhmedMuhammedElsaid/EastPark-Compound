@@ -17,6 +17,7 @@ import {
     PRISMA_UNIQUE_VIOLATION,
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
 import { cursorArgs } from 'src/common/helper/pagination';
 import { FlatKey, formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -61,7 +62,8 @@ export class ListingsService {
         private readonly config: ConfigService,
         private readonly cache: CacheService,
         private readonly notifier: ListingNotifier,
-        private readonly units: ResidentUnitsService
+        private readonly units: ResidentUnitsService,
+        private readonly ownership: FlatOwnershipService
     ) {}
 
     // ── Browse ────────────────────────────────────────────────────────────────
@@ -138,10 +140,14 @@ export class ListingsService {
         if (await findActiveListingForFlat(this.db, fields))
             throw new ConflictException('listing.error.unitAlreadyListed');
 
+        // Informational finance link (plan 2.2); never decides who may list.
+        const flatId = await this.ownership.resolveFlatId(this.db, fields);
+
         try {
             const row = await this.db.listing.create({
                 data: {
                     ...fields,
+                    flatId,
                     price: new Prisma.Decimal(fields.price),
                     status: ListingStatus.PENDING,
                     ownerId: actor.userId,
@@ -193,6 +199,8 @@ export class ListingsService {
         )
             throw new ConflictException('listing.error.unitAlreadyListed');
 
+        const flatId = await this.ownership.resolveFlatId(this.db, next);
+
         try {
             const row = await this.db.$transaction(async tx => {
                 // Compare-and-set on the status read above: a concurrent
@@ -204,6 +212,7 @@ export class ListingsService {
                     },
                     data: {
                         ...next,
+                        flatId,
                         price: new Prisma.Decimal(next.price),
                         status: ListingStatus.PENDING,
                         approvedAt: null,

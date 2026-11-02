@@ -5,7 +5,12 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { ListingStatus, Prisma, ResidentLeadStatus } from '@prisma/client';
+import {
+    ListingStatus,
+    OwnershipClosedReason,
+    Prisma,
+    ResidentLeadStatus,
+} from '@prisma/client';
 
 import {
     isPrismaError,
@@ -17,6 +22,10 @@ import {
     normaliseFlatKey,
 } from 'src/common/finance/compound-layout';
 import { EmailService } from 'src/common/email/email.service';
+import {
+    FlatOwnershipService,
+    OwnershipClient,
+} from 'src/common/finance/flat-ownership.service';
 import { FlatKey, formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { ApiGenericResponseDto } from 'src/common/response/dtos/response.generic.dto';
@@ -53,7 +62,8 @@ export class ResidentUnitsService {
     constructor(
         private readonly db: DatabaseService,
         private readonly email: EmailService,
-        private readonly audit: AuditService
+        private readonly audit: AuditService,
+        private readonly ownership: FlatOwnershipService
     ) {}
 
     /**
@@ -65,9 +75,12 @@ export class ResidentUnitsService {
      * exact lookup would let a second unit slip in and later abort the finance
      * migration. More than one row only when a collision already exists.
      */
-    findHolders(flat: FlatKey): Promise<{ id: string; userId: string }[]> {
+    findHolders(
+        flat: FlatKey,
+        client: OwnershipClient = this.db
+    ): Promise<{ id: string; userId: string }[]> {
         const key = normaliseFlatKey(flat);
-        return this.db.$queryRaw<{ id: string; userId: string }[]>(
+        return client.$queryRaw<{ id: string; userId: string }[]>(
             Prisma.sql`SELECT "id", "userId" FROM "resident_units"
                 WHERE upper(btrim("building", E' \\t\\r\\n')) = ${key.building}
                   AND upper(btrim("floor", E' \\t\\r\\n')) = ${key.floor}
@@ -90,10 +103,11 @@ export class ResidentUnitsService {
      */
     async findActiveLead(
         flat: FlatKey,
-        exceptId?: string
+        exceptId?: string,
+        client: OwnershipClient = this.db
     ): Promise<{ id: string } | null> {
         const key = normaliseFlatKey(flat);
-        const rows = await this.db.$queryRaw<{ id: string }[]>(
+        const rows = await client.$queryRaw<{ id: string }[]>(
             Prisma.sql`SELECT "id" FROM "resident_leads"
                 WHERE upper(btrim("building", E' \\t\\r\\n')) = ${key.building}
                   AND upper(btrim("floor", E' \\t\\r\\n')) = ${key.floor}
@@ -141,6 +155,7 @@ export class ResidentUnitsService {
         }>;
         try {
             unit = await this.db.$transaction(async tx => {
+                const flatId = await this.ownership.resolveFlatId(tx, flat);
                 const created = await tx.residentUnit.create({
                     data: {
                         userId: user.id,
@@ -148,9 +163,16 @@ export class ResidentUnitsService {
                         floor: flat.floor,
                         flatNumber: flat.flatNumber,
                         addedById: actor.userId,
+                        flatId,
                     },
                     select: RESIDENT_UNIT_SELECT,
                 });
+                if (flatId)
+                    await this.ownership.openForNewUnit(tx, {
+                        flatId,
+                        userId: user.id,
+                        actorId: actor.userId,
+                    });
                 await tx.user.updateMany({
                     where: { id: user.id, unitNumber: null },
                     data: { unitNumber: label },
@@ -200,11 +222,28 @@ export class ResidentUnitsService {
         const label = formatUnitLabel(unit);
 
         await this.db.$transaction(async tx => {
+            // Row lock (same as updateKey): a concurrent re-key cannot move the
+            // link between this read and the delete, so the period we close is
+            // the one the row holds at delete time.
+            const [locked] = await tx.$queryRaw<{ flatId: string | null }[]>(
+                Prisma.sql`SELECT "flatId" FROM "resident_units" WHERE "id" = ${unit.id} AND "userId" = ${userId} FOR UPDATE`
+            );
+            if (!locked) throw new NotFoundException('unit.error.notFound');
             const removed = await tx.residentUnit.deleteMany({
                 where: { id: unit.id, userId },
             });
             if (removed.count === 0)
                 throw new NotFoundException('unit.error.notFound');
+
+            // Path 4: the period closes with the row. A deleted owner's period
+            // is already closed (ACCOUNT_DELETED), so this is then a no-op.
+            if (locked.flatId)
+                await this.ownership.closeForUnit(tx, {
+                    flatId: locked.flatId,
+                    userId,
+                    reason: OwnershipClosedReason.REMOVED,
+                    actorId: actor.userId,
+                });
 
             // The flat is no longer theirs: an open listing for it would keep
             // holding the flat (partial unique index) against the next owner.
@@ -256,13 +295,18 @@ export class ResidentUnitsService {
     /**
      * `PATCH /admin/resident-units/:id` [SUPER_ADMIN]: repairs the flat key of
      * an existing unit (a typo, `a1`, `Building A`). Re-keying moves ownership,
-     * hence SUPER_ADMIN like add and remove. In one transaction: normalises the
-     * key, refuses an unknown flat (400 `unit.error.unknownFlat`) or a key held
-     * by another unit (409 `unit.error.alreadyOwned`), updates the three text
-     * columns and, when the account's primary `unitNumber` was this flat,
-     * follows it and withdraws the owner's open listings on the old key. Audited UNIT_KEY_CHANGED (old and new key). Works for a
-     * soft-deleted owner too. The finance flat link and ownership period are
-     * added by a later slice (no `FlatOwnership` table yet).
+     * hence SUPER_ADMIN like add and remove. One transaction that first locks
+     * the unit row (`FOR UPDATE`, so two PATCHes on one unit serialise), then
+     * re-reads it and runs every check on the locked state: unknown flat 400
+     * `unit.error.unknownFlat`; key held by another unit 409
+     * `unit.error.alreadyOwned`; active lead 409 `residentLead.error.unitReserved`.
+     * It updates the three text columns, follows the primary `unitNumber`,
+     * withdraws the owner's open listings on the old key, and links the finance
+     * flat: NULL → flat opens a period (sentinel or createdAt date), flat A →
+     * flat B closes A as an empty period and opens B; no period for a
+     * soft-deleted owner (restore opens it). Audited UNIT_KEY_CHANGED. A no-op
+     * key still links an unlinked unit (the late-link path for a unit stored
+     * while `FLAT_KEY_STRICT` was off).
      */
     async updateKey(
         unitId: string,
@@ -272,69 +316,120 @@ export class ResidentUnitsService {
         const next = normaliseFlatKey(key);
         if (!isKnownFlat(next))
             throw new BadRequestException('unit.error.unknownFlat');
-
-        const unit = await this.db.residentUnit.findUnique({
-            where: { id: unitId },
-            select: {
-                ...RESIDENT_UNIT_SELECT,
-                userId: true,
-                user: { select: { name: true, email: true, unitNumber: true } },
-            },
-        });
-        if (!unit) throw new NotFoundException('unit.error.notFound');
-
-        const before = formatUnitLabel(unit);
         const after = formatUnitLabel(next);
-        if (
-            unit.building === next.building &&
-            unit.floor === next.floor &&
-            unit.flatNumber === next.flatNumber
-        )
-            return toResidentUnitDto(unit);
 
-        // Normalised match: a legacy `a1` row held by another unit counts too.
-        const holders = await this.findHolders(next);
-        if (holders.some(holder => holder.id !== unit.id))
-            throw new ConflictException('unit.error.alreadyOwned');
-
-        const activeLead = await this.findActiveLead(next);
-        if (activeLead)
-            throw new ConflictException('residentLead.error.unitReserved');
-
-        let updated: Prisma.ResidentUnitGetPayload<{
-            select: typeof RESIDENT_UNIT_SELECT;
-        }>;
+        let result: {
+            row: Prisma.ResidentUnitGetPayload<{
+                select: typeof RESIDENT_UNIT_SELECT;
+            }>;
+            before: string;
+            userId: string;
+            user: { name: string; email: string };
+            changed: boolean;
+        };
         try {
-            updated = await this.db.$transaction(async tx => {
-                const row = await tx.residentUnit.update({
-                    where: { id: unit.id },
-                    data: {
-                        building: next.building,
-                        floor: next.floor,
-                        flatNumber: next.flatNumber,
-                    },
-                    select: RESIDENT_UNIT_SELECT,
-                });
-                await tx.user.updateMany({
-                    where: { id: unit.userId, unitNumber: before },
-                    data: { unitNumber: after },
-                });
-                // The owner's open listings advertise the old key and hold
-                // `listings_active_unit_key` for it; withdraw them (as
-                // removeFromUser does) so the old flat is free again.
-                await tx.listing.updateMany({
-                    where: {
-                        ownerId: unit.userId,
-                        building: unit.building,
-                        floor: unit.floor,
-                        flatNumber: unit.flatNumber,
-                        status: {
-                            in: [ListingStatus.PENDING, ListingStatus.APPROVED],
+            result = await this.db.$transaction(async tx => {
+                const locked = await tx.$queryRaw<{ id: string }[]>(
+                    Prisma.sql`SELECT "id" FROM "resident_units" WHERE "id" = ${unitId} FOR UPDATE`
+                );
+                if (locked.length === 0)
+                    throw new NotFoundException('unit.error.notFound');
+                const unit = await tx.residentUnit.findUniqueOrThrow({
+                    where: { id: unitId },
+                    select: {
+                        ...RESIDENT_UNIT_SELECT,
+                        userId: true,
+                        flatId: true,
+                        user: {
+                            select: { name: true, email: true, deletedAt: true },
                         },
                     },
-                    data: { status: ListingStatus.WITHDRAWN },
                 });
-                return row;
+                const before = formatUnitLabel(unit);
+                const sameText =
+                    unit.building === next.building &&
+                    unit.floor === next.floor &&
+                    unit.flatNumber === next.flatNumber;
+
+                if (!sameText) {
+                    // Normalised match: a legacy `a1` row held by another unit counts too.
+                    const holders = await this.findHolders(next, tx);
+                    if (holders.some(holder => holder.id !== unit.id))
+                        throw new ConflictException('unit.error.alreadyOwned');
+                    if (await this.findActiveLead(next, undefined, tx))
+                        throw new ConflictException(
+                            'residentLead.error.unitReserved'
+                        );
+                }
+
+                const flatId = await this.ownership.resolveFlatId(tx, next);
+                if (sameText && unit.flatId === flatId)
+                    return {
+                        row: unit,
+                        before,
+                        userId: unit.userId,
+                        user: unit.user,
+                        changed: false,
+                    };
+
+                const row = sameText
+                    ? unit
+                    : await tx.residentUnit.update({
+                          where: { id: unit.id },
+                          data: {
+                              building: next.building,
+                              floor: next.floor,
+                              flatNumber: next.flatNumber,
+                          },
+                          select: RESIDENT_UNIT_SELECT,
+                      });
+                if (!sameText) {
+                    await tx.user.updateMany({
+                        where: { id: unit.userId, unitNumber: before },
+                        data: { unitNumber: after },
+                    });
+                    // The owner's open listings advertise the old key and hold
+                    // `listings_active_unit_key` for it; withdraw them (as
+                    // removeFromUser does) so the old flat is free again.
+                    await tx.listing.updateMany({
+                        where: {
+                            ownerId: unit.userId,
+                            building: unit.building,
+                            floor: unit.floor,
+                            flatNumber: unit.flatNumber,
+                            status: {
+                                in: [
+                                    ListingStatus.PENDING,
+                                    ListingStatus.APPROVED,
+                                ],
+                            },
+                        },
+                        data: { status: ListingStatus.WITHDRAWN },
+                    });
+                }
+
+                if (flatId && unit.flatId !== flatId) {
+                    const opts = {
+                        userDeleted: unit.user.deletedAt !== null,
+                        actorId: actor.userId,
+                    };
+                    if (unit.flatId)
+                        await this.ownership.moveLink(
+                            tx,
+                            { ...unit, flatId: unit.flatId },
+                            flatId,
+                            opts
+                        );
+                    else
+                        await this.ownership.linkAndOpen(tx, unit, flatId, opts);
+                }
+                return {
+                    row,
+                    before,
+                    userId: unit.userId,
+                    user: unit.user,
+                    changed: true,
+                };
             });
         } catch (error) {
             if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
@@ -342,20 +437,21 @@ export class ResidentUnitsService {
             throw error;
         }
 
-        await this.audit.record(
-            actor,
-            'UNIT_KEY_CHANGED',
-            'ResidentUnit',
-            unit.id,
-            {
-                label: `${userLabel(unit.user)} · ${before} → ${after}`,
-                userId: unit.userId,
-                from: before,
-                to: after,
-            }
-        );
+        if (result.changed)
+            await this.audit.record(
+                actor,
+                'UNIT_KEY_CHANGED',
+                'ResidentUnit',
+                unitId,
+                {
+                    label: `${userLabel(result.user)} · ${result.before} → ${after}`,
+                    userId: result.userId,
+                    from: result.before,
+                    to: after,
+                }
+            );
 
-        return toResidentUnitDto(updated);
+        return toResidentUnitDto(result.row);
     }
 
     /** "Flat added to your account" email. Never fails the caller. */

@@ -24,6 +24,7 @@ import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interfa
 import { HelperEncryptionService } from '../../helper/services/helper.encryption.service';
 import { normalizeEmail } from '../../helper/transforms/normalize-email.transform';
 import { formatUnitLabel } from '../../helper/utils/unit-label';
+import { FlatOwnershipService } from '../../finance/flat-ownership.service';
 import { IAuthUser } from '../../request/interfaces/request.interface';
 import { resolveInvitedRole } from '../utils/roles';
 import {
@@ -67,7 +68,8 @@ export class AuthService {
         private readonly email: EmailService,
         private readonly encryption: HelperEncryptionService,
         private readonly config: ConfigService,
-        private readonly sessions: SessionVersionService
+        private readonly sessions: SessionVersionService,
+        private readonly ownership: FlatOwnershipService
     ) {
         this.appUrl =
             config.get<string>('app.webUrl') ?? 'http://localhost:3000';
@@ -394,6 +396,9 @@ export class AuthService {
                 // The flat becomes owned by this account. Another owner of ANY
                 // of the flats (unique flat key) rolls the whole claim back:
                 // the invitation stays unused.
+                // Path 1: the flat link and its ownership period commit with
+                // the unit (a held period is also 409 alreadyOwned).
+                const flatId = await this.ownership.resolveFlatId(tx, lead);
                 try {
                     await tx.residentUnit.create({
                         data: {
@@ -402,6 +407,7 @@ export class AuthService {
                             floor: lead.floor,
                             flatNumber: lead.flatNumber,
                             leadId: lead.id,
+                            flatId,
                         },
                     });
                 } catch (error) {
@@ -409,6 +415,12 @@ export class AuthService {
                         throw new ConflictException('unit.error.alreadyOwned');
                     throw error;
                 }
+
+                if (flatId)
+                    await this.ownership.openForNewUnit(tx, {
+                        flatId,
+                        userId: saved.id,
+                    });
 
                 await tx.residentLead.update({
                     where: { id: lead.id },

@@ -2,7 +2,6 @@ import {
     BadRequestException,
     ConflictException,
     NotFoundException,
-    ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import 'reflect-metadata';
@@ -27,6 +26,7 @@ import { ResidentUnitsAdminController } from 'src/modules/units/resident-units.a
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { UserGetProfileResponseDto } from 'src/modules/user/dtos/response/user.response';
 import { UserService } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 const superAdmin = { userId: 'super-1', role: Role.SUPER_ADMIN };
 const flat = { building: 'A1', floor: '3', flatNumber: '2' };
@@ -49,6 +49,7 @@ function buildUnitsDb() {
         residentLead: { findFirst: jest.fn() },
         residentUnit: {
             findUnique: jest.fn(),
+            findUniqueOrThrow: jest.fn(),
             findFirst: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
@@ -80,10 +81,12 @@ describe('ResidentUnitsService', () => {
     const db = buildUnitsDb();
     const email = { sendUnitAdded: jest.fn() };
     const audit = { record: jest.fn() };
+    const ownership = mockFlatOwnership();
     const service = new ResidentUnitsService(
         db as unknown as DatabaseService,
         email as unknown as EmailService,
-        audit as unknown as AuditService
+        audit as unknown as AuditService,
+        asOwnership(ownership)
     );
 
     const owner = {
@@ -96,14 +99,22 @@ describe('ResidentUnitsService', () => {
     // Normalised key lookups go through $queryRaw (units vs leads by table name).
     let holders: { id: string; userId: string }[] = [];
     let activeLeads: { id: string }[] = [];
+    // updateKey's `SELECT ... FOR UPDATE` row lock on the unit.
+    let lockedRows: { id: string }[] = [];
 
     beforeEach(() => {
         jest.clearAllMocks();
         holders = [];
         activeLeads = [];
+        lockedRows = [{ id: 'unit-1' }];
+        ownership.resolveFlatId.mockResolvedValue(null);
         db.$queryRaw.mockImplementation((query: { sql: string }) =>
             Promise.resolve(
-                query.sql.includes('resident_units') ? holders : activeLeads
+                query.sql.includes('FOR UPDATE')
+                    ? lockedRows
+                    : query.sql.includes('resident_units')
+                      ? holders
+                      : activeLeads
             )
         );
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -136,6 +147,7 @@ describe('ResidentUnitsService', () => {
                         floor: '3',
                         flatNumber: '2',
                         addedById: 'super-1',
+                        flatId: null,
                     },
                 })
             );
@@ -210,6 +222,50 @@ describe('ResidentUnitsService', () => {
         });
     });
 
+    describe('addToUser ownership (path 3)', () => {
+        it('links the flat and opens a period in the same transaction', async () => {
+            ownership.resolveFlatId.mockResolvedValue('flat-a132');
+            await service.addToUser('user-1', flat, superAdmin);
+            expect(db.residentUnit.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({ flatId: 'flat-a132' }),
+                })
+            );
+            expect(ownership.openForNewUnit).toHaveBeenCalledWith(db, {
+                flatId: 'flat-a132',
+                userId: 'user-1',
+                actorId: 'super-1',
+            });
+        });
+
+        it('an unknown flat (strict off) creates an unlinked unit and no period', async () => {
+            await service.addToUser('user-1', flat, superAdmin);
+            expect(ownership.openForNewUnit).not.toHaveBeenCalled();
+        });
+
+        it('strict mode: unknown flat is 400 and nothing is created', async () => {
+            ownership.resolveFlatId.mockRejectedValue(
+                new BadRequestException('unit.error.unknownFlat')
+            );
+            await expect(
+                service.addToUser('user-1', flat, superAdmin)
+            ).rejects.toThrow('unit.error.unknownFlat');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+        });
+
+        it('a period conflict (409) aborts the add with no audit or email', async () => {
+            ownership.resolveFlatId.mockResolvedValue('flat-a132');
+            ownership.openForNewUnit.mockRejectedValueOnce(
+                new ConflictException('unit.error.alreadyOwned')
+            );
+            await expect(
+                service.addToUser('user-1', flat, superAdmin)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(audit.record).not.toHaveBeenCalled();
+            expect(email.sendUnitAdded).not.toHaveBeenCalled();
+        });
+    });
+
     describe('removeFromUser', () => {
         const stored = (overrides: Record<string, unknown> = {}) => ({
             ...unitRow(),
@@ -226,6 +282,34 @@ describe('ResidentUnitsService', () => {
             db.residentUnit.findUnique.mockResolvedValue(stored());
             db.residentUnit.deleteMany.mockResolvedValue({ count: 1 });
             db.user.findUnique.mockResolvedValue({ unitNumber: 'A1-3-2' });
+        });
+
+        it('path 4: closes the period of the linked flat (REMOVED) after the delete, in the transaction', async () => {
+            lockedRows = [{ flatId: 'flat-a132' } as unknown as { id: string }];
+            await service.removeFromUser('user-1', 'unit-1', superAdmin);
+            expect(ownership.closeForUnit).toHaveBeenCalledWith(db, {
+                flatId: 'flat-a132',
+                userId: 'user-1',
+                reason: 'REMOVED',
+                actorId: 'super-1',
+            });
+            const [del] = db.residentUnit.deleteMany.mock.invocationCallOrder;
+            const [close] = ownership.closeForUnit.mock.invocationCallOrder;
+            expect(del).toBeLessThan(close);
+        });
+
+        it('an unlinked unit closes no period', async () => {
+            lockedRows = [{ flatId: null } as unknown as { id: string }];
+            await service.removeFromUser('user-1', 'unit-1', superAdmin);
+            expect(ownership.closeForUnit).not.toHaveBeenCalled();
+        });
+
+        it('a unit gone by the time the row lock is taken is 404 with nothing deleted', async () => {
+            lockedRows = [];
+            await expect(
+                service.removeFromUser('user-1', 'unit-1', superAdmin)
+            ).rejects.toThrow('unit.error.notFound');
+            expect(db.residentUnit.deleteMany).not.toHaveBeenCalled();
         });
 
         it('404 unit.error.notFound when the unit is missing', async () => {
@@ -357,14 +441,15 @@ describe('ResidentUnitsService', () => {
         const existing = (overrides: Record<string, unknown> = {}) => ({
             ...unitRow({ building: 'a1', floor: '3', flatNumber: '2' }),
             userId: 'user-1',
-            user: { name: 'Sara', email: 'sara@example.com', unitNumber: 'a1-3-2' },
+            flatId: null,
+            user: { name: 'Sara', email: 'sara@example.com', deletedAt: null },
             ...overrides,
         });
         const target = { building: 'A2', floor: 'G', flatNumber: '4' };
 
         beforeEach(() => {
-            // findUnique = the unit being repaired; key holders come from $queryRaw.
-            db.residentUnit.findUnique.mockReset().mockResolvedValue(existing());
+            // findUniqueOrThrow = the locked unit; key holders come from $queryRaw.
+            db.residentUnit.findUniqueOrThrow.mockReset().mockResolvedValue(existing());
             db.listing.updateMany.mockResolvedValue({ count: 0 });
             db.residentUnit.update.mockResolvedValue(
                 unitRow({ building: 'A2', floor: 'G', flatNumber: '4' })
@@ -439,7 +524,11 @@ describe('ResidentUnitsService', () => {
             ).rejects.toThrow('unit.error.alreadyOwned');
             const unitQuery = db.$queryRaw.mock.calls
                 .map(c => c[0] as { sql: string; values: unknown[] })
-                .find(q => q.sql.includes('resident_units'));
+                .find(
+                    q =>
+                        q.sql.includes('resident_units') &&
+                        !q.sql.includes('FOR UPDATE')
+                );
             expect(unitQuery?.sql).toContain(
                 String.raw`upper(btrim("building", E' \t\r\n'))`
             );
@@ -505,14 +594,121 @@ describe('ResidentUnitsService', () => {
         });
 
         it('404 when the unit does not exist', async () => {
-            db.residentUnit.findUnique.mockReset().mockResolvedValue(null);
+            lockedRows = [];
             await expect(
                 service.updateKey('nope', target, superAdmin)
             ).rejects.toThrow('unit.error.notFound');
         });
 
+        it('takes the row lock (SELECT ... FOR UPDATE) before reading the unit', async () => {
+            await service.updateKey('unit-1', target, superAdmin);
+            const lock = db.$queryRaw.mock.calls.findIndex(c =>
+                (c[0] as { sql: string }).sql.includes('FOR UPDATE')
+            );
+            expect(lock).toBe(0);
+            const [lockOrder] = db.$queryRaw.mock.invocationCallOrder;
+            const [read] = db.residentUnit.findUniqueOrThrow.mock.invocationCallOrder;
+            expect(lockOrder).toBeLessThan(read);
+        });
+
+        describe('flat link (M2 link-and-open)', () => {
+            it('NULL → linked: same text, real flat now resolvable → link and open, audited', async () => {
+                db.residentUnit.findUniqueOrThrow
+                    .mockReset()
+                    .mockResolvedValue(
+                        existing({ building: 'A2', floor: 'G', flatNumber: '4' })
+                    );
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                await service.updateKey('unit-1', target, superAdmin);
+                expect(db.residentUnit.update).not.toHaveBeenCalled();
+                expect(ownership.linkAndOpen).toHaveBeenCalledWith(
+                    db,
+                    expect.objectContaining({ id: 'unit-1', userId: 'user-1' }),
+                    'flat-a2g4',
+                    { userDeleted: false, actorId: 'super-1' }
+                );
+                expect(audit.record).toHaveBeenCalledWith(
+                    superAdmin,
+                    'UNIT_KEY_CHANGED',
+                    'ResidentUnit',
+                    'unit-1',
+                    expect.anything()
+                );
+            });
+
+            it('NULL → linked with a text repair: re-keys then links', async () => {
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                await service.updateKey('unit-1', target, superAdmin);
+                expect(db.residentUnit.update).toHaveBeenCalled();
+                expect(ownership.linkAndOpen).toHaveBeenCalled();
+                expect(ownership.moveLink).not.toHaveBeenCalled();
+            });
+
+            it('linked → another flat: moveLink', async () => {
+                db.residentUnit.findUniqueOrThrow
+                    .mockReset()
+                    .mockResolvedValue(existing({ flatId: 'flat-a132' }));
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                await service.updateKey('unit-1', target, superAdmin);
+                expect(ownership.moveLink).toHaveBeenCalledWith(
+                    db,
+                    expect.objectContaining({ flatId: 'flat-a132' }),
+                    'flat-a2g4',
+                    { userDeleted: false, actorId: 'super-1' }
+                );
+                expect(ownership.linkAndOpen).not.toHaveBeenCalled();
+            });
+
+            it('a soft-deleted owner: link written with userDeleted (no period)', async () => {
+                db.residentUnit.findUniqueOrThrow.mockReset().mockResolvedValue(
+                    existing({
+                        user: {
+                            name: 'Sara',
+                            email: 'sara@example.com',
+                            deletedAt: new Date('2026-10-20T00:00:00Z'),
+                        },
+                    })
+                );
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                await service.updateKey('unit-1', target, superAdmin);
+                expect(ownership.linkAndOpen).toHaveBeenCalledWith(
+                    db,
+                    expect.anything(),
+                    'flat-a2g4',
+                    { userDeleted: true, actorId: 'super-1' }
+                );
+            });
+
+            it('same text, same link: no-op', async () => {
+                db.residentUnit.findUniqueOrThrow.mockReset().mockResolvedValue(
+                    existing({
+                        building: 'A2',
+                        floor: 'G',
+                        flatNumber: '4',
+                        flatId: 'flat-a2g4',
+                    })
+                );
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                await service.updateKey('unit-1', target, superAdmin);
+                expect(ownership.linkAndOpen).not.toHaveBeenCalled();
+                expect(ownership.moveLink).not.toHaveBeenCalled();
+                expect(audit.record).not.toHaveBeenCalled();
+            });
+
+            it('a period conflict during the link rolls back with 409 and no audit', async () => {
+                ownership.resolveFlatId.mockResolvedValue('flat-a2g4');
+                ownership.linkAndOpen.mockRejectedValueOnce(
+                    new ConflictException('unit.error.alreadyOwned')
+                );
+                await expect(
+                    service.updateKey('unit-1', target, superAdmin)
+                ).rejects.toThrow('unit.error.alreadyOwned');
+                expect(audit.record).not.toHaveBeenCalled();
+            });
+        });
+
         it('is a no-op (no write, no audit) when the key is unchanged', async () => {
-            db.residentUnit.findUnique
+            db.residentUnit.findUniqueOrThrow
                 .mockReset()
                 .mockResolvedValueOnce(
                     existing({ building: 'A2', floor: 'G', flatNumber: '4' })
@@ -576,7 +772,8 @@ describe('UserService.getProfile units', () => {
         db as unknown as DatabaseService,
         {} as SessionVersionService,
         {} as ConfigService,
-        { record: jest.fn() } as unknown as AuditService
+        { record: jest.fn() } as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
 
     it('returns every owned flat oldest first with its label; unitNumber stays the primary', async () => {
@@ -755,7 +952,8 @@ describe('UserService.updateUser unitNumber', () => {
         db as unknown as DatabaseService,
         {} as SessionVersionService,
         {} as ConfigService,
-        { record: jest.fn() } as unknown as AuditService
+        { record: jest.fn() } as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
     const owner = (unitNumber: string | null) => ({
         id: 'user-1',

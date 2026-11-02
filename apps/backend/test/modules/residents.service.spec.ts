@@ -11,6 +11,10 @@ import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
 import { ResidentLeadQueryDto } from 'src/modules/residents/dtos/request/resident-lead.query.dto';
 import { ResidentsService } from 'src/modules/residents/residents.service';
+import { mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
+
+export const ownership = mockFlatOwnership();
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +102,8 @@ describe('ResidentsService', () => {
 
     beforeEach(async () => {
         jest.clearAllMocks();
+        ownership.resolveFlatId.mockReset().mockResolvedValue(null);
+        ownership.openForNewUnit.mockReset().mockResolvedValue(undefined);
         // Defaults: the flat has no owner; interactive transactions run on the mocks.
         residentUnits.findOwner.mockResolvedValue(null);
         residentUnits.findActiveLead.mockResolvedValue(null);
@@ -114,6 +120,10 @@ describe('ResidentsService', () => {
                 { provide: AuditService, useValue: audit },
                 { provide: InvitationsService, useValue: invitationsService },
                 { provide: ResidentUnitsService, useValue: residentUnits },
+                {
+                    provide: FlatOwnershipService,
+                    useValue: ownership,
+                },
             ],
         }).compile();
 
@@ -316,6 +326,7 @@ describe('ResidentsService', () => {
                     flatNumber: '2',
                     leadId: 'lead-1',
                     addedById: 'admin-1',
+                    flatId: null,
                 },
             });
             expect(db.user.updateMany).toHaveBeenCalledWith({
@@ -333,6 +344,27 @@ describe('ResidentsService', () => {
                 user,
                 'Building A-3-2'
             );
+        });
+
+        it('path 2: existing account + real flat → unit linked and period opened by the admin', async () => {
+            const lead = mockLead({ building: 'A1', floor: '3', flatNumber: '2' });
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({ id: 'user-1', name: 'Jane', email: lead.email });
+            db.residentLead.update.mockResolvedValue(
+                mockLead({ userId: 'user-1', status: ResidentLeadStatus.CONVERTED })
+            );
+            ownership.resolveFlatId.mockResolvedValue('flat-a132');
+
+            await service.invite('lead-1', adminActor);
+
+            expect(db.residentUnit.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({ flatId: 'flat-a132' }),
+            });
+            expect(ownership.openForNewUnit).toHaveBeenCalledWith(db, {
+                flatId: 'flat-a132',
+                userId: 'user-1',
+                actorId: 'admin-1',
+            });
         });
 
         it('existing account that already owns the flat: idempotent (no new unit row, no email), lead CONVERTED', async () => {

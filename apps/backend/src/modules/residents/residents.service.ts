@@ -10,6 +10,7 @@ import {
     PRISMA_UNIQUE_VIOLATION,
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -53,7 +54,8 @@ export class ResidentsService {
         private readonly db: DatabaseService,
         private readonly invitationsService: InvitationsService,
         private readonly audit: AuditService,
-        private readonly residentUnits: ResidentUnitsService
+        private readonly residentUnits: ResidentUnitsService,
+        private readonly ownership: FlatOwnershipService
     ) {}
 
     async create(dto: ResidentLeadCreateDto): Promise<ResidentLeadResponseDto> {
@@ -349,6 +351,8 @@ export class ResidentsService {
         try {
             await this.db.$transaction(async tx => {
                 if (createUnit) {
+                    // Path 2: link the finance flat and open its period.
+                    const flatId = await this.ownership.resolveFlatId(tx, lead);
                     await tx.residentUnit.create({
                         data: {
                             userId,
@@ -357,8 +361,15 @@ export class ResidentsService {
                             flatNumber: lead.flatNumber,
                             leadId: lead.id,
                             addedById: actor.userId,
+                            flatId,
                         },
                     });
+                    if (flatId)
+                        await this.ownership.openForNewUnit(tx, {
+                            flatId,
+                            userId,
+                            actorId: actor.userId,
+                        });
                     await tx.user.updateMany({
                         where: { id: userId, unitNumber: null },
                         data: { unitNumber: formatUnitLabel(lead) },

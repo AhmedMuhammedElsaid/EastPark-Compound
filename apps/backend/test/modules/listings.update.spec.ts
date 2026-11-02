@@ -11,6 +11,7 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { ListingNotifier } from 'src/modules/listings/listing.notifier';
 import { ListingsService } from 'src/modules/listings/listings.service';
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 const BASE =
     'https://proj.supabase.co/storage/v1/object/public/uploads/listing-photos';
@@ -97,14 +98,16 @@ function build() {
         getOrThrow: (key: string) =>
             key === 'supabase.url' ? 'https://proj.supabase.co' : 'uploads',
     };
+    const ownership = mockFlatOwnership();
     const service = new ListingsService(
         db as unknown as DatabaseService,
         config as unknown as ConfigService,
         cache as unknown as CacheService,
         notifier as unknown as ListingNotifier,
-        units as unknown as ResidentUnitsService
+        units as unknown as ResidentUnitsService,
+        asOwnership(ownership)
     );
-    return { db, units, notifier, service };
+    return { db, units, notifier, service, ownership };
 }
 
 describe('ListingsService update', () => {
@@ -126,6 +129,17 @@ describe('ListingsService update', () => {
             expect(db.listing.updateMany).not.toHaveBeenCalled();
             expect(db.listingRevision.create).not.toHaveBeenCalled();
         }
+    });
+
+    it('re-resolves flatId on every edit and writes it with the claim', async () => {
+        const { db, service, ownership } = build();
+        db.listing.findUnique.mockResolvedValue(row({ status: ListingStatus.PENDING }));
+        db.listing.findUniqueOrThrow.mockResolvedValue(row());
+        ownership.resolveFlatId.mockResolvedValue('flat-a132');
+
+        await service.update('l1', dto({ price: 2400000 }), owner);
+
+        expect(db.listing.updateMany.mock.calls[0][0].data.flatId).toBe('flat-a132');
     });
 
     it('sends the listing back to PENDING, clears approval/expiry/reason and writes one revision', async () => {

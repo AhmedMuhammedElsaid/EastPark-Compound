@@ -43,7 +43,7 @@ describeDb('finance_foundations migration (real Postgres)', () => {
         expect(db.scalar('SELECT COUNT(*) FROM "finance_categories"')).toBe(
             '16'
         );
-        expect(db.scalar('SELECT COUNT(*) FROM "finance_settings"')).toBe('3');
+        expect(db.scalar('SELECT COUNT(*) FROM "finance_settings"')).toBe('4');
     });
 
     it('enables RLS on all 14 new tables', () => {

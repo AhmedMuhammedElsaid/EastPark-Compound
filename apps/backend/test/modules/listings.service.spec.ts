@@ -14,6 +14,7 @@ import { LISTING_VALIDITY_MS } from 'src/modules/listings/listing.constants';
 import { ListingNotifier } from 'src/modules/listings/listing.notifier';
 import { ListingsService } from 'src/modules/listings/listings.service';
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 const BASE =
     'https://proj.supabase.co/storage/v1/object/public/uploads/listing-photos';
@@ -95,14 +96,16 @@ function build() {
         getOrThrow: (key: string) =>
             key === 'supabase.url' ? 'https://proj.supabase.co' : 'uploads',
     };
+    const ownership = mockFlatOwnership();
     const service = new ListingsService(
         db as unknown as DatabaseService,
         config as unknown as ConfigService,
         cache as unknown as CacheService,
         notifier as unknown as ListingNotifier,
-        units as unknown as ResidentUnitsService
+        units as unknown as ResidentUnitsService,
+        asOwnership(ownership)
     );
-    return { db, units, cache, notifier, service };
+    return { db, units, cache, notifier, service, ownership };
 }
 
 describe('ListingsService create', () => {
@@ -122,6 +125,29 @@ describe('ListingsService create', () => {
         expect(out.unitLabel).toBe('A1-3-2');
         expect(out).toHaveProperty('rejectReason', null);
         expect(out.owner).toEqual({ id: 'u1', name: 'Sara' });
+    });
+
+    it('sets the informational flatId from the normalised key', async () => {
+        const { db, service, ownership } = build();
+        db.listing.findFirst.mockResolvedValue(null);
+        db.listing.create.mockResolvedValue(row());
+        ownership.resolveFlatId.mockResolvedValue('flat-a132');
+
+        await service.create(dto(), owner);
+
+        expect(ownership.resolveFlatId).toHaveBeenCalledWith(
+            db,
+            expect.objectContaining({ building: 'A1', floor: '3', flatNumber: '2' })
+        );
+        expect(db.listing.create.mock.calls[0][0].data.flatId).toBe('flat-a132');
+    });
+
+    it('an unknown key (strict off) stores flatId null', async () => {
+        const { db, service } = build();
+        db.listing.findFirst.mockResolvedValue(null);
+        db.listing.create.mockResolvedValue(row());
+        await service.create(dto(), owner);
+        expect(db.listing.create.mock.calls[0][0].data.flatId).toBeNull();
     });
 
     it('refuses a flat that already has a PENDING/APPROVED listing (pre-check)', async () => {

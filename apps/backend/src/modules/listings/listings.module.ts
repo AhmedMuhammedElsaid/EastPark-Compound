@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FlatOwnershipModule } from 'src/common/finance/flat-ownership.module';
 
 import { CacheModule } from 'src/common/cache/cache.module';
 import { DatabaseModule } from 'src/common/database/database.module';
@@ -17,6 +18,7 @@ import { ListingsService } from './listings.service';
         CacheModule,
         NotificationsModule,
         ResidentUnitsModule,
+        FlatOwnershipModule,
     ],
     controllers: [ListingsController, ListingsAdminController],
     providers: [ListingsService, ListingsAdminService, ListingNotifier],

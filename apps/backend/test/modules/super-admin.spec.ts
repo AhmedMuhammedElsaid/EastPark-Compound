@@ -10,6 +10,7 @@ import { feedbackLabel } from 'src/modules/feedback/feedback.service';
 import { InvitationCreateDto } from 'src/modules/invitations/dtos/request/invitation.create.dto';
 import { AdminUserRoleUpdateDto } from 'src/modules/user/dtos/request/user.admin.request';
 import { UserService } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 async function errors<T extends object>(
     cls: new () => T,
@@ -85,7 +86,8 @@ describe('an audit write failure does not break the request', () => {
             db as unknown as DatabaseService,
             sessions as unknown as SessionVersionService,
             {} as ConfigService,
-            audit
+            audit,
+            asOwnership(mockFlatOwnership())
         );
 
         await expect(

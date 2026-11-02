@@ -15,6 +15,7 @@ import { ShopsService } from 'src/modules/shops/shops.service';
 import { UserAdminController } from 'src/modules/user/controllers/user.admin.controller';
 import { AdminMerchantQueryDto } from 'src/modules/user/dtos/request/user.admin.request';
 import { UserService } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 const rolesOf = (handler: unknown): Role[] =>
     Reflect.getMetadata(ROLES_DECORATOR_KEY, handler as object) as Role[];
@@ -25,7 +26,8 @@ describe('GET /admin/user/merchants', () => {
         db as unknown as DatabaseService,
         {} as SessionVersionService,
         {} as ConfigService,
-        {} as AuditService
+        {} as AuditService,
+        asOwnership(mockFlatOwnership())
     );
     beforeEach(() => jest.clearAllMocks());
 

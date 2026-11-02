@@ -10,6 +10,7 @@ import {
     PRISMA_RECORD_NOT_FOUND,
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import { AuditAction, AuditEntity } from 'src/modules/audit/audit.actions';
@@ -186,7 +187,8 @@ const toReviewItem = (r: ReviewRow): TrashItemDto =>
 export class TrashService {
     constructor(
         private readonly db: DatabaseService,
-        private readonly audit: AuditService
+        private readonly audit: AuditService,
+        private readonly ownership: FlatOwnershipService
     ) {}
 
     async list(query: TrashQueryDto): Promise<TrashListResponseDto> {
@@ -264,9 +266,13 @@ export class TrashService {
         actor: IAuthUser
     ): Promise<TrashItemDto> {
         let restored: TrashItemDto;
+        let reopenedFlats: string[] | undefined;
         switch (type) {
             case 'USER':
-                restored = await this.restoreUser(id);
+                ({ restored, reopenedFlats } = await this.restoreUser(
+                    id,
+                    actor
+                ));
                 break;
             case 'SHOP':
                 restored = await this.restoreShop(id);
@@ -285,13 +291,25 @@ export class TrashService {
         const { action, entity } = AUDIT[type];
         await this.audit.record(actor, action, entity, id, {
             label: restored.label,
+            ...(reopenedFlats?.length
+                ? { reopenedFlats: reopenedFlats.join(', ') }
+                : {}),
         });
         return restored;
     }
 
     // ── Per-type restore ──────────────────────────────────────────────────────
 
-    private async restoreUser(id: string): Promise<TrashItemDto> {
+    /**
+     * Clears `deletedAt` and, in the same transaction, opens a new ownership
+     * period (dated the restore day) for every linked flat the account still
+     * holds (path 6). A flat sold meanwhile had its unit removed, so nothing
+     * reopens for it. The reopened labels go into the audit row.
+     */
+    private async restoreUser(
+        id: string,
+        actor: IAuthUser
+    ): Promise<{ restored: TrashItemDto; reopenedFlats: string[] }> {
         const row = await this.db.user.findUnique({
             where: { id },
             select: {
@@ -305,13 +323,21 @@ export class TrashService {
             },
         });
         const current = this.assertDeleted(row, toUserItem);
+        let reopenedFlats: string[] = [];
         await this.clear(() =>
-            this.db.user.update({
-                where: { id, deletedAt: { not: null } },
-                data: { deletedAt: null, deletedById: null },
+            this.db.$transaction(async tx => {
+                await tx.user.update({
+                    where: { id, deletedAt: { not: null } },
+                    data: { deletedAt: null, deletedById: null },
+                });
+                reopenedFlats = await this.ownership.reopenForUser(
+                    tx,
+                    id,
+                    actor.userId
+                );
             })
         );
-        return this.asRestored(current);
+        return { restored: this.asRestored(current), reopenedFlats };
     }
 
     private async restoreShop(id: string): Promise<TrashItemDto> {

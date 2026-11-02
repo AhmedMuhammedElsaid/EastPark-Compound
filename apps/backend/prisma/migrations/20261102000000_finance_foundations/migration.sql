@@ -663,10 +663,14 @@ INSERT INTO "finance_categories" ("id", "name", "nameAr", "type", "sortOrder", "
     ('fc_revenue_other', 'Other income', 'إيرادات أخرى', 'REVENUE', 60, true, CURRENT_TIMESTAMP);
 
 -- Seed: settings (January fiscal year, due day 10, approval threshold 5000 EGP).
+-- finance.goLiveAt = this transaction's start (UTC ISO string). The ownership link step
+-- (FlatOwnershipService) opens a unit created before it at the 1900-01-01 sentinel and a
+-- later unit at its createdAt Cairo date; it must never be edited after deploy.
 INSERT INTO "finance_settings" ("key", "value", "updatedAt") VALUES
     ('expense.approvalThreshold', to_jsonb(5000), CURRENT_TIMESTAMP),
     ('fiscal.yearStartMonth', to_jsonb(1), CURRENT_TIMESTAMP),
-    ('billing.defaultDueDay', to_jsonb(10), CURRENT_TIMESTAMP);
+    ('billing.defaultDueDay', to_jsonb(10), CURRENT_TIMESTAMP),
+    ('finance.goLiveAt', to_jsonb(to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')), CURRENT_TIMESTAMP);
 
 -- Backfill 1: link every existing resident_unit whose normalised key is a known flat.
 -- Unknown keys keep flatId NULL (the text columns remain the fallback).

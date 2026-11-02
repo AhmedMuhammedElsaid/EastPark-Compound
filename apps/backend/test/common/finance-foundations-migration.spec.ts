@@ -202,12 +202,15 @@ describe('finance_foundations migration (file-level)', () => {
         expect(insert).not.toMatch(/"toDate"/);
     });
 
-    it('seeds categories (10 expense, 6 revenue) and the three settings', () => {
+    it('seeds categories (10 expense, 6 revenue) and the four settings', () => {
         expect(code.match(/'EXPENSE', \d+, true/g)).toHaveLength(10);
         expect(code.match(/'REVENUE', \d+, true/g)).toHaveLength(6);
         expect(code).toContain("'expense.approvalThreshold', to_jsonb(5000)");
         expect(code).toContain("'fiscal.yearStartMonth', to_jsonb(1)");
         expect(code).toContain("'billing.defaultDueDay', to_jsonb(10)");
+        expect(code).toContain(
+            `'finance.goLiveAt', to_jsonb(to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
+        );
     });
 
     it('creates finance_live_payments with security_invoker and a guarded REVOKE', () => {

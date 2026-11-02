@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FlatOwnershipModule } from 'src/common/finance/flat-ownership.module';
 
 import { DatabaseModule } from 'src/common/database/database.module';
 import { InvitationsModule } from 'src/modules/invitations/invitations.module';
@@ -9,7 +10,12 @@ import { ResidentsController } from './residents.controller';
 import { ResidentsService } from './residents.service';
 
 @Module({
-    imports: [DatabaseModule, InvitationsModule, ResidentUnitsModule],
+    imports: [
+        DatabaseModule,
+        InvitationsModule,
+        ResidentUnitsModule,
+        FlatOwnershipModule,
+    ],
     controllers: [ResidentsController, ResidentsAdminController],
     providers: [ResidentsService],
 })
