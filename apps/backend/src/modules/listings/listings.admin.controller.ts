@@ -17,6 +17,7 @@ import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
 import { ListingRejectDto } from './dtos/request/listing.reject.dto';
+import { ListingApproveDto } from './dtos/request/listing.review.dto';
 import {
     ListingAdminQueryDto,
     ListingRevisionsQueryDto,
@@ -78,9 +79,10 @@ export class ListingsAdminController {
     @ApiOperation({ summary: 'Approve a PENDING listing [ADMIN]' })
     approve(
         @Param('id') id: string,
-        @AuthUser() actor: IAuthUser
+        @AuthUser() actor: IAuthUser,
+        @Body() dto?: ListingApproveDto
     ): Promise<AdminListingDto> {
-        return this.listings.approve(id, actor);
+        return this.listings.approve(id, actor, dto?.expectedUpdatedAt);
     }
 
     @Post(':id/reject')
@@ -98,6 +100,11 @@ export class ListingsAdminController {
         @Body() dto: ListingRejectDto,
         @AuthUser() actor: IAuthUser
     ): Promise<AdminListingDto> {
-        return this.listings.reject(id, dto.reason, actor);
+        return this.listings.reject(
+            id,
+            dto.reason,
+            actor,
+            dto.expectedUpdatedAt
+        );
     }
 }

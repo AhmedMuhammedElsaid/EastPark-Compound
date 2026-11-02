@@ -140,7 +140,11 @@ export class ListingsAdminService {
     }
 
     /** PENDING only, owner not soft-deleted. Re-checks the one-active-per-flat rule; fresh 60-day window. */
-    async approve(id: string, actor: IAuthUser): Promise<AdminListingDto> {
+    async approve(
+        id: string,
+        actor: IAuthUser,
+        expectedUpdatedAt?: string
+    ): Promise<AdminListingDto> {
         const current = await this.loadOrThrow(id);
         if (current.status !== ListingStatus.PENDING)
             throw new ConflictException('listing.error.invalidStatus');
@@ -154,14 +158,18 @@ export class ListingsAdminService {
             throw new ConflictException('listing.error.unitAlreadyListed');
 
         const now = new Date();
-        const claimed = await this.claim(current.id, [ListingStatus.PENDING], {
-            status: ListingStatus.APPROVED,
-            approvedAt: now,
-            expiresAt: new Date(now.getTime() + LISTING_VALIDITY_MS),
-            rejectReason: null,
-            reviewedById: actor.userId,
-        });
-        if (!claimed) throw new ConflictException('listing.error.invalidStatus');
+        await this.claim(
+            current.id,
+            [ListingStatus.PENDING],
+            {
+                status: ListingStatus.APPROVED,
+                approvedAt: now,
+                expiresAt: new Date(now.getTime() + LISTING_VALIDITY_MS),
+                rejectReason: null,
+                reviewedById: actor.userId,
+            },
+            expectedUpdatedAt
+        );
 
         const unitLabel = formatUnitLabel(current);
         await this.audit.record(actor, 'LISTING_APPROVED', 'Listing', id, {
@@ -177,14 +185,15 @@ export class ListingsAdminService {
     async reject(
         id: string,
         reason: string,
-        actor: IAuthUser
+        actor: IAuthUser,
+        expectedUpdatedAt?: string
     ): Promise<AdminListingDto> {
         const current = await this.loadOrThrow(id);
         const takeDown = current.status === ListingStatus.APPROVED;
         if (!takeDown && current.status !== ListingStatus.PENDING)
             throw new ConflictException('listing.error.invalidStatus');
 
-        const claimed = await this.claim(
+        await this.claim(
             current.id,
             [current.status],
             {
@@ -193,9 +202,9 @@ export class ListingsAdminService {
                 approvedAt: null,
                 expiresAt: null,
                 reviewedById: actor.userId,
-            }
+            },
+            expectedUpdatedAt
         );
-        if (!claimed) throw new ConflictException('listing.error.invalidStatus');
 
         const unitLabel = formatUnitLabel(current);
         await this.audit.record(
@@ -222,25 +231,48 @@ export class ListingsAdminService {
     }
 
     /**
-     * Compare-and-set on the status. Returns false when the row changed under
-     * us; a unique-index race on the flat (approve) becomes the 409 the DB
-     * index promises.
+     * Compare-and-set on the status (and, when given, on `updatedAt`, the
+     * version the admin loaded). Throws 409 when the row changed under us:
+     * `changedSinceLoaded` when it is still in the expected status but was
+     * edited since, otherwise `invalidStatus`. A unique-index race on the
+     * flat (approve) becomes the 409 the DB index promises.
      */
     private async claim(
         id: string,
         from: ListingStatus[],
-        data: Prisma.ListingUncheckedUpdateManyInput
-    ): Promise<boolean> {
+        data: Prisma.ListingUncheckedUpdateManyInput,
+        expectedUpdatedAt?: string
+    ): Promise<void> {
+        let count: number;
         try {
             const result = await this.db.listing.updateMany({
-                where: { id, status: { in: from } },
+                where: {
+                    id,
+                    status: { in: from },
+                    ...(expectedUpdatedAt
+                        ? { updatedAt: new Date(expectedUpdatedAt) }
+                        : {}),
+                },
                 data,
             });
-            return result.count === 1;
+            count = result.count;
         } catch (error) {
             if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
                 throw new ConflictException('listing.error.unitAlreadyListed');
             throw error;
         }
+        if (count === 1) return;
+
+        const fresh = expectedUpdatedAt
+            ? await this.db.listing.findUnique({
+                  where: { id },
+                  select: { status: true },
+              })
+            : null;
+        throw new ConflictException(
+            fresh && from.includes(fresh.status)
+                ? 'listing.error.changedSinceLoaded'
+                : 'listing.error.invalidStatus'
+        );
     }
 }

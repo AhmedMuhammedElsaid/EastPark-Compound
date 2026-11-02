@@ -175,6 +175,45 @@ describe('ListingsAdminService approve', () => {
         expect(notifier.notify).not.toHaveBeenCalled();
     });
 
+    it('adds updatedAt to the claim when expectedUpdatedAt is given and passes on a match', async () => {
+        const { db, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+
+        await service.approve('l1', admin, '2026-10-30T10:00:00.000Z');
+
+        expect(db.listing.updateMany.mock.calls[0][0].where).toEqual({
+            id: 'l1',
+            status: { in: [ListingStatus.PENDING] },
+            updatedAt: new Date('2026-10-30T10:00:00.000Z'),
+        });
+    });
+
+    it('a stale expectedUpdatedAt on a still-PENDING listing is 409 changedSinceLoaded', async () => {
+        const { db, audit, notifier, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+        db.listing.updateMany.mockResolvedValue({ count: 0 });
+
+        await expect(
+            service.approve('l1', admin, '2026-10-29T10:00:00.000Z')
+        ).rejects.toThrow(
+            new ConflictException('listing.error.changedSinceLoaded')
+        );
+        expect(audit.record).not.toHaveBeenCalled();
+        expect(notifier.notify).not.toHaveBeenCalled();
+    });
+
+    it('a stale expectedUpdatedAt after the status moved on is invalidStatus', async () => {
+        const { db, service } = build();
+        db.listing.findUnique
+            .mockResolvedValueOnce(row())
+            .mockResolvedValueOnce({ status: ListingStatus.WITHDRAWN });
+        db.listing.updateMany.mockResolvedValue({ count: 0 });
+
+        await expect(
+            service.approve('l1', admin, '2026-10-29T10:00:00.000Z')
+        ).rejects.toThrow(new ConflictException('listing.error.invalidStatus'));
+    });
+
     it('answers 404 for an unknown listing', async () => {
         const { db, service } = build();
         db.listing.findUnique.mockResolvedValue(null);
@@ -268,6 +307,23 @@ describe('ListingsAdminService reject', () => {
             new ConflictException('listing.error.invalidStatus')
         );
         expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('reject: matching expectedUpdatedAt passes, stale one is 409 changedSinceLoaded', async () => {
+        const { db, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+
+        await service.reject('l1', 'Reason', admin, '2026-10-30T10:00:00.000Z');
+        expect(db.listing.updateMany.mock.calls[0][0].where).toMatchObject({
+            updatedAt: new Date('2026-10-30T10:00:00.000Z'),
+        });
+
+        db.listing.updateMany.mockResolvedValue({ count: 0 });
+        await expect(
+            service.reject('l1', 'Reason', admin, '2026-10-29T10:00:00.000Z')
+        ).rejects.toThrow(
+            new ConflictException('listing.error.changedSinceLoaded')
+        );
     });
 
     it('answers 404 for an unknown listing', async () => {
