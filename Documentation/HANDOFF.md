@@ -8,9 +8,9 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 
 | Branch | Tip | State |
 |---|---|---|
-| `main` | `f806451` | live in prod (Vercel web, Render backend) |
-| `feature/flat-listings` | `0ab5997` | Sell/Rent flats done, reviewed, fixed. Ready for a PR. Not deployed. |
-| `feature/accounting` | see `git log` | built on `feature/flat-listings`, so its PR goes **after** listings |
+| `main` | `f806451` | live in prod (Vercel web, Render backend). Untouched by listings/accounting. |
+| `feature/flat-listings` | `5e4d421` | Sell/Rent flats done, reviewed, fixed, **incl. its own privacy-policy update** (listings-only text), so it can ship alone. Pushed. |
+| `feature/accounting` | latest `git log` | all 8 accounting slices; contains every listings commit (merge `9849ec7`; accounting's policy is a superset). Pushed. Merge PRs listings first, then accounting. |
 
 ### Accounting (Phase 1a, 8 slices; spec `Documentation/ACCOUNTING-PHASE-1A-TASKS.md`)
 
@@ -24,12 +24,42 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | built (`52cf951`), reviewed (`ACCOUNTING-SLICE-7-REVIEW.md`), M1–M3/L1–L5 fixed; db-specs run at gate G1. Slice 8 clients must send `Idempotency-Key` on payments and `expectedCredit` on apply-credit |
 | 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`), M1/M2/L1–L5 fixed (web `3ba205c`, mobile after it). **All 8 slices done.** Next: fold `RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root `steps.md`, then the owner runs `steps.md` |
 
-**Immediate next steps:**
-1. (done) Slice 4 M1 and Lows fixed; M4/L3 are gates G1/G2 in root `steps.md`.
-2. (done) M2 and M3 carried into slice 5; slice 5 reviewed and fixed.
-3. (done) Slice 6 built, reviewed and fixed. Next: slice 7, then 8, each with its own review. The review docs are `Documentation/ACCOUNTING-SLICE-*-REVIEW.md`.
-4. Root **`steps.md`** is started (pre-push gates, A1 catch-up). When all slices are done it absorbs the draft
-   `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md`.
+**Immediate next steps (as of 2026-11-02 evening, all code pushed):**
+1. **Code (only task left):** fold the draft `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root
+   `steps.md` (gates G1–G4 incl. G2b policy-in-same-push and G2c private bucket, after-push A1/A2 already there),
+   then delete or mark the draft superseded.
+2. **Owner (from `steps.md`):** G1 `pnpm test:db` on Postgres 15 (no db-spec has EVER run: slices 4–7 SQL,
+   locks, counter, idempotency races are only unit-tested with fakes); G2 prod PG ≥ 15; G2c create private
+   `eastpark-finance` bucket; G3 flat-key preflight; G4 backup; PRs (listings, then accounting); deploy; A1; A2;
+   Play Data safety form before the mobile finance OTA.
+
+**Open items / known gaps (not bugs, flagged so nothing is lost):**
+- Finance gaps by design: no statement endpoint (flat ledger shows open charges + payments only, paid/voided
+  charges not listed); no dashboard income/expense/fund/arrears figures (Phase 2/3 report endpoints); web apply-
+  credit has no explicit charge picker; mobile payments can be dated today/yesterday only; web slip upload cap
+  4.4 MB (Vercel body limit; backend allows 5 MB photos / 10 MB PDFs).
+- Decisions made by the build agents, owner may revisit: audit action `CREDIT_APPLIED` added (plan had no name);
+  finance rate limits are per IP (throttler runs before auth); `POST /finance/charges` is not idempotent (plan
+  scope; a duplicate is voidable the same day); apply-credit guarded by `expectedCredit` (409 `creditChanged`)
+  instead of an idempotency key (needs a migration); a back-dated cheque bounce locks every month from the bounce
+  date to today and is refused if dated before an allocation it reverses.
+- Mobile camera/photo permission strings still say "feedback": change only with the next EAS build (native).
+- Privacy policy text should be read by an Egyptian lawyer (`ACCOUNTING-PRIVACY-DECISION.md`); after deploy, post
+  the in-app "policy changed" announcement (A2).
+- The policy promises slip links expire in exactly 60 s and every open is audited; any later change to
+  `PrivateFileService` must keep that or update `apps/web/src/content/privacy-policy.ts` first.
+
+**Machine-local leftovers on the Windows PC (`C:\Unite\EastPark-App`), NOT on GitHub:**
+- 12 old local branches `parity/*` (2026-09-30/10-01 web-parity work), each checked out in a worktree under
+  `C:\Unite\EastPark-parity\<name>`. Never pushed; `git cherry main` shows their commits as not in `main` (the
+  same work may have landed on `main` under other commits; unverified). Nothing current depends on them. Decide:
+  push for safekeeping, or verify and delete (`git worktree remove`, then `git branch -D`).
+- Untracked `eastpark-frontend/` (legacy snapshot with a `.env.local`): never commit it.
+- Plain `git push` from that PC's terminal fails (no credential prompt); pushes there went through the GitKraken
+  integration. Stale `apps/web/.next` after switching branches breaks `tsc`/`check` with missing-route errors:
+  delete `apps/web/.next` (gitignored cache) and rerun.
+- Commits from that session carry a `Co-authored-by: Copilot` trailer instead of the Claude Code one listed
+  under "Commits" below (history not rewritten).
 
 ### Owner decisions (final)
 - 690 flats; phase 4 buildings are **C3, E2, F2** (follow `apps/web/src/config/compound.ts`).
