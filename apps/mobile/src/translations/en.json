@@ -155,6 +155,7 @@
       "invalid_unit": "Invalid unit number",
       "invitation_account_deleted": "This email belongs to a deleted account, so the invitation can't be accepted. Please contact the compound administration.",
       "invitation_existing_account": "This email already has an EastPark account. Enter that account's current password to accept the invitation.",
+      "invitation_role_conflict": "This invitation can't be combined with the role this account already has. Please contact the compound administration.",
       "invitation_unit_owned": "This flat is already registered to another account. Please contact the compound administration.",
       "login_failed": "Incorrect email or password",
       "name_too_short": "Name must be at least 2 characters",

@@ -31,6 +31,9 @@ export function isAccountDeletedError(error: unknown): boolean {
 /** 409 when an invited flat is already owned by another account. */
 export const UNIT_ALREADY_OWNED_CODE = "unit.error.alreadyOwned";
 
+/** 409 when the invited role cannot be combined with the existing account's role (accountant). */
+export const ROLE_CONFLICT_CODE = "invitation.error.roleConflict";
+
 /**
  * The invitation itself is unusable: 404 "Invitation not found", or a 400
  * "Invitation already used" / "Invitation expired". Those 400s carry prose
@@ -49,6 +52,7 @@ export function isInvalidInvitationError(error: unknown): boolean {
  * Toast copy for a failed accept-invitation. The backend's 409s:
  * - `user.error.accountDeleted`: the email belongs to a deleted account.
  * - `unit.error.alreadyOwned`: the invited flat belongs to another account.
+ * - `invitation.error.roleConflict`: the invited role cannot join the account's existing role.
  * - no code (prose message): the email already has an account and the
  *   password field must hold its CURRENT password.
  * Only the last one may show the "enter your current password" hint: no
@@ -73,6 +77,8 @@ export function acceptInvitationErrorKey(error: unknown): string {
     return "auth.errors.invitation_account_deleted";
   if (code === UNIT_ALREADY_OWNED_CODE)
     return "auth.errors.invitation_unit_owned";
+  if (code === ROLE_CONFLICT_CODE)
+    return "auth.errors.invitation_role_conflict";
   return code === undefined ? "auth.errors.invitation_existing_account" : "common.error";
 }
 
