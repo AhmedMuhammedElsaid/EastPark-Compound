@@ -10,6 +10,7 @@ import { CacheService } from 'src/common/cache/services/cache.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { ListingNotifier } from 'src/modules/listings/listing.notifier';
 import { ListingsService } from 'src/modules/listings/listings.service';
+import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 
 const BASE =
     'https://proj.supabase.co/storage/v1/object/public/uploads/listing-photos';
@@ -77,6 +78,7 @@ function build() {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         listingRevision: { create: jest.fn() },
+        user: { findUnique: jest.fn() },
         $transaction: jest.fn(),
     };
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -87,6 +89,10 @@ function build() {
         incrWithTtl: jest.fn().mockResolvedValue(1),
     };
     const notifier = { notify: jest.fn().mockResolvedValue(undefined) };
+    // Default: the flat A1-3-2 belongs to the acting owner (u1).
+    const units = {
+        findOwner: jest.fn().mockResolvedValue({ id: 'ru1', userId: 'u1' }),
+    };
     const config = {
         getOrThrow: (key: string) =>
             key === 'supabase.url' ? 'https://proj.supabase.co' : 'uploads',
@@ -95,9 +101,10 @@ function build() {
         db as unknown as DatabaseService,
         config as unknown as ConfigService,
         cache as unknown as CacheService,
-        notifier as unknown as ListingNotifier
+        notifier as unknown as ListingNotifier,
+        units as unknown as ResidentUnitsService
     );
-    return { db, notifier, service };
+    return { db, units, notifier, service };
 }
 
 describe('ListingsService update', () => {
@@ -250,6 +257,53 @@ describe('ListingsService update', () => {
             id: { not: 'l1' },
         });
         expect(db.listing.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('an edit that moves to a flat the caller does not own gets 400 unitNotOwned', async () => {
+        const { db, units, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+        units.findOwner.mockResolvedValue({ id: 'ru9', userId: 'u2' });
+
+        await expect(
+            service.update('l1', dto({ flatNumber: '4' }), owner)
+        ).rejects.toThrow(
+            new BadRequestException('listing.error.unitNotOwned')
+        );
+        expect(units.findOwner).toHaveBeenCalledWith(
+            expect.objectContaining({ flatNumber: '4' })
+        );
+        expect(db.listing.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('an edit that keeps a flat since removed from the account gets 400', async () => {
+        const { db, units, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+        units.findOwner.mockResolvedValue(null);
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: null,
+            _count: { residentUnits: 0 },
+        });
+
+        await expect(
+            service.update('l1', dto({ price: 2400000 }), owner)
+        ).rejects.toThrow(
+            new BadRequestException('listing.error.unitNotOwned')
+        );
+    });
+
+    it('legacy account: an edit passes when unitNumber matches the flat label', async () => {
+        const { db, units, service } = build();
+        db.listing.findUnique.mockResolvedValue(row());
+        db.listing.findUniqueOrThrow.mockResolvedValue(row());
+        units.findOwner.mockResolvedValue(null);
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: 'A1-3-2',
+            _count: { residentUnits: 0 },
+        });
+
+        await expect(
+            service.update('l1', dto({ price: 2400000 }), owner)
+        ).resolves.toBeDefined();
     });
 
     it('does not re-check the flat for an edit that keeps it (PENDING)', async () => {

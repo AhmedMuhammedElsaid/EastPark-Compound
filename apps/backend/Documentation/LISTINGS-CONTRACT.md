@@ -65,6 +65,12 @@ Re-approving after an edit sets a fresh 60-day window.
 
 Money is stored `Decimal(12,2)` and returned as a JSON number (`.toNumber()`), like orders.
 
+**Ownership:** on create AND on every edit the flat must be the caller's own: its `resident_units` row
+belongs to the caller, or (legacy accounts with no `resident_units` rows at all) the flat label equals the
+trimmed `User.unitNumber`. Otherwise 400 `listing.error.unitNotOwned`. When an admin removes a flat from an
+account (`DELETE /admin/user/:id/units/:unitId`), that owner's PENDING/APPROVED listing for the flat is set to
+WITHDRAWN in the same transaction.
+
 Flat label everywhere: `${building}-${floor}-${flatNumber}` (reuse `src/common/helper/utils/unit-label.ts`).
 
 ---
@@ -147,8 +153,12 @@ Not the owner (or listing missing) on owner actions → 404 `listing.error.notFo
 | `GET /admin/listings/stats` | — | `{ PENDING, APPROVED, REJECTED, SOLD, RENTED, WITHDRAWN, EXPIRED, total }` zero-filled (one `groupBy`) |
 | `GET /admin/listings/:id` | — | `AdminListingDto` |
 | `GET /admin/listings/:id/revisions` | `cursor?`, `limit?` | page of `ListingRevisionDto`, newest first |
-| `POST /admin/listings/:id/approve` | — | `AdminListingDto`. Only `PENDING`. Re-checks the one-active-per-flat rule. |
-| `POST /admin/listings/:id/reject` | `{ "reason": string }` trimmed 3–500 chars | `AdminListingDto`. `PENDING` → REJECTED, `APPROVED` → REJECTED (take down). |
+| `POST /admin/listings/:id/approve` | optional `{ "expectedUpdatedAt"?: ISO-8601 }` | `AdminListingDto`. Only `PENDING`. Re-checks the one-active-per-flat rule. |
+| `POST /admin/listings/:id/reject` | `{ "reason": string, "expectedUpdatedAt"?: ISO-8601 }`, reason trimmed 3–500 chars | `AdminListingDto`. `PENDING` → REJECTED, `APPROVED` → REJECTED (take down). |
+
+`expectedUpdatedAt` is the `updatedAt` of the listing as the admin loaded it. When present the claim also
+matches `updatedAt`; if the row is still in the expected status but was edited since, the call fails with 409
+`listing.error.changedSinceLoaded` (any other mismatch stays `invalidStatus`). Omitted = previous behaviour.
 
 Every admin action writes an `AuditLog` row: `action` = `LISTING_APPROVED` | `LISTING_REJECTED` |
 `LISTING_TAKEN_DOWN`, `entity` = `Listing`, `entityId`, `meta` `{ unitLabel, reason? }`.
@@ -160,6 +170,8 @@ Every admin action writes an `AuditLog` row: `action` = `LISTING_APPROVED` | `LI
 | 404 | `listing.error.notFound` | missing, not visible, or not the owner |
 | 409 | `listing.error.unitAlreadyListed` | another ACTIVE listing exists for the same flat (create, edit that changes the flat, approve). DB partial unique index enforces it; Prisma P2002 maps here. |
 | 409 | `listing.error.invalidStatus` | transition not allowed (also owner renew / close once `expiresAt` has passed but the cron has not yet marked it EXPIRED) |
+| 409 | `listing.error.changedSinceLoaded` | admin approve / reject sent a stale `expectedUpdatedAt` (the owner edited the listing after the admin loaded it) |
+| 400 | `listing.error.unitNotOwned` | create / edit for a flat that is not on the caller's account (§2 Ownership) |
 | 409 | `listing.error.ownerDeleted` | admin approve of a listing whose owner account is soft-deleted |
 | 400 | `listing.error.noChanges` | edit with nothing changed |
 | 400 | `listing.error.photosRequired` | 0 photos or more than 8 |

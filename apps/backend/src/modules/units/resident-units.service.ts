@@ -4,7 +4,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ResidentLeadStatus } from '@prisma/client';
+import { ListingStatus, Prisma, ResidentLeadStatus } from '@prisma/client';
 
 import {
     isPrismaError,
@@ -173,6 +173,21 @@ export class ResidentUnitsService {
             });
             if (removed.count === 0)
                 throw new NotFoundException('unit.error.notFound');
+
+            // The flat is no longer theirs: an open listing for it would keep
+            // holding the flat (partial unique index) against the next owner.
+            await tx.listing.updateMany({
+                where: {
+                    ownerId: userId,
+                    building: unit.building,
+                    floor: unit.floor,
+                    flatNumber: unit.flatNumber,
+                    status: {
+                        in: [ListingStatus.PENDING, ListingStatus.APPROVED],
+                    },
+                },
+                data: { status: ListingStatus.WITHDRAWN },
+            });
 
             const owner = await tx.user.findUnique({
                 where: { id: userId },

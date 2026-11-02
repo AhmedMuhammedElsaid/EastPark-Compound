@@ -46,6 +46,7 @@ function buildUnitsDb() {
             create: jest.fn(),
             deleteMany: jest.fn(),
         },
+        listing: { updateMany: jest.fn() },
         $transaction: jest.fn(),
     };
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -288,6 +289,32 @@ describe('ResidentUnitsService', () => {
                 })
             );
             expect(email.sendUnitAdded).not.toHaveBeenCalled();
+        });
+
+        it('withdraws the removed flat\'s open listing in the same transaction', async () => {
+            db.residentUnit.findFirst.mockResolvedValue(null);
+            await service.removeFromUser('user-1', 'unit-1', superAdmin);
+
+            expect(db.listing.updateMany).toHaveBeenCalledWith({
+                where: {
+                    ownerId: 'user-1',
+                    building: 'A1',
+                    floor: '3',
+                    flatNumber: '2',
+                    status: { in: ['PENDING', 'APPROVED'] },
+                },
+                data: { status: 'WITHDRAWN' },
+            });
+            // Same tx as the unit delete (the mocked $transaction hands back db).
+            expect(db.$transaction).toHaveBeenCalledTimes(1);
+        });
+
+        it('a concurrent removal does not withdraw any listing', async () => {
+            db.residentUnit.deleteMany.mockResolvedValueOnce({ count: 0 });
+            await expect(
+                service.removeFromUser('user-1', 'unit-1', superAdmin)
+            ).rejects.toThrow('unit.error.notFound');
+            expect(db.listing.updateMany).not.toHaveBeenCalled();
         });
 
         it('removing the last (primary) flat clears unitNumber', async () => {

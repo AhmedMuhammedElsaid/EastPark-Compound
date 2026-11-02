@@ -10,6 +10,8 @@
     },
     "error": {
         "notFound": "Listing not found",
+        "unitNotOwned": "This flat is not on your account. Contact the admin to add it.",
+        "changedSinceLoaded": "The owner edited this listing after you opened it. Review it again.",
         "unitAlreadyListed": "This flat already has an active listing",
         "ownerDeleted": "The owner's account was deleted, so this listing cannot be approved",
         "invalidStatus": "This action is not allowed for the listing's current status",

@@ -13,6 +13,7 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { LISTING_VALIDITY_MS } from 'src/modules/listings/listing.constants';
 import { ListingNotifier } from 'src/modules/listings/listing.notifier';
 import { ListingsService } from 'src/modules/listings/listings.service';
+import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 
 const BASE =
     'https://proj.supabase.co/storage/v1/object/public/uploads/listing-photos';
@@ -75,6 +76,7 @@ function build() {
             updateMany: jest.fn(),
         },
         listingRevision: { create: jest.fn() },
+        user: { findUnique: jest.fn() },
         $transaction: jest.fn(),
     };
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -85,6 +87,10 @@ function build() {
         incrWithTtl: jest.fn().mockResolvedValue(1),
     };
     const notifier = { notify: jest.fn().mockResolvedValue(undefined) };
+    // Default: the flat A1-3-2 belongs to the acting owner (u1).
+    const units = {
+        findOwner: jest.fn().mockResolvedValue({ id: 'ru1', userId: 'u1' }),
+    };
     const config = {
         getOrThrow: (key: string) =>
             key === 'supabase.url' ? 'https://proj.supabase.co' : 'uploads',
@@ -93,9 +99,10 @@ function build() {
         db as unknown as DatabaseService,
         config as unknown as ConfigService,
         cache as unknown as CacheService,
-        notifier as unknown as ListingNotifier
+        notifier as unknown as ListingNotifier,
+        units as unknown as ResidentUnitsService
     );
-    return { db, cache, notifier, service };
+    return { db, units, cache, notifier, service };
 }
 
 describe('ListingsService create', () => {
@@ -131,6 +138,57 @@ describe('ListingsService create', () => {
             flatNumber: '2',
             status: { in: [ListingStatus.PENDING, ListingStatus.APPROVED] },
         });
+    });
+
+    it('refuses a flat owned by another account with 400 unitNotOwned', async () => {
+        const { db, units, service } = build();
+        units.findOwner.mockResolvedValue({ id: 'ru9', userId: 'u2' });
+
+        await expect(service.create(dto(), owner)).rejects.toThrow(
+            new BadRequestException('listing.error.unitNotOwned')
+        );
+        expect(db.user.findUnique).not.toHaveBeenCalled();
+        expect(db.listing.create).not.toHaveBeenCalled();
+    });
+
+    it('legacy account (no resident_units rows): the unitNumber label match passes', async () => {
+        const { db, units, service } = build();
+        units.findOwner.mockResolvedValue(null);
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: ' A1-3-2 ',
+            _count: { residentUnits: 0 },
+        });
+        db.listing.findFirst.mockResolvedValue(null);
+        db.listing.create.mockResolvedValue(row());
+
+        await expect(service.create(dto(), owner)).resolves.toBeDefined();
+    });
+
+    it('legacy account with a different unitNumber label gets 400', async () => {
+        const { db, units, service } = build();
+        units.findOwner.mockResolvedValue(null);
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: 'B2-1-1',
+            _count: { residentUnits: 0 },
+        });
+
+        await expect(service.create(dto(), owner)).rejects.toThrow(
+            new BadRequestException('listing.error.unitNotOwned')
+        );
+        expect(db.listing.create).not.toHaveBeenCalled();
+    });
+
+    it('an unowned flat is refused when the account already has resident_units rows, even if unitNumber matches', async () => {
+        const { db, units, service } = build();
+        units.findOwner.mockResolvedValue(null);
+        db.user.findUnique.mockResolvedValue({
+            unitNumber: 'A1-3-2',
+            _count: { residentUnits: 1 },
+        });
+
+        await expect(service.create(dto(), owner)).rejects.toThrow(
+            new BadRequestException('listing.error.unitNotOwned')
+        );
     });
 
     it('maps a unique-index race (P2002) to 409 unitAlreadyListed', async () => {

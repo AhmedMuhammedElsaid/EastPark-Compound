@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from 'src/common/cache/cache.module';
 import { DatabaseModule } from 'src/common/database/database.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
+import { ResidentUnitsModule } from 'src/modules/units/resident-units.module';
 
 import { ListingNotifier } from './listing.notifier';
 import { ListingsAdminController } from './listings.admin.controller';
@@ -11,7 +12,12 @@ import { ListingsController } from './listings.controller';
 import { ListingsService } from './listings.service';
 
 @Module({
-    imports: [DatabaseModule, CacheModule, NotificationsModule],
+    imports: [
+        DatabaseModule,
+        CacheModule,
+        NotificationsModule,
+        ResidentUnitsModule,
+    ],
     controllers: [ListingsController, ListingsAdminController],
     providers: [ListingsService, ListingsAdminService, ListingNotifier],
 })

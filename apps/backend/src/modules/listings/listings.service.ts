@@ -18,8 +18,9 @@ import {
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs } from 'src/common/helper/pagination';
-import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
+import { FlatKey, formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
+import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 
 import {
     ListingBrowseQueryDto,
@@ -59,7 +60,8 @@ export class ListingsService {
         private readonly db: DatabaseService,
         private readonly config: ConfigService,
         private readonly cache: CacheService,
-        private readonly notifier: ListingNotifier
+        private readonly notifier: ListingNotifier,
+        private readonly units: ResidentUnitsService
     ) {}
 
     // ── Browse ────────────────────────────────────────────────────────────────
@@ -131,6 +133,7 @@ export class ListingsService {
 
         const fields = normalizeFields(dto);
         assertListingPhotos(this.config, fields.photos);
+        await this.assertOwnsFlat(actor.userId, fields);
 
         if (await findActiveListingForFlat(this.db, fields))
             throw new ConflictException('listing.error.unitAlreadyListed');
@@ -170,6 +173,8 @@ export class ListingsService {
         const previous = toFields(current);
         const next = normalizeFields(dto);
         assertListingPhotos(this.config, next.photos, previous.photos);
+        // Every edit, so a flat removed from the account cannot be re-submitted.
+        await this.assertOwnsFlat(actor.userId, next);
 
         const changes = diffListing(previous, next);
         if (changes.length === 0)
@@ -349,6 +354,33 @@ export class ListingsService {
             include: WITH_OWNER,
         });
         return toMyListingDto(row);
+    }
+
+    /**
+     * The caller must own the flat: its `resident_units` row is theirs, or,
+     * for a legacy account with no rows at all, the flat label equals the
+     * trimmed `User.unitNumber` (same fallback as order delivery units).
+     */
+    private async assertOwnsFlat(userId: string, flat: FlatKey): Promise<void> {
+        const owner = await this.units.findOwner(flat);
+        if (owner) {
+            if (owner.userId === userId) return;
+            throw new BadRequestException('listing.error.unitNotOwned');
+        }
+        const user = await this.db.user.findUnique({
+            where: { id: userId },
+            select: {
+                unitNumber: true,
+                _count: { select: { residentUnits: true } },
+            },
+        });
+        if (
+            user &&
+            user._count.residentUnits === 0 &&
+            user.unitNumber?.trim() === formatUnitLabel(flat)
+        )
+            return;
+        throw new BadRequestException('listing.error.unitNotOwned');
     }
 
     private createCapKey(userId: string): string {
