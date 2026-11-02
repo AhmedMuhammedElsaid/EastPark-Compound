@@ -7,7 +7,7 @@
  * web BFF and the mobile app config). Do not add a claim that cannot be verified there.
  */
 
-export const PRIVACY_EFFECTIVE_DATE = '2026-10-12';
+export const PRIVACY_EFFECTIVE_DATE = '2026-11-02';
 export const PRIVACY_PATH = '/privacy';
 export const PRIVACY_CONTACT_EMAIL = 'info@benayat-eg.com';
 export const PRIVACY_SUPPORT_EMAIL = 'eastpark.eg@gmail.com';
@@ -32,9 +32,9 @@ export type PolicyLanguage = 'ar' | 'en';
 const en: PolicyDocument = {
   title: 'Privacy Policy',
   effectiveLabel: 'Effective date',
-  effectiveDate: '12 October 2026',
+  effectiveDate: '2 November 2026',
   intro: [
-    'EastPark is a residential compound app for the EastPark community. It offers a local marketplace of shops and community features such as announcements, polls, elections and feedback. This policy explains what personal data the EastPark mobile app and website collect, why, who we share it with, how long we keep it, and the choices you have.',
+    'EastPark is a residential compound app for the EastPark community. It offers a local marketplace of shops, listings of flats for sale or rent, and community features such as announcements, polls, elections and feedback. This policy explains what personal data the EastPark mobile app and website collect, why, who we share it with, how long we keep it, and the choices you have.',
     'By using EastPark you confirm that you have read this policy. If you do not agree with it, please do not use the service.',
   ],
   sections: [
@@ -53,6 +53,7 @@ const en: PolicyDocument = {
         'Unit registration request (before you have an account): name, email, phone number, building, floor and flat number, and optionally parking details, job title, marital status, and national ID or passport number.',
         'Account data: name, email address, password (stored only as a one-way hash, never in readable form), phone number, the flat or flats linked to your account, your role (resident, merchant or administrator), your profile photo if you add one, and whether your account is verified.',
         'Orders and marketplace activity: the orders you place (items, total, delivery unit, the free-text notes you write, payment method, status and timestamps), shop reviews and ratings, and the shops you save. Card payments are not available in this release; orders are paid in cash on delivery.',
+        'Flat listings: if you list your flat for sale or rent, the listing details (flat, sale or rent, price, size, rooms, description, photos and the contact phone number you enter), its review status and a history of your edits.',
         'Community activity: comments you post, your votes in polls and elections (your vote is stored against your account so that each resident can vote once), and your feedback submissions with any photos you attach (up to 3), the replies you receive, and whether you chose to submit anonymously.',
         'Notifications: your notification preferences, the in-app notifications we send you, and, if you allow push notifications on the mobile app, your device push token.',
         'Technical data: your IP address is used for abuse and rate limiting (for example, limiting login attempts) and is kept only in short-lived counters. Our hosting providers may also record standard connection logs. We keep session tokens that keep you signed in.',
@@ -64,7 +65,7 @@ const en: PolicyDocument = {
       id: 'device-permissions',
       heading: '3. Mobile app permissions',
       items: [
-        'Camera and photo library: only when you choose to attach a photo, for example to feedback or as a profile photo. The selected image is uploaded to our storage; we do not access your other photos.',
+        'Camera and photo library: only when you choose to attach a photo, for example to feedback, to a flat listing or as a profile photo. The selected image is uploaded to our storage; we do not access your other photos.',
         'Face ID, fingerprint or device unlock: optional. If you enable it, the check is done by your device. EastPark never receives or stores your biometric data; the device only tells the app that the check succeeded so that it can unlock a sign-in token stored securely on your phone.',
         'Push notifications: optional. If you allow them, the app registers a push token with us so we can send order and community notifications. You can turn notifications off in the app or in your device settings.',
       ],
@@ -76,6 +77,7 @@ const en: PolicyDocument = {
         'To verify that you are a resident or merchant of the compound, review your unit registration, and send you an invitation to create your account.',
         'To create and secure your account, sign you in, keep you signed in, and reset your password.',
         'To run the marketplace: place, prepare, deliver and track orders, show reviews, and let you save shops.',
+        'To publish flat listings for sale or rent after an administrator has reviewed them.',
         'To run community governance: show announcements, count polls and elections fairly with one vote per resident, and handle feedback.',
         'To send you service emails (invitations, password reset, support replies) and notifications you have enabled.',
         'To protect the service: prevent abuse and fraud, enforce limits, investigate problems and keep the audit log.',
@@ -97,7 +99,8 @@ const en: PolicyDocument = {
       items: [
         'Compound administrators can see resident registrations, resident accounts and flats, orders, votes cast as needed to run governance, and feedback. Administrators can see the author of a feedback submission even when you choose to submit it anonymously; other residents and merchants cannot.',
         'Merchants see the orders placed with their shop, including the order contents, your delivery unit and your notes, and the name needed to deliver.',
-        'Other residents can see your comments and, where a review shows a name, your reviews. They cannot see your email, phone number, orders or votes.',
+        'If you publish a flat listing, once an administrator approves it, signed-in residents and administrators can see it with your name and the contact phone number you entered. Administrators also see listings waiting for review.',
+        'Other residents can see your comments and, where a review shows a name, your reviews. They cannot see your email, your phone number (unless you put it in a flat listing), your orders or your votes.',
         'Please do not put sensitive information in free-text fields such as order notes, comments or feedback, because the people above can read it.',
       ],
     },
@@ -110,12 +113,12 @@ const en: PolicyDocument = {
       items: [
         'Render: hosts our backend server and API.',
         'Vercel: hosts the website, including its server side, and provides the web analytics.',
-        'Supabase: hosts our PostgreSQL database and file storage (profile photos, feedback photos, official PDF reports).',
+        'Supabase: hosts our PostgreSQL database and file storage (profile photos, feedback photos, flat listing photos, official PDF reports).',
         'Upstash: provides the Redis cache we use for short-lived data such as password reset tokens, sign-in attempt counters and session revocation.',
         'Brevo (SMTP email relay) and the EastPark sender mailbox: deliver our service emails, so your email address and the content of those emails pass through them.',
         'Expo push notification service (and the Apple and Google push services behind it): deliver push notifications to your device if you enable them.',
         'Apple and Google: distribute the mobile app and provide the on-device biometric check; we do not receive biometric data from them.',
-        'Public image links: images you upload (for example profile and feedback photos) are served from public links, so anyone who has a link can open that image.',
+        'Public image links: images you upload (for example profile, feedback and flat listing photos) are served from public links, so anyone who has a link can open that image.',
         'These providers operate data centers outside Egypt, so your data may be transferred to and stored in other countries, including in Europe and the United States. We choose established providers and rely on their security and contractual safeguards for those transfers.',
       ],
     },
@@ -193,9 +196,9 @@ const en: PolicyDocument = {
 const ar: PolicyDocument = {
   title: 'سياسة الخصوصية',
   effectiveLabel: 'تاريخ السريان',
-  effectiveDate: '12 أكتوبر 2026',
+  effectiveDate: '2 نوفمبر 2026',
   intro: [
-    'إيست بارك تطبيق لمجمع سكني يخدم مجتمع إيست بارك. يوفّر سوقًا محليًا للمتاجر وخدمات مجتمعية مثل الإعلانات والاستطلاعات والانتخابات والملاحظات. توضّح هذه السياسة البيانات الشخصية التي يجمعها تطبيق إيست بارك وموقعه، ولماذا نجمعها، ومع من نشاركها، ومدة الاحتفاظ بها، والخيارات المتاحة لك.',
+    'إيست بارك تطبيق لمجمع سكني يخدم مجتمع إيست بارك. يوفّر سوقًا محليًا للمتاجر، وإعلانات بيع وإيجار الشقق، وخدمات مجتمعية مثل الإعلانات والاستطلاعات والانتخابات والملاحظات. توضّح هذه السياسة البيانات الشخصية التي يجمعها تطبيق إيست بارك وموقعه، ولماذا نجمعها، ومع من نشاركها، ومدة الاحتفاظ بها، والخيارات المتاحة لك.',
     'باستخدامك إيست بارك فإنك تقرّ بأنك قرأت هذه السياسة. وإذا لم توافق عليها فيرجى عدم استخدام الخدمة.',
   ],
   sections: [
@@ -214,6 +217,7 @@ const ar: PolicyDocument = {
         'طلب تسجيل الوحدة (قبل أن يكون لديك حساب): الاسم والبريد الإلكتروني ورقم الهاتف والمبنى والدور ورقم الشقة، واختياريًا بيانات موقف السيارة والمسمى الوظيفي والحالة الاجتماعية ورقم الهوية الوطنية أو جواز السفر.',
         'بيانات الحساب: الاسم والبريد الإلكتروني وكلمة المرور (تُحفظ فقط في صورة مشفّرة أحادية الاتجاه ولا تُحفظ مقروءة أبدًا) ورقم الهاتف والشقة أو الشقق المرتبطة بحسابك ودورك (مقيم أو تاجر أو مسؤول) وصورة ملفك الشخصي إن أضفتها وحالة توثيق الحساب.',
         'الطلبات ونشاط السوق: الطلبات التي تنفّذها (الأصناف والإجمالي ووحدة التسليم والملاحظات النصية التي تكتبها وطريقة الدفع والحالة والتواريخ) وتقييمات المتاجر ومراجعاتها والمتاجر التي تحفظها. الدفع بالبطاقة غير متاح في هذا الإصدار، والدفع عند الاستلام نقدًا.',
+        'إعلانات بيع وإيجار الشقق: إذا عرضت شقتك للبيع أو الإيجار، تُحفظ بيانات الإعلان (الشقة وكونها للبيع أو للإيجار والسعر والمساحة وعدد الغرف والوصف والصور ورقم هاتف التواصل الذي تكتبه) وحالة مراجعته وسجل تعديلاتك عليه.',
         'النشاط المجتمعي: التعليقات التي تنشرها وأصواتك في الاستطلاعات والانتخابات (يُسجَّل صوتك على حسابك ليصوّت كل مقيم مرة واحدة) وملاحظاتك المرسلة مع الصور التي ترفقها (حتى 3 صور) والردود التي تصلك وما إذا اخترت الإرسال دون ذكر اسمك.',
         'الإشعارات: تفضيلات الإشعارات والإشعارات داخل التطبيق التي نرسلها إليك، وعند السماح بالإشعارات في تطبيق الجوال، رمز الإشعارات الخاص بجهازك.',
         'بيانات تقنية: يُستخدم عنوان IP الخاص بك لمنع إساءة الاستخدام وتحديد معدل الطلبات (مثل الحد من محاولات تسجيل الدخول) ويُحفظ فقط في عدّادات قصيرة العمر. وقد يسجّل مزوّدو الاستضافة سجلات اتصال اعتيادية. كما نحتفظ برموز الجلسة التي تُبقيك مسجّلًا للدخول.',
@@ -225,7 +229,7 @@ const ar: PolicyDocument = {
       id: 'device-permissions',
       heading: '3. أذونات تطبيق الجوال',
       items: [
-        'الكاميرا ومكتبة الصور: فقط عندما تختار إرفاق صورة، مثل ملاحظاتك أو صورة ملفك الشخصي. تُرفع الصورة التي تختارها إلى مساحة التخزين لدينا، ولا نصل إلى بقية صورك.',
+        'الكاميرا ومكتبة الصور: فقط عندما تختار إرفاق صورة، مثل ملاحظاتك أو إعلان بيع أو إيجار شقتك أو صورة ملفك الشخصي. تُرفع الصورة التي تختارها إلى مساحة التخزين لدينا، ولا نصل إلى بقية صورك.',
         'بصمة الوجه أو الإصبع أو قفل الجهاز: اختياري. إذا فعّلته فإن التحقق يتم على جهازك. لا يستلم إيست بارك بياناتك الحيوية ولا يحفظها؛ يخبر الجهاز التطبيق فقط بنجاح التحقق ليفتح رمز تسجيل دخول محفوظًا بأمان على هاتفك.',
         'الإشعارات الفورية: اختيارية. إذا سمحت بها يسجّل التطبيق رمز الإشعارات لدينا لنرسل إشعارات الطلبات والمجتمع. يمكنك إيقافها من التطبيق أو من إعدادات جهازك.',
       ],
@@ -237,6 +241,7 @@ const ar: PolicyDocument = {
         'للتحقق من أنك مقيم أو تاجر في المجمع ومراجعة طلب تسجيل وحدتك وإرسال دعوة لإنشاء حسابك.',
         'لإنشاء حسابك وتأمينه وتسجيل دخولك وإبقائك مسجّلًا للدخول وإعادة تعيين كلمة المرور.',
         'لتشغيل السوق: تنفيذ الطلبات وتجهيزها وتوصيلها وتتبعها وعرض المراجعات وحفظ المتاجر.',
+        'لنشر إعلانات بيع وإيجار الشقق بعد أن يراجعها المسؤول.',
         'لتشغيل الحوكمة المجتمعية: عرض الإعلانات وإحصاء الاستطلاعات والانتخابات بعدالة بصوت واحد لكل مقيم والتعامل مع الملاحظات.',
         'لإرسال رسائل الخدمة (الدعوات وإعادة تعيين كلمة المرور وردود الدعم) والإشعارات التي فعّلتها.',
         'لحماية الخدمة: منع إساءة الاستخدام والاحتيال وتطبيق الحدود وفحص المشكلات والاحتفاظ بسجل التدقيق.',
@@ -258,7 +263,8 @@ const ar: PolicyDocument = {
       items: [
         'يطّلع مسؤولو المجمع على طلبات تسجيل المقيمين وحسابات المقيمين والشقق والطلبات والأصوات بالقدر اللازم لإدارة الحوكمة والملاحظات. ويستطيع المسؤولون رؤية كاتب الملاحظة حتى إذا اخترت إرسالها دون اسم، ولا يستطيع المقيمون الآخرون ولا التجار ذلك.',
         'يرى التاجر الطلبات المقدّمة إلى متجره بما فيها محتوى الطلب ووحدة التسليم وملاحظاتك والاسم اللازم للتوصيل.',
-        'يرى المقيمون الآخرون تعليقاتك، ومراجعاتك حيث يظهر فيها الاسم. ولا يرون بريدك الإلكتروني أو هاتفك أو طلباتك أو أصواتك.',
+        'إذا نشرت إعلان بيع أو إيجار لشقتك، فبعد موافقة المسؤول عليه يراه المقيمون المسجّلون والمسؤولون مع اسمك ورقم هاتف التواصل الذي كتبته. ويرى المسؤولون أيضًا الإعلانات التي تنتظر المراجعة.',
+        'يرى المقيمون الآخرون تعليقاتك، ومراجعاتك حيث يظهر فيها الاسم. ولا يرون بريدك الإلكتروني أو رقم هاتفك (إلا إذا كتبته في إعلان شقة) أو طلباتك أو أصواتك.',
         'يرجى عدم كتابة معلومات حساسة في الحقول النصية الحرة مثل ملاحظات الطلب والتعليقات والملاحظات، لأن الأطراف المذكورة أعلاه تستطيع قراءتها.',
       ],
     },
@@ -271,12 +277,12 @@ const ar: PolicyDocument = {
       items: [
         'Render: يستضيف خادم الواجهة الخلفية وواجهة البرمجة.',
         'Vercel: يستضيف الموقع بما في ذلك جانب الخادم، ويوفّر تحليلات الويب.',
-        'Supabase: يستضيف قاعدة بيانات PostgreSQL ومساحة تخزين الملفات (صور الملف الشخصي وصور الملاحظات وملفات التقارير الرسمية).',
+        'Supabase: يستضيف قاعدة بيانات PostgreSQL ومساحة تخزين الملفات (صور الملف الشخصي وصور الملاحظات وصور إعلانات الشقق وملفات التقارير الرسمية).',
         'Upstash: يوفّر ذاكرة Redis التي نستخدمها للبيانات قصيرة العمر مثل رموز إعادة تعيين كلمة المرور وعدّادات محاولات الدخول وإلغاء الجلسات.',
         'Brevo (ناقل بريد SMTP) وصندوق بريد إيست بارك المُرسِل: يوصّلان رسائل الخدمة، لذا يمر بريدك الإلكتروني ومحتوى تلك الرسائل عبرهما.',
         'خدمة إشعارات Expo (وخدمات إشعارات Apple وGoogle خلفها): توصّل الإشعارات إلى جهازك إذا فعّلتها.',
         'Apple وGoogle: توزّعان تطبيق الجوال وتوفّران التحقق الحيوي على الجهاز، ولا نتلقى منهما بيانات حيوية.',
-        'روابط الصور العامة: الصور التي ترفعها (مثل صور الملف الشخصي وصور الملاحظات) تُعرض عبر روابط عامة، لذا يستطيع أي شخص يملك الرابط فتح تلك الصورة.',
+        'روابط الصور العامة: الصور التي ترفعها (مثل صور الملف الشخصي وصور الملاحظات وصور إعلانات الشقق) تُعرض عبر روابط عامة، لذا يستطيع أي شخص يملك الرابط فتح تلك الصورة.',
         'تعمل هذه الجهات من مراكز بيانات خارج مصر، لذا قد تُنقل بياناتك وتُخزَّن في دول أخرى منها دول في أوروبا والولايات المتحدة. نختار مزوّدين معروفين ونعتمد على ضماناتهم الأمنية والتعاقدية لهذه التحويلات.',
       ],
     },
