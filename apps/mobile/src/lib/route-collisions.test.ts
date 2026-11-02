@@ -53,4 +53,20 @@ describe("expo-router URL collisions", () => {
     }
     expect(urls.get("/finance/today")).toEqual(["(finance)/finance/today.tsx"]);
   });
+
+  it("serves the slice 8 finance screens on their planned URLs (snapshot)", () => {
+    const urls = new Map<string, string[]>();
+    collectUrls(APP_DIR, [], urls);
+    const finance = Object.fromEntries([...urls.entries()].filter(([url]) => url.startsWith("/finance/")).sort(([a], [b]) => a.localeCompare(b)));
+    expect(finance).toEqual({
+      "/finance/flats": ["(finance)/finance/flats/index.tsx"],
+      "/finance/flats/[id]": ["(finance)/finance/flats/[id].tsx"],
+      "/finance/payment/new": ["(finance)/finance/payment/new.tsx"],
+      "/finance/today": ["(finance)/finance/today.tsx"],
+    });
+    // Listings keep /flats and /flats/[id]; no finance index can claim / or /finance.
+    expect(urls.get("/flats")).toEqual(["(tabs)/flats/index.tsx"]);
+    expect(urls.get("/flats/[id]")).toEqual(["(tabs)/flats/[id].tsx"]);
+    expect(urls.has("/finance")).toBe(false);
+  });
 });
