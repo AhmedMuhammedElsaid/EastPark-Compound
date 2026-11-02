@@ -11,8 +11,10 @@
 -- Run it after this release is deployed: the listings section needs the
 -- `listings` table (migration 20261031000000_flat_listings); before that it
 -- fails with "relation listings does not exist".
--- btrim strips spaces only, JS trim() also strips tabs and NBSP: a row padded
--- that way is reported as unknown here (conservative), never as a collision.
+-- The normalisation is `upper(btrim(x, E' \t\r\n'))` (space, tab, CR, LF), the
+-- same expression as migration 20261102000000_finance_foundations. JS trim() also
+-- strips NBSP and other Unicode spaces, which btrim does not: a row padded that
+-- way is reported as unknown here (conservative), never as a collision.
 --
 -- unknown_rows            : rows whose normalised key is not one of the 690 flats
 -- collision_groups / rows : (resident_units ONLY) normalised keys held by more than
@@ -167,16 +169,16 @@ WITH flats(building, floor, flat_number) AS (
         ('F2','11','1'), ('F2','11','2'), ('F2','11','3'), ('F2','11','4'), ('F2','11','5')
 ),
 unit_rows AS (
-    SELECT upper(btrim("building")) AS b, upper(btrim("floor")) AS f, btrim("flatNumber") AS n
+    SELECT upper(btrim("building", E' \t\r\n')) AS b, upper(btrim("floor", E' \t\r\n')) AS f, btrim("flatNumber", E' \t\r\n') AS n
       FROM "resident_units"
 ),
 lead_rows AS (
-    SELECT upper(btrim("building")) AS b, upper(btrim("floor")) AS f, btrim("flatNumber") AS n
+    SELECT upper(btrim("building", E' \t\r\n')) AS b, upper(btrim("floor", E' \t\r\n')) AS f, btrim("flatNumber", E' \t\r\n') AS n
       FROM "resident_leads"
      WHERE "status" IN ('PENDING', 'INVITED')
 ),
 listing_rows AS (
-    SELECT upper(btrim("building")) AS b, upper(btrim("floor")) AS f, btrim("flatNumber") AS n
+    SELECT upper(btrim("building", E' \t\r\n')) AS b, upper(btrim("floor", E' \t\r\n')) AS f, btrim("flatNumber", E' \t\r\n') AS n
       FROM "listings"
      WHERE "status" IN ('PENDING', 'APPROVED')
 ),
