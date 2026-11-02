@@ -14,7 +14,7 @@ import { ComingSoonSheet } from "@/components/auth/coming-soon-sheet";
 import { openComingSoon } from "@/lib/coming-soon";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { canBrowseListings } from "@/lib/listings-access";
-import { isFinanceRole } from "@/lib/roles";
+import { isAccountantRole } from "@/lib/roles";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT } from "@/theme/tokens";
 
@@ -32,9 +32,9 @@ export default function TabsLayout() {
   // Guests can browse Home, Directory and Profile; Flats and Community open the
   // Coming soon sheet instead of switching tab (web: GatedLink for restricted users).
   // The accountant role is confined the same way (Community is closed to it).
-  const lockedForGuests = (feature: "listings" | "community") => ({
+  const lockedFor = (feature: "listings" | "community") => ({
     tabPress: (event: { preventDefault: () => void }) => {
-      if (isAuthenticated && !isFinanceRole(role))
+      if (isAuthenticated && !isAccountantRole(role))
         return;
       event.preventDefault();
       openComingSoon(feature);
@@ -86,7 +86,7 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="flats"
-          listeners={lockedForGuests("listings")}
+          listeners={lockedFor("listings")}
           options={{
             href: hideFlats ? null : undefined,
             title: t("listings.tab_label"),
@@ -97,7 +97,7 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="community"
-          listeners={lockedForGuests("community")}
+          listeners={lockedFor("community")}
           options={{
             title: t("community.title"),
             tabBarIcon: ({ color, focused }) => (

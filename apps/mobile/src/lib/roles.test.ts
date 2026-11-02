@@ -1,4 +1,4 @@
-import { isAdminRole, isFinanceRole, isSuperAdminRole, roleLabelKey } from "./roles";
+import { isAccountantRole, isAdminRole, isFinanceRole, isSuperAdminRole, roleLabelKey } from "./roles";
 
 describe("isAdminRole", () => {
   it("accepts ADMIN and SUPER_ADMIN", () => {
@@ -37,12 +37,25 @@ describe("roleLabelKey", () => {
   });
 });
 
-describe("isFinanceRole", () => {
-  it("accepts only ACCOUNTANT", () => {
+describe("isAccountantRole (confinement)", () => {
+  it("accepts only ACCOUNTANT, so admins are never confined", () => {
+    expect(isAccountantRole("ACCOUNTANT")).toBe(true);
+    expect(isAccountantRole("ADMIN")).toBe(false);
+    expect(isAccountantRole("SUPER_ADMIN")).toBe(false);
+    expect(isAccountantRole("RESIDENT")).toBe(false);
+    expect(isAccountantRole("MERCHANT")).toBe(false);
+    expect(isAccountantRole(undefined)).toBe(false);
+    expect(isAccountantRole(null)).toBe(false);
+  });
+});
+
+describe("isFinanceRole (finance desk access)", () => {
+  it("admits ACCOUNTANT, ADMIN and SUPER_ADMIN only", () => {
     expect(isFinanceRole("ACCOUNTANT")).toBe(true);
-    expect(isFinanceRole("ADMIN")).toBe(false);
-    expect(isFinanceRole("SUPER_ADMIN")).toBe(false);
+    expect(isFinanceRole("ADMIN")).toBe(true);
+    expect(isFinanceRole("SUPER_ADMIN")).toBe(true);
     expect(isFinanceRole("RESIDENT")).toBe(false);
+    expect(isFinanceRole("MERCHANT")).toBe(false);
     expect(isFinanceRole(undefined)).toBe(false);
     expect(isFinanceRole(null)).toBe(false);
   });

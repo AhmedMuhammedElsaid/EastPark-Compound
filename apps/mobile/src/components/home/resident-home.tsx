@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { canBrowseListings } from "@/lib/listings-access";
-import { isFinanceRole } from "@/lib/roles";
+import { isAccountantRole } from "@/lib/roles";
 import { communityApi } from "@/services/api/community";
 import { shopsApi } from "@/services/api/shops";
 import { useAppSelector } from "@/store";
@@ -162,7 +162,7 @@ export function ResidentHome() {
         </View>
 
         {/* What's new — the community area is closed to the accountant role */}
-        {isFinanceRole(user?.role)
+        {isAccountantRole(user?.role)
           ? null
           : <WhatsNewSection loading={annLoading} announcements={announcements} isAr={isAr} />}
 
@@ -213,7 +213,7 @@ function WhatsNewSection({ loading, announcements, isAr }: { loading: boolean; a
   );
 }
 
-const notFinance = (role: string | undefined) => !isFinanceRole(role);
+const notAccountant = (role: string | undefined) => !isAccountantRole(role);
 
 const QUICK_ACTIONS: Array<{
   renderIcon: (color: string) => ReactNode;
@@ -225,11 +225,11 @@ const QUICK_ACTIONS: Array<{
 }> = [
   { renderIcon: color => <Storefront size={24} color={color} />, labelKey: "home.shops", route: "/(tabs)/directory" },
   { renderIcon: color => <Buildings size={24} color={color} />, labelKey: "listings.title", route: "/(tabs)/flats", visible: canBrowseListings },
-  { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community", visible: notFinance },
-  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false, visible: notFinance },
-  { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders?from=home", authRequired: true, visible: notFinance },
+  { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community", visible: notAccountant },
+  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false, visible: notAccountant },
+  { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders?from=home", authRequired: true, visible: notAccountant },
   { renderIcon: color => <ChatCircle size={24} color={color} />, labelKey: "feedback.title", route: "/(tabs)/community/feedback?from=home", authRequired: true },
-  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports?from=home", visible: notFinance },
+  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports?from=home", visible: notAccountant },
 ];
 
 function QuickActionsGrid({ requireAuthNavigation, colors }: { requireAuthNavigation: (href: string) => void; colors: any }) {

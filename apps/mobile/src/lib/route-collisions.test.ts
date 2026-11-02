@@ -41,4 +41,16 @@ describe("expo-router URL collisions", () => {
     collectUrls(APP_DIR, [], urls);
     expect(urls.get("/")).toEqual(["(tabs)/index.tsx"]);
   });
+
+  it("keeps the staff finance screens under /finance/ and off the resident and listing URLs", () => {
+    const urls = new Map<string, string[]>();
+    collectUrls(APP_DIR, [], urls);
+    const financeFiles = [...urls.entries()].filter(([, files]) => files.some(f => f.startsWith("(finance)/")));
+    expect(financeFiles.length).toBeGreaterThan(0);
+    for (const [url, files] of financeFiles) {
+      expect(url.startsWith("/finance/")).toBe(true);
+      expect(files.every(f => f.startsWith("(finance)/"))).toBe(true);
+    }
+    expect(urls.get("/finance/today")).toEqual(["(finance)/finance/today.tsx"]);
+  });
 });

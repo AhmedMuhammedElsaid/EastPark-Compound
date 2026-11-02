@@ -95,14 +95,16 @@ describe("useGuestGate for the accountant role", () => {
     expect(mockPush).toHaveBeenCalledWith("/notifications");
   });
 
-  it("still lets residents through", () => {
-    mockRole = "RESIDENT";
+  it.each(["RESIDENT", "ADMIN", "SUPER_ADMIN"])("never confines %s", (role) => {
+    mockRole = role;
     const action = jest.fn();
-    const { result } = renderHook(() => useGuestGate());
+    const { result } = renderHook(() => ({ gate: useGuestGate(), sheet: useComingSoonState() }));
 
-    act(() => result.current.gate(action, "market"));
+    act(() => result.current.gate.gate(action, "market"));
+    act(() => result.current.gate.gate(action, "community"));
 
-    expect(action).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(result.current.sheet.visible).toBe(false);
   });
 });
 

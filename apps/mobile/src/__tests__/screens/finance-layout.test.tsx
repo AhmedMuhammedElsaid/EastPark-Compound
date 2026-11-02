@@ -26,16 +26,16 @@ describe("finance layout guard", () => {
     expect(screen.getByText("redirect:/(auth)/login")).toBeTruthy();
   });
 
-  it.each(["RESIDENT", "MERCHANT", "ADMIN", "SUPER_ADMIN"])("sends %s back to the tabs", (role) => {
+  it.each(["RESIDENT", "MERCHANT"])("sends %s back to the tabs", (role) => {
     mockIsAuthenticated = true;
     mockRole = role;
     render(<FinanceLayout />);
     expect(screen.getByText("redirect:/(tabs)")).toBeTruthy();
   });
 
-  it("opens the finance stack for an accountant", () => {
+  it.each(["ACCOUNTANT", "ADMIN", "SUPER_ADMIN"])("opens the finance stack for %s", (role) => {
     mockIsAuthenticated = true;
-    mockRole = "ACCOUNTANT";
+    mockRole = role;
     render(<FinanceLayout />);
     expect(screen.getByText("finance-stack")).toBeTruthy();
   });

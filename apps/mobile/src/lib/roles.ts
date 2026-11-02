@@ -14,9 +14,17 @@ export function isSuperAdminRole(role: string | null | undefined): role is "SUPE
   return role === "SUPER_ADMIN";
 }
 
-/** ACCOUNTANT is confined to the finance area; it never satisfies an admin check. */
-export function isFinanceRole(role: string | null | undefined): role is "ACCOUNTANT" {
+/**
+ * ACCOUNTANT only. Use this for every confinement check (locked tabs, gated cart, hidden Home tiles):
+ * admins must never be confined.
+ */
+export function isAccountantRole(role: string | null | undefined): role is "ACCOUNTANT" {
   return role === "ACCOUNTANT";
+}
+
+/** Roles that reach the finance desk: ACCOUNTANT plus the admins. NOT a confinement check. */
+export function isFinanceRole(role: string | null | undefined): role is "ACCOUNTANT" | "ADMIN" | "SUPER_ADMIN" {
+  return isAccountantRole(role) || isAdminRole(role);
 }
 
 /** Translation key for a role's display name (badges). */

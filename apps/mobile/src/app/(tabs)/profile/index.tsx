@@ -20,7 +20,7 @@ import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { isAdminRole, isFinanceRole, roleLabelKey } from "@/lib/roles";
+import { isAccountantRole, isAdminRole, isFinanceRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit } from "@/lib/units";
 import { openPrivacyPolicy } from "@/lib/web-links";
 import { usersApi } from "@/services/api/users";
@@ -262,7 +262,11 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
         />
       )}
       <PreferencesSection styles={styles} />
-      <DangerSection onLogout={handleLogout} onDeleteAccount={handleDeleteAccount} styles={styles} />
+      <DangerSection
+        onLogout={handleLogout}
+        onDeleteAccount={canDeleteAccount(user.role) ? handleDeleteAccount : undefined}
+        styles={styles}
+      />
     </>
   );
 }
@@ -354,7 +358,7 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
       )}
       <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
       {/* The accountant role has no orders. */}
-      {!isFinanceRole(role) && (
+      {!isAccountantRole(role) && (
         <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
       )}
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
@@ -441,7 +445,12 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
   );
 }
 
-function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => void; onDeleteAccount: () => void; styles: AppStyles }) {
+/** Self-delete is RESIDENT/MERCHANT only on the backend (staff accounts are removed by the super admin). */
+function canDeleteAccount(role: string): boolean {
+  return role === "RESIDENT" || role === "MERCHANT";
+}
+
+function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => void; onDeleteAccount?: () => void; styles: AppStyles }) {
   const { t } = useTranslation();
   return (
     <View style={styles.section}>
@@ -457,18 +466,20 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
         <View style={styles.rowIconWrapDanger}><SignOut mirrored={I18nManager.isRTL} size={20} color={SEMANTIC.error} /></View>
         <Text style={styles.rowLabelDanger}>{t("auth.logout")}</Text>
       </Pressable>
-      <Pressable
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onDeleteAccount();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t("profile.delete_account")}
-      >
-        <View style={styles.rowIconWrapDanger}><WarningOctagon size={20} color={SEMANTIC.error} /></View>
-        <Text style={styles.rowLabelDanger}>{t("profile.delete_account")}</Text>
-      </Pressable>
+      {onDeleteAccount && (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onDeleteAccount();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t("profile.delete_account")}
+        >
+          <View style={styles.rowIconWrapDanger}><WarningOctagon size={20} color={SEMANTIC.error} /></View>
+          <Text style={styles.rowLabelDanger}>{t("profile.delete_account")}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
