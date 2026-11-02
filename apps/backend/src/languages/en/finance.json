@@ -1,0 +1,24 @@
+{
+    "success": {
+        "chargeCreated": "The charge was posted",
+        "chargeVoided": "The charge was voided"
+    },
+    "error": {
+        "flatNotFound": "Flat not found",
+        "flatInactive": "This flat is inactive and cannot be charged",
+        "chargeNotFound": "Charge not found",
+        "replacesNotVoid": "Only a voided charge can be replaced. Void the original first.",
+        "alreadyVoid": "This entry is already voided",
+        "hasAllocations": "This charge has payments allocated to it. Void the payment first or move it to credit.",
+        "voidNotAllowed": "You can void only your own entries on the day you posted them. Ask an admin.",
+        "reasonRequired": "Give a reason of at least 5 characters",
+        "periodClosed": "This accounting period is closed. Post a correction in an open period.",
+        "invalidPeriod": "The period must be written YYYY-MM",
+        "invalidPeriodRange": "Choose a range of 1 to 60 months, the start before the end",
+        "invalidAmount": "Enter the amount as a number",
+        "amountPrecision": "Amounts can have at most 2 decimal places",
+        "amountOutOfRange": "The amount must be between 0.01 and 9,999,999.99",
+        "idempotencyKeyRequired": "The Idempotency-Key header is required (8 to 100 letters, digits, - or _)",
+        "idempotencyConflict": "This request key was already used for a different request"
+    }
+}

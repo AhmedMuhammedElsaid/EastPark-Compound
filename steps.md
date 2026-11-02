@@ -37,6 +37,13 @@ psql "$env:DIRECT_DATABASE_URL" -X -A -t -c "SHOW server_version;"
 
 The major version must be 15 or higher. If it is 14, stop and ask before pushing.
 
+### G2b. The privacy policy ships in the same push (slice 6, `37cf341`)
+
+The finance section of `/privacy` (commit `37cf341`, effective 2 November 2026) must reach Vercel no later than
+the slice 6 backend reaches Render. Both deploy from the same push to `main`, so just make sure `37cf341` is in
+it. Do not cherry-pick the policy to `main` on its own earlier: it describes listings and accountants that
+would not exist yet.
+
 ### G3. Flat-key preflight is clean
 
 ```powershell
@@ -73,3 +80,11 @@ be 0. If one is not, stop and send the counts (counts only, no rows) before anyo
 A non-zero `flat_linked_to_two_units` makes the catch-up abort (one transaction, so nothing changes): send the
 count, don't retry.
 Never edit `finance.goLiveAt` in `finance_settings`: late flat links date their periods from it.
+
+### A2. Policy live, then announce, then (and only then) finance users
+
+1. Open `https://eastpark-web-app.vercel.app/privacy` in Arabic and English. The effective date must read
+   2 November 2026 and section 3 must be "Compound accounts" / "حسابات المجمع".
+2. Post an in-app announcement that the privacy policy changed (policy section 14 promises notice of
+   significant changes), linking to `/privacy`.
+3. Only after 1 and 2: invite any ACCOUNTANT and record any charge in prod. No finance row before that.

@@ -1,4 +1,56 @@
 /**
+ * Finance actions (accounting plan 3.7), written only by `FinanceAuditService`
+ * inside the posting transaction. `GET /admin/activity` hides them unless
+ * `scope=finance|all`; the full trail is `GET /finance/audit`.
+ */
+export const FINANCE_AUDIT_ACTIONS = [
+    'PAYMENT_RECORDED',
+    'PAYMENT_VOIDED',
+    'CHEQUE_STATE_CHANGED',
+    'CHARGE_CREATED',
+    'CHARGE_VOIDED',
+    'BILLING_RUN_COMMITTED',
+    'BILLING_RUN_VOIDED',
+    'EXPENSE_CREATED',
+    'EXPENSE_APPROVED',
+    'EXPENSE_REJECTED',
+    'EXPENSE_VOIDED',
+    'REVENUE_RECORDED',
+    'REVENUE_VOIDED',
+    'FUND_ENTRY_RECORDED',
+    'FUND_ENTRY_VOIDED',
+    'FUND_ADJUSTED',
+    'PERIOD_CLOSED',
+    'PERIOD_REOPENED',
+    'FINANCE_SETTING_CHANGED',
+    'OPENING_BALANCES_IMPORTED',
+    'OPENING_BALANCES_VOIDED',
+    'REPORT_PUBLISHED',
+    'REPORT_WITHDRAWN',
+    'FINANCE_EXPORT',
+    'ATTACHMENT_VIEWED',
+    'FLAT_OWNERSHIP_CHANGED',
+] as const;
+
+export type FinanceAuditAction = (typeof FINANCE_AUDIT_ACTIONS)[number];
+
+/** Finance audit entities (the `audit_logs.entity` column). */
+export type FinanceAuditEntity =
+    | 'Charge'
+    | 'Payment'
+    | 'PaymentAllocation'
+    | 'BillingRun'
+    | 'Expense'
+    | 'Revenue'
+    | 'FundEntry'
+    | 'FiscalPeriod'
+    | 'FinanceSetting'
+    | 'ImportBatch'
+    | 'PublishedReport'
+    | 'Flat'
+    | 'FlatOwnership';
+
+/**
  * Fixed list of admin activity actions (shared contract with web/mobile).
  * Clients render unknown actions generically, so adding one is safe; renaming
  * one breaks the readable feed for rows already written.
@@ -52,6 +104,8 @@ export const AUDIT_ACTIONS = [
     'LISTING_APPROVED',
     'LISTING_REJECTED',
     'LISTING_TAKEN_DOWN',
+    // Accounting (finance desk), hidden from the default activity feed
+    ...FINANCE_AUDIT_ACTIONS,
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

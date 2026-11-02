@@ -9,6 +9,8 @@ import { ROLES_DECORATOR_KEY } from 'src/common/request/constants/request.consta
 
 interface RouteRow {
     id: string;
+    /** `@Controller` path, e.g. `/finance/flats`. */
+    base: string;
     roles: readonly Role[] | undefined;
 }
 
@@ -41,6 +43,7 @@ function collectRoutes(): RouteRow[] {
                         | undefined) ?? classRoles;
                 rows.push({
                     id: `${cls.name}.${name} (${String(path)})`,
+                    base: String(Reflect.getMetadata('path', cls)),
                     roles,
                 });
             }
@@ -51,6 +54,10 @@ function collectRoutes(): RouteRow[] {
 
 const admits = (row: RouteRow, role: Role): boolean =>
     row.roles === undefined || row.roles.some(r => roleSatisfies(role, r));
+
+/** The finance desk: every controller under `/finance`. */
+const isFinance = (row: RouteRow): boolean =>
+    row.base === '/finance' || row.base.startsWith('/finance/');
 
 /**
  * REVIEWED differences: routes a RESIDENT may call that an ACCOUNTANT may not,
@@ -94,7 +101,7 @@ describe('role matrix over every @AllowedRoles', () => {
         expect(leaks).toEqual([]);
     });
 
-    it('ACCOUNTANT is never on an admin-only route', () => {
+    it('ACCOUNTANT is never on an admin-only route outside /finance', () => {
         const wrong = routes
             .filter(r => r.roles?.includes(Role.ACCOUNTANT))
             .filter(
@@ -102,10 +109,39 @@ describe('role matrix over every @AllowedRoles', () => {
                     !r.roles?.includes(Role.RESIDENT) &&
                     !r.roles?.includes(Role.MERCHANT)
             )
+            .filter(r => !isFinance(r))
             .map(r => r.id);
-        // Finance routes (`[ACCOUNTANT, ADMIN]`) arrive in a later slice and
-        // extend this list; none exists yet.
         expect(wrong).toEqual([]);
+    });
+
+    it('every /finance route is exactly [ACCOUNTANT, ADMIN] (plan 3.6, 7)', () => {
+        const finance = routes.filter(isFinance);
+        // flats list/detail/ownership, charges create/void, audit, periods, settings
+        expect(finance.length).toBeGreaterThanOrEqual(8);
+        const wrong = finance
+            .filter(
+                r =>
+                    r.roles === undefined ||
+                    [...r.roles].sort().join(',') !==
+                        [Role.ACCOUNTANT, Role.ADMIN].sort().join(',')
+            )
+            .map(r => r.id);
+        expect(wrong).toEqual([]);
+        for (const r of finance) {
+            expect(admits(r, Role.ACCOUNTANT)).toBe(true);
+            expect(admits(r, Role.ADMIN)).toBe(true);
+            expect(admits(r, Role.SUPER_ADMIN)).toBe(true);
+            expect(admits(r, Role.RESIDENT)).toBe(false);
+            expect(admits(r, Role.MERCHANT)).toBe(false);
+        }
+    });
+
+    it('ACCOUNTANT reaches no /admin route', () => {
+        const leaks = routes
+            .filter(r => r.base.startsWith('/admin'))
+            .filter(r => r.roles !== undefined && admits(r, Role.ACCOUNTANT))
+            .map(r => r.id);
+        expect(leaks).toEqual([]);
     });
 
     it('every RESIDENT route that excludes ACCOUNTANT is reviewed', () => {

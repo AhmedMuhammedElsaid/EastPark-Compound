@@ -1,6 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+export const ACTIVITY_SCOPES = ['admin', 'finance', 'all'] as const;
+export type ActivityScope = (typeof ACTIVITY_SCOPES)[number];
 
 export class ActivityQueryDto {
     @ApiPropertyOptional()
@@ -20,4 +23,14 @@ export class ActivityQueryDto {
     @IsString()
     @IsOptional()
     actorId?: string;
+
+    @ApiPropertyOptional({
+        enum: ACTIVITY_SCOPES,
+        default: 'admin',
+        description:
+            'admin (default): admin and governance events only; finance: finance actions only; all: both',
+    })
+    @IsIn(ACTIVITY_SCOPES)
+    @IsOptional()
+    scope?: ActivityScope;
 }

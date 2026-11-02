@@ -6,7 +6,12 @@ import { DatabaseService } from 'src/common/database/services/database.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
-import { AuditAction, AuditEntity, AuditMeta } from './audit.actions';
+import {
+    AuditAction,
+    AuditEntity,
+    AuditMeta,
+    FINANCE_AUDIT_ACTIONS,
+} from './audit.actions';
 import { ActivityQueryDto } from './dtos/activity.query.dto';
 import { ActivityListResponseDto } from './dtos/activity.response.dto';
 
@@ -48,13 +53,24 @@ export class AuditService {
         }
     }
 
-    /** `GET /admin/activity` — newest first, cursor-paginated. */
+    /**
+     * `GET /admin/activity` — newest first, cursor-paginated. Finance actions
+     * (`FINANCE_AUDIT_ACTIONS`) are hidden unless `scope` is `finance` or `all`
+     * (accounting plan 3.7): a busy finance desk must not bury admin events.
+     */
     async listActivity(
         query: ActivityQueryDto
     ): Promise<ActivityListResponseDto> {
         const limit = query.limit ?? 20;
+        const scope = query.scope ?? 'admin';
+        const finance = [...FINANCE_AUDIT_ACTIONS] as string[];
+        const where: Prisma.AuditLogWhereInput = {
+            ...(query.actorId ? { userId: query.actorId } : {}),
+            ...(scope === 'admin' ? { action: { notIn: finance } } : {}),
+            ...(scope === 'finance' ? { action: { in: finance } } : {}),
+        };
         const rows = await this.db.auditLog.findMany({
-            where: query.actorId ? { userId: query.actorId } : {},
+            where,
             take: limit + 1,
             ...cursorArgs(query.cursor),
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
