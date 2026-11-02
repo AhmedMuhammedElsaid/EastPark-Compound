@@ -19,13 +19,27 @@ async function errors<T extends object>(
 }
 
 describe('no API grants SUPER_ADMIN', () => {
-    it('role change accepts RESIDENT, MERCHANT, ADMIN only', async () => {
-        for (const role of [Role.RESIDENT, Role.MERCHANT, Role.ADMIN]) {
+    it('role change accepts RESIDENT, MERCHANT, ADMIN, ACCOUNTANT only', async () => {
+        for (const role of [
+            Role.RESIDENT,
+            Role.MERCHANT,
+            Role.ADMIN,
+            Role.ACCOUNTANT,
+        ]) {
             expect(await errors(AdminUserRoleUpdateDto, { role })).toBe(0);
         }
         for (const role of [Role.SUPER_ADMIN, Role.GUEST, 'OWNER', undefined]) {
             expect(await errors(AdminUserRoleUpdateDto, { role })).toBe(1);
         }
+    });
+
+    it('an invitation can carry ACCOUNTANT', async () => {
+        expect(
+            await errors(InvitationCreateDto, {
+                email: 'someone@example.com',
+                role: Role.ACCOUNTANT,
+            })
+        ).toBe(0);
     });
 
     it('an invitation can never carry SUPER_ADMIN', async () => {

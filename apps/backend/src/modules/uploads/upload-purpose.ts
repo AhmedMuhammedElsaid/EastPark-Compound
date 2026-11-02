@@ -13,6 +13,7 @@ const ANY_USER: readonly Role[] = [
     Role.MERCHANT,
     Role.ADMIN,
     Role.SUPER_ADMIN,
+    Role.ACCOUNTANT,
 ];
 const STAFF: readonly Role[] = [Role.MERCHANT, Role.ADMIN, Role.SUPER_ADMIN];
 const ADMIN_ONLY: readonly Role[] = [Role.ADMIN, Role.SUPER_ADMIN];

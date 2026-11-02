@@ -763,6 +763,69 @@ describe('AuthService', () => {
             expect(result.accessToken).toBe(mockTokens.accessToken);
         });
 
+        it('ACCOUNTANT invitation upgrades an existing RESIDENT to ACCOUNTANT', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.ACCOUNTANT,
+            });
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(true);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(
+                mockUser({ role: Role.ACCOUNTANT })
+            );
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'Pass123!',
+            });
+
+            expect(db.user.update.mock.calls[0][0].data.role).toBe(
+                Role.ACCOUNTANT
+            );
+        });
+
+        it('ACCOUNTANT invitation to an existing MERCHANT is a 409 roleConflict and stays unused', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.ACCOUNTANT,
+            });
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.MERCHANT })
+            );
+            encryption.match.mockResolvedValue(true);
+
+            const attempt = service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'Pass123!',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow(
+                'invitation.error.roleConflict'
+            );
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+            expect(db.user.update).not.toHaveBeenCalled();
+        });
+
+        it('MERCHANT invitation to an existing ACCOUNTANT is a 409 roleConflict', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.ACCOUNTANT })
+            );
+            encryption.match.mockResolvedValue(true);
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('invitation.error.roleConflict');
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+        });
+
         it('rejects a concurrent second use of the same invitation', async () => {
             db.invitation.findUnique.mockResolvedValue(validInvitation);
             db.user.findUnique.mockResolvedValue(null);

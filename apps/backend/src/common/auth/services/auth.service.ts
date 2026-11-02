@@ -25,6 +25,7 @@ import { HelperEncryptionService } from '../../helper/services/helper.encryption
 import { normalizeEmail } from '../../helper/transforms/normalize-email.transform';
 import { formatUnitLabel } from '../../helper/utils/unit-label';
 import { IAuthUser } from '../../request/interfaces/request.interface';
+import { resolveInvitedRole } from '../utils/roles';
 import {
     AcceptInvitationDto,
     AuthForgotPasswordDto,
@@ -47,15 +48,6 @@ const FORGOT_MAX_REQUESTS = 3; // reset mails per email per window
 const FORGOT_REQUEST_WINDOW = 900; // 15 minutes
 const FORGOT_PASSWORD_MESSAGE =
     'If that email exists, a reset link has been sent';
-
-/** Privilege order used so an invitation can upgrade but never downgrade. */
-const ROLE_RANK: Record<Role, number> = {
-    [Role.GUEST]: -1,
-    [Role.RESIDENT]: 0,
-    [Role.MERCHANT]: 1,
-    [Role.ADMIN]: 2,
-    [Role.SUPER_ADMIN]: 3,
-};
 
 /** Canonical `User.unitNumber` built from a resident lead's unit fields. */
 export function formatLeadUnit(
@@ -342,6 +334,11 @@ export class AuthService {
                 );
         }
 
+        // Decided before anything is claimed: a conflict leaves the invitation unused.
+        const nextRole = existing
+            ? resolveInvitedRole(invitation.role, existing.role)
+            : invitation.role;
+
         const leads =
             invitation.role === Role.RESIDENT
                 ? await this.findInvitationLeads(email)
@@ -367,11 +364,7 @@ export class AuthService {
                 ? await tx.user.update({
                       where: { id: existing.id },
                       data: {
-                          role:
-                              ROLE_RANK[invitation.role] >
-                              ROLE_RANK[existing.role]
-                                  ? invitation.role
-                                  : existing.role,
+                          role: nextRole,
                           isVerified: true,
                           ...(phoneLead && !existing.phone
                               ? { phone: phoneLead.phone }

@@ -35,7 +35,7 @@ export class FeedbackController {
     constructor(private readonly feedbackService: FeedbackService) {}
 
     @Post()
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT])
+    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ACCOUNTANT])
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Submit feedback [RESIDENT/MERCHANT]' })
     create(
@@ -46,7 +46,12 @@ export class FeedbackController {
     }
 
     @Get()
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @ApiOperation({
         summary: 'List feedback [RESIDENT/MERCHANT=own, ADMIN=all]',
     })
@@ -58,7 +63,12 @@ export class FeedbackController {
     }
 
     @Get(':id')
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @ApiOperation({
         summary:
             'Get feedback detail with replies [RESIDENT/MERCHANT=own, ADMIN=all]',

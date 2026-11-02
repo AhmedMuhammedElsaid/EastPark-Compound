@@ -24,6 +24,7 @@ enum Role {
   MERCHANT
   ADMIN
   SUPER_ADMIN
+  ACCOUNTANT
 }
 
 enum ShopCategory {
