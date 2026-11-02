@@ -54,4 +54,18 @@ L2), so push when nobody is onboarding.
 
 ## After the push
 
-Post-deploy catch-up and invariant SQL for slice 5 (review M2) will be added here when slice 5 is built.
+### A1. Ownership catch-up, then invariant check (slice 4 review M2)
+
+While Render swaps containers, the old code keeps writing units, users and listings without `flatId` or
+ownership periods. As soon as Render reports the new deploy live, run the idempotent catch-up once, then the
+read-only check:
+
+```powershell
+cd C:\Unite\EastPark-App\apps\backend
+psql "$env:DIRECT_DATABASE_URL" -X -1 -v ON_ERROR_STOP=1 -f prisma/scripts/finance-ownership-catchup.sql
+psql "$env:DIRECT_DATABASE_URL" -X -f prisma/scripts/finance-ownership-invariant.sql
+```
+
+The catch-up prints one count per step (usually all 0 at a quiet hour). Every row of the invariant check must
+be 0. If one is not, stop and send the counts (counts only, no rows) before anyone uses the finance screens.
+Never edit `finance.goLiveAt` in `finance_settings`: late flat links date their periods from it.

@@ -16,6 +16,7 @@ export const describeDb = TEST_DATABASE_URL ? describe : describe.skip;
 const PSQL = process.env['PSQL_BIN'] ?? 'psql';
 export const MIGRATIONS_DIR = join(__dirname, '../../prisma/migrations');
 export const FINANCE_MIGRATION = '20261102000000_finance_foundations';
+export const SCRIPTS_DIR = join(__dirname, '../../prisma/scripts');
 
 export interface PsqlResult {
     status: number;
@@ -80,6 +81,11 @@ export class ScratchDb {
             const r = this.applyMigration(f);
             if (r.status !== 0) throw new Error(`${f} failed: ${r.stderr}`);
         }
+    }
+
+    /** Runs a file in one transaction (as steps.md does for prisma/scripts). */
+    runFile(path: string): PsqlResult {
+        return psql(this.url, ['-1', '-t', '-A', '-f', path]);
     }
 
     exec(sql: string): PsqlResult {
