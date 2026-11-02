@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     ChargeKind,
+    ChequeState,
+    FinancePaymentMethod,
     OwnershipClosedReason,
     PeriodStatus,
     PostingStatus,
@@ -334,4 +336,192 @@ export class FinanceSettingDto {
 export class FinanceSettingListDto {
     @ApiProperty({ type: [FinanceSettingDto] })
     items: FinanceSettingDto[];
+}
+
+export class FinanceAllocationDto {
+    @ApiProperty()
+    id: string;
+
+    @ApiProperty()
+    paymentId: string;
+
+    @ApiProperty({ example: 'R-2026-000123' })
+    receiptNo: string;
+
+    @ApiProperty()
+    chargeId: string;
+
+    @ApiProperty({ enum: ChargeKind })
+    chargeKind: ChargeKind;
+
+    @ApiProperty()
+    chargeDescription: string;
+
+    @ApiProperty()
+    chargeDescriptionAr: string;
+
+    @ApiProperty({ example: '2026-11' })
+    accrualPeriod: string;
+
+    @ApiProperty({ example: '2026-11-10' })
+    dueDate: string;
+
+    @ApiProperty({ example: 450 })
+    amount: number;
+
+    @ApiProperty({ example: '2026-11-02' })
+    allocatedAt: string;
+
+    @ApiProperty({ nullable: true, type: Date })
+    voidedAt: Date | null;
+
+    @ApiProperty({ nullable: true, type: String })
+    voidReason: string | null;
+}
+
+export class FinancePaymentDto {
+    @ApiProperty()
+    id: string;
+
+    @ApiProperty({ example: 'R-2026-000123' })
+    receiptNo: string;
+
+    @ApiProperty()
+    flatId: string;
+
+    @ApiProperty({ example: 'A1-3-2' })
+    flatLabel: string;
+
+    @ApiProperty({ example: 900 })
+    amount: number;
+
+    @ApiProperty({ enum: FinancePaymentMethod })
+    method: FinancePaymentMethod;
+
+    @ApiProperty({ nullable: true, type: String })
+    reference: string | null;
+
+    @ApiProperty({ enum: ChequeState })
+    chequeState: ChequeState;
+
+    @ApiProperty({ nullable: true, type: String, example: '2026-11-05' })
+    clearedAt: string | null;
+
+    @ApiProperty({ nullable: true, type: String, example: '2026-11-05' })
+    bouncedAt: string | null;
+
+    @ApiProperty({ example: '2026-11-02' })
+    receivedAt: string;
+
+    @ApiProperty({ nullable: true, type: String })
+    payerName: string | null;
+
+    @ApiProperty({ nullable: true, type: String })
+    note: string | null;
+
+    @ApiProperty({ enum: PostingStatus })
+    status: PostingStatus;
+
+    @ApiProperty()
+    isOpening: boolean;
+
+    @ApiProperty({
+        description:
+            'A private slip/cheque photo is attached (open it through GET /finance/attachments/signed-url)',
+    })
+    hasAttachment: boolean;
+
+    @ApiProperty({ nullable: true, type: String })
+    replacesId: string | null;
+
+    @ApiProperty({
+        example: 450,
+        description: 'Sum of the allocations not voided',
+    })
+    allocatedAmount: number;
+
+    @ApiProperty({
+        example: 450,
+        description: 'amount - allocatedAmount (credit left on a live payment)',
+    })
+    unallocatedAmount: number;
+
+    @ApiProperty({ type: FinancePersonDto })
+    createdBy: FinancePersonDto;
+
+    @ApiProperty()
+    createdAt: Date;
+
+    @ApiProperty({ nullable: true, type: Date })
+    voidedAt: Date | null;
+
+    @ApiProperty({ nullable: true, type: String })
+    voidReason: string | null;
+
+    @ApiProperty({ nullable: true, type: FinancePersonDto })
+    voidedBy: FinancePersonDto | null;
+}
+
+export class FinancePaymentDetailDto extends FinancePaymentDto {
+    @ApiProperty({ type: [FinanceAllocationDto] })
+    allocations: FinanceAllocationDto[];
+}
+
+export class FinancePaymentResultDto extends FinancePaymentDetailDto {
+    @ApiProperty({ example: '2026-11-02', description: 'Date of flatTotals' })
+    asOf: string;
+
+    @ApiProperty({
+        type: FinanceFlatTotalsDto,
+        description: 'The flat after the posting (credit = remaining credit)',
+    })
+    flatTotals: FinanceFlatTotalsDto;
+}
+
+export class FinancePaymentPageDto {
+    @ApiProperty({ type: [FinancePaymentDto] })
+    items: FinancePaymentDto[];
+
+    @ApiPropertyOptional()
+    nextCursor?: string;
+}
+
+export class FinanceApplyCreditResultDto {
+    @ApiProperty()
+    flatId: string;
+
+    @ApiProperty({ example: 'A1-3-2' })
+    flatLabel: string;
+
+    @ApiProperty({ example: 450 })
+    applied: number;
+
+    @ApiProperty({ type: [FinanceAllocationDto] })
+    allocations: FinanceAllocationDto[];
+
+    @ApiProperty({ example: '2026-11-02' })
+    asOf: string;
+
+    @ApiProperty({ type: FinanceFlatTotalsDto })
+    flatTotals: FinanceFlatTotalsDto;
+}
+
+export class FinanceAttachmentUploadDto {
+    @ApiProperty({
+        example: 'staging/usr_1/1730550000000-uuid.jpg',
+        description:
+            'Private object path to send as attachmentPath. Never a URL.',
+    })
+    path: string;
+}
+
+export class FinanceSignedUrlDto {
+    @ApiProperty({ description: 'Signed URL, valid for 60 seconds' })
+    url: string;
+
+    @ApiProperty()
+    expiresAt: Date;
+
+    @ApiProperty({ example: 60 })
+    expiresInSeconds: number;
 }

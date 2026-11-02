@@ -9,5 +9,10 @@ export default registerAs(
         // able to actually fire when the secret is missing.
         serviceKey: process.env.SUPABASE_SERVICE_KEY,
         bucket: process.env.SUPABASE_BUCKET ?? 'eastpark-uploads',
+        // PRIVATE bucket for payment slips / cheque photos (accounting plan 5).
+        // Never public, never the uploads bucket; read only through 60 s
+        // signed URLs issued by PrivateFileService.
+        financeBucket:
+            process.env.SUPABASE_FINANCE_BUCKET ?? 'eastpark-finance',
     })
 );

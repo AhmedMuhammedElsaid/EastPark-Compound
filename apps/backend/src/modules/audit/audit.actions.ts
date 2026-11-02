@@ -30,6 +30,8 @@ export const FINANCE_AUDIT_ACTIONS = [
     'FINANCE_EXPORT',
     'ATTACHMENT_VIEWED',
     'FLAT_OWNERSHIP_CHANGED',
+    // Slice 7: credit applied to open charges (POST /finance/flats/:id/apply-credit)
+    'CREDIT_APPLIED',
 ] as const;
 
 export type FinanceAuditAction = (typeof FINANCE_AUDIT_ACTIONS)[number];

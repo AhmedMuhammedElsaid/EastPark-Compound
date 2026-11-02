@@ -1,6 +1,8 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 
+import { redactUrlForLog } from 'src/common/logger/redact-url';
+
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
     private readonly logger = new Logger('HTTP');
@@ -11,7 +13,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         next: () => void
     ): void {
         const method = req.method ?? '';
-        const url = req.url ?? '';
+        const url = redactUrlForLog(req.url);
         const start = Date.now();
 
         res.on('finish', () => {

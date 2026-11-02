@@ -1,8 +1,14 @@
 import { PostingStatus, Prisma } from '@prisma/client';
 
-import { addDays, parseDateOnly } from 'src/common/finance/cairo-date';
+import {
+    addDays,
+    cairoDayStart,
+    parseDateOnly,
+} from 'src/common/finance/cairo-date';
 import { FinanceTx } from 'src/modules/finance/kernel/finance-tx';
 import { summariseFlat } from 'src/modules/finance/kernel/ledger';
+
+import { matches, Row } from '../mocks/finance-ledger.mock';
 
 /*
  * Review M1: the invariant `balance = open − credit` checked against an
@@ -11,51 +17,7 @@ import { summariseFlat } from 'src/modules/finance/kernel/ledger';
  * forgets the charge or payment liveness fails here.
  */
 
-type Row = Record<string, unknown>;
-
-const OPS = ['lte', 'lt', 'gte', 'gt', 'in', 'equals'];
-
-function cmp(a: unknown, b: unknown): number {
-    const x = a instanceof Date ? a.getTime() : a;
-    const y = b instanceof Date ? b.getTime() : b;
-    return (x as number) < (y as number)
-        ? -1
-        : (x as number) > (y as number)
-          ? 1
-          : 0;
-}
-
-function same(a: unknown, b: unknown): boolean {
-    if (a instanceof Date && b instanceof Date)
-        return a.getTime() === b.getTime();
-    return a === b;
-}
-
-function matches(row: Row | null | undefined, where: Row): boolean {
-    if (!row) return false;
-    return Object.entries(where).every(([key, cond]) => {
-        if (key === 'AND') return (cond as Row[]).every(w => matches(row, w));
-        if (key === 'OR') return (cond as Row[]).some(w => matches(row, w));
-        const value = row[key];
-        if (cond === null) return value === null || value === undefined;
-        if (typeof cond !== 'object' || cond instanceof Date)
-            return same(value, cond);
-        const ops = Object.keys(cond as Row);
-        if (ops.length > 0 && ops.every(o => OPS.includes(o))) {
-            if (value === null || value === undefined) return false;
-            const c = cond as Row;
-            if ('lte' in c && cmp(value, c.lte) > 0) return false;
-            if ('lt' in c && cmp(value, c.lt) >= 0) return false;
-            if ('gte' in c && cmp(value, c.gte) < 0) return false;
-            if ('gt' in c && cmp(value, c.gt) <= 0) return false;
-            if ('in' in c && !(c.in as unknown[]).some(v => same(value, v)))
-                return false;
-            if ('equals' in c && !same(value, c.equals)) return false;
-            return true;
-        }
-        return matches(value as Row, cond as Row); // relation filter
-    });
-}
+// The evaluator is shared with the payments spec (test/mocks/finance-ledger.mock.ts).
 
 interface Ledger {
     charges: Row[];
@@ -216,6 +178,169 @@ const FIXTURES: Record<string, Ledger> = {
         ],
     },
 };
+
+const cairoStart = (s: string) => cairoDayStart(day(s));
+
+// Slice 7: ledgers shaped exactly as the payments service writes them.
+Object.assign(FIXTURES, {
+    'slice 7: auto allocation, overpayment credit, credit applied later': {
+        charges: [
+            charge({
+                id: 'oct',
+                amount: D('450'),
+                accrualPeriod: '2026-10',
+                dueDate: day('2026-10-10'),
+            }),
+            charge({
+                id: 'nov',
+                amount: D('450'),
+                accrualPeriod: '2026-11',
+                dueDate: day('2026-11-10'),
+            }),
+            charge({
+                id: 'dec',
+                amount: D('450'),
+                accrualPeriod: '2026-12',
+                dueDate: day('2026-12-10'),
+            }),
+        ],
+        payments: [
+            payment({
+                id: 'p',
+                amount: D('1000'),
+                receivedAt: day('2026-11-05'),
+            }),
+        ],
+        allocations: [
+            allocation({
+                id: 'a1',
+                paymentId: 'p',
+                chargeId: 'oct',
+                amount: D('450'),
+                allocatedAt: day('2026-11-05'),
+            }),
+            allocation({
+                id: 'a2',
+                paymentId: 'p',
+                chargeId: 'nov',
+                amount: D('450'),
+                allocatedAt: day('2026-11-05'),
+            }),
+            // apply-credit on 20 Nov to a charge accruing in December
+            allocation({
+                id: 'a3',
+                paymentId: 'p',
+                chargeId: 'dec',
+                amount: D('100'),
+                allocatedAt: day('2026-11-20'),
+            }),
+        ],
+    },
+    'slice 7: cheque bounced, allocation voided at the Cairo start of bouncedAt':
+        {
+            charges: [
+                charge({
+                    id: 'sc',
+                    amount: D('450'),
+                    accrualPeriod: '2026-11',
+                    dueDate: day('2026-11-10'),
+                }),
+            ],
+            payments: [
+                payment({
+                    id: 'chq',
+                    amount: D('450'),
+                    receivedAt: day('2026-11-01'),
+                    bouncedAt: day('2026-11-10'),
+                }),
+            ],
+            allocations: [
+                allocation({
+                    id: 'a',
+                    paymentId: 'chq',
+                    chargeId: 'sc',
+                    amount: D('450'),
+                    allocatedAt: day('2026-11-01'),
+                    voidedAt: cairoStart('2026-11-10'),
+                }),
+            ],
+        },
+    'slice 7: voided payment that also funded a later credit allocation': {
+        charges: [
+            charge({
+                id: 'oct',
+                amount: D('450'),
+                accrualPeriod: '2026-10',
+                dueDate: day('2026-10-10'),
+            }),
+            charge({
+                id: 'nov',
+                amount: D('450'),
+                accrualPeriod: '2026-11',
+                dueDate: day('2026-11-10'),
+            }),
+        ],
+        payments: [
+            payment({
+                id: 'p',
+                amount: D('900'),
+                receivedAt: day('2026-10-05'),
+                status: PostingStatus.VOID,
+                voidedAt: new Date('2026-11-25T10:00:00Z'),
+            }),
+        ],
+        allocations: [
+            allocation({
+                id: 'a1',
+                paymentId: 'p',
+                chargeId: 'oct',
+                amount: D('450'),
+                allocatedAt: day('2026-10-05'),
+                voidedAt: new Date('2026-11-25T10:00:00Z'),
+            }),
+            allocation({
+                id: 'a2',
+                paymentId: 'p',
+                chargeId: 'nov',
+                amount: D('450'),
+                allocatedAt: day('2026-11-12'),
+                voidedAt: new Date('2026-11-25T10:00:00Z'),
+            }),
+        ],
+    },
+    'slice 7: deposit paid ahead of older arrears by a pending cheque': {
+        charges: [
+            charge({
+                id: 'dep',
+                amount: D('1000'),
+                accrualPeriod: '2026-09',
+                dueDate: day('2026-09-10'),
+            }),
+            charge({
+                id: 'sc',
+                amount: D('450'),
+                accrualPeriod: '2026-10',
+                dueDate: day('2026-10-10'),
+            }),
+        ],
+        payments: [
+            payment({
+                id: 'chq',
+                amount: D('1000'),
+                receivedAt: day('2026-10-20'),
+            }),
+        ],
+        allocations: [
+            allocation({
+                id: 'a',
+                paymentId: 'chq',
+                chargeId: 'dep',
+                amount: D('1000'),
+                allocatedAt: day('2026-10-20'),
+            }),
+        ],
+    },
+} satisfies Record<string, Ledger>);
 
 const DATES = Array.from({ length: 70 }, (_, i) =>
     addDays(day('2026-10-28'), i)

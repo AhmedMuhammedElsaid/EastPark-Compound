@@ -83,7 +83,9 @@ services:
               mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD};
               mc mb --ignore-existing local/eastpark-uploads;
               mc anonymous set public local/eastpark-uploads;
-              echo 'MinIO bucket ready';
+              mc mb --ignore-existing local/eastpark-finance;
+              mc anonymous set none local/eastpark-finance;
+              echo 'MinIO buckets ready';
             "
         restart: 'no'
 

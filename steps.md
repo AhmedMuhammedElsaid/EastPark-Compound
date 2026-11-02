@@ -44,6 +44,14 @@ the slice 6 backend reaches Render. Both deploy from the same push to `main`, so
 it. Do not cherry-pick the policy to `main` on its own earlier: it describes listings and accountants that
 would not exist yet.
 
+### G2c. Private finance bucket exists (slice 7)
+
+In Supabase (prod project `pwylqeodkxigmukghqfd`) → Storage → New bucket: name **`eastpark-finance`**,
+**Public bucket OFF**, no storage policies (only the backend's service role reads it). Do not reuse or rename
+`eastpark-uploads`. Leave `SUPABASE_FINANCE_BUCKET` unset on Render (it defaults to `eastpark-finance`); if you
+set it, it must differ from `SUPABASE_BUCKET` or the backend refuses to boot. If the bucket is missing or public,
+slip uploads and slip links fail with 502 (nothing else breaks), and the backend log says why.
+
 ### G3. Flat-key preflight is clean
 
 ```powershell

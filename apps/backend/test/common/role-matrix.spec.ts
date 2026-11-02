@@ -29,8 +29,7 @@ function collectRoutes(): RouteRow[] {
             const cls = exported as unknown as Ctor;
             if (Reflect.getMetadata('path', cls) === undefined) continue;
             const classRoles = Reflect.getMetadata(ROLES_DECORATOR_KEY, cls) as
-                | Role[]
-                | undefined;
+                Role[] | undefined;
             for (const name of Object.getOwnPropertyNames(cls.prototype)) {
                 const handler = cls.prototype[name];
                 if (typeof handler !== 'function') continue;
@@ -39,8 +38,7 @@ function collectRoutes(): RouteRow[] {
                 const path = Reflect.getMetadata('path', handler) as string;
                 const roles =
                     (Reflect.getMetadata(ROLES_DECORATOR_KEY, handler) as
-                        | Role[]
-                        | undefined) ?? classRoles;
+                        Role[] | undefined) ?? classRoles;
                 rows.push({
                     id: `${cls.name}.${name} (${String(path)})`,
                     base: String(Reflect.getMetadata('path', cls)),
@@ -96,7 +94,11 @@ describe('role matrix over every @AllowedRoles', () => {
     it('no ADMIN route admits ACCOUNTANT (it never satisfies ADMIN)', () => {
         const leaks = routes
             .filter(r => r.roles?.includes(Role.ADMIN))
-            .filter(r => admits(r, Role.ACCOUNTANT) && !r.roles?.includes(Role.ACCOUNTANT))
+            .filter(
+                r =>
+                    admits(r, Role.ACCOUNTANT) &&
+                    !r.roles?.includes(Role.ACCOUNTANT)
+            )
             .map(r => r.id);
         expect(leaks).toEqual([]);
     });
@@ -147,7 +149,9 @@ describe('role matrix over every @AllowedRoles', () => {
     it('every RESIDENT route that excludes ACCOUNTANT is reviewed', () => {
         const unreviewed = routes
             .filter(r => r.roles !== undefined)
-            .filter(r => admits(r, Role.RESIDENT) && !admits(r, Role.ACCOUNTANT))
+            .filter(
+                r => admits(r, Role.RESIDENT) && !admits(r, Role.ACCOUNTANT)
+            )
             .filter(r => !reviewed(r.id))
             .map(r => r.id);
         expect(unreviewed).toEqual([]);
@@ -181,5 +185,27 @@ describe('role matrix over every @AllowedRoles', () => {
     it('SUPER_ADMIN still satisfies every ADMIN route', () => {
         for (const r of routes.filter(x => x.roles?.includes(Role.ADMIN)))
             expect(admits(r, Role.SUPER_ADMIN)).toBe(true);
+    });
+
+    it('slice 7 payment, credit and attachment routes are finance desk routes', () => {
+        const ids = routes.filter(isFinance).map(r => r.id);
+        for (const expected of [
+            'FinancePaymentsController.create',
+            'FinancePaymentsController.list',
+            'FinancePaymentsController.detail',
+            'FinancePaymentsController.void',
+            'FinancePaymentsController.chequeCleared',
+            'FinancePaymentsController.chequeBounced',
+            'FinanceCreditController.applyCredit',
+            'FinanceAttachmentsController.upload',
+            'FinanceAttachmentsController.signedUrl',
+        ])
+            expect(ids.some(id => id.startsWith(`${expected} `))).toBe(true);
+        // the private attachment routes never sit under the public /uploads
+        expect(
+            routes.filter(
+                r => r.base === '/uploads' && r.id.includes('Finance')
+            )
+        ).toEqual([]);
     });
 });

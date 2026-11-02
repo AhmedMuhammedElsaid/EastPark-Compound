@@ -4,6 +4,8 @@ import { IncomingMessage } from 'http';
 
 import { APP_ENVIRONMENT } from 'src/app/enums/app.enum';
 
+import { redactUrlForLog } from '../redact-url';
+
 /**
  * Creates Pino logger configuration for NestJS application
  *
@@ -79,6 +81,13 @@ export const createLoggerConfig = (configService: ConfigService): Params => {
                     'req.body.currentPassword',
                     'req.body.newPassword',
                     'req.body.token',
+                    // Finance (accounting plan 9): bank references, payer
+                    // names and private attachment paths never reach logs.
+                    'req.body.reference',
+                    'req.body.payerName',
+                    'req.body.attachmentPath',
+                    'req.query.path',
+                    'req.query.q',
                     'res.headers["set-cookie"]',
                 ],
                 remove: true,
@@ -93,7 +102,7 @@ export const createLoggerConfig = (configService: ConfigService): Params => {
             serializers: {
                 req: (req: any) => ({
                     method: req.method,
-                    url: req.url,
+                    url: redactUrlForLog(req.url),
                     userAgent: req.headers?.['user-agent'],
                 }),
                 res: (res: any) => ({
@@ -115,7 +124,7 @@ export const createLoggerConfig = (configService: ConfigService): Params => {
 
             // Clean, informative log messages
             customSuccessMessage: (req: any, res: any) => {
-                return `${req.method} ${req.url} ${res.statusCode}`;
+                return `${req.method} ${redactUrlForLog(req.url)} ${res.statusCode}`;
             },
 
             customErrorMessage: (_req: any, _res: any, err: any) => {
