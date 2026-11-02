@@ -38,6 +38,7 @@ const typeDotStyles: Record<NotificationType, string> = {
   POLL: 'bg-success',
   ELECTION: 'bg-warning',
   FEEDBACK_UPDATE: 'bg-info',
+  LISTING_UPDATE: 'bg-primary',
 };
 
 export function NotificationCenter({
@@ -403,6 +404,9 @@ function notificationHref(notification: AppNotification): string | null {
       return stringValue(data.electionId) ? `/governance/elections/${encodeURIComponent(stringValue(data.electionId)!)}` : null;
     case 'FEEDBACK_UPDATE':
       return stringValue(data.feedbackId) ? `/feedback/${encodeURIComponent(stringValue(data.feedbackId)!)}` : null;
+    case 'LISTING_UPDATE':
+      // The web has no flat-listings screens yet; never link to a route that does not exist.
+      return null;
   }
 }
 

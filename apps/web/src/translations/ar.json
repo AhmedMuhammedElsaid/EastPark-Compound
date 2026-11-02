@@ -936,6 +936,7 @@
     "type_ANNOUNCEMENT": "الإعلانات",
     "type_ELECTION": "الانتخابات",
     "type_FEEDBACK_UPDATE": "تحديثات الشكاوى والمقترحات",
+    "type_LISTING_UPDATE": "تحديثات إعلانات الشقق",
     "type_ORDER_UPDATE": "تحديثات الطلبات",
     "type_POLL": "الاستطلاعات",
     "unavailable": "تعذر تحديث الإشعارات. يرجى المحاولة مجدداً.",
