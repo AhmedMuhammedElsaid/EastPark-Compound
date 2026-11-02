@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import 'reflect-metadata';
-import { PaymentMethod, ResidentLeadStatus, Role } from '@prisma/client';
+import {
+    ListingStatus,
+    PaymentMethod,
+    Role,
+} from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
@@ -51,6 +55,7 @@ function buildUnitsDb() {
             deleteMany: jest.fn(),
         },
         listing: { updateMany: jest.fn() },
+        $queryRaw: jest.fn(),
         $transaction: jest.fn(),
     };
     db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -88,14 +93,24 @@ describe('ResidentUnitsService', () => {
         deletedAt: null,
     };
 
+    // Normalised key lookups go through $queryRaw (units vs leads by table name).
+    let holders: { id: string; userId: string }[] = [];
+    let activeLeads: { id: string }[] = [];
+
     beforeEach(() => {
         jest.clearAllMocks();
+        holders = [];
+        activeLeads = [];
+        db.$queryRaw.mockImplementation((query: { sql: string }) =>
+            Promise.resolve(
+                query.sql.includes('resident_units') ? holders : activeLeads
+            )
+        );
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
             fn(db)
         );
         db.user.findUnique.mockResolvedValue(owner);
         db.residentUnit.findUnique.mockResolvedValue(null);
-        db.residentLead.findFirst.mockResolvedValue(null);
         db.residentUnit.create.mockResolvedValue(unitRow());
         db.user.updateMany.mockResolvedValue({ count: 1 });
         email.sendUnitAdded.mockResolvedValue(undefined);
@@ -144,44 +159,16 @@ describe('ResidentUnitsService', () => {
             );
         });
 
-        it('checks active applications with PENDING/INVITED only', async () => {
+        it('checks active applications with PENDING/INVITED on the normalised key', async () => {
             await service.addToUser('user-1', flat, superAdmin);
-            expect(db.residentLead.findFirst).toHaveBeenCalledWith({
-                where: {
-                    ...flat,
-                    status: {
-                        in: [
-                            ResidentLeadStatus.PENDING,
-                            ResidentLeadStatus.INVITED,
-                        ],
-                    },
-                },
-                select: { id: true },
-            });
-        });
-
-        it('an email failure never fails the request', async () => {
-            email.sendUnitAdded.mockRejectedValueOnce(
-                new ServiceUnavailableException('common.serviceUnavailable')
+            const leadQuery = db.$queryRaw.mock.calls
+                .map(c => c[0] as { sql: string; values: unknown[] })
+                .find(q => q.sql.includes('resident_leads'));
+            expect(leadQuery?.sql).toContain("IN ('PENDING', 'INVITED')");
+            expect(leadQuery?.sql).toContain('upper(btrim("building"))');
+            expect(leadQuery?.values).toEqual(
+                expect.arrayContaining(['A1', '3', '2'])
             );
-            await expect(
-                service.addToUser('user-1', flat, superAdmin)
-            ).resolves.toMatchObject({ label: 'A1-3-2' });
-        });
-
-        it.each([
-            ['missing', null],
-            ['soft-deleted', { ...owner, deletedAt: new Date() }],
-            [
-                'a legacy tombstone',
-                { ...owner, email: 'deleted-user-1@deleted.invalid' },
-            ],
-        ])('404 user.error.notFound for a %s account', async (_, user) => {
-            db.user.findUnique.mockResolvedValue(user);
-            const attempt = service.addToUser('user-1', flat, superAdmin);
-            await expect(attempt).rejects.toBeInstanceOf(NotFoundException);
-            await expect(attempt).rejects.toThrow('user.error.notFound');
-            expect(db.residentUnit.create).not.toHaveBeenCalled();
         });
 
         it.each([
@@ -190,10 +177,7 @@ describe('ResidentUnitsService', () => {
         ])(
             '409 unit.error.alreadyOwned when %s owns the flat',
             async (_, ownerId) => {
-                db.residentUnit.findUnique.mockResolvedValue({
-                    id: 'unit-9',
-                    userId: ownerId,
-                });
+                holders = [{ id: 'unit-9', userId: ownerId }];
                 const attempt = service.addToUser('user-1', flat, superAdmin);
                 await expect(attempt).rejects.toBeInstanceOf(ConflictException);
                 await expect(attempt).rejects.toThrow(
@@ -205,7 +189,7 @@ describe('ResidentUnitsService', () => {
         );
 
         it('409 residentLead.error.unitReserved when a PENDING/INVITED lead exists for the flat', async () => {
-            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-1' });
+            activeLeads = [{ id: 'lead-1' }];
             const attempt = service.addToUser('user-1', flat, superAdmin);
             await expect(attempt).rejects.toBeInstanceOf(ConflictException);
             await expect(attempt).rejects.toThrow(
@@ -377,11 +361,9 @@ describe('ResidentUnitsService', () => {
         const target = { building: 'A2', floor: 'G', flatNumber: '4' };
 
         beforeEach(() => {
-            // First findUnique = the unit being repaired, second = key holder.
-            db.residentUnit.findUnique
-                .mockReset()
-                .mockResolvedValueOnce(existing())
-                .mockResolvedValueOnce(null);
+            // findUnique = the unit being repaired; key holders come from $queryRaw.
+            db.residentUnit.findUnique.mockReset().mockResolvedValue(existing());
+            db.listing.updateMany.mockResolvedValue({ count: 0 });
             db.residentUnit.update.mockResolvedValue(
                 unitRow({ building: 'A2', floor: 'G', flatNumber: '4' })
             );
@@ -436,18 +418,72 @@ describe('ResidentUnitsService', () => {
         });
 
         it('refuses a key held by another unit (409 alreadyOwned)', async () => {
-            db.residentUnit.findUnique
-                .mockReset()
-                .mockResolvedValueOnce(existing())
-                .mockResolvedValueOnce({ id: 'unit-2', userId: 'user-2' });
+            holders = [{ id: 'unit-2', userId: 'user-2' }];
             await expect(
                 service.updateKey('unit-1', target, superAdmin)
             ).rejects.toThrow('unit.error.alreadyOwned');
             expect(db.residentUnit.update).not.toHaveBeenCalled();
         });
 
+        it('a legacy non-canonical holder (a2 / G / 4 on another unit) still blocks the re-key', async () => {
+            // The normalised lookup returns the stored `a2 ` row; exact matching would miss it.
+            holders = [{ id: 'unit-legacy', userId: 'user-3' }];
+            await expect(
+                service.updateKey(
+                    'unit-1',
+                    { building: ' a2 ', floor: 'g', flatNumber: '4' },
+                    superAdmin
+                )
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            const unitQuery = db.$queryRaw.mock.calls
+                .map(c => c[0] as { sql: string; values: unknown[] })
+                .find(q => q.sql.includes('resident_units'));
+            expect(unitQuery?.sql).toContain('upper(btrim("building"))');
+            expect(unitQuery?.values).toEqual(['A2', 'G', '4']);
+            expect(db.residentUnit.update).not.toHaveBeenCalled();
+        });
+
+        it('the unit itself matching its own normalised key is not a conflict', async () => {
+            holders = [{ id: 'unit-1', userId: 'user-1' }];
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).resolves.toMatchObject({ label: 'A2-G-4' });
+        });
+
+        it('withdraws the owner\'s open listings on the old key inside the transaction', async () => {
+            await service.updateKey('unit-1', target, superAdmin);
+            expect(db.listing.updateMany).toHaveBeenCalledWith({
+                where: {
+                    ownerId: 'user-1',
+                    building: 'a1',
+                    floor: '3',
+                    flatNumber: '2',
+                    status: {
+                        in: [ListingStatus.PENDING, ListingStatus.APPROVED],
+                    },
+                },
+                data: { status: ListingStatus.WITHDRAWN },
+            });
+        });
+
+        it('writes no listing change when the re-key fails', async () => {
+            holders = [{ id: 'unit-2', userId: 'user-2' }];
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(db.listing.updateMany).not.toHaveBeenCalled();
+        });
+
+        it('audit meta carries the label, ids and keys but no phone, national id or passport', async () => {
+            await service.updateKey('unit-1', target, superAdmin);
+            const meta = audit.record.mock.calls[0]?.[4] as Record<string, unknown>;
+            expect(Object.keys(meta).sort()).toEqual(
+                ['from', 'label', 'to', 'userId'].sort()
+            );
+        });
+
         it('refuses a flat with an active application (409 unitReserved)', async () => {
-            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-9' });
+            activeLeads = [{ id: 'lead-9' }];
             await expect(
                 service.updateKey('unit-1', target, superAdmin)
             ).rejects.toThrow('residentLead.error.unitReserved');

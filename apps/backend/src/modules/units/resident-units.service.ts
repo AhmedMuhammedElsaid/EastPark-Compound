@@ -56,18 +56,52 @@ export class ResidentUnitsService {
         private readonly audit: AuditService
     ) {}
 
-    /** Current owner of a flat, if any. */
-    findOwner(flat: FlatKey): Promise<{ id: string; userId: string } | null> {
-        return this.db.residentUnit.findUnique({
-            where: {
-                building_floor_flatNumber: {
-                    building: flat.building,
-                    floor: flat.floor,
-                    flatNumber: flat.flatNumber,
-                },
-            },
-            select: { id: true, userId: true },
-        });
+    /**
+     * Every unit whose key normalises to `flat` (building/floor trimmed and
+     * upper-cased, flat number trimmed, same as `normaliseFlatKey`). Matching on
+     * the normalised form, not the exact text, lets a stored `a1` / `A1 ` row
+     * count as the holder of `A1`: the unique index is case-sensitive, so an
+     * exact lookup would let a second unit slip in and later abort the finance
+     * migration. More than one row only when a collision already exists.
+     */
+    findHolders(flat: FlatKey): Promise<{ id: string; userId: string }[]> {
+        const key = normaliseFlatKey(flat);
+        return this.db.$queryRaw<{ id: string; userId: string }[]>(
+            Prisma.sql`SELECT "id", "userId" FROM "resident_units"
+                WHERE upper(btrim("building")) = ${key.building}
+                  AND upper(btrim("floor")) = ${key.floor}
+                  AND btrim("flatNumber") = ${key.flatNumber}
+                ORDER BY "createdAt" ASC`
+        );
+    }
+
+    /** Current owner of a flat (normalised match), if any. */
+    async findOwner(
+        flat: FlatKey
+    ): Promise<{ id: string; userId: string } | null> {
+        const [holder] = await this.findHolders(flat);
+        return holder ?? null;
+    }
+
+    /**
+     * A PENDING/INVITED lead for the flat (normalised match), optionally
+     * ignoring one lead id.
+     */
+    async findActiveLead(
+        flat: FlatKey,
+        exceptId?: string
+    ): Promise<{ id: string } | null> {
+        const key = normaliseFlatKey(flat);
+        const rows = await this.db.$queryRaw<{ id: string }[]>(
+            Prisma.sql`SELECT "id" FROM "resident_leads"
+                WHERE upper(btrim("building")) = ${key.building}
+                  AND upper(btrim("floor")) = ${key.floor}
+                  AND btrim("flatNumber") = ${key.flatNumber}
+                  AND "status" IN ('PENDING', 'INVITED')
+                  AND (${exceptId ?? null}::text IS NULL OR "id" <> ${exceptId ?? null})
+                LIMIT 1`
+        );
+        return rows[0] ?? null;
     }
 
     /**
@@ -96,15 +130,7 @@ export class ResidentUnitsService {
         if (await this.findOwner(flat))
             throw new ConflictException('unit.error.alreadyOwned');
 
-        const activeLead = await this.db.residentLead.findFirst({
-            where: {
-                building: flat.building,
-                floor: flat.floor,
-                flatNumber: flat.flatNumber,
-                status: { in: ACTIVE_LEAD_STATUSES },
-            },
-            select: { id: true },
-        });
+        const activeLead = await this.findActiveLead(flat);
         if (activeLead)
             throw new ConflictException('residentLead.error.unitReserved');
 
@@ -233,7 +259,7 @@ export class ResidentUnitsService {
      * key, refuses an unknown flat (400 `unit.error.unknownFlat`) or a key held
      * by another unit (409 `unit.error.alreadyOwned`), updates the three text
      * columns and, when the account's primary `unitNumber` was this flat,
-     * follows it. Audited UNIT_KEY_CHANGED (old and new key). Works for a
+     * follows it and withdraws the owner's open listings on the old key. Audited UNIT_KEY_CHANGED (old and new key). Works for a
      * soft-deleted owner too. The finance flat link and ownership period are
      * added by a later slice (no `FlatOwnership` table yet).
      */
@@ -265,14 +291,12 @@ export class ResidentUnitsService {
         )
             return toResidentUnitDto(unit);
 
-        const holder = await this.findOwner(next);
-        if (holder && holder.id !== unit.id)
+        // Normalised match: a legacy `a1` row held by another unit counts too.
+        const holders = await this.findHolders(next);
+        if (holders.some(holder => holder.id !== unit.id))
             throw new ConflictException('unit.error.alreadyOwned');
 
-        const activeLead = await this.db.residentLead.findFirst({
-            where: { ...next, status: { in: ACTIVE_LEAD_STATUSES } },
-            select: { id: true },
-        });
+        const activeLead = await this.findActiveLead(next);
         if (activeLead)
             throw new ConflictException('residentLead.error.unitReserved');
 
@@ -293,6 +317,21 @@ export class ResidentUnitsService {
                 await tx.user.updateMany({
                     where: { id: unit.userId, unitNumber: before },
                     data: { unitNumber: after },
+                });
+                // The owner's open listings advertise the old key and hold
+                // `listings_active_unit_key` for it; withdraw them (as
+                // removeFromUser does) so the old flat is free again.
+                await tx.listing.updateMany({
+                    where: {
+                        ownerId: unit.userId,
+                        building: unit.building,
+                        floor: unit.floor,
+                        flatNumber: unit.flatNumber,
+                        status: {
+                            in: [ListingStatus.PENDING, ListingStatus.APPROVED],
+                        },
+                    },
+                    data: { status: ListingStatus.WITHDRAWN },
                 });
                 return row;
             });

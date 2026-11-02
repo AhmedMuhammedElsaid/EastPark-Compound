@@ -74,6 +74,10 @@ export class ResidentsService {
             throw new ConflictException('residentLead.error.unitReserved');
         }
 
+        // A legacy non-canonical active lead (`a1`) reserves the flat too.
+        if (await this.residentUnits.findActiveLead(dto))
+            throw new ConflictException('residentLead.error.unitReserved');
+
         // An owned flat is reserved too: same message, ownership never leaks.
         if (await this.residentUnits.findOwner(dto))
             throw new ConflictException('residentLead.error.unitReserved');
@@ -263,7 +267,8 @@ export class ResidentsService {
      * layout. 404 `residentLead.error.notFound`; 409
      * `residentLead.error.notEditable` (CONVERTED or REJECTED: history);
      * 409 `residentLead.error.unitReserved` (another open lead or an owned
-     * flat). Audited LEAD_UNIT_CHANGED (old and new key, no PII).
+     * flat). Audited LEAD_UNIT_CHANGED (old and new key plus the lead's name; no
+     * phone, national id or passport).
      */
     async updateUnit(
         id: string,
@@ -290,30 +295,36 @@ export class ResidentsService {
         )
             return lead;
 
-        const other = await this.db.residentLead.findFirst({
-            where: {
-                ...next,
-                status: { in: ACTIVE_LEAD_STATUSES },
-                id: { not: lead.id },
-            },
-            select: { id: true },
-        });
-        if (other)
+        if (await this.residentUnits.findActiveLead(next, lead.id))
             throw new ConflictException('residentLead.error.unitReserved');
         if (await this.residentUnits.findOwner(next))
             throw new ConflictException('residentLead.error.unitReserved');
 
-        let updated: ResidentLead;
+        // Conditional write: only while the lead is still active and still has
+        // the key that was read, so a concurrent accept/reject/edit is never
+        // overwritten (0 rows = lost the race).
         try {
-            updated = await this.db.residentLead.update({
-                where: { id: lead.id },
+            const result = await this.db.residentLead.updateMany({
+                where: {
+                    id: lead.id,
+                    status: { in: ACTIVE_LEAD_STATUSES },
+                    building: lead.building,
+                    floor: lead.floor,
+                    flatNumber: lead.flatNumber,
+                },
                 data: next,
             });
+            if (result.count === 0)
+                throw new ConflictException('residentLead.error.notEditable');
         } catch (error) {
             if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
                 throw new ConflictException('residentLead.error.unitReserved');
             throw error;
         }
+        const updated = await this.db.residentLead.findUnique({
+            where: { id: lead.id },
+        });
+        if (!updated) throw new NotFoundException('residentLead.error.notFound');
 
         await this.audit.record(actor, 'LEAD_UNIT_CHANGED', 'ResidentLead', lead.id, {
             label: `${lead.name} — ${formatUnitLabel(lead)} → ${formatUnitLabel(next)}`,

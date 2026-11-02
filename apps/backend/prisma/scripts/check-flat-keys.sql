@@ -8,6 +8,12 @@
 -- from src/common/finance/compound-layout.ts; test/common/compound-layout.spec.ts
 -- fails if the two differ.
 --
+-- Run it after this release is deployed: the listings section needs the
+-- `listings` table (migration 20261031000000_flat_listings); before that it
+-- fails with "relation listings does not exist".
+-- btrim strips spaces only, JS trim() also strips tabs and NBSP: a row padded
+-- that way is reported as unknown here (conservative), never as a collision.
+--
 -- unknown_rows            : rows whose normalised key is not one of the 690 flats
 -- collision_groups / rows : (resident_units ONLY) normalised keys held by more than
 --                           one row. MUST be 0 before the finance migration ships,

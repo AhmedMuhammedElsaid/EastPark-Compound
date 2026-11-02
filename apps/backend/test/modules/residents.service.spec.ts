@@ -61,6 +61,7 @@ const db = {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         count: jest.fn(),
         groupBy: jest.fn(),
     },
@@ -80,6 +81,7 @@ const db = {
 
 const residentUnits = {
     findOwner: jest.fn(),
+    findActiveLead: jest.fn(),
     notifyAdded: jest.fn(),
 };
 
@@ -98,6 +100,7 @@ describe('ResidentsService', () => {
         jest.clearAllMocks();
         // Defaults: the flat has no owner; interactive transactions run on the mocks.
         residentUnits.findOwner.mockResolvedValue(null);
+        residentUnits.findActiveLead.mockResolvedValue(null);
         residentUnits.notifyAdded.mockResolvedValue(undefined);
         db.user.findMany.mockResolvedValue([]);
         db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
@@ -570,20 +573,31 @@ describe('ResidentsService', () => {
         const target = { building: 'A2', floor: 'G', flatNumber: '4' };
 
         beforeEach(() => {
-            db.residentLead.findUnique.mockResolvedValue(mockLead());
-            db.residentLead.findFirst.mockResolvedValue(null);
-            db.residentLead.update.mockImplementation(
-                ({ data }: { data: Record<string, unknown> }) =>
-                    Promise.resolve(mockLead(data))
-            );
+            // First read = the lead being edited, second = the re-read after the write.
+            db.residentLead.findUnique
+                .mockReset()
+                .mockResolvedValueOnce(mockLead())
+                .mockResolvedValue(mockLead(target));
+            db.residentLead.updateMany.mockResolvedValue({ count: 1 });
         });
 
-        it('rewrites the unit of an open lead and audits LEAD_UNIT_CHANGED without PII', async () => {
+        it('rewrites the unit of an open lead conditionally and audits LEAD_UNIT_CHANGED without phone or ids', async () => {
             const result = await service.updateUnit('lead-1', target, adminActor);
 
             expect(result).toMatchObject(target);
-            expect(db.residentLead.update).toHaveBeenCalledWith({
-                where: { id: 'lead-1' },
+            expect(db.residentLead.updateMany).toHaveBeenCalledWith({
+                where: {
+                    id: 'lead-1',
+                    status: {
+                        in: [
+                            ResidentLeadStatus.PENDING,
+                            ResidentLeadStatus.INVITED,
+                        ],
+                    },
+                    building: 'Building A',
+                    floor: '3',
+                    flatNumber: '2',
+                },
                 data: target,
             });
             const meta = audit.record.mock.calls[0]?.[4];
@@ -602,9 +616,12 @@ describe('ResidentsService', () => {
         });
 
         it('allows an INVITED lead (open) too', async () => {
-            db.residentLead.findUnique.mockResolvedValue(
-                mockLead({ status: ResidentLeadStatus.INVITED })
-            );
+            db.residentLead.findUnique
+                .mockReset()
+                .mockResolvedValueOnce(
+                    mockLead({ status: ResidentLeadStatus.INVITED })
+                )
+                .mockResolvedValue(mockLead(target));
             await expect(
                 service.updateUnit('lead-1', target, adminActor)
             ).resolves.toBeDefined();
@@ -613,29 +630,41 @@ describe('ResidentsService', () => {
         it.each([ResidentLeadStatus.CONVERTED, ResidentLeadStatus.REJECTED])(
             'refuses a %s lead (history)',
             async status => {
-                db.residentLead.findUnique.mockResolvedValue(
-                    mockLead({ status })
-                );
+                db.residentLead.findUnique
+                    .mockReset()
+                    .mockResolvedValue(mockLead({ status }));
                 await expect(
                     service.updateUnit('lead-1', target, adminActor)
                 ).rejects.toThrow('residentLead.error.notEditable');
-                expect(db.residentLead.update).not.toHaveBeenCalled();
+                expect(db.residentLead.updateMany).not.toHaveBeenCalled();
             }
         );
 
+        it('a lead converted or rejected meanwhile (0 rows updated) is 409 notEditable, no audit', async () => {
+            db.residentLead.updateMany.mockResolvedValue({ count: 0 });
+            await expect(
+                service.updateUnit('lead-1', target, adminActor)
+            ).rejects.toThrow('residentLead.error.notEditable');
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+
         it('404 for a missing lead', async () => {
-            db.residentLead.findUnique.mockResolvedValue(null);
+            db.residentLead.findUnique.mockReset().mockResolvedValue(null);
             await expect(
                 service.updateUnit('nope', target, adminActor)
             ).rejects.toBeInstanceOf(NotFoundException);
         });
 
-        it('409 when another open lead holds the flat', async () => {
-            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-2' });
+        it('409 when another open lead holds the flat (normalised match, own id excluded)', async () => {
+            residentUnits.findActiveLead.mockResolvedValue({ id: 'lead-2' });
             await expect(
                 service.updateUnit('lead-1', target, adminActor)
             ).rejects.toThrow('residentLead.error.unitReserved');
-            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(residentUnits.findActiveLead).toHaveBeenCalledWith(
+                target,
+                'lead-1'
+            );
+            expect(db.residentLead.updateMany).not.toHaveBeenCalled();
         });
 
         it('409 when an account already owns the flat', async () => {
@@ -646,7 +675,7 @@ describe('ResidentsService', () => {
         });
 
         it('a lost unique race is a 409', async () => {
-            db.residentLead.update.mockRejectedValue(
+            db.residentLead.updateMany.mockRejectedValue(
                 Object.assign(new Error('unique'), { code: 'P2002' })
             );
             await expect(
@@ -660,8 +689,19 @@ describe('ResidentsService', () => {
                 { building: 'Building A', floor: '3', flatNumber: '2' },
                 adminActor
             );
-            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(db.residentLead.updateMany).not.toHaveBeenCalled();
             expect(audit.record).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('create reserves a flat held by a legacy non-canonical lead', () => {
+        it('409 unitReserved when findActiveLead (normalised) matches', async () => {
+            db.residentLead.findFirst.mockResolvedValue(null);
+            residentUnits.findActiveLead.mockResolvedValue({ id: 'lead-old' });
+            await expect(
+                service.create(validCreateDto() as ResidentLeadCreateDto)
+            ).rejects.toThrow('residentLead.error.unitReserved');
+            expect(db.residentLead.create).not.toHaveBeenCalled();
         });
     });
 
