@@ -107,6 +107,23 @@ describe('finance lockdown (accounting 8.1)', () => {
     expect(isPathAllowedForRole(role, '/api/orders', 'api')).toBe(true);
   });
 
+  // Slice 8 desk: every page and BFF route the accountant uses; a resident reaches none of them.
+  // (MERCHANT passes the proxy like every unrestricted role; the `/finance` layout guard
+  // `getFinanceSession` and the backend refuse it, see test/finance-session.test.ts.)
+  const DESK_PAGES = ['/finance', '/finance/flats', '/finance/flats/flat_A1-3-2', '/finance/payments', '/finance/payments/new', '/finance/payments/p1', '/finance/audit'];
+  const DESK_APIS = ['/api/finance/flats', '/api/finance/flats/flat_A1-3-2/apply-credit', '/api/finance/charges', '/api/finance/payments', '/api/finance/payments/p1/cheque-bounced', '/api/finance/attachments', '/api/finance/attachments/view', '/api/finance/audit'];
+
+  it('opens the whole desk to ACCOUNTANT and none of it to a resident', () => {
+    for (const path of DESK_PAGES) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'page')).toBe(true);
+      expect(isPathAllowedForRole('RESIDENT', path, 'page')).toBe(false);
+    }
+    for (const path of DESK_APIS) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'api')).toBe(true);
+      expect(isPathAllowedForRole('RESIDENT', path, 'api')).toBe(false);
+    }
+  });
+
   it('judges links by role: ACCOUNTANT opens /finance, a resident does not', () => {
     expect(isOpenToRestricted('/finance', 'ACCOUNTANT')).toBe(true);
     expect(isOpenToRestricted('/notifications', 'ACCOUNTANT')).toBe(true);

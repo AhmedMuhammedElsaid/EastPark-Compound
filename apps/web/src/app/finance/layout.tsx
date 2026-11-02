@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { AccessNotice } from '@/components/AccessNotice';
 import { AppShell } from '@/components/app/AppShell';
 import { Container } from '@/components/Container';
+import { FinanceFrame } from '@/components/finance/FinanceFrame';
 import { getFinanceSession } from '@/lib/auth/finance.server';
 import { loginPath, sessionRefreshPath } from '@/lib/auth/return-path';
 
@@ -12,6 +13,9 @@ export const metadata: Metadata = {
   title: 'المالية',
   robots: { index: false, follow: false },
 };
+
+// Money screens are per request, never prerendered or cached; the desk fetches with `no-store`.
+export const dynamic = 'force-dynamic';
 
 export default async function FinanceLayout({ children }: { children: React.ReactNode }) {
   const session = await getFinanceSession();
@@ -28,5 +32,9 @@ export default async function FinanceLayout({ children }: { children: React.Reac
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <FinanceFrame>{children}</FinanceFrame>
+    </AppShell>
+  );
 }
