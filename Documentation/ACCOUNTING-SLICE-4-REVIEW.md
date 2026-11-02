@@ -232,3 +232,18 @@ Two smaller test notes:
   3. re-run `check-flat-keys.sql` with `resident_units` collision_groups = 0;
   4. take a backup;
   5. after the deploy, run the catch-up backfill and the invariant SQL (M2).
+
+## Resolution (2026-11-02)
+
+| Finding | Outcome |
+|---|---|
+| M1 | Fixed: both raw lookups in `resident-units.service.ts` use `btrim(x, E' \t\r\n')`; spec asserts the expression. |
+| M2 | Carried into slice 5 (deploy-window catch-up + invariant SQL in `steps.md`). |
+| M3 | Carried into slice 5 (finance go-live date). |
+| M4 | Root `steps.md` gate G1: `pnpm test:db` on `postgres:15` before the push. Not run here: no Docker daemon on this machine. |
+| L1 | Fixed: drop regex accepts bare, schema-qualified and `CONCURRENTLY` forms. |
+| L2 | Accepted; `steps.md` G4 says deploy at a quiet hour. |
+| L3 | Root `steps.md` gate G2: `SHOW server_version` ≥ 15. |
+| L4 | Fixed: CHECK `flat_ownerships_dates_ordered` (`toDate IS NULL OR toDate >= fromDate`), file spec + db-spec case. |
+| L5 | Fixed: spec loop covers all 6 money tables. |
+| L6 | No change; slices 6-8 look flats up by label or key, never by parsing `Flat.id`. |
