@@ -77,6 +77,8 @@ export function acceptInvitationErrorKey(error: string | undefined): string {
       return 'auth.errors.invitation_password_weak';
     case 'unit_already_owned':
       return 'auth.errors.invitation_unit_owned';
+    case 'role_conflict':
+      return 'auth.errors.invitation_role_conflict';
     case 'rate_limited':
       return 'auth.errors.rate_limited';
     default:

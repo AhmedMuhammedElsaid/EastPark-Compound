@@ -13,6 +13,7 @@ const TONE: Record<string, { dot: string; tint: string }> = {
   SUPER_ADMIN: { dot: 'bg-primary', tint: 'border-primary/55 bg-primary/14' },
   ADMIN: { dot: 'bg-info', tint: 'border-info/50 bg-info/14' },
   MERCHANT: { dot: 'bg-warning', tint: 'border-warning/45 bg-warning/12' },
+  ACCOUNTANT: { dot: 'bg-foreground', tint: 'border-foreground/35 bg-foreground/10' },
   RESIDENT: { dot: 'bg-success', tint: 'border-success/50 bg-success/14' },
 };
 const FALLBACK = { dot: 'bg-muted-foreground', tint: 'border-border bg-muted' };

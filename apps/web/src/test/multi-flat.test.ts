@@ -211,6 +211,22 @@ describe('POST /api/auth/accept-invitation — flat owned by another account', (
     expect(body).toEqual({ error: 'unit_already_owned' });
     expect(acceptInvitationErrorKey(body.error)).toBe('auth.errors.invitation_unit_owned');
   });
+
+  it('returns role_conflict instead of the current-password hint', async () => {
+    backend = () => json(409, { statusCode: 409, code: 'invitation.error.roleConflict', message: 'invitation.error.roleConflict' });
+    const { POST } = await import('@/app/api/auth/accept-invitation/route');
+    const response = await POST(
+      new Request('http://localhost/api/auth/accept-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: 'a'.repeat(64), name: 'Sara', password: 'Password1!' }),
+      }),
+    );
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: string };
+    expect(body).toEqual({ error: 'role_conflict' });
+    expect(acceptInvitationErrorKey(body.error)).toBe('auth.errors.invitation_role_conflict');
+  });
 });
 
 describe('POST /api/admin/users/[id]/units', () => {

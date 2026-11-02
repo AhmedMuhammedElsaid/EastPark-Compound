@@ -517,7 +517,8 @@
       "unverified": "This account is not activated yet. Contact the compound administration for help.",
       "invitation_account_exists": "This email already has an account. Enter that account's current password to accept the invitation.",
       "invitation_account_deleted": "This email belongs to a deleted account, so the invitation can't be accepted. Please contact the compound administration.",
-      "invitation_unit_owned": "This flat already belongs to another account, so the invitation can't be accepted. Please contact the compound administration."
+      "invitation_unit_owned": "This flat already belongs to another account, so the invitation can't be accepted. Please contact the compound administration.",
+      "invitation_role_conflict": "This invitation can't be combined with the role this account already has. Please contact the compound administration."
     },
     "password_requirements": {
       "title": "Your password needs:",

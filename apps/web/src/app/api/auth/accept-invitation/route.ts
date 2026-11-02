@@ -31,6 +31,10 @@ export async function POST(request: Request) {
         if (code === 'unit_already_owned') {
           return NextResponse.json({ error: 'unit_already_owned' }, { status: 409 });
         }
+        // The invited role cannot be combined with the account's existing role; no password helps.
+        if (code === 'role_conflict') {
+          return NextResponse.json({ error: 'role_conflict' }, { status: 409 });
+        }
         // Otherwise the email already has an account and the password is not its current one.
         return NextResponse.json({ error: 'account_exists' }, { status: 409 });
       }
