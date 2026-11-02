@@ -78,7 +78,8 @@ Total about 19 days: the guards and the role ripple all land in 1a.
   repairs run through Swagger or curl.
 - **Runbook note:** a legacy unit `a1-3-2` cannot be canonicalised to `A1-3-2` while an active lead exists for
   that flat (409 `unitReserved`); reject that lead first.
-- **Owner confirmation (Q1):** the owner confirms 690 flats and phase 4 = C3/E2/F2 before the slice 4 seed.
+- **Owner confirmation (Q1):** CONFIRMED by the owner on 2026-11-02: 690 flats, phase 4 = C3/E2/F2. The
+  owner also confirmed the 5000 EGP approval threshold seed.
 
 ## Slice 4: `finance_foundations` migration (2 commits: schema + SQL, then tests)
 
