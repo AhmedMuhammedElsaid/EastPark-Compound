@@ -35,7 +35,7 @@ export function roleSatisfies(userRole: Role | string, allowed: Role): boolean {
 }
 
 /** Privilege order used so an invitation can upgrade but never downgrade. */
-export const ROLE_RANK: Record<Role, number> = {
+const ROLE_RANK: Record<Role, number> = {
     [Role.GUEST]: -1,
     [Role.RESIDENT]: 0,
     [Role.MERCHANT]: 1,
