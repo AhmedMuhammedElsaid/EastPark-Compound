@@ -129,6 +129,8 @@ Total about 19 days: the guards and the role ripple all land in 1a.
   - Endpoints: `GET /finance/flats[/:id[/ownership]]`, `POST /finance/charges[/:id/void]`, and the
     audit, periods and settings reads.
   - `en/finance.json`; the accountant DTO carries no email or national id.
+  - **Privacy policy finance section** in `apps/web/src/content/privacy-policy.ts`, scope per
+    `ACCOUNTING-PRIVACY-DECISION.md`, as its own web commit that deploys before the backend.
 - **Tests:** the Cairo boundary and DST; one audit row per posting, and a forced audit failure that rolls the
   posting back; a void by another accountant or on a later day is refused; `periodClosed`; db-specs for counter
   gaps under rollback and parallel posts, and for period lock against a raw-SQL close.
@@ -162,11 +164,14 @@ Total about 19 days: the guards and the role ripple all land in 1a.
 - **Review focus:** no cached money screens, keys reused on retry, design tokens.
 - **Risk:** none for live users. Accountant screens only.
 
-## Blocking owner questions
+## Owner questions (decided 2026-11-02, see `ACCOUNTING-PRIVACY-DECISION.md`)
 
-1. **Privacy policy timing.** 1a shows residents nothing, and statements arrive in 1b. Can the finance
-   section of the privacy policy ship with 1b? §10 says "Phase 1" without anticipating the split.
-2. **Slip photos.** 1a stores payment-slip photos on staff accounts, and the policy does not yet mention
-   them. Is that acceptable before the policy update?
+1. **Privacy policy timing:** the finance section ships with **slice 6**, not 1b. Slice 6 adds the update to
+   `apps/web/src/content/privacy-policy.ts` (AR+EN, bump `PRIVACY_EFFECTIVE_DATE`), and the web app deploys
+   before the slice 6 backend. No ACCOUNTANT invites and no finance rows in prod until it is live.
+2. **Slip photos:** not in prod before the policy names them. The slice 6 update covers them, including that
+   finance attachments are private and NOT on public links. If slice 7 ever deploys first, it carries the update.
+3. **Play Data safety:** add Financial info, plus the payment-slip use of Photos, before the slice 8 mobile
+   update reaches any accountant.
 
 Non-question gates: the owner runs the slice 3 preflight, then creates `eastpark-finance` before slice 7.
