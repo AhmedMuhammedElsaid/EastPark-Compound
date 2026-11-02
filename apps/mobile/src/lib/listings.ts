@@ -222,6 +222,8 @@ export function listingErrorKey(error: unknown): string {
     case "listing.error.unitAlreadyListed": return "listings.error_unit_listed";
     case "listing.error.invalidStatus": return "listings.error_invalid_status";
     case "listing.error.ownerDeleted": return "listings.error_owner_deleted";
+    case "listing.error.unitNotOwned": return "listings.error_unit_not_owned";
+    case "listing.error.changedSinceLoaded": return "listings.error_changed_since_loaded";
     case "listing.error.noChanges": return "listings.error_no_changes";
     case "listing.error.photosRequired": return "listings.error_photos";
     case "listing.error.notFound": return "listings.error_not_found";

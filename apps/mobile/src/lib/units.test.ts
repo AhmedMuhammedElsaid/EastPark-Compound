@@ -1,6 +1,6 @@
 import type { AuthUser, ResidentUnit } from "@/store/slices/auth-slice";
 import authReducer, { login, mergeUserKeepingUnits, updateUser } from "@/store/slices/auth-slice";
-import { canChoosePrimaryFlat, getDeliveryUnitOptions, getPrimaryUnit, getUnitLabels, resolveDeliveryUnit } from "./units";
+import { canChoosePrimaryFlat, getDeliveryUnitOptions, getListingFlatOptions, getPrimaryUnit, getUnitLabels, parseUnitLabel, resolveDeliveryUnit } from "./units";
 
 function unit(label: string): ResidentUnit {
   const [building, floor, flatNumber] = label.split("-");
@@ -70,5 +70,34 @@ describe("primary flat choice", () => {
     expect(canChoosePrimaryFlat({ ...base, units: [unit("A1-3-2")] })).toBe(false);
     expect(canChoosePrimaryFlat({ ...base, units: [unit("A1-3-2"), unit("B2-1-4")] })).toBe(true);
     expect(canChoosePrimaryFlat(null)).toBe(false);
+  });
+});
+
+describe("listing flat options", () => {
+  it("lists the account's flats, primary first, with their parts", () => {
+    const user = { ...base, unitNumber: "B2-1-4", units: [unit("A1-3-2"), unit("B2-1-4")] };
+    expect(getListingFlatOptions(user).map(o => o.label)).toEqual(["B2-1-4", "A1-3-2"]);
+    expect(getListingFlatOptions(user)[0]).toMatchObject({ building: "B2", floor: "1", flatNumber: "4" });
+  });
+
+  it("zero flats gives no options", () => {
+    expect(getListingFlatOptions(base)).toEqual([]);
+    expect(getListingFlatOptions(null)).toEqual([]);
+  });
+
+  it("exactly one flat gives exactly one option", () => {
+    expect(getListingFlatOptions({ ...base, units: [unit("A1-3-2")], unitNumber: "A1-3-2" })).toHaveLength(1);
+  });
+
+  it("legacy unitNumber (no units) is split into its parts", () => {
+    expect(getListingFlatOptions({ ...base, unitNumber: "A1-G-5" })).toEqual([
+      { label: "A1-G-5", building: "A1", floor: "G", flatNumber: "5" },
+    ]);
+  });
+
+  it("skips a legacy label that is not building-floor-flat", () => {
+    expect(getListingFlatOptions({ ...base, unitNumber: "Villa 7" })).toEqual([]);
+    expect(parseUnitLabel("A1-3")).toBeNull();
+    expect(parseUnitLabel("A1--2")).toBeNull();
   });
 });

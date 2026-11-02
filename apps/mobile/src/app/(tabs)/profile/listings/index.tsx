@@ -14,7 +14,10 @@ import { ListingCard, ListingCardSkeleton } from "@/components/listings/listing-
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
+import { getListingFlatOptions } from "@/lib/units";
 import { listingKeys, listingsApi } from "@/services/api/listings";
+import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 type MinePage = AxiosResponse<{ data: Page<MyListing> }>;
@@ -33,6 +36,9 @@ function buildStyles(colors: ReturnType<typeof useAppColors>) {
     emptyTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 18, lineHeight: 27, color: colors.text, textAlign: "center" },
     emptyBody: { fontFamily: FONT.sans, fontSize: 14, lineHeight: 22, color: colors.textMuted, textAlign: "center" },
     emptyCta: { alignSelf: "stretch", marginTop: SPACING.sm },
+    noFlat: { gap: SPACING.xs, padding: SPACING.md, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+    noFlatTitle: { fontFamily: FONT.sans, fontWeight: "700", fontSize: 14, lineHeight: 22, color: colors.text, textAlign: "center" },
+    noFlatBody: { fontFamily: FONT.sans, fontSize: 13, lineHeight: 20, color: colors.textMuted, textAlign: "center" },
   });
 }
 
@@ -46,6 +52,18 @@ export default function MyListingsScreen() {
   const { t } = useTranslation();
   const { styles, colors } = useStyles();
   const gold = "primaryText" in colors ? colors.primaryText : BRAND.gold;
+  const user = useAppSelector(s => s.auth.user);
+  useRefreshProfileUnits();
+  // Only flats on the account can be listed (backend 400 `unitNotOwned`).
+  const canList = getListingFlatOptions(user).length > 0;
+  const newAction = canList
+    ? <GoldButton label={t("listings.list_my_flat")} onPress={() => router.push(NEW_HREF)} />
+    : (
+        <View style={styles.noFlat} accessibilityRole="alert">
+          <Text style={styles.noFlatTitle}>{t("listings.no_flat_title")}</Text>
+          <Text style={styles.noFlatBody}>{t("listings.no_flat_body")}</Text>
+        </View>
+      );
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isError, isLoading, isRefetching, refetch }
     = useInfiniteQuery<MinePage, Error, { pages: MinePage[] }, readonly string[], string | undefined>({
@@ -81,9 +99,7 @@ export default function MyListingsScreen() {
                 )}
                 ListHeaderComponent={listings.length > 0
                   ? (
-                      <View style={styles.header}>
-                        <GoldButton label={t("listings.list_my_flat")} onPress={() => router.push(NEW_HREF)} />
-                      </View>
+                      <View style={styles.header}>{newAction}</View>
                     )
                   : null}
                 ListEmptyComponent={(
@@ -91,9 +107,7 @@ export default function MyListingsScreen() {
                     <View style={styles.emptyIcon}><Buildings size={32} color={gold} /></View>
                     <Text style={styles.emptyTitle}>{t("listings.my_empty")}</Text>
                     <Text style={styles.emptyBody}>{t("listings.my_empty_subtitle")}</Text>
-                    <View style={styles.emptyCta}>
-                      <GoldButton label={t("listings.list_my_flat")} onPress={() => router.push(NEW_HREF)} />
-                    </View>
+                    <View style={styles.emptyCta}>{newAction}</View>
                   </View>
                 )}
                 onEndReached={() => {

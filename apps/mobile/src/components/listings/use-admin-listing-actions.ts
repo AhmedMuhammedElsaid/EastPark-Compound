@@ -26,9 +26,9 @@ export function useAdminListingActions() {
     setPending(current => ({ ...current, [listing.id]: action }));
     try {
       if (action === "approve")
-        await adminListingsApi.approve(listing.id);
+        await adminListingsApi.approve(listing.id, listing.updatedAt);
       else
-        await adminListingsApi.reject(listing.id, reason ?? "");
+        await adminListingsApi.reject(listing.id, reason ?? "", listing.updatedAt);
       const toast = action === "approve" ? "listings.toast_approved" : action === "reject" ? "listings.toast_rejected" : "listings.toast_taken_down";
       showMessage({ message: t(toast), type: "success", backgroundColor: SEMANTIC.success });
       return true;

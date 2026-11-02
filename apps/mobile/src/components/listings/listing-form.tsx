@@ -12,6 +12,7 @@ import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput
 import { showMessage } from "react-native-flash-message";
 
 import { GoldButton } from "@/components/auth/gold-button";
+import { FlatPicker } from "@/components/listings/flat-picker";
 import { ListingPhotoField } from "@/components/listings/listing-photo-field";
 import { uploadErrorKey } from "@/lib/feedback-attachments";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
@@ -25,8 +26,10 @@ import {
   ListingUploadError,
   resolvePhotoUrls,
 } from "@/lib/listings";
+import { getListingFlatOptions } from "@/lib/units";
 import { listingKeys, listingsApi } from "@/services/api/listings";
 import { uploadsApi } from "@/services/api/uploads";
+import { useAppSelector } from "@/store";
 import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 type Colors = ReturnType<typeof useAppColors>;
@@ -167,8 +170,11 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
   const [photoError, setPhotoError] = React.useState<string | undefined>();
   const { photos, setPhotos, uploading, mutate, isPending, allowLeaveRef } = useListingSave(listingId, initialPhotos);
   const isEdit = !!listingId;
+  const user = useAppSelector(s => s.auth.user);
+  const flats = React.useMemo(() => getListingFlatOptions(user), [user]);
+  const noFlats = !isEdit && flats.length === 0;
 
-  const { control, handleSubmit, watch, formState: { errors, isDirty } } = useForm<ListingFormInput, unknown, ListingFormOutput>({
+  const { control, setValue, handleSubmit, watch, formState: { errors, isDirty } } = useForm<ListingFormInput, unknown, ListingFormOutput>({
     resolver: zodResolver(listingFormSchema),
     defaultValues: initialValues,
   });
@@ -177,6 +183,8 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
   useDiscardGuard(isDirty || photosChanged, allowLeaveRef);
 
   const submit = handleSubmit((values) => {
+    if (noFlats)
+      return;
     if (photos.length === 0) {
       setPhotoError(t("listings.error_photos"));
       return;
@@ -202,11 +210,14 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
     >
       <TypeField control={control} styles={styles} />
 
-      <Field {...fieldProps} name="building" label={t("listings.field_building")} placeholder={t("listings.building_placeholder")} error={errorOf("building")} ltr autoCapitalize="characters" />
-      <View style={styles.row}>
-        <Field {...fieldProps} name="floor" label={t("listings.field_floor")} hint={t("listings.floor_hint")} error={errorOf("floor")} ltr autoCapitalize="characters" />
-        <Field {...fieldProps} name="flatNumber" label={t("listings.field_flat")} hint={t("listings.flat_hint")} error={errorOf("flatNumber")} ltr keyboardType="number-pad" />
-      </View>
+      {noFlats
+        ? (
+            <View style={styles.note} accessibilityRole="alert">
+              <Text style={styles.label}>{t("listings.no_flat_title")}</Text>
+              <Text style={styles.hint}>{t("listings.no_flat_body")}</Text>
+            </View>
+          )
+        : <FlatPicker control={control} setValue={setValue} flats={flats} />}
 
       <Field
         {...fieldProps}
@@ -252,7 +263,7 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
         label={uploading ? t("feedback.uploading") : t(isEdit ? "listings.save" : "listings.submit")}
         onPress={submit}
         loading={isPending}
-        disabled={isPending || (isEdit && !isDirty && !photosChanged)}
+        disabled={isPending || noFlats || (isEdit && !isDirty && !photosChanged)}
       />
     </ScrollView>
   );

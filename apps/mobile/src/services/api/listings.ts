@@ -130,11 +130,13 @@ export const adminListingsApi = {
   revisions: (id: string, params?: { cursor?: string; limit?: number }) =>
     client.get<Envelope<Page<ListingRevision>>>(`/admin/listings/${id$(id)}/revisions`, { params }),
 
-  approve: (id: string) => client.post<Envelope<AdminListing>>(`/admin/listings/${id$(id)}/approve`),
+  /** `expectedUpdatedAt` = the row's `updatedAt` as loaded; a newer edit gives 409 `changedSinceLoaded`. */
+  approve: (id: string, expectedUpdatedAt?: string) =>
+    client.post<Envelope<AdminListing>>(`/admin/listings/${id$(id)}/approve`, { expectedUpdatedAt }),
 
   /** PENDING → REJECTED, or APPROVED → REJECTED (take down). Reason 3–500 chars. */
-  reject: (id: string, reason: string) =>
-    client.post<Envelope<AdminListing>>(`/admin/listings/${id$(id)}/reject`, { reason }),
+  reject: (id: string, reason: string, expectedUpdatedAt?: string) =>
+    client.post<Envelope<AdminListing>>(`/admin/listings/${id$(id)}/reject`, { reason, expectedUpdatedAt }),
 };
 
 /** Query keys, shared so mutations invalidate every view of a listing. */

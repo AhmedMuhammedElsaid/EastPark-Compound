@@ -7,19 +7,22 @@ import { StyleSheet, View } from "react-native";
 import { ListingForm } from "@/components/listings/listing-form";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { EMPTY_LISTING_FORM } from "@/lib/listings";
 import { canOwnListings } from "@/lib/listings-access";
+import { getListingFlatOptions } from "@/lib/units";
 import { useAppSelector } from "@/store";
 
-/** "List my flat". Prefilled from the resident's first flat and profile phone; both stay editable. */
+/** "List my flat". The flat is picked from the account's own flats (the primary one is preselected); phone is prefilled and editable. */
 export default function NewListingScreen() {
   const { t } = useTranslation();
   const colors = useAppColors();
   const user = useAppSelector(s => s.auth.user);
+  useRefreshProfileUnits();
 
   // Read once (lazy state): a later profile refresh must not reset what the user typed.
   const [initialValues] = React.useState<ListingFormInput>(() => {
-    const unit = user?.units?.[0];
+    const unit = getListingFlatOptions(user)[0];
     return {
       ...EMPTY_LISTING_FORM,
       building: unit?.building ?? "",
