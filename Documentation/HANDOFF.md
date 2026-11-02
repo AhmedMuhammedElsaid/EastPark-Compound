@@ -22,7 +22,7 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 5 | ownership writers + listings link, M2 catch-up + invariant SQL, M3 `finance.goLiveAt` | built (`cf20fc8`, `f327c19`), reviewed (`ACCOUNTING-SLICE-5-REVIEW.md`), M1/M2/L1–L4 fixed; scripts' db-spec runs at gate G1 |
 | 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | built (`37cf341` policy, `cd3a31f` kernel), reviewed (`ACCOUNTING-SLICE-6-REVIEW.md`), M1/M2/L1–L7 fixed; db-specs run at gate G1 |
 | 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | built (`52cf951`), reviewed (`ACCOUNTING-SLICE-7-REVIEW.md`), M1–M3/L1–L5 fixed; db-specs run at gate G1. Slice 8 clients must send `Idempotency-Key` on payments and `expectedCredit` on apply-credit |
-| 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; **review was running when the session stopped**: check for `Documentation/ACCOUNTING-SLICE-8-REVIEW.md` (uncommitted, maybe partial); re-run the review if missing, then fix findings |
+| 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`: 0 High, M1 mobile stale screens after payment, M2 mobile retry form editable/rebuilt, 5 Lows) — **fixes NOT done yet** |
 
 **Immediate next steps:**
 1. (done) Slice 4 M1 and Lows fixed; M4/L3 are gates G1/G2 in root `steps.md`.
