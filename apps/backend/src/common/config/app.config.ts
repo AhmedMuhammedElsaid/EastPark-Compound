@@ -34,8 +34,15 @@ export default registerAs('app', (): Record<string, unknown> => {
         throw new Error('BFF_INTERNAL_SECRET must be at least 32 characters');
     }
 
+    // Accounting 2.2 staging: while off, an unknown flat key is stored with no
+    // flat link (and no ownership row) until a super admin corrects it. The
+    // owner flips this on once prisma/scripts/check-flat-keys.sql is clean.
+    // Slice 5 reads it in the ownership writers; nothing consumes it yet.
+    const flatKeyStrict = process.env.FLAT_KEY_STRICT?.trim() === 'true';
+
     return {
         env,
+        flatKeyStrict,
         bffInternalSecret: bffInternalSecret || undefined,
         name: process.env.APP_NAME ?? 'EastPark API',
         url: process.env.APP_URL ?? 'http://localhost:3000',
