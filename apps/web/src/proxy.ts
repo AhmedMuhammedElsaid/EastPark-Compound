@@ -6,15 +6,12 @@ import {
   ACCESS_COOKIE_NAME,
   HOME_PATH,
   REFRESH_COOKIE_NAME,
-  RESIDENT_HOME_ONLY,
   isPathAllowedForRole,
   isRestrictedRole,
   roleFromToken,
 } from '@/config/access-policy';
 
 export function proxy(request: NextRequest) {
-  if (!RESIDENT_HOME_ONLY) return NextResponse.next();
-
   const { pathname } = request.nextUrl;
   const role =
     roleFromToken(request.cookies.get(ACCESS_COOKIE_NAME)?.value) ??

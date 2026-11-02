@@ -116,3 +116,28 @@ describe('finance lockdown (accounting 8.1)', () => {
     expect(isOpenToRestricted('/directory', 'RESIDENT')).toBe(true);
   });
 });
+
+describe('lockdown flag off (RESIDENT_HOME_ONLY = false)', () => {
+  it('keeps ACCOUNTANT confined to its allow-list', () => {
+    expect(isRestrictedRole('ACCOUNTANT', false)).toBe(true);
+    for (const path of ['/finance', '/home', '/profile', '/notifications']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'page', false)).toBe(true);
+    }
+    for (const path of ['/directory', '/orders', '/cart', '/merchant', '/admin', '/announcements']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'page', false)).toBe(false);
+    }
+    expect(isPathAllowedForRole('ACCOUNTANT', '/api/orders', 'api', false)).toBe(false);
+    expect(isPathAllowedForRole('ACCOUNTANT', '/api/finance/payments', 'api', false)).toBe(true);
+  });
+
+  it.each(['RESIDENT', 'ADMIN', 'SUPER_ADMIN', 'MERCHANT'])('frees %s', (role) => {
+    expect(isRestrictedRole(role, false)).toBe(false);
+    expect(isPathAllowedForRole(role, '/orders', 'page', false)).toBe(true);
+    expect(isPathAllowedForRole(role, '/api/orders', 'api', false)).toBe(true);
+  });
+
+  it('does not restrict guests', () => {
+    expect(isRestrictedRole(null, false)).toBe(false);
+    expect(isRestrictedRole(undefined, false)).toBe(false);
+  });
+});

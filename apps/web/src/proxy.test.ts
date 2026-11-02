@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { NextRequest } from 'next/server';
 
@@ -82,5 +82,47 @@ describe('proxy finance lockdown', () => {
 
   it.each(['/finance', '/admin', '/directory'])('leaves ADMIN unrestricted on %s', (path) => {
     expect(proxy(request(path, 'ADMIN')).headers.get('x-middleware-next')).toBe('1');
+  });
+});
+
+describe('proxy ACCOUNTANT confinement', () => {
+  it.each(['/orders', '/directory', '/merchant', '/admin', '/cart'])('redirects an ACCOUNTANT away from %s', (path) => {
+    const response = proxy(request(path, 'ACCOUNTANT'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://web.test/home');
+  });
+
+  it.each(['/finance', '/profile', '/api/finance/payments'])('lets an ACCOUNTANT reach %s', (path) => {
+    expect(proxy(request(path, 'ACCOUNTANT')).headers.get('x-middleware-next')).toBe('1');
+  });
+});
+
+describe('proxy with the resident lockdown flag off', () => {
+  async function proxyWithFlagOff() {
+    vi.resetModules();
+    vi.doMock('@/config/access-policy', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@/config/access-policy')>();
+      return {
+        ...actual,
+        RESIDENT_HOME_ONLY: false,
+        isRestrictedRole: (role: string | null | undefined) => actual.isRestrictedRole(role, false),
+        isPathAllowedForRole: (role: string | null | undefined, path: string, kind: 'page' | 'api') =>
+          actual.isPathAllowedForRole(role, path, kind, false),
+      };
+    });
+    return (await import('./proxy')).proxy;
+  }
+
+  it('still confines an ACCOUNTANT', async () => {
+    const flagOff = await proxyWithFlagOff();
+    expect(flagOff(request('/orders', 'ACCOUNTANT')).status).toBe(307);
+    expect(flagOff(request('/api/orders', 'ACCOUNTANT')).status).toBe(403);
+    expect(flagOff(request('/finance', 'ACCOUNTANT')).headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it.each(['RESIDENT', 'MERCHANT', 'ADMIN'])('lets a %s through', async (role) => {
+    const flagOff = await proxyWithFlagOff();
+    expect(flagOff(request('/orders', role)).headers.get('x-middleware-next')).toBe('1');
+    expect(flagOff(request('/api/orders', role)).headers.get('x-middleware-next')).toBe('1');
   });
 });
