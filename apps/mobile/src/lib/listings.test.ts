@@ -197,6 +197,7 @@ describe("listingErrorKey", () => {
   it.each([
     [httpError(409, "listing.error.unitAlreadyListed"), "listings.error_unit_listed"],
     [httpError(409, "listing.error.invalidStatus"), "listings.error_invalid_status"],
+    [httpError(409, "listing.error.ownerDeleted"), "listings.error_owner_deleted"],
     [httpError(400, "listing.error.noChanges"), "listings.error_no_changes"],
     [httpError(400, "listing.error.photosRequired"), "listings.error_photos"],
     [httpError(400, "file.error.urlNotStored"), "listings.error_photo_not_stored"],

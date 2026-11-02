@@ -221,6 +221,7 @@ export function listingErrorKey(error: unknown): string {
   switch (getErrorCode(error)) {
     case "listing.error.unitAlreadyListed": return "listings.error_unit_listed";
     case "listing.error.invalidStatus": return "listings.error_invalid_status";
+    case "listing.error.ownerDeleted": return "listings.error_owner_deleted";
     case "listing.error.noChanges": return "listings.error_no_changes";
     case "listing.error.photosRequired": return "listings.error_photos";
     case "listing.error.notFound": return "listings.error_not_found";
