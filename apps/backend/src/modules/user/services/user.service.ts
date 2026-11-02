@@ -205,8 +205,19 @@ export class UserService {
         // periods go together. A PENDING / APPROVED listing would otherwise
         // keep holding its flat (partial unique index) while hidden from
         // browse; restore leaves them WITHDRAWN. Every open period closes with
-        // ACCOUNT_DELETED (path 5); restore opens new ones.
+        // ACCOUNT_DELETED (path 5); restore opens new ones. The user update
+        // goes FIRST: its row lock waits for any ownership writer holding the
+        // user (`lockUser`), so the close below sees the period that writer
+        // committed (review M1).
         await this.db.$transaction([
+            this.db.user.update({
+                where: { id: userId },
+                data: {
+                    deletedAt: new Date(),
+                    deletedById: actor?.userId ?? userId,
+                    pushToken: null,
+                },
+            }),
             this.db.listing.updateMany({
                 where: {
                     ownerId: userId,
@@ -221,14 +232,6 @@ export class UserService {
                 userId,
                 actor?.userId ?? userId
             ),
-            this.db.user.update({
-                where: { id: userId },
-                data: {
-                    deletedAt: new Date(),
-                    deletedById: actor?.userId ?? userId,
-                    pushToken: null,
-                },
-            }),
         ]);
 
         await this.audit.record(actor, 'USER_DELETED', 'User', userId, {

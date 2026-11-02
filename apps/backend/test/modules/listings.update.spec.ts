@@ -140,6 +140,8 @@ describe('ListingsService update', () => {
         await service.update('l1', dto({ price: 2400000 }), owner);
 
         expect(db.listing.updateMany.mock.calls[0][0].data.flatId).toBe('flat-a132');
+        // The link never blocks a listing, even with FLAT_KEY_STRICT on (review M2).
+        expect(ownership.resolveFlatId.mock.calls[0][2]).toEqual({ strict: false });
     });
 
     it('sends the listing back to PENDING, clears approval/expiry/reason and writes one revision', async () => {

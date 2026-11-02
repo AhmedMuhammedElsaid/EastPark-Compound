@@ -367,6 +367,19 @@ describe('ResidentsService', () => {
             });
         });
 
+        it('existing account deleted while the approval runs: 409 accountDeleted after the user lock, no unit (review M1)', async () => {
+            const lead = mockLead({ building: 'A1', floor: '3', flatNumber: '2' });
+            db.residentLead.findUnique.mockResolvedValue(lead);
+            db.user.findUnique.mockResolvedValue({ id: 'user-1', name: 'Jane', email: lead.email });
+            ownership.lockUser.mockResolvedValueOnce({ deletedAt: new Date() });
+
+            await expect(service.invite('lead-1', adminActor)).rejects.toThrow(
+                'user.error.accountDeleted'
+            );
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+        });
+
         it('existing account that already owns the flat: idempotent (no new unit row, no email), lead CONVERTED', async () => {
             const lead = mockLead();
             db.residentLead.findUnique.mockResolvedValue(lead);

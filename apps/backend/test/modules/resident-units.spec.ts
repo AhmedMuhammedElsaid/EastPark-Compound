@@ -264,6 +264,16 @@ describe('ResidentUnitsService', () => {
             expect(audit.record).not.toHaveBeenCalled();
             expect(email.sendUnitAdded).not.toHaveBeenCalled();
         });
+
+        it('locks the user first and re-checks deletedAt: deleted meanwhile is 404, nothing created (review M1)', async () => {
+            ownership.lockUser.mockResolvedValueOnce({ deletedAt: new Date() });
+            await expect(
+                service.addToUser('user-1', flat, superAdmin)
+            ).rejects.toThrow('user.error.notFound');
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
+        });
     });
 
     describe('removeFromUser', () => {
@@ -302,6 +312,15 @@ describe('ResidentUnitsService', () => {
             lockedRows = [{ flatId: null } as unknown as { id: string }];
             await service.removeFromUser('user-1', 'unit-1', superAdmin);
             expect(ownership.closeForUnit).not.toHaveBeenCalled();
+        });
+
+        it('locks the user row before the unit row (lock order user → unit, review M1)', async () => {
+            lockedRows = [{ flatId: 'flat-a132' } as unknown as { id: string }];
+            await service.removeFromUser('user-1', 'unit-1', superAdmin);
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            const [user] = ownership.lockUser.mock.invocationCallOrder;
+            const [unit] = db.$queryRaw.mock.invocationCallOrder;
+            expect(user).toBeLessThan(unit as number);
         });
 
         it('a unit gone by the time the row lock is taken is 404 with nothing deleted', async () => {
@@ -448,6 +467,8 @@ describe('ResidentUnitsService', () => {
         const target = { building: 'A2', floor: 'G', flatNumber: '4' };
 
         beforeEach(() => {
+            // The pre-lock owner lookup (lock order user → unit).
+            db.residentUnit.findUnique.mockResolvedValue({ userId: 'user-1' });
             // findUniqueOrThrow = the locked unit; key holders come from $queryRaw.
             db.residentUnit.findUniqueOrThrow.mockReset().mockResolvedValue(existing());
             db.listing.updateMany.mockResolvedValue({ count: 0 });
@@ -609,6 +630,22 @@ describe('ResidentUnitsService', () => {
             const [lockOrder] = db.$queryRaw.mock.invocationCallOrder;
             const [read] = db.residentUnit.findUniqueOrThrow.mock.invocationCallOrder;
             expect(lockOrder).toBeLessThan(read);
+        });
+
+        it("locks the owner's user row before the unit row (review M1)", async () => {
+            await service.updateKey('unit-1', target, superAdmin);
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            const [user] = ownership.lockUser.mock.invocationCallOrder;
+            const [unit] = db.$queryRaw.mock.invocationCallOrder;
+            expect(user).toBeLessThan(unit as number);
+        });
+
+        it('a unit gone before the owner lookup is 404 with no lock taken', async () => {
+            db.residentUnit.findUnique.mockResolvedValue(null);
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).rejects.toThrow('unit.error.notFound');
+            expect(ownership.lockUser).not.toHaveBeenCalled();
         });
 
         describe('flat link (M2 link-and-open)', () => {

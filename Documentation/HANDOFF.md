@@ -19,18 +19,16 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 1+2 | ACCOUNTANT role: backend, web, mobile confinement | done, Opus-reviewed, fixed |
 | 3 | 690-flat layout, `check-flat-keys.sql`, unit/lead key-repair PATCHes | done, reviewed, fixed |
 | 4 | `finance_foundations` migration (14 tables, 690 flats, ownership backfill, view, RLS) | built (`e0596e2`, `b9f1e23`) and reviewed, M1/L1/L4/L5 fixed; SQL never executed (gate G1 in root `steps.md`) |
-| 5 | ownership writers + listings link | next |
-| 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | todo |
+| 5 | ownership writers + listings link, M2 catch-up + invariant SQL, M3 `finance.goLiveAt` | built (`cf20fc8`, `f327c19`), reviewed (`ACCOUNTING-SLICE-5-REVIEW.md`), M1/M2/L1–L4 fixed; scripts' db-spec runs at gate G1 |
+| 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | next |
 | 7 | payments + private attachments (`eastpark-finance` bucket) | todo |
 | 8 | accountant UI, web + mobile | todo |
 
 **Immediate next steps:**
 1. (done) Slice 4 M1 and Lows fixed; M4/L3 are gates G1/G2 in root `steps.md`.
-2. Carry M2 into slice 5: a catch-up for units created during the deploy window with no `flatId` and no
-   ownership period.
-3. Carry M3 into slice 5: store a finance go-live date, which the link step depends on.
-4. Then build slices 5 to 8. The review docs are `Documentation/ACCOUNTING-SLICE-*-REVIEW.md`.
-5. Root **`steps.md`** is started (pre-push gates). When all slices are done it absorbs the draft
+2. (done) M2 and M3 carried into slice 5; slice 5 reviewed and fixed.
+3. Build slice 6, then 7 and 8, each with its own review. The review docs are `Documentation/ACCOUNTING-SLICE-*-REVIEW.md`.
+4. Root **`steps.md`** is started (pre-push gates, A1 catch-up). When all slices are done it absorbs the draft
    `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md`.
 
 ### Owner decisions (final)

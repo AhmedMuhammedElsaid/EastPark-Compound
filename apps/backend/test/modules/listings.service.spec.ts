@@ -137,7 +137,8 @@ describe('ListingsService create', () => {
 
         expect(ownership.resolveFlatId).toHaveBeenCalledWith(
             db,
-            expect.objectContaining({ building: 'A1', floor: '3', flatNumber: '2' })
+            expect.objectContaining({ building: 'A1', floor: '3', flatNumber: '2' }),
+            { strict: false }
         );
         expect(db.listing.create.mock.calls[0][0].data.flatId).toBe('flat-a132');
     });

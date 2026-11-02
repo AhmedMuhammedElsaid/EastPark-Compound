@@ -155,6 +155,11 @@ export class ResidentUnitsService {
         }>;
         try {
             unit = await this.db.$transaction(async tx => {
+                // Held until commit: a concurrent delete cannot slip in between
+                // this check and the new open period (review M1).
+                const live = await this.ownership.lockUser(tx, user.id);
+                if (!live || live.deletedAt)
+                    throw new NotFoundException('user.error.notFound');
                 const flatId = await this.ownership.resolveFlatId(tx, flat);
                 const created = await tx.residentUnit.create({
                     data: {
@@ -222,6 +227,9 @@ export class ResidentUnitsService {
         const label = formatUnitLabel(unit);
 
         await this.db.$transaction(async tx => {
+            // Lock order user → unit (as every ownership writer): a concurrent
+            // restore cannot reopen this flat's period after we close it.
+            await this.ownership.lockUser(tx, userId);
             // Row lock (same as updateKey): a concurrent re-key cannot move the
             // link between this read and the delete, so the period we close is
             // the one the row holds at delete time.
@@ -329,6 +337,15 @@ export class ResidentUnitsService {
         };
         try {
             result = await this.db.$transaction(async tx => {
+                // Lock order user → unit: find the owner (a unit never changes
+                // account), lock the user so deletedAt holds until commit,
+                // then lock the unit row.
+                const ref = await tx.residentUnit.findUnique({
+                    where: { id: unitId },
+                    select: { userId: true },
+                });
+                if (!ref) throw new NotFoundException('unit.error.notFound');
+                await this.ownership.lockUser(tx, ref.userId);
                 const locked = await tx.$queryRaw<{ id: string }[]>(
                     Prisma.sql`SELECT "id" FROM "resident_units" WHERE "id" = ${unitId} FOR UPDATE`
                 );

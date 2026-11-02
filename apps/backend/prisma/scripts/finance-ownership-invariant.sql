@@ -14,6 +14,9 @@
 --   unit_unlinked_known_key     : unit with flatId NULL whose key is a real flat
 --   listing_unlinked_known_key  : listing with flatId NULL whose key is a real flat
 --   unit_stale_link             : unit whose flatId no longer matches its text key
+--   listing_stale_link          : listing whose flatId no longer matches its text key
+--   flat_linked_to_two_units    : two resident_units linked to one flat (catch-up step 5
+--                                 would abort on flat_ownership_one_open; repair by hand)
 --   flat_with_two_open_periods  : should be impossible (partial unique index)
 
 SELECT 'linked_unit_without_period' AS check_name, COUNT(*) AS n
@@ -60,6 +63,18 @@ SELECT 'unit_stale_link', COUNT(*)
   JOIN "flats" f ON f."id" = ru."flatId"
  WHERE (f."building", f."floor", f."flatNumber") IS DISTINCT FROM
        (upper(btrim(ru."building", E' \t\r\n')), upper(btrim(ru."floor", E' \t\r\n')), btrim(ru."flatNumber", E' \t\r\n'))
+UNION ALL
+SELECT 'listing_stale_link', COUNT(*)
+  FROM "listings" l
+  JOIN "flats" f ON f."id" = l."flatId"
+ WHERE (f."building", f."floor", f."flatNumber") IS DISTINCT FROM
+       (upper(btrim(l."building", E' \t\r\n')), upper(btrim(l."floor", E' \t\r\n')), btrim(l."flatNumber", E' \t\r\n'))
+UNION ALL
+SELECT 'flat_linked_to_two_units', COUNT(*)
+  FROM (
+      SELECT "flatId" FROM "resident_units" WHERE "flatId" IS NOT NULL
+       GROUP BY "flatId" HAVING COUNT(*) > 1
+  ) dup_units
 UNION ALL
 SELECT 'flat_with_two_open_periods', COUNT(*)
   FROM (

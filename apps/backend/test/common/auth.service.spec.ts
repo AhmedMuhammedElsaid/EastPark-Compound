@@ -964,6 +964,30 @@ describe('AuthService', () => {
             expect(db.residentLead.update).not.toHaveBeenCalled();
         });
 
+        it('existing account deleted after the pre-check: 409 accountDeleted under the user lock, no unit (review M1)', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(mockUser({ id: 'user-1' }));
+            encryption.match.mockResolvedValue(true);
+            db.residentLead.findMany.mockResolvedValue([
+                { id: 'lead-1', phone: '01000400163', building: 'A1', floor: '3', flatNumber: '2' },
+            ]);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            ownership.lockUser.mockResolvedValueOnce({ deletedAt: new Date() });
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Resident',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('user.error.accountDeleted');
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
+        });
+
         it('existing account accepting a RESIDENT invitation with a lead: owns the flat, unitNumber kept', async () => {
             db.invitation.findUnique.mockResolvedValue({
                 ...validInvitation,

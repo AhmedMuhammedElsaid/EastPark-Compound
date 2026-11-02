@@ -113,6 +113,17 @@ function buildStore() {
             findFirst: jest.fn(({ where }: { where: Partial<Period> }) =>
                 Promise.resolve(periods.find(p => matches(p, where)) ?? null)
             ),
+            findMany: jest.fn(
+                ({ where }: { where: { flatId: string; userId: string; fromDate: { gte: Date } } }) =>
+                    Promise.resolve(
+                        periods.filter(
+                            p =>
+                                p.flatId === where.flatId &&
+                                p.userId === where.userId &&
+                                p.fromDate >= where.fromDate.gte
+                        )
+                    )
+            ),
             update: jest.fn(
                 ({ where, data }: { where: { id: string }; data: Partial<Period> }) => {
                     const p = periods.find(x => x.id === where.id) as Period;
@@ -191,6 +202,15 @@ describe('cairo dates', () => {
             new Date('2026-07-02T00:00:00.000Z')
         );
     });
+
+    it('summer (UTC+3): 21:00 UTC is already the next Cairo day, 20:59 is not', () => {
+        expect(cairoDateString(new Date('2026-07-01T21:00:00Z'))).toBe(
+            '2026-07-02'
+        );
+        expect(cairoDateString(new Date('2026-07-01T20:59:00Z'))).toBe(
+            '2026-07-01'
+        );
+    });
 });
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -236,6 +256,16 @@ describe('FlatOwnershipService', () => {
             });
             await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
             await expect(attempt).rejects.toThrow('unit.error.unknownFlat');
+        });
+
+        it('strict: false overrides FLAT_KEY_STRICT (listings: an unknown key is null)', async () => {
+            await expect(
+                serviceWith(true).resolveFlatId(
+                    store.client,
+                    { building: 'Building A', floor: '3', flatNumber: '2' },
+                    { strict: false }
+                )
+            ).resolves.toBeNull();
         });
 
         it('a known key missing from the flats table is treated as unknown', async () => {
@@ -367,6 +397,80 @@ describe('FlatOwnershipService', () => {
             fromDate: OWNERSHIP_SENTINEL_DATE,
         });
         assertInvariant(store);
+    });
+
+    it('moveLink empties every period this unit made on the typo flat, keeps an older removed unit period (review L2)', async () => {
+        const u = {
+            id: 'ru2',
+            userId: 'u1',
+            flatId: 'flat-a132' as string | null,
+            createdAt: new Date('2026-11-20T10:00:00Z'),
+        };
+        // An older unit of u1 on A1-3-2, removed before this one existed.
+        store.periods.push({
+            id: 'old',
+            flatId: 'flat-a132',
+            userId: 'u1',
+            fromDate: OWNERSHIP_SENTINEL_DATE,
+            toDate: new Date('2026-11-15T00:00:00.000Z'),
+            closedReason: OwnershipClosedReason.REMOVED,
+            openedById: null,
+            closedById: null,
+        });
+        // This unit: opened 20 Nov, closed by a delete, reopened by a restore.
+        store.periods.push({
+            id: 'del',
+            flatId: 'flat-a132',
+            userId: 'u1',
+            fromDate: new Date('2026-11-20T00:00:00.000Z'),
+            toDate: new Date('2026-11-22T00:00:00.000Z'),
+            closedReason: OwnershipClosedReason.ACCOUNT_DELETED,
+            openedById: null,
+            closedById: null,
+        });
+        store.periods.push({
+            id: 'open',
+            flatId: 'flat-a132',
+            userId: 'u1',
+            fromDate: new Date('2026-11-25T00:00:00.000Z'),
+            toDate: null,
+            closedReason: null,
+            openedById: null,
+            closedById: null,
+        });
+        store.addUnit(u);
+        await service.moveLink(
+            store.client,
+            { ...u, flatId: 'flat-a132' },
+            'flat-b2g5',
+            { userDeleted: false, actorId: 'super-1' }
+        );
+        const byId = (id: string) => store.periods.find(p => p.id === id);
+        expect(byId('old')?.toDate).toEqual(new Date('2026-11-15T00:00:00.000Z'));
+        expect(byId('del')).toMatchObject({
+            toDate: new Date('2026-11-20T00:00:00.000Z'),
+            closedReason: OwnershipClosedReason.REMOVED,
+        });
+        expect(byId('open')).toMatchObject({
+            toDate: new Date('2026-11-25T00:00:00.000Z'),
+            closedReason: OwnershipClosedReason.REMOVED,
+        });
+        assertInvariant(store);
+    });
+
+    it('lockUser locks the user row FOR NO KEY UPDATE and returns deletedAt', async () => {
+        const deletedAt = new Date('2026-11-01T00:00:00Z');
+        const queryRaw = jest.fn().mockResolvedValue([{ deletedAt }]);
+        const client = { $queryRaw: queryRaw } as unknown as OwnershipClient;
+        await expect(service.lockUser(client, 'u1')).resolves.toEqual({
+            deletedAt,
+        });
+        const sql = queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+        expect(sql.sql).toMatch(/FROM "users" WHERE "id" = \? FOR NO KEY UPDATE/);
+        expect(sql.values).toEqual(['u1']);
+
+        queryRaw.mockResolvedValueOnce([]);
+        await expect(service.lockUser(client, 'nobody')).resolves.toBeNull();
     });
 
     it('closeAllForUser closes every open period with ACCOUNT_DELETED today', async () => {

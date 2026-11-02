@@ -362,6 +362,14 @@ export class AuthService {
             if (claimed.count === 0)
                 throw new BadRequestException('Invitation already used');
 
+            // Existing account: lock it so a concurrent delete cannot leave
+            // the new units' periods open on a deleted account (review M1).
+            if (existing) {
+                const live = await this.ownership.lockUser(tx, existing.id);
+                if (!live || live.deletedAt)
+                    throw new ConflictException('user.error.accountDeleted');
+            }
+
             const saved = existing
                 ? await tx.user.update({
                       where: { id: existing.id },

@@ -13,7 +13,8 @@
 --   0. unlink resident_units / listings whose flatId no longer matches their text key
 --      (a key edited by code that does not maintain flatId)
 --   1. close open periods whose owner was soft-deleted (ACCOUNT_DELETED)
---   2. close open periods whose resident_unit was removed (REMOVED)
+--   2. close open periods whose resident_unit was removed (REMOVED; empty for a re-key,
+--      else closed on the day the next owner's unit was created, or the run day)
 --   3. link resident_units WHERE "flatId" IS NULL (same normalisation as the migration)
 --   4. link listings WHERE "flatId" IS NULL (informational)
 --   5. open a period for every linked unit of a live owner WHERE NOT EXISTS an open period
@@ -30,6 +31,13 @@ BEGIN
 END $$;
 
 CREATE TEMP TABLE catchup_counts (step text PRIMARY KEY, n integer NOT NULL) ON COMMIT DROP;
+-- (flat, user) pairs whose unit step 0 unlinked: the old code re-keyed it (typo repair).
+CREATE TEMP TABLE catchup_rekeyed ("flatId" text NOT NULL, "userId" text NOT NULL) ON COMMIT DROP;
+
+-- Review L3: new-code writers (DELETE / INSERT / UPDATE on these tables) wait until this
+-- transaction commits, so none of them can act on a state this script is about to change.
+-- Row locks (SELECT ... FOR UPDATE) are not blocked; the script is short.
+LOCK TABLE "resident_units", "flat_ownerships" IN SHARE ROW EXCLUSIVE MODE;
 
 -- 0. Stale links: the text key was edited but flatId still points at the old flat.
 WITH unlinked AS (
@@ -39,9 +47,12 @@ WITH unlinked AS (
      WHERE f."id" = ru."flatId"
        AND (f."building", f."floor", f."flatNumber") IS DISTINCT FROM
            (upper(btrim(ru."building", E' \t\r\n')), upper(btrim(ru."floor", E' \t\r\n')), btrim(ru."flatNumber", E' \t\r\n'))
-    RETURNING 1
+    RETURNING f."id" AS "flatId", ru."userId"
+),
+kept AS (
+    INSERT INTO catchup_rekeyed SELECT "flatId", "userId" FROM unlinked RETURNING 1
 )
-INSERT INTO catchup_counts SELECT '0_units_unlinked_stale', COUNT(*) FROM unlinked;
+INSERT INTO catchup_counts SELECT '0_units_unlinked_stale', COUNT(*) FROM kept;
 
 WITH unlinked AS (
     UPDATE "listings" l
@@ -68,9 +79,32 @@ WITH closed AS (
 INSERT INTO catchup_counts SELECT '1_closed_account_deleted', COUNT(*) FROM closed;
 
 -- 2. Unit removed (or moved to another flat) by the old code: period still open.
+--    Review L1: a re-key (step 0) is a typo repair, so the period becomes EMPTY
+--    (toDate = fromDate), as FlatOwnershipService.moveLink does. A removal closes on the
+--    Cairo day the next owner's unit was created on that flat (step 5 opens the buyer's
+--    period that day, half-open, no overlap), else on the run day.
 WITH closed AS (
     UPDATE "flat_ownerships" fo
-       SET "toDate" = GREATEST((CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Cairo')::date, fo."fromDate"),
+       SET "toDate" = CASE
+               WHEN EXISTS (
+                   SELECT 1 FROM catchup_rekeyed r
+                    WHERE r."flatId" = fo."flatId" AND r."userId" = fo."userId"
+               ) THEN fo."fromDate"
+               ELSE GREATEST(
+                   LEAST(
+                       (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Cairo')::date,
+                       COALESCE((
+                           SELECT MIN(((ru2."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Africa/Cairo')::date)
+                             FROM "flats" f
+                             JOIN "resident_units" ru2
+                               ON f."building" = upper(btrim(ru2."building", E' \t\r\n'))
+                              AND f."floor" = upper(btrim(ru2."floor", E' \t\r\n'))
+                              AND f."flatNumber" = btrim(ru2."flatNumber", E' \t\r\n')
+                            WHERE f."id" = fo."flatId" AND ru2."userId" <> fo."userId"
+                       ), (CURRENT_TIMESTAMP AT TIME ZONE 'Africa/Cairo')::date)
+                   ),
+                   fo."fromDate")
+           END,
            "closedReason" = 'REMOVED'
      WHERE fo."toDate" IS NULL
        AND NOT EXISTS (

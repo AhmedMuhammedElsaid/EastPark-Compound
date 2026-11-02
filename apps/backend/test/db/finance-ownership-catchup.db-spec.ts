@@ -57,7 +57,7 @@ describeDb('finance ownership catch-up + invariant scripts (real Postgres)', () 
     it('right after the migration the invariant holds', () => {
         const db = migrated();
         const counts = invariant(db);
-        expect(Object.keys(counts)).toHaveLength(7);
+        expect(Object.keys(counts)).toHaveLength(9);
         expect(allZero(counts)).toBe(true);
     });
 
@@ -86,12 +86,13 @@ describeDb('finance ownership catch-up + invariant scripts (real Postgres)', () 
         expect(first.stdout).toMatch(/5_periods_opened\|2/);
         expect(allZero(invariant(db))).toBe(true);
 
-        // Pre-go-live units open at the sentinel; the mover's old period closed.
+        // Pre-go-live units open at the sentinel; the mover's old period is
+        // EMPTY (a re-key is a typo repair, review L1).
         expect(
             db.scalar(
-                `SELECT "closedReason" FROM "flat_ownerships" WHERE "userId" = 'mover' AND "toDate" IS NOT NULL`
+                `SELECT "closedReason" || ':' || ("toDate" = "fromDate") FROM "flat_ownerships" WHERE "userId" = 'mover' AND "toDate" IS NOT NULL`
             )
-        ).toBe('REMOVED');
+        ).toBe('REMOVED:true');
         expect(
             db.scalar(
                 `SELECT f."label" FROM "flat_ownerships" fo JOIN "flats" f ON f.id = fo."flatId" WHERE fo."userId" = 'mover' AND fo."toDate" IS NULL`
@@ -123,6 +124,42 @@ describeDb('finance ownership catch-up + invariant scripts (real Postgres)', () 
                 `SELECT "fromDate"::text FROM "flat_ownerships" WHERE "userId" = 'late'`
             )
         ).toBe('2999-01-02');
+    });
+
+    it('a flat sold in the window closes on the buyer unit day, so periods never overlap (review L1)', () => {
+        const db = migrated();
+        db.exec(
+            [
+                `UPDATE "finance_settings" SET "value" = to_jsonb(to_char((CURRENT_TIMESTAMP - INTERVAL '5 days') AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) WHERE "key" = 'finance.goLiveAt';`,
+                `DELETE FROM "resident_units" WHERE "id" = 'ru_keep';`,
+                insertUser('buyer'),
+                `INSERT INTO "resident_units" ("id","building","floor","flatNumber","userId","createdAt")
+                 VALUES ('ru_buyer','A1','1','1','buyer', CURRENT_TIMESTAMP - INTERVAL '2 days');`,
+            ].join('\n')
+        );
+        expect(db.runFile(CATCHUP).status).toBe(0);
+        expect(
+            db.scalar(
+                `SELECT (s."toDate" = b."fromDate")::text
+                   FROM "flat_ownerships" s, "flat_ownerships" b
+                  WHERE s."userId" = 'keep' AND b."userId" = 'buyer'`
+            )
+        ).toBe('true');
+        expect(allZero(invariant(db))).toBe(true);
+    });
+
+    it('reports a listing whose flatId no longer matches its key', () => {
+        const db = migrated();
+        db.exec(
+            [
+                insertListing('l_stale', 'keep', 'A1', '1', '1', 'PENDING'),
+                `UPDATE "listings" SET "flatId" = (SELECT "id" FROM "flats" WHERE "label" = 'A1-1-1') WHERE "id" = 'l_stale';`,
+                `UPDATE "listings" SET "flatNumber" = '2' WHERE "id" = 'l_stale';`,
+            ].join('\n')
+        );
+        expect(invariant(db).listing_stale_link).toBe(1);
+        expect(db.runFile(CATCHUP).status).toBe(0);
+        expect(invariant(db).listing_stale_link).toBe(0);
     });
 
     it('refuses to run when finance_foundations is not applied', () => {

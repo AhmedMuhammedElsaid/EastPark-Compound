@@ -9,6 +9,7 @@ export function mockFlatOwnership() {
     const batch = { count: 0 };
     return {
         resolveFlatId: jest.fn().mockResolvedValue(null),
+        lockUser: jest.fn().mockResolvedValue({ deletedAt: null }),
         openForNewUnit: jest.fn().mockResolvedValue(undefined),
         linkAndOpen: jest.fn().mockResolvedValue(undefined),
         moveLink: jest.fn().mockResolvedValue(undefined),

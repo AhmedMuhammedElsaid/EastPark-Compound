@@ -124,9 +124,9 @@ describe('UserService.deleteUser (soft delete)', () => {
             'resident-1'
         );
         expect(db.$transaction).toHaveBeenCalledWith([
+            'user-op',
             'listing-op',
             'ownership-op',
-            'user-op',
         ]);
     });
 

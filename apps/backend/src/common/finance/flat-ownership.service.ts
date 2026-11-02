@@ -41,12 +41,32 @@ export class FlatOwnershipService {
     }
 
     /**
+     * Locks the user row (`FOR NO KEY UPDATE`) and returns its `deletedAt`, or
+     * null when the row is missing. Every ownership writer takes it as its
+     * first lock (user before unit, so writers cannot deadlock): the
+     * "user not deleted" check then holds until commit, against a concurrent
+     * `deleteUser` / restore. Plain FK inserts (`FOR KEY SHARE`) are not blocked.
+     */
+    async lockUser(
+        client: OwnershipClient,
+        userId: string
+    ): Promise<{ deletedAt: Date | null } | null> {
+        const [row] = await client.$queryRaw<{ deletedAt: Date | null }[]>(
+            Prisma.sql`SELECT "deletedAt" FROM "users" WHERE "id" = ${userId} FOR NO KEY UPDATE`
+        );
+        return row ?? null;
+    }
+
+    /**
      * The `Flat` id for a key (normalised match), or null for an unknown key.
-     * With `FLAT_KEY_STRICT` on, an unknown key is 400 `unit.error.unknownFlat`.
+     * With `FLAT_KEY_STRICT` on, an unknown key is 400 `unit.error.unknownFlat`,
+     * unless the caller passes `strict: false` (listings: the link is
+     * informational and never blocks a listing, plan 2.2).
      */
     async resolveFlatId(
         client: OwnershipClient,
-        key: FlatKey
+        key: FlatKey,
+        opts: { strict?: boolean } = {}
     ): Promise<string | null> {
         const norm = normaliseFlatKey(key);
         const flat = isKnownFlat(norm)
@@ -62,7 +82,8 @@ export class FlatOwnershipService {
               })
             : null;
         if (flat) return flat.id;
-        if (this.strict) throw new BadRequestException('unit.error.unknownFlat');
+        if (opts.strict ?? this.strict)
+            throw new BadRequestException('unit.error.unknownFlat');
         return null;
     }
 
@@ -103,10 +124,13 @@ export class FlatOwnershipService {
     }
 
     /**
-     * A linked unit moved to another real flat (typo repair): the open period
-     * on the old flat closes as an EMPTY period (`toDate = fromDate`, reason
-     * REMOVED; the user never owned that flat), then the new flat is linked
-     * and opened as in `linkAndOpen`.
+     * A linked unit moved to another real flat (typo repair): every period this
+     * unit produced on the old flat becomes EMPTY (`toDate = fromDate`, reason
+     * REMOVED; the user never owned that flat). That is the open period and
+     * any earlier one from a delete/restore cycle: all start on or after the
+     * unit's own start date. Periods from an older, removed unit of the same
+     * user on that flat start before it and stay real. Then the new flat is
+     * linked and opened as in `linkAndOpen`.
      */
     async moveLink(
         client: OwnershipClient,
@@ -114,15 +138,20 @@ export class FlatOwnershipService {
         flatId: string,
         opts: { userDeleted: boolean; actorId?: string | null }
     ): Promise<void> {
-        const open = await client.flatOwnership.findFirst({
-            where: { flatId: unit.flatId, userId: unit.userId, toDate: null },
+        const ownStart = await this.linkFromDate(client, unit.createdAt);
+        const typo = await client.flatOwnership.findMany({
+            where: {
+                flatId: unit.flatId,
+                userId: unit.userId,
+                fromDate: { gte: ownStart },
+            },
             select: { id: true, fromDate: true },
         });
-        if (open)
+        for (const period of typo)
             await client.flatOwnership.update({
-                where: { id: open.id },
+                where: { id: period.id },
                 data: {
-                    toDate: open.fromDate,
+                    toDate: period.fromDate,
                     closedReason: OwnershipClosedReason.REMOVED,
                     closedById: opts.actorId ?? null,
                 },

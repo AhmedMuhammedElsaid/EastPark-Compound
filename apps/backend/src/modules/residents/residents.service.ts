@@ -350,6 +350,11 @@ export class ResidentsService {
     ): Promise<boolean> {
         try {
             await this.db.$transaction(async tx => {
+                // A delete racing the approval would otherwise leave an open
+                // period on a deleted account (review M1).
+                const live = await this.ownership.lockUser(tx, userId);
+                if (!live || live.deletedAt)
+                    throw new ConflictException('user.error.accountDeleted');
                 if (createUnit) {
                     // Path 2: link the finance flat and open its period.
                     const flatId = await this.ownership.resolveFlatId(tx, lead);

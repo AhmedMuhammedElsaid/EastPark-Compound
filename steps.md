@@ -66,6 +66,10 @@ psql "$env:DIRECT_DATABASE_URL" -X -1 -v ON_ERROR_STOP=1 -f prisma/scripts/finan
 psql "$env:DIRECT_DATABASE_URL" -X -f prisma/scripts/finance-ownership-invariant.sql
 ```
 
-The catch-up prints one count per step (usually all 0 at a quiet hour). Every row of the invariant check must
+The catch-up prints one count per step (usually all 0 at a quiet hour). It locks `resident_units` and
+`flat_ownerships` against writes for the second or two it runs, so flat add/remove requests just wait. Run it
+on the **same Cairo day** as the deploy. Every row of the invariant check must
 be 0. If one is not, stop and send the counts (counts only, no rows) before anyone uses the finance screens.
+A non-zero `flat_linked_to_two_units` makes the catch-up abort (one transaction, so nothing changes): send the
+count, don't retry.
 Never edit `finance.goLiveAt` in `finance_settings`: late flat links date their periods from it.

@@ -140,8 +140,11 @@ export class ListingsService {
         if (await findActiveListingForFlat(this.db, fields))
             throw new ConflictException('listing.error.unitAlreadyListed');
 
-        // Informational finance link (plan 2.2); never decides who may list.
-        const flatId = await this.ownership.resolveFlatId(this.db, fields);
+        // Informational finance link (plan 2.2); never decides who may list,
+        // so an unknown key stores NULL even with FLAT_KEY_STRICT on.
+        const flatId = await this.ownership.resolveFlatId(this.db, fields, {
+            strict: false,
+        });
 
         try {
             const row = await this.db.listing.create({
@@ -199,7 +202,9 @@ export class ListingsService {
         )
             throw new ConflictException('listing.error.unitAlreadyListed');
 
-        const flatId = await this.ownership.resolveFlatId(this.db, next);
+        const flatId = await this.ownership.resolveFlatId(this.db, next, {
+            strict: false,
+        });
 
         try {
             const row = await this.db.$transaction(async tx => {
