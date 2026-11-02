@@ -1,4 +1,14 @@
 import {
+    assertRequestKeyFree,
+    RequestKeyTaken,
+} from 'src/modules/finance/kernel/idempotency';
+import {
+    assertPeriodsLocked,
+    PeriodSetGrew,
+    periodRange,
+    withPeriodRetry,
+} from 'src/modules/finance/kernel/locks';
+import {
     BadRequestException,
     ConflictException,
     ForbiddenException,
@@ -627,5 +637,84 @@ describe('ledger figures (plan 2.1.1)', () => {
         );
         const empty = await summariseFlats(c as unknown as FinanceTx, [], asOf);
         expect(empty.size).toBe(0);
+    });
+});
+
+describe('slice 7 review kernel additions', () => {
+    it('M1: RequestKeyTaken inside the transaction replays the winner', async () => {
+        const winner = { id: 'p1', requestHash: 'h' };
+        const find = jest
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(winner);
+        const out = await runIdempotent({
+            requestHash: 'h',
+            find,
+            create: async () => {
+                await assertRequestKeyFree(async () => ({ id: 'p1' }));
+                return winner;
+            },
+        });
+        expect(out).toEqual({ result: winner, replayed: true });
+    });
+
+    it('M1: RequestKeyTaken with another body is idempotencyConflict', async () => {
+        const find = jest
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ id: 'p1', requestHash: 'other' });
+        await expect(
+            runIdempotent({
+                requestHash: 'h',
+                find,
+                create: () => {
+                    throw new RequestKeyTaken();
+                },
+            })
+        ).rejects.toThrow('finance.error.idempotencyConflict');
+        await expect(assertRequestKeyFree(async () => null)).resolves.toBe(
+            undefined
+        );
+    });
+
+    it('L2: assertPeriodsLocked / withPeriodRetry / periodRange', async () => {
+        expect(periodRange('2026-11', '2027-02')).toEqual([
+            '2026-11',
+            '2026-12',
+            '2027-01',
+            '2027-02',
+        ]);
+        expect(periodRange('2026-12', '2026-11')).toEqual([]);
+        expect(() =>
+            assertPeriodsLocked(['2026-10'], ['2026-10'])
+        ).not.toThrow();
+        try {
+            assertPeriodsLocked(['2026-12'], ['2026-11']);
+            throw new Error('expected PeriodSetGrew');
+        } catch (e) {
+            expect(e).toBeInstanceOf(PeriodSetGrew);
+            expect((e as PeriodSetGrew).periods).toEqual([
+                '2026-11',
+                '2026-12',
+            ]);
+        }
+        const seen: string[][] = [];
+        const out = await withPeriodRetry(['2026-12'], async periods => {
+            seen.push([...periods]);
+            if (seen.length === 1) assertPeriodsLocked(periods, ['2026-11']);
+            return 'ok';
+        });
+        expect(out).toBe('ok');
+        expect(seen).toEqual([['2026-12'], ['2026-11', '2026-12']]);
+        await expect(
+            withPeriodRetry(['2026-01'], async () => {
+                throw new PeriodSetGrew(['2026-01']);
+            })
+        ).rejects.toThrow('finance.error.concurrentChange');
+        await expect(
+            withPeriodRetry(['2026-01'], async () => {
+                throw new Error('boom');
+            })
+        ).rejects.toThrow('boom');
     });
 });

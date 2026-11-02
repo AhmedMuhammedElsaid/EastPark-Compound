@@ -33,6 +33,7 @@ describeDb('finance payments (real Postgres)', () => {
     let scratch: ScratchDb;
     let db: PrismaClient;
     let service: FinancePaymentsService;
+    let files: PrivateFileService;
     const accA = { userId: 'acc_a', role: Role.ACCOUNTANT };
     const accB = { userId: 'acc_b', role: Role.ACCOUNTANT };
     const now = new Date();
@@ -83,7 +84,8 @@ describeDb('finance payments (real Postgres)', () => {
         );
         db = new PrismaClient({ datasourceUrl: scratch.url });
         await db.$connect();
-        const files = {
+        files = {
+            exists: async () => true,
             copy: async () => true,
             remove: async () => true,
         } as unknown as PrivateFileService;
@@ -179,10 +181,117 @@ describeDb('finance payments (real Postgres)', () => {
         expect(credit.unallocatedAmount).toBe(300);
         const applied = await service.applyCredit(
             flat,
-            { payFor: 'DEPOSIT' },
+            { payFor: 'DEPOSIT', expectedCredit: '300.00' },
             accA
         );
         expect(applied.applied).toBe(300);
+    });
+
+    it('review M1: same-key race with a cheque reference and a full explicit allocation replays the winner', async () => {
+        const flat = 'flat_A1-2-1';
+        const charge = await addCharge(flat, thisMonth, '450');
+        const body = dto(flat, {
+            method: 'CHEQUE',
+            reference: 'DB-RACE-CHQ',
+            allocations: [{ chargeId: charge.id, amount: '450.00' }],
+        });
+        const key = 'db-spec-race-ref-0001';
+        const [a, b] = await Promise.all([
+            service.create(body, key, accA),
+            service.create(body, key, accA),
+        ]);
+        expect(a).toEqual(b);
+        expect(await db.payment.count({ where: { requestKey: key } })).toBe(1);
+    });
+
+    it('review M2: two payments racing to attach one staged file: one wins, one attachmentInUse', async () => {
+        const path = `staging/acc_a/${Date.now()}-db-race.jpg`;
+        const results = await Promise.allSettled([
+            service.create(
+                dto('flat_A1-2-2', { attachmentPath: path }),
+                'db-spec-attach-a',
+                accA
+            ),
+            service.create(
+                dto('flat_A1-2-3', { attachmentPath: path }),
+                'db-spec-attach-b',
+                accA
+            ),
+        ]);
+        expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+        const rejected = results.find(
+            (r): r is PromiseRejectedResult => r.status === 'rejected'
+        );
+        expect(rejected?.reason).toEqual(
+            new ConflictException('finance.error.attachmentInUse')
+        );
+    });
+
+    it('review M3: a back-dated bounce needs every month up to today open and no later allocation', async () => {
+        const flat = 'flat_A1-2-4';
+        await addCharge(flat, lastMonth, '450');
+        const cheque = await service.create(
+            dto(flat, {
+                method: 'CHEQUE',
+                amount: '600.00',
+                receivedAt: `${lastMonth}-15`,
+            }),
+            'db-spec-m3-0001',
+            accA
+        );
+        await addCharge(flat, thisMonth, '150');
+        await service.applyCredit(flat, { expectedCredit: '150.00' }, accA);
+
+        await db.$executeRaw`UPDATE "fiscal_periods" SET "status" = 'CLOSED' WHERE "period" = ${thisMonth}`;
+        await expect(
+            service.chequeBounced(cheque.id, { date: `${lastMonth}-16` }, accA)
+        ).rejects.toThrow(new ConflictException('finance.error.periodClosed'));
+        await db.$executeRaw`UPDATE "fiscal_periods" SET "status" = 'OPEN' WHERE "period" = ${thisMonth}`;
+
+        await expect(
+            service.chequeBounced(cheque.id, { date: `${lastMonth}-16` }, accA)
+        ).rejects.toThrow(
+            new ConflictException('finance.error.dateBeforeAllocation')
+        );
+        const bounced = await service.chequeBounced(cheque.id, {}, accA);
+        expect(bounced.allocations.every(a => a.voidedAt !== null)).toBe(true);
+    });
+
+    it('review L5: receipt numbers stay consecutive after a rolled-back payment', async () => {
+        class BrokenAudit extends FinanceAuditService {
+            override record(
+                ...args: Parameters<FinanceAuditService['record']>
+            ): Promise<void> {
+                const [tx, who, ...rest] = args;
+                return super.record(
+                    tx,
+                    { ...who, userId: 'no_such_user' },
+                    ...rest
+                );
+            }
+        }
+        const broken = new FinancePaymentsService(
+            db as unknown as DatabaseService,
+            new BrokenAudit(),
+            files
+        );
+        await expect(
+            broken.create(dto('flat_A1-3-1'), 'db-spec-rollback-0001', accA)
+        ).rejects.toThrow();
+        await service.create(dto('flat_A1-3-1'), 'db-spec-rollback-0002', accA);
+        await service.create(dto('flat_A1-3-1'), 'db-spec-rollback-0003', accA);
+        const year = today.slice(0, 4);
+        const numbers = (
+            await db.payment.findMany({
+                where: { receiptNo: { startsWith: `R-${year}-` } },
+                select: { receiptNo: true },
+            })
+        )
+            .map(p => Number(p.receiptNo.slice(-6)))
+            .sort((x, y) => x - y);
+        expect(numbers).toEqual(
+            Array.from({ length: numbers.length }, (_, i) => i + 1)
+        );
     });
 
     it('close last month, bounce its cheque this month: last month is unchanged', async () => {

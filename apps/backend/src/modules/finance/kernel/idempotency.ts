@@ -62,6 +62,33 @@ export function requestHashOf(actorId: string, request: unknown): string {
         .digest('hex');
 }
 
+/**
+ * Thrown inside a posting transaction when its request key already exists
+ * (review M1). `runIdempotent` turns it into the normal replay path.
+ */
+export class RequestKeyTaken extends Error {
+    constructor() {
+        super('idempotency: request key already used');
+        this.name = 'RequestKeyTaken';
+    }
+}
+
+/**
+ * Same-key race guard (review M1). Call INSIDE the posting transaction right
+ * after the lock that serialises the posting (the flat row). A concurrent
+ * same-key winner has committed by then (READ COMMITTED), so the loser sees
+ * its row here and aborts with `RequestKeyTaken` BEFORE any business check
+ * (duplicate reference, allocation caps, attachment in use) can answer with a
+ * misleading 409. `runIdempotent` then replays the winner (or reports
+ * `idempotencyConflict` for another body). Races the lock does not serialise
+ * still end in the unique-index P2002, handled the same way.
+ */
+export async function assertRequestKeyFree(
+    findByKey: () => Promise<unknown>
+): Promise<void> {
+    if ((await findByKey()) != null) throw new RequestKeyTaken();
+}
+
 export interface IdempotentOutcome<T> {
     result: T;
     /** true when an earlier request with the same key produced `result`. */
@@ -74,7 +101,9 @@ export interface IdempotentOutcome<T> {
  *     409 `finance.error.idempotencyConflict`;
  * (2) otherwise run the posting transaction (`create`);
  * (3) a concurrent same-key request loses the unique `requestKey` insert with
- *     P2002: its transaction has rolled back, so re-read and apply (1). The
+ *     P2002, or meets the winner's row through `assertRequestKeyFree` inside
+ *     its transaction (`RequestKeyTaken`): its transaction has rolled back, so
+ *     re-read and apply (1). The
  *     loser returns the winner's row, never a 500 and never a second posting.
  * The key lives in a unique column on the row, so a Redis flush cannot
  * cause a double posting.
@@ -95,7 +124,11 @@ export async function runIdempotent<T>(args: {
     try {
         return { result: await args.create(), replayed: false };
     } catch (error) {
-        if (!isPrismaError(error, PRISMA_UNIQUE_VIOLATION)) throw error;
+        if (
+            !(error instanceof RequestKeyTaken) &&
+            !isPrismaError(error, PRISMA_UNIQUE_VIOLATION)
+        )
+            throw error;
         const winner = await args.find();
         if (!winner) throw error;
         return replay(winner);

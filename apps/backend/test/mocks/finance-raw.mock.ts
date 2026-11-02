@@ -42,6 +42,8 @@ export function fakeRaw(state: FakeFinanceState) {
             state.log.push(`upsert-period:${period}`);
             if (!state.periods.has(period)) state.periods.set(period, 'OPEN');
         }
+        if (text.includes('pg_advisory_xact_lock'))
+            state.log.push(`advisory:${String(values[0])}`);
         return 1;
     });
     const $queryRaw = jest.fn(async (q: unknown) => {

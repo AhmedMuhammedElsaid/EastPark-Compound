@@ -13,6 +13,7 @@ import {
     IsDefined,
     IsEnum,
     IsIn,
+    IsNotEmpty,
     IsOptional,
     IsString,
     Length,
@@ -155,6 +156,15 @@ export class FinanceChequeDateDto {
 
 /** `POST /finance/flats/:id/apply-credit`. */
 export class FinanceApplyCreditDto {
+    @ApiProperty({
+        example: '550.00',
+        description:
+            'The availableCredit the client displayed (decimal string). A different server figure is 409 finance.error.creditChanged, so a retry cannot apply credit twice.',
+    })
+    @IsString()
+    @IsNotEmpty()
+    expectedCredit: string;
+
     @ApiPropertyOptional({
         type: [FinanceAllocationInputDto],
         description:

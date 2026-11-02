@@ -13,6 +13,7 @@ import {
     FINANCE_MAX_PDF_SIZE,
 } from 'src/common/file/enums/files.enum';
 import {
+    BUCKET_RECHECK_MS,
     FINANCE_SIGNED_URL_TTL_SEC,
     isFinanceAttachmentPath,
     isOwnStagingPath,
@@ -437,5 +438,52 @@ describe('redactUrlForLog (plan 9 "Logging")', () => {
         [undefined, ''],
     ])('%p -> %p', (url, expected) => {
         expect(redactUrlForLog(url)).toBe(expected);
+    });
+});
+
+describe('PrivateFileService bucket re-check (review L3)', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('trusts a private-bucket check for 10 minutes, then checks again', async () => {
+        const { service, storage } = build();
+        let now = Date.parse('2026-11-02T10:00:00Z');
+        jest.spyOn(Date, 'now').mockImplementation(() => now);
+        await service.uploadStaging(JPEG, 'u');
+        now += BUCKET_RECHECK_MS - 1;
+        await service.uploadStaging(JPEG, 'u');
+        expect(storage.getBucket).toHaveBeenCalledTimes(1);
+        now += 2;
+        storage.getBucket.mockResolvedValueOnce({
+            data: { public: true },
+            error: null,
+        });
+        await expect(service.uploadStaging(JPEG, 'u')).rejects.toThrow(
+            'storage_unavailable'
+        );
+        expect(storage.getBucket).toHaveBeenCalledTimes(2);
+        expect(BUCKET_RECHECK_MS).toBe(10 * 60 * 1000);
+    });
+
+    it('exists() lists the folder by file name; errors count as missing', async () => {
+        const { service, bucket } = build();
+        bucket.list.mockResolvedValueOnce({
+            data: [{ name: '1-a.jpg', id: 'f1' }],
+            error: null,
+        });
+        await expect(service.exists('staging/u/1-a.jpg')).resolves.toBe(true);
+        expect(bucket.list).toHaveBeenLastCalledWith('staging/u', {
+            limit: 100,
+            search: '1-a.jpg',
+        });
+        bucket.list.mockResolvedValueOnce({ data: [], error: null });
+        await expect(service.exists('staging/u/1-a.jpg')).resolves.toBe(false);
+        bucket.list.mockResolvedValueOnce({
+            data: null,
+            error: { message: 'x' },
+        });
+        await expect(service.exists('staging/u/1-a.jpg')).resolves.toBe(false);
+        await expect(service.exists('user-avatars/u/a.jpg')).resolves.toBe(
+            false
+        );
     });
 });

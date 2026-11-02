@@ -71,10 +71,22 @@ import {
     NewAllocation,
     reserveFundNumbers,
 } from './kernel/fund-deposits';
-import { requestHashOf, runIdempotent } from './kernel/idempotency';
+import {
+    assertRequestKeyFree,
+    requestHashOf,
+    runIdempotent,
+} from './kernel/idempotency';
 import { FlatFinanceSummary, summariseFlat } from './kernel/ledger';
 import { livePaymentWhere } from './kernel/live-predicates';
-import { lockCharges, lockFlat, lockPeriods } from './kernel/locks';
+import {
+    assertPeriodsLocked,
+    lockAttachment,
+    lockCharges,
+    lockFlat,
+    lockPeriods,
+    periodRange,
+    withPeriodRetry,
+} from './kernel/locks';
 import { nextReceiptNumber } from './kernel/receipt-counter';
 import { assertCanVoid } from './kernel/void-policy';
 
@@ -120,6 +132,20 @@ function parseRequested(
         chargeId: a.chargeId,
         amount: parseFinanceAmount(a.amount),
     }));
+}
+
+const EXPECTED_CREDIT = /^\d{1,7}(\.\d{1,2})?$/;
+
+/**
+ * `expectedCredit` (review L1): the `availableCredit` the client displayed, a
+ * decimal string with at most 2 decimals (0 allowed). 400
+ * `finance.error.invalidAmount` otherwise.
+ */
+function parseExpectedCredit(value: unknown): Prisma.Decimal {
+    const text = typeof value === 'string' ? value.trim() : '';
+    if (!EXPECTED_CREDIT.test(text))
+        throw new BadRequestException('finance.error.invalidAmount');
+    return new Prisma.Decimal(text);
 }
 
 /** Upload time encoded in a staging file name (`<ms>-<uuid>.<ext>`). */
@@ -225,6 +251,12 @@ export class FinancePaymentsService {
                 throw new BadRequestException(
                     'finance.error.attachmentExpired'
                 );
+            // review M2: the staged object must still exist (not swept, not
+            // already promoted for another payment)
+            if (!(await this.files.exists(input.attachmentPath)))
+                throw new BadRequestException(
+                    'finance.error.attachmentMissing'
+                );
         }
     }
 
@@ -242,10 +274,20 @@ export class FinancePaymentsService {
         return this.db.$transaction(async tx => {
             await lockPeriods(tx, [periodOf(input.receivedAt)]);
             const flat = await lockFlat(tx, input.flatId);
+            // review M1: a same-key winner is visible now; replay it before
+            // any business check can answer with a misleading 409
+            await assertRequestKeyFree(() =>
+                tx.payment.findUnique({
+                    where: { requestKey },
+                    select: { id: true },
+                })
+            );
             if (!flat.isActive)
                 throw new ConflictException('finance.error.flatInactive');
             if (input.replacesId)
                 await this.assertReplaceable(tx, input.replacesId, flat.id);
+            if (input.attachmentPath)
+                await this.assertAttachmentUnused(tx, input.attachmentPath);
 
             const charges = await lockOpenCharges(
                 tx,
@@ -261,15 +303,6 @@ export class FinancePaymentsService {
                   )
                 : planAutoAllocation(charges, input.amount, input.payFor);
 
-            if (input.attachmentPath) {
-                const used = await tx.payment.count({
-                    where: { attachmentPath: input.attachmentPath },
-                });
-                if (used > 0)
-                    throw new ConflictException(
-                        'finance.error.attachmentInUse'
-                    );
-            }
             if (input.reference && !force) {
                 const duplicate = await tx.payment.findFirst({
                     where: {
@@ -366,6 +399,25 @@ export class FinancePaymentsService {
                 select: PAYMENT_SELECT,
             });
         }, POSTING_TX_OPTIONS);
+    }
+
+    /**
+     * Review M2: a staged file is attached once only. After promotion the row
+     * names `receipts/.../<file>` and the staging object is gone, so the guard
+     * matches on the unique file name (`<ms>-<uuid>.<ext>`), under an advisory
+     * lock on that name so two payments on different flats cannot both pass.
+     */
+    private async assertAttachmentUnused(
+        tx: FinanceTx,
+        path: string
+    ): Promise<void> {
+        const file = path.split('/').pop() as string;
+        await lockAttachment(tx, file);
+        const used = await tx.payment.count({
+            where: { attachmentPath: { endsWith: `/${file}` } },
+        });
+        if (used > 0)
+            throw new ConflictException('finance.error.attachmentInUse');
     }
 
     /** `replacesId` (plan 3.1): a VOID payment of the same flat, not yet replaced. */
@@ -503,105 +555,111 @@ export class FinancePaymentsService {
 
         const now = new Date();
         const today = cairoToday(now);
-        const periods = new Set([
+        const initial = [
             periodOf(existing.receivedAt),
             cairoPeriod(now),
             ...existing.allocations.map(a => periodOf(a.allocatedAt)),
-        ]);
+        ];
 
-        const row = await this.db.$transaction(async tx => {
-            await lockPeriods(tx, [...periods]);
-            const flat = await lockFlat(tx, existing.flatId);
-            const payment = await tx.payment.findUnique({
-                where: { id },
-                select: {
-                    status: true,
-                    amount: true,
-                    receiptNo: true,
-                    isOpening: true,
-                    createdById: true,
-                    createdAt: true,
-                    allocations: {
-                        where: { voidedAt: null },
-                        select: { chargeId: true, allocatedAt: true },
+        const row = await withPeriodRetry(initial, periods =>
+            this.db.$transaction(async tx => {
+                await lockPeriods(tx, periods);
+                const flat = await lockFlat(tx, existing.flatId);
+                const payment = await tx.payment.findUnique({
+                    where: { id },
+                    select: {
+                        status: true,
+                        amount: true,
+                        receiptNo: true,
+                        isOpening: true,
+                        createdById: true,
+                        createdAt: true,
+                        allocations: {
+                            where: { voidedAt: null },
+                            select: { chargeId: true, allocatedAt: true },
+                        },
                     },
-                },
-            });
-            if (!payment)
-                throw new NotFoundException('finance.error.paymentNotFound');
-            if (payment.status === PostingStatus.VOID)
-                throw new ConflictException('finance.error.alreadyVoid');
-            if (payment.isOpening)
-                throw new ConflictException('finance.error.voidImportInstead');
-            assertCanVoid(actor, payment, now);
+                });
+                if (!payment)
+                    throw new NotFoundException(
+                        'finance.error.paymentNotFound'
+                    );
+                if (payment.status === PostingStatus.VOID)
+                    throw new ConflictException('finance.error.alreadyVoid');
+                if (payment.isOpening)
+                    throw new ConflictException(
+                        'finance.error.voidImportInstead'
+                    );
+                assertCanVoid(actor, payment, now);
 
-            // An allocation added between the read above and the flat lock
-            // (apply-credit) can name a month not locked yet. Taking that
-            // FOR SHARE lock now is deadlock-free: a period close holds one
-            // period row and waits for nothing else (plan 3.4).
-            const missing = payment.allocations
-                .map(a => periodOf(a.allocatedAt))
-                .filter(p => !periods.has(p));
-            if (missing.length > 0) await lockPeriods(tx, missing);
-            await lockCharges(
-                tx,
-                payment.allocations.map(a => a.chargeId)
-            );
+                // Review L2: an allocation added between the pre-read and the
+                // flat lock (apply-credit) can name a month not locked yet. Never
+                // lock it late (that can deadlock behind a queued close): re-run
+                // the whole transaction with the enlarged set instead.
+                assertPeriodsLocked(
+                    periods,
+                    payment.allocations.map(a => periodOf(a.allocatedAt))
+                );
+                await lockCharges(
+                    tx,
+                    payment.allocations.map(a => a.chargeId)
+                );
 
-            const before = await summariseFlat(tx, flat.id, today);
-            await tx.payment.update({
-                where: { id },
-                data: {
-                    status: PostingStatus.VOID,
-                    voidedAt: now,
-                    voidedById: actor.userId,
-                    voidReason: reason,
-                },
-                select: { id: true },
-            });
-            const allocations = await tx.paymentAllocation.updateMany({
-                where: { paymentId: id, voidedAt: null },
-                data: {
-                    voidedAt: now,
-                    voidedById: actor.userId,
-                    voidReason: reason,
-                },
-            });
-            const fundEntries = await tx.fundEntry.updateMany({
-                where: { paymentId: id, status: PostingStatus.POSTED },
-                data: {
-                    status: PostingStatus.VOID,
-                    voidedAt: now,
-                    voidedById: actor.userId,
-                    voidReason: reason,
-                },
-            });
-            const after = await summariseFlat(tx, flat.id, today);
+                const before = await summariseFlat(tx, flat.id, today);
+                await tx.payment.update({
+                    where: { id },
+                    data: {
+                        status: PostingStatus.VOID,
+                        voidedAt: now,
+                        voidedById: actor.userId,
+                        voidReason: reason,
+                    },
+                    select: { id: true },
+                });
+                const allocations = await tx.paymentAllocation.updateMany({
+                    where: { paymentId: id, voidedAt: null },
+                    data: {
+                        voidedAt: now,
+                        voidedById: actor.userId,
+                        voidReason: reason,
+                    },
+                });
+                const fundEntries = await tx.fundEntry.updateMany({
+                    where: { paymentId: id, status: PostingStatus.POSTED },
+                    data: {
+                        status: PostingStatus.VOID,
+                        voidedAt: now,
+                        voidedById: actor.userId,
+                        voidReason: reason,
+                    },
+                });
+                const after = await summariseFlat(tx, flat.id, today);
 
-            await this.audit.record(
-                tx,
-                actor,
-                'PAYMENT_VOIDED',
-                'Payment',
-                id,
-                {
-                    label: `${flat.label} ${payment.receiptNo} ${moneyString(payment.amount)}`,
-                    flatId: flat.id,
-                    flatLabel: flat.label,
-                    receiptNo: payment.receiptNo,
-                    amount: moneyString(payment.amount),
-                    reason,
-                    allocationsVoided: allocations.count,
-                    fundEntriesVoided: fundEntries.count,
-                    balanceBefore: moneyString(before.balance),
-                    balanceAfter: moneyString(after.balance),
-                }
-            );
-            return tx.payment.findUniqueOrThrow({
-                where: { id },
-                select: PAYMENT_SELECT,
-            });
-        }, POSTING_TX_OPTIONS);
+                await this.audit.record(
+                    tx,
+                    actor,
+                    'PAYMENT_VOIDED',
+                    'Payment',
+                    id,
+                    {
+                        label: `${flat.label} ${payment.receiptNo} ${moneyString(payment.amount)}`,
+                        flatId: flat.id,
+                        flatLabel: flat.label,
+                        receiptNo: payment.receiptNo,
+                        amount: moneyString(payment.amount),
+                        reason,
+                        allocationsVoided: allocations.count,
+                        fundEntriesVoided: fundEntries.count,
+                        balanceBefore: moneyString(before.balance),
+                        balanceAfter: moneyString(after.balance),
+                    }
+                );
+                return tx.payment.findUniqueOrThrow({
+                    where: { id },
+                    select: PAYMENT_SELECT,
+                });
+            }, POSTING_TX_OPTIONS)
+        );
 
         return toPaymentDetailDto(row);
     }
@@ -622,9 +680,16 @@ export class FinancePaymentsService {
      * payment stays POSTED with `bouncedAt = date`, so it is live for every
      * date before the bounce and not live from it on; its live allocations and
      * DEPOSIT_IN entries are voided AS OF the bounce date (`voidedAt` = start
-     * of that Cairo day). Only the bounce date's month is locked: a cheque
-     * received in a closed month can bounce in the open one without changing
-     * the closed month's figures.
+     * of that Cairo day). A cheque received in a closed month can bounce in
+     * the open one without changing the closed month's figures.
+     *
+     * Review M3: the state change moves every figure from `date` to today
+     * (and `clearedAt` is the R3 cash date), so every month from
+     * `periodOf(date)` to the current Cairo month is locked FOR SHARE, plus
+     * the month of each live allocation it voids from that month on; any
+     * closed one is `periodClosed`. A bounce dated before the latest live
+     * allocation would date a reversal before the event it reverses: 409
+     * `finance.error.dateBeforeAllocation`.
      */
     chequeBounced(
         id: string,
@@ -647,116 +712,165 @@ export class FinancePaymentsService {
             throw new BadRequestException('finance.error.futureDate');
         const existing = await this.db.payment.findUnique({
             where: { id },
-            select: { flatId: true },
+            select: {
+                flatId: true,
+                allocations: {
+                    where: { voidedAt: null },
+                    select: { allocatedAt: true },
+                },
+            },
         });
         if (!existing)
             throw new NotFoundException('finance.error.paymentNotFound');
+        // Allocations the bounce reverses from `date` on. One dated in an
+        // EARLIER (possibly closed) month is reversed only as of `date`, in
+        // the open month, and keeps the closed month unchanged (plan 3.8), so
+        // its own month is not locked; one dated in or after `date`'s month
+        // must be open (it is inside the locked range anyway).
+        const allocationPeriods = (rows: { allocatedAt: Date }[]) =>
+            to === ChequeState.BOUNCED
+                ? rows
+                      .map(a => periodOf(a.allocatedAt))
+                      .filter(p => p >= periodOf(date))
+                : [];
+        const initial = [
+            ...periodRange(periodOf(date), cairoPeriod(now)),
+            ...allocationPeriods(existing.allocations),
+        ];
 
-        const row = await this.db.$transaction(async tx => {
-            await lockPeriods(tx, [periodOf(date)]);
-            const flat = await lockFlat(tx, existing.flatId);
-            const payment = await tx.payment.findUnique({
-                where: { id },
-                select: {
-                    method: true,
-                    chequeState: true,
-                    status: true,
-                    receivedAt: true,
-                    receiptNo: true,
-                    amount: true,
-                    allocations: {
-                        where: { voidedAt: null },
-                        select: { chargeId: true },
+        const row = await withPeriodRetry(initial, periods =>
+            this.db.$transaction(async tx => {
+                await lockPeriods(tx, periods);
+                const flat = await lockFlat(tx, existing.flatId);
+                const payment = await tx.payment.findUnique({
+                    where: { id },
+                    select: {
+                        method: true,
+                        chequeState: true,
+                        status: true,
+                        receivedAt: true,
+                        receiptNo: true,
+                        amount: true,
+                        allocations: {
+                            where: { voidedAt: null },
+                            select: { chargeId: true, allocatedAt: true },
+                        },
                     },
-                },
-            });
-            if (!payment)
-                throw new NotFoundException('finance.error.paymentNotFound');
-            if (payment.method !== FinancePaymentMethod.CHEQUE)
-                throw new ConflictException('finance.error.notACheque');
-            if (payment.status === PostingStatus.VOID)
-                throw new ConflictException('finance.error.alreadyVoid');
-            if (payment.chequeState !== ChequeState.PENDING_CLEARANCE)
-                throw new ConflictException('finance.error.alreadyFinal');
-            if (date.getTime() < payment.receivedAt.getTime())
-                throw new BadRequestException(
-                    'finance.error.dateBeforeReceived'
-                );
-
-            let allocationsVoided = 0;
-            let fundEntriesVoided = 0;
-            let before: FlatFinanceSummary | null = null;
-            if (to === ChequeState.CLEARED) {
-                await tx.payment.update({
-                    where: { id },
-                    data: { chequeState: ChequeState.CLEARED, clearedAt: date },
-                    select: { id: true },
                 });
-            } else {
-                await lockCharges(
-                    tx,
-                    payment.allocations.map(a => a.chargeId)
+                if (!payment)
+                    throw new NotFoundException(
+                        'finance.error.paymentNotFound'
+                    );
+                assertPeriodsLocked(
+                    periods,
+                    allocationPeriods(payment.allocations)
                 );
-                before = await summariseFlat(tx, flat.id, today);
-                const effectiveAt = cairoDayStart(date);
-                await tx.payment.update({
-                    where: { id },
-                    data: { chequeState: ChequeState.BOUNCED, bouncedAt: date },
-                    select: { id: true },
-                });
-                allocationsVoided = (
-                    await tx.paymentAllocation.updateMany({
-                        where: { paymentId: id, voidedAt: null },
-                        data: {
-                            voidedAt: effectiveAt,
-                            voidedById: actor.userId,
-                            voidReason: BOUNCE_VOID_REASON,
-                        },
-                    })
-                ).count;
-                fundEntriesVoided = (
-                    await tx.fundEntry.updateMany({
-                        where: { paymentId: id, status: PostingStatus.POSTED },
-                        data: {
-                            status: PostingStatus.VOID,
-                            voidedAt: effectiveAt,
-                            voidedById: actor.userId,
-                            voidReason: BOUNCE_VOID_REASON,
-                        },
-                    })
-                ).count;
-            }
-            const after = before
-                ? await summariseFlat(tx, flat.id, today)
-                : null;
+                if (payment.method !== FinancePaymentMethod.CHEQUE)
+                    throw new ConflictException('finance.error.notACheque');
+                if (payment.status === PostingStatus.VOID)
+                    throw new ConflictException('finance.error.alreadyVoid');
+                if (payment.chequeState !== ChequeState.PENDING_CLEARANCE)
+                    throw new ConflictException('finance.error.alreadyFinal');
+                if (date.getTime() < payment.receivedAt.getTime())
+                    throw new BadRequestException(
+                        'finance.error.dateBeforeReceived'
+                    );
+                if (
+                    to === ChequeState.BOUNCED &&
+                    payment.allocations.some(
+                        a => a.allocatedAt.getTime() > date.getTime()
+                    )
+                )
+                    throw new ConflictException(
+                        'finance.error.dateBeforeAllocation'
+                    );
 
-            await this.audit.record(
-                tx,
-                actor,
-                'CHEQUE_STATE_CHANGED',
-                'Payment',
-                id,
-                {
-                    label: `${flat.label} ${payment.receiptNo} ${to}`,
-                    flatId: flat.id,
-                    flatLabel: flat.label,
-                    receiptNo: payment.receiptNo,
-                    amount: moneyString(payment.amount),
-                    from: ChequeState.PENDING_CLEARANCE,
-                    to,
-                    date: dateOnlyString(date),
-                    receivedAt: dateOnlyString(payment.receivedAt),
-                    allocationsVoided,
-                    fundEntriesVoided,
-                    balanceBefore: before ? moneyString(before.balance) : null,
-                    balanceAfter: after ? moneyString(after.balance) : null,
+                let allocationsVoided = 0;
+                let fundEntriesVoided = 0;
+                let before: FlatFinanceSummary | null = null;
+                if (to === ChequeState.CLEARED) {
+                    await tx.payment.update({
+                        where: { id },
+                        data: {
+                            chequeState: ChequeState.CLEARED,
+                            clearedAt: date,
+                        },
+                        select: { id: true },
+                    });
+                } else {
+                    await lockCharges(
+                        tx,
+                        payment.allocations.map(a => a.chargeId)
+                    );
+                    before = await summariseFlat(tx, flat.id, today);
+                    const effectiveAt = cairoDayStart(date);
+                    await tx.payment.update({
+                        where: { id },
+                        data: {
+                            chequeState: ChequeState.BOUNCED,
+                            bouncedAt: date,
+                        },
+                        select: { id: true },
+                    });
+                    allocationsVoided = (
+                        await tx.paymentAllocation.updateMany({
+                            where: { paymentId: id, voidedAt: null },
+                            data: {
+                                voidedAt: effectiveAt,
+                                voidedById: actor.userId,
+                                voidReason: BOUNCE_VOID_REASON,
+                            },
+                        })
+                    ).count;
+                    fundEntriesVoided = (
+                        await tx.fundEntry.updateMany({
+                            where: {
+                                paymentId: id,
+                                status: PostingStatus.POSTED,
+                            },
+                            data: {
+                                status: PostingStatus.VOID,
+                                voidedAt: effectiveAt,
+                                voidedById: actor.userId,
+                                voidReason: BOUNCE_VOID_REASON,
+                            },
+                        })
+                    ).count;
                 }
-            );
-            return tx.payment.findUniqueOrThrow({
-                where: { id },
-                select: PAYMENT_SELECT,
-            });
-        }, POSTING_TX_OPTIONS);
+                const after = before
+                    ? await summariseFlat(tx, flat.id, today)
+                    : null;
+
+                await this.audit.record(
+                    tx,
+                    actor,
+                    'CHEQUE_STATE_CHANGED',
+                    'Payment',
+                    id,
+                    {
+                        label: `${flat.label} ${payment.receiptNo} ${to}`,
+                        flatId: flat.id,
+                        flatLabel: flat.label,
+                        receiptNo: payment.receiptNo,
+                        amount: moneyString(payment.amount),
+                        from: ChequeState.PENDING_CLEARANCE,
+                        to,
+                        date: dateOnlyString(date),
+                        receivedAt: dateOnlyString(payment.receivedAt),
+                        allocationsVoided,
+                        fundEntriesVoided,
+                        balanceBefore: before
+                            ? moneyString(before.balance)
+                            : null,
+                        balanceAfter: after ? moneyString(after.balance) : null,
+                    }
+                );
+                return tx.payment.findUniqueOrThrow({
+                    where: { id },
+                    select: PAYMENT_SELECT,
+                });
+            }, POSTING_TX_OPTIONS)
+        );
 
         return toPaymentDetailDto(row);
     }
@@ -772,6 +886,9 @@ export class FinancePaymentsService {
      * already part-settled is funded from another payment; in explicit mode,
      * if no other payment can cover it, the request fails with
      * `creditSourceConflict`, in auto mode that charge is skipped.
+     * The body carries `expectedCredit`, the available credit the client
+     * showed; any difference is 409 `creditChanged` (review L1), so a retry
+     * after a dropped response cannot apply the credit a second time.
      */
     async applyCredit(
         flatId: string,
@@ -779,6 +896,7 @@ export class FinancePaymentsService {
         actor: IAuthUser
     ): Promise<FinanceApplyCreditResultDto> {
         const requested = parseRequested(dto.allocations);
+        const expectedCredit = parseExpectedCredit(dto.expectedCredit);
         const cap =
             dto.amount !== undefined ? parseFinanceAmount(dto.amount) : null;
         const payFor = dto.payFor ?? 'AUTO';
@@ -827,6 +945,9 @@ export class FinancePaymentsService {
                 .filter(s => s.left.gt(0));
 
             const before = await summariseFlat(tx, flat.id, today);
+            // review L1: a retried or stale request must not spend credit twice
+            if (!expectedCredit.eq(before.availableCredit))
+                throw new ConflictException('finance.error.creditChanged');
             const unallocated = sumLines(
                 sources.map(s => ({ amount: s.left }))
             );
@@ -952,7 +1073,18 @@ export class FinancePaymentsService {
                 where: { id: row.id, attachmentPath: from },
                 data: { attachmentPath: to },
             });
-            await this.files.remove([moved.count === 1 ? from : to]);
+            if (moved.count === 1) {
+                await this.files.remove([from]);
+                return;
+            }
+            // Another promotion won the row. Review L4: delete our copy only
+            // when the row does NOT name it; with an identical destination the
+            // copy may be the very object the winner's row now points at.
+            const current = await this.db.payment.findUnique({
+                where: { id: row.id },
+                select: { attachmentPath: true },
+            });
+            if (current?.attachmentPath !== to) await this.files.remove([to]);
         } catch (error) {
             this.logger.warn(
                 `Attachment promotion for payment ${row.id} failed: ${(error as Error).message}`

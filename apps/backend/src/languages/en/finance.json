@@ -52,6 +52,10 @@
         "attachmentExpired": "This upload is too old to attach. Upload the file again.",
         "attachmentInUse": "This file is already attached to another payment",
         "attachmentNotFound": "Attachment not found",
-        "attachmentQueryInvalid": "Give either paymentId or path"
+        "attachmentQueryInvalid": "Give either paymentId or path",
+        "attachmentMissing": "This upload is no longer available. Upload the file again.",
+        "dateBeforeAllocation": "The bounce date is before credit from this cheque was applied. Use a date on or after that.",
+        "creditChanged": "The flat's credit changed since you opened it. Reload and try again.",
+        "concurrentChange": "Someone changed this flat at the same time. Try again."
     }
 }

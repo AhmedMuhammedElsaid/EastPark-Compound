@@ -16,7 +16,17 @@ import {
 
 export type Row = Record<string, unknown>;
 
-const OPS = ['lte', 'lt', 'gte', 'gt', 'in', 'equals', 'contains', 'mode'];
+const OPS = [
+    'lte',
+    'lt',
+    'gte',
+    'gt',
+    'in',
+    'equals',
+    'contains',
+    'endsWith',
+    'mode',
+];
 
 function cmp(a: unknown, b: unknown): number {
     const x = a instanceof Date ? a.getTime() : a;
@@ -65,6 +75,11 @@ export function matches(row: Row | null | undefined, where: Row): boolean {
                     : String(c.contains);
                 if (!hay.includes(needle)) return false;
             }
+            if (
+                'endsWith' in c &&
+                !String(value).endsWith(String(c.endsWith))
+            )
+                return false;
             return true;
         }
         return matches(value as Row, cond as Row); // relation filter
@@ -147,6 +162,8 @@ const p2002 = (target: string) =>
  */
 export class FakeFinanceDb {
     failAudit = false;
+    /** Runs at the start of every transaction (simulate concurrent writers). */
+    onTransaction?: () => void;
     private seq = 0;
     private clock = Date.now() - 60_000;
     private queue: Promise<unknown> = Promise.resolve();
@@ -397,6 +414,7 @@ export class FakeFinanceDb {
     /** Serialised, all-or-nothing (a throw restores every table). */
     $transaction<T>(cb: (tx: this) => Promise<T>): Promise<T> {
         const run = async (): Promise<T> => {
+            this.onTransaction?.(); // a concurrent writer that committed first
             const snapshot = this.snapshot();
             try {
                 return await cb(this);

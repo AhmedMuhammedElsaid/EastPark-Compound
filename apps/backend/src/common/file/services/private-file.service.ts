@@ -25,6 +25,9 @@ export const FINANCE_SIGNED_URL_TTL_SEC = 60;
 /** Unattached uploads under `staging/` older than this are swept (plan 5.3). */
 export const FINANCE_STAGING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+/** How long a confirmed-private bucket check is trusted (review L3). */
+export const BUCKET_RECHECK_MS = 10 * 60 * 1000;
+
 const PATH_PATTERN = /^[a-z]+\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_.-]+)+$/;
 
 /**
@@ -77,7 +80,8 @@ export class PrivateFileService {
     private readonly logger = new Logger(PrivateFileService.name);
     private readonly supabase: SupabaseClient;
     private readonly bucket: string;
-    private verified = false;
+    /** When the bucket was last confirmed private (0 = never). */
+    private verifiedAt = 0;
 
     constructor(config: ConfigService) {
         const bucket = config
@@ -158,6 +162,26 @@ export class PrivateFileService {
         };
     }
 
+    /**
+     * True when `path` names an object in the private bucket (listing its
+     * folder filtered by the file name). A storage error counts as "missing":
+     * the caller refuses to attach a file it cannot confirm.
+     */
+    async exists(path: string): Promise<boolean> {
+        if (!isFinanceAttachmentPath(path)) return false;
+        const cut = path.lastIndexOf('/');
+        const folder = path.slice(0, cut);
+        const name = path.slice(cut + 1);
+        const { data, error } = await this.supabase.storage
+            .from(this.bucket)
+            .list(folder, { limit: 100, search: name });
+        if (error) {
+            this.logger.warn(`Private exists check failed: ${error.message}`);
+            return false;
+        }
+        return (data ?? []).some(f => f.name === name && f.id !== null);
+    }
+
     /** Server-side copy inside the private bucket (true on success). */
     async copy(from: string, to: string): Promise<boolean> {
         const { error } = await this.supabase.storage
@@ -235,11 +259,17 @@ export class PrivateFileService {
 
     /**
      * The bucket must exist and be PRIVATE before anything is written or
-     * signed. Checked once per process (success is cached; a failure is
-     * re-checked on the next call, so fixing the bucket needs no restart).
+     * signed. A success is trusted for `BUCKET_RECHECK_MS` (review L3: a
+     * bucket switched to public later is caught within 10 minutes); a failure
+     * is re-checked on the next call, so fixing the bucket needs no restart.
      */
     private async assertPrivateBucket(): Promise<void> {
-        if (this.verified) return;
+        if (
+            this.verifiedAt > 0 &&
+            Date.now() - this.verifiedAt < BUCKET_RECHECK_MS
+        )
+            return;
+        this.verifiedAt = 0;
         const { data, error } = await this.supabase.storage.getBucket(
             this.bucket
         );
@@ -255,6 +285,6 @@ export class PrivateFileService {
             );
             throw new BadGatewayException('storage_unavailable');
         }
-        this.verified = true;
+        this.verifiedAt = Date.now();
     }
 }

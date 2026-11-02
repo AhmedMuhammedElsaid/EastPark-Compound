@@ -9,11 +9,16 @@ import { ChargeKind, Prisma, Role } from '@prisma/client';
 import {
     addDays,
     cairoDayStart,
+    cairoToday,
     parseDateOnly,
 } from 'src/common/finance/cairo-date';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { PrivateFileService } from 'src/common/file/services/private-file.service';
-import { FinancePaymentCreateDto } from 'src/modules/finance/dtos/request/finance-payment.dto';
+import {
+    FinanceApplyCreditDto,
+    FinancePaymentCreateDto,
+} from 'src/modules/finance/dtos/request/finance-payment.dto';
+import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 import {
     ATTACH_MAX_AGE_MS,
     BOUNCE_VOID_REASON,
@@ -54,6 +59,7 @@ function addCharge(state: LedgerState, o: Row): Row {
 
 function files() {
     return {
+        exists: jest.fn().mockResolvedValue(true),
         copy: jest.fn().mockResolvedValue(true),
         remove: jest.fn().mockResolvedValue(true),
         listStagingBefore: jest.fn().mockResolvedValue([]),
@@ -133,6 +139,22 @@ async function assertInvariant(db: FakeFinanceDb, flatId = 'flat-1') {
         );
         expect(s.credit.gte(0)).toBe(true);
     }
+}
+
+/** apply-credit with the `expectedCredit` the desk would show now (review L1). */
+async function applyCreditNow(
+    service: FinancePaymentsService,
+    flatId: string,
+    dto: Partial<FinanceApplyCreditDto>,
+    actor: IAuthUser
+) {
+    const db = (service as unknown as { db: FakeFinanceDb }).db;
+    const s = await summariseFlat(db as never, flatId, cairoToday());
+    return service.applyCredit(
+        flatId,
+        { expectedCredit: s.availableCredit.toFixed(2), ...dto },
+        actor
+    );
 }
 
 beforeEach(() => {
@@ -924,7 +946,7 @@ describe('apply-credit (plan 3.5)', () => {
             accrualPeriod: '2026-11',
             dueDate: day('2026-11-10'),
         });
-        const out = await service.applyCredit('flat-1', {}, accountant);
+        const out = await applyCreditNow(service, 'flat-1', {}, accountant);
         expect(out.applied).toBe(450);
         expect(out.allocations.map(a => [a.chargeId, a.allocatedAt])).toEqual([
             ['nov', '2026-11-20'],
@@ -949,7 +971,8 @@ describe('apply-credit (plan 3.5)', () => {
             accountant
         );
         await expect(
-            service.applyCredit(
+            applyCreditNow(
+                service,
                 'flat-1',
                 { allocations: [{ chargeId: 'dep', amount: '150.01' }] },
                 accountant
@@ -957,7 +980,8 @@ describe('apply-credit (plan 3.5)', () => {
         ).rejects.toThrow(
             new ConflictException('finance.error.insufficientCredit')
         );
-        const out = await service.applyCredit(
+        const out = await applyCreditNow(
+            service,
             'flat-1',
             { payFor: 'DEPOSIT' },
             accountant
@@ -981,7 +1005,8 @@ describe('apply-credit (plan 3.5)', () => {
             'key-00000001',
             accountant
         );
-        const out = await service.applyCredit(
+        const out = await applyCreditNow(
+            service,
             'flat-1',
             { amount: '50' },
             accountant
@@ -992,7 +1017,7 @@ describe('apply-credit (plan 3.5)', () => {
     it('no credit, nothing open, and a part-settled charge from the only source', async () => {
         const { service, state } = build(standardCharges);
         await expect(
-            service.applyCredit('flat-1', {}, accountant)
+            applyCreditNow(service, 'flat-1', {}, accountant)
         ).rejects.toThrow('finance.error.insufficientCredit');
         await service.create(
             pay({
@@ -1003,7 +1028,8 @@ describe('apply-credit (plan 3.5)', () => {
             accountant
         );
         await expect(
-            service.applyCredit(
+            applyCreditNow(
+                service,
                 'flat-1',
                 { allocations: [{ chargeId: 'oct', amount: '50' }] },
                 accountant
@@ -1013,7 +1039,7 @@ describe('apply-credit (plan 3.5)', () => {
             .filter(c => c.id !== 'oct')
             .forEach(c => (c.status = 'VOID'));
         await expect(
-            service.applyCredit('flat-1', {}, accountant)
+            applyCreditNow(service, 'flat-1', {}, accountant)
         ).rejects.toThrow('finance.error.nothingToAllocate');
     });
 
@@ -1027,7 +1053,7 @@ describe('apply-credit (plan 3.5)', () => {
             'key-00000001',
             accountant
         );
-        await service.applyCredit('flat-1', {}, accountant);
+        await applyCreditNow(service, 'flat-1', {}, accountant);
         expect(live(state)).toHaveLength(2);
         await service.void(p.id, 'Wrong payer flat', accountant);
         expect(live(state)).toHaveLength(0);
@@ -1114,5 +1140,291 @@ describe('staging sweep (plan 5.3)', () => {
             promoted: 0,
             deleted: 0,
         });
+    });
+});
+
+describe('slice 7 review fixes', () => {
+    it('M1: a same-key race with a reference and a full explicit allocation replays the winner', async () => {
+        const { service, state } = build(standardCharges);
+        const body = pay({
+            method: 'CHEQUE',
+            reference: 'CHQ-RACE',
+            amount: '450',
+            allocations: [{ chargeId: 'oct', amount: '450' }],
+        });
+        const [a, b] = await Promise.all([
+            service.create(body, 'key-race-0001', accountant),
+            service.create(body, 'key-race-0001', accountant),
+        ]);
+        expect(a).toEqual(b);
+        expect(state.payments).toHaveLength(1);
+        expect(state.raw.counters.get('R:2026')).toBe(1);
+    });
+
+    it('M1: a same-key race with another body is idempotencyConflict, never a business 409', async () => {
+        const { service } = build(standardCharges);
+        const results = await Promise.allSettled([
+            service.create(
+                pay({ reference: 'TRX-R' }),
+                'key-race-0002',
+                accountant
+            ),
+            service.create(
+                pay({ reference: 'TRX-R', amount: '999' }),
+                'key-race-0002',
+                accountant
+            ),
+        ]);
+        expect(results.map(r => r.status)).toEqual(['fulfilled', 'rejected']);
+        expect((results[1] as PromiseRejectedResult).reason).toEqual(
+            new ConflictException('finance.error.idempotencyConflict')
+        );
+    });
+
+    it('M2: a staged file that no longer exists is refused', async () => {
+        const { service, storage, state } = build(standardCharges);
+        storage.exists.mockResolvedValueOnce(false);
+        await expect(
+            service.create(
+                pay({
+                    attachmentPath: `staging/acc-1/${NOW.getTime() - 1000}-gone.jpg`,
+                }),
+                'key-00000001',
+                accountant
+            )
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.attachmentMissing')
+        );
+        expect(state.payments).toHaveLength(0);
+    });
+
+    it('M2: a promoted file cannot be attached again (matched by file name, under an advisory lock)', async () => {
+        const { service, state } = build(standardCharges);
+        const path = `staging/acc-1/${NOW.getTime() - 1000}-once.jpg`;
+        await service.create(
+            pay({ attachmentPath: path }),
+            'key-00000001',
+            accountant
+        );
+        expect(state.payments[0]?.attachmentPath).toMatch(/^receipts\//);
+        await expect(
+            service.create(
+                pay({ flatId: 'flat-2', attachmentPath: path }),
+                'key-00000002',
+                accountant
+            )
+        ).rejects.toThrow(
+            new ConflictException('finance.error.attachmentInUse')
+        );
+        expect(state.raw.log.filter(l => l.startsWith('advisory:'))).toEqual([
+            `advisory:finance-attachment:${NOW.getTime() - 1000}-once.jpg`,
+            `advisory:finance-attachment:${NOW.getTime() - 1000}-once.jpg`,
+        ]);
+    });
+
+    it('M3: a back-dated bounce or clearance locks every month up to today', async () => {
+        const { service, state } = build(standardCharges);
+        jest.setSystemTime(new Date('2026-10-26T10:00:00Z'));
+        const chq = await service.create(
+            pay({ method: 'CHEQUE', amount: '450', receivedAt: '2026-10-25' }),
+            'key-00000001',
+            accountant
+        );
+        jest.setSystemTime(new Date('2026-12-05T10:00:00Z'));
+        state.raw.periods.set('2026-11', 'CLOSED');
+        state.raw.log.length = 0;
+        await expect(
+            service.chequeBounced(chq.id, { date: '2026-10-30' }, accountant)
+        ).rejects.toThrow('finance.error.periodClosed');
+        expect(state.raw.log.filter(l => l.startsWith('lock-period'))).toEqual([
+            'lock-period:2026-10',
+            'lock-period:2026-11',
+        ]);
+        await expect(
+            service.chequeCleared(chq.id, { date: '2026-10-30' }, accountant)
+        ).rejects.toThrow('finance.error.periodClosed');
+        const b = await service.chequeBounced(
+            chq.id,
+            { date: '2026-12-01' },
+            accountant
+        );
+        expect(b.chequeState).toBe('BOUNCED');
+    });
+
+    it('M3: a bounce dated before credit from the cheque was applied is refused', async () => {
+        const { service } = build(s =>
+            addCharge(s, {
+                id: 'oct',
+                amount: D('450'),
+                accrualPeriod: '2026-10',
+                dueDate: day('2026-10-10'),
+            })
+        );
+        const chq = await service.create(
+            pay({ method: 'CHEQUE', amount: '900', receivedAt: '2026-11-05' }),
+            'key-00000001',
+            accountant
+        );
+        const { state } = {
+            state: (service as unknown as { db: FakeFinanceDb }).db.state,
+        };
+        addCharge(state, {
+            id: 'nov',
+            amount: D('450'),
+            accrualPeriod: '2026-11',
+            dueDate: day('2026-11-10'),
+        });
+        await applyCreditNow(service, 'flat-1', {}, accountant); // dated 20 Nov
+        await expect(
+            service.chequeBounced(chq.id, { date: '2026-11-18' }, accountant)
+        ).rejects.toThrow(
+            new ConflictException('finance.error.dateBeforeAllocation')
+        );
+        const b = await service.chequeBounced(
+            chq.id,
+            { date: '2026-11-20' },
+            accountant
+        );
+        expect(b.allocations.every(a => a.voidedAt !== null)).toBe(true);
+    });
+
+    it('L1: apply-credit needs the credit the client saw', async () => {
+        const { service } = build(standardCharges);
+        await service.create(
+            pay({
+                amount: '600',
+                allocations: [{ chargeId: 'oct', amount: '450' }],
+            }),
+            'key-00000001',
+            accountant
+        );
+        await expect(
+            service.applyCredit(
+                'flat-1',
+                { expectedCredit: '100.00' },
+                accountant
+            )
+        ).rejects.toThrow(new ConflictException('finance.error.creditChanged'));
+        await expect(
+            service.applyCredit(
+                'flat-1',
+                { expectedCredit: '1.234' },
+                accountant
+            )
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.invalidAmount')
+        );
+        const first = await service.applyCredit(
+            'flat-1',
+            { expectedCredit: '150' },
+            accountant
+        );
+        expect(first.applied).toBe(150);
+        // the same request replayed after a dropped response is refused
+        await expect(
+            service.applyCredit('flat-1', { expectedCredit: '150' }, accountant)
+        ).rejects.toThrow('finance.error.creditChanged');
+    });
+
+    it('L2: a void whose period set grows re-runs the whole transaction with the larger set', async () => {
+        const { service, state, db } = build(standardCharges);
+        jest.setSystemTime(new Date('2026-10-20T10:00:00Z'));
+        const p = await service.create(
+            pay({
+                amount: '2000',
+                receivedAt: '2026-10-15',
+                allocations: [{ chargeId: 'oct', amount: '450' }],
+            }),
+            'key-00000001',
+            accountant
+        );
+        jest.setSystemTime(new Date('2026-12-05T10:00:00Z'));
+        let injected = false;
+        db.onTransaction = () => {
+            if (injected) return;
+            injected = true; // apply-credit committed in November meanwhile
+            state.allocations.push({
+                id: 'late',
+                paymentId: p.id,
+                chargeId: 'nov',
+                amount: D('450'),
+                allocatedAt: day('2026-11-12'),
+                voidedAt: null,
+                createdAt: new Date('2026-11-12T08:00:00Z'),
+            });
+        };
+        state.raw.log.length = 0;
+        const v = await service.void(p.id, 'Wrong flat entirely', admin);
+        expect(v.status).toBe('VOID');
+        const locks = state.raw.log.filter(l => l.startsWith('lock-period'));
+        expect(locks).toEqual([
+            'lock-period:2026-10',
+            'lock-period:2026-12',
+            'lock-period:2026-10',
+            'lock-period:2026-11',
+            'lock-period:2026-12',
+        ]);
+        expect(state.allocations.every(a => a.voidedAt !== null)).toBe(true);
+    });
+
+    it('L2: a period set that keeps growing gives up with a retryable 409', async () => {
+        const { service, state, db } = build(standardCharges);
+        jest.setSystemTime(new Date('2026-06-20T10:00:00Z'));
+        const p = await service.create(
+            pay({
+                amount: '100',
+                receivedAt: '2026-06-15',
+                allocations: [{ chargeId: 'dep', amount: '1' }],
+            }),
+            'key-00000001',
+            accountant
+        );
+        jest.setSystemTime(new Date('2026-12-05T10:00:00Z'));
+        let month = 7;
+        db.onTransaction = () => {
+            state.allocations.push({
+                id: `grow-${month}`,
+                paymentId: p.id,
+                chargeId: `c-${month}`,
+                amount: D('1'),
+                allocatedAt: day(`2026-0${month++}-01`),
+                voidedAt: null,
+            });
+        };
+        await expect(
+            service.void(p.id, 'Keeps changing', admin)
+        ).rejects.toThrow(
+            new ConflictException('finance.error.concurrentChange')
+        );
+        expect(state.payments[0]).toMatchObject({ status: 'POSTED' });
+    });
+
+    it('L4: a lost promotion never deletes the object the row names', async () => {
+        const { service, state, storage } = build(standardCharges);
+        const file = `${NOW.getTime() - 1000}-x.jpg`;
+        await service.create(
+            pay({ attachmentPath: `staging/acc-1/${file}` }),
+            'key-00000001',
+            accountant
+        );
+        const row = state.payments[0] as Row;
+        const winner = row.attachmentPath as string;
+        storage.remove.mockClear();
+        // a second promotion of the same staging path (sweep racing the request)
+        await service.promoteAttachment({
+            id: row.id as string,
+            receiptNo: row.receiptNo as string,
+            attachmentPath: `staging/acc-1/${file}`,
+        });
+        expect(row.attachmentPath).toBe(winner);
+        expect(storage.remove).not.toHaveBeenCalled();
+        // a stale destination the row does not name is cleaned up
+        row.attachmentPath = 'receipts/2026/R-2026-000001/other.jpg';
+        await service.promoteAttachment({
+            id: row.id as string,
+            receiptNo: row.receiptNo as string,
+            attachmentPath: `staging/acc-1/${file}`,
+        });
+        expect(storage.remove).toHaveBeenCalledWith([winner]);
     });
 });

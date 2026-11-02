@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { isPeriod } from 'src/common/finance/cairo-date';
+import { isPeriod, shiftPeriod } from 'src/common/finance/cairo-date';
 
 import { FinanceTx } from './finance-tx';
 
@@ -76,4 +76,75 @@ export async function lockCharges(
         Prisma.sql`SELECT "id" FROM "charges" WHERE "id" IN (${Prisma.join(ordered)}) ORDER BY "id" FOR UPDATE`
     );
     return rows.map(r => r.id);
+}
+
+/** Every `YYYY-MM` from `from` to `to`, inclusive (empty when from > to). */
+export function periodRange(from: string, to: string): string[] {
+    const out: string[] = [];
+    for (let p = from; p <= to; p = shiftPeriod(p, 1)) out.push(p);
+    return out;
+}
+
+/**
+ * Thrown inside a posting transaction when the periods it must lock turned
+ * out larger than the set it locked first (a row added between the pre-read
+ * and the flat lock, review L2). Locking the extra month late could deadlock
+ * behind a queued close, so the caller re-runs the WHOLE transaction with the
+ * enlarged set, period locks first (`withPeriodRetry`).
+ */
+export class PeriodSetGrew extends Error {
+    constructor(readonly periods: readonly string[]) {
+        super('finance: period set grew after the locks');
+        this.name = 'PeriodSetGrew';
+    }
+}
+
+/** Throws `PeriodSetGrew` (locked ∪ needed) when `needed` is not all locked. */
+export function assertPeriodsLocked(
+    locked: readonly string[],
+    needed: readonly string[]
+): void {
+    const have = new Set(locked);
+    if (needed.every(p => have.has(p))) return;
+    throw new PeriodSetGrew([...new Set([...locked, ...needed])].sort());
+}
+
+/** Attempts `withPeriodRetry` makes before giving up. */
+export const PERIOD_RETRY_ATTEMPTS = 3;
+
+/**
+ * Runs `attempt(periods)` (one whole transaction that locks `periods` first)
+ * and re-runs it with the enlarged set while it throws `PeriodSetGrew`. After
+ * `PERIOD_RETRY_ATTEMPTS` the request fails with a retryable 409
+ * `finance.error.concurrentChange`.
+ */
+export async function withPeriodRetry<T>(
+    initial: readonly string[],
+    attempt: (periods: readonly string[]) => Promise<T>
+): Promise<T> {
+    let periods = [...new Set(initial)].sort();
+    for (let i = 0; i < PERIOD_RETRY_ATTEMPTS; i++) {
+        try {
+            return await attempt(periods);
+        } catch (error) {
+            if (!(error instanceof PeriodSetGrew)) throw error;
+            periods = [...error.periods];
+        }
+    }
+    throw new ConflictException('finance.error.concurrentChange');
+}
+
+/**
+ * Serialises postings that attach the same private file (review M2): a
+ * transaction-scoped advisory lock on the file name, taken after the flat
+ * lock and released at commit/rollback. Two payments on different flats
+ * would otherwise both pass the "already attached" check.
+ */
+export async function lockAttachment(
+    tx: FinanceTx,
+    fileName: string
+): Promise<void> {
+    await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`finance-attachment:${fileName}`}))`
+    );
 }
