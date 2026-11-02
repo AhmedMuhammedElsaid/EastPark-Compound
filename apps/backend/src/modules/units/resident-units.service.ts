@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     ConflictException,
     Injectable,
     Logger,
@@ -11,6 +12,10 @@ import {
     PRISMA_UNIQUE_VIOLATION,
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import {
+    isKnownFlat,
+    normaliseFlatKey,
+} from 'src/common/finance/compound-layout';
 import { EmailService } from 'src/common/email/email.service';
 import { FlatKey, formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -219,6 +224,98 @@ export class ResidentUnitsService {
         );
 
         return { success: true, message: 'unit.success.removed' };
+    }
+
+    /**
+     * `PATCH /admin/resident-units/:id` [SUPER_ADMIN]: repairs the flat key of
+     * an existing unit (a typo, `a1`, `Building A`). Re-keying moves ownership,
+     * hence SUPER_ADMIN like add and remove. In one transaction: normalises the
+     * key, refuses an unknown flat (400 `unit.error.unknownFlat`) or a key held
+     * by another unit (409 `unit.error.alreadyOwned`), updates the three text
+     * columns and, when the account's primary `unitNumber` was this flat,
+     * follows it. Audited UNIT_KEY_CHANGED (old and new key). Works for a
+     * soft-deleted owner too. The finance flat link and ownership period are
+     * added by a later slice (no `FlatOwnership` table yet).
+     */
+    async updateKey(
+        unitId: string,
+        key: FlatKey,
+        actor: IAuthUser
+    ): Promise<ResidentUnitDto> {
+        const next = normaliseFlatKey(key);
+        if (!isKnownFlat(next))
+            throw new BadRequestException('unit.error.unknownFlat');
+
+        const unit = await this.db.residentUnit.findUnique({
+            where: { id: unitId },
+            select: {
+                ...RESIDENT_UNIT_SELECT,
+                userId: true,
+                user: { select: { name: true, email: true, unitNumber: true } },
+            },
+        });
+        if (!unit) throw new NotFoundException('unit.error.notFound');
+
+        const before = formatUnitLabel(unit);
+        const after = formatUnitLabel(next);
+        if (
+            unit.building === next.building &&
+            unit.floor === next.floor &&
+            unit.flatNumber === next.flatNumber
+        )
+            return toResidentUnitDto(unit);
+
+        const holder = await this.findOwner(next);
+        if (holder && holder.id !== unit.id)
+            throw new ConflictException('unit.error.alreadyOwned');
+
+        const activeLead = await this.db.residentLead.findFirst({
+            where: { ...next, status: { in: ACTIVE_LEAD_STATUSES } },
+            select: { id: true },
+        });
+        if (activeLead)
+            throw new ConflictException('residentLead.error.unitReserved');
+
+        let updated: Prisma.ResidentUnitGetPayload<{
+            select: typeof RESIDENT_UNIT_SELECT;
+        }>;
+        try {
+            updated = await this.db.$transaction(async tx => {
+                const row = await tx.residentUnit.update({
+                    where: { id: unit.id },
+                    data: {
+                        building: next.building,
+                        floor: next.floor,
+                        flatNumber: next.flatNumber,
+                    },
+                    select: RESIDENT_UNIT_SELECT,
+                });
+                await tx.user.updateMany({
+                    where: { id: unit.userId, unitNumber: before },
+                    data: { unitNumber: after },
+                });
+                return row;
+            });
+        } catch (error) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('unit.error.alreadyOwned');
+            throw error;
+        }
+
+        await this.audit.record(
+            actor,
+            'UNIT_KEY_CHANGED',
+            'ResidentUnit',
+            unit.id,
+            {
+                label: `${userLabel(unit.user)} · ${before} → ${after}`,
+                userId: unit.userId,
+                from: before,
+                to: after,
+            }
+        );
+
+        return toResidentUnitDto(updated);
     }
 
     /** "Flat added to your account" email. Never fails the caller. */

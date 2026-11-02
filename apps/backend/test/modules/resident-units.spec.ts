@@ -5,6 +5,7 @@ import {
     ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import 'reflect-metadata';
 import { PaymentMethod, ResidentLeadStatus, Role } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -13,10 +14,12 @@ import { SessionVersionService } from 'src/common/auth/services/session-version.
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { EmailService } from 'src/common/email/email.service';
+import { ROLES_DECORATOR_KEY } from 'src/common/request/constants/request.constant';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { OrdersService } from 'src/modules/orders/orders.service';
 import { ResidentLeadCreateDto } from 'src/modules/residents/dtos/request/resident-lead.create.dto';
 import { ResidentUnitCreateDto } from 'src/modules/units/dtos/resident-unit.dto';
+import { ResidentUnitsAdminController } from 'src/modules/units/resident-units.admin.controller';
 import { ResidentUnitsService } from 'src/modules/units/resident-units.service';
 import { UserGetProfileResponseDto } from 'src/modules/user/dtos/response/user.response';
 import { UserService } from 'src/modules/user/services/user.service';
@@ -44,6 +47,7 @@ function buildUnitsDb() {
             findUnique: jest.fn(),
             findFirst: jest.fn(),
             create: jest.fn(),
+            update: jest.fn(),
             deleteMany: jest.fn(),
         },
         listing: { updateMany: jest.fn() },
@@ -56,6 +60,16 @@ function buildUnitsDb() {
 }
 
 // ─── Admin add / remove ───────────────────────────────────────────────────────
+
+describe('ResidentUnitsAdminController roles', () => {
+    it('PATCH /admin/resident-units/:id is SUPER_ADMIN only', () => {
+        const roles = Reflect.getMetadata(
+            ROLES_DECORATOR_KEY,
+            ResidentUnitsAdminController.prototype.updateKey
+        ) as Role[];
+        expect(roles).toEqual([Role.SUPER_ADMIN]);
+    });
+});
 
 describe('ResidentUnitsService', () => {
     const db = buildUnitsDb();
@@ -349,6 +363,122 @@ describe('ResidentUnitsService', () => {
             await expect(
                 service.removeFromUser('user-1', 'unit-1', superAdmin)
             ).rejects.toThrow('unit.error.notFound');
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('updateKey', () => {
+        const existing = (overrides: Record<string, unknown> = {}) => ({
+            ...unitRow({ building: 'a1', floor: '3', flatNumber: '2' }),
+            userId: 'user-1',
+            user: { name: 'Sara', email: 'sara@example.com', unitNumber: 'a1-3-2' },
+            ...overrides,
+        });
+        const target = { building: 'A2', floor: 'G', flatNumber: '4' };
+
+        beforeEach(() => {
+            // First findUnique = the unit being repaired, second = key holder.
+            db.residentUnit.findUnique
+                .mockReset()
+                .mockResolvedValueOnce(existing())
+                .mockResolvedValueOnce(null);
+            db.residentUnit.update.mockResolvedValue(
+                unitRow({ building: 'A2', floor: 'G', flatNumber: '4' })
+            );
+        });
+
+        it('re-keys the unit, follows the primary label and audits UNIT_KEY_CHANGED', async () => {
+            const result = await service.updateKey('unit-1', target, superAdmin);
+
+            expect(result.label).toBe('A2-G-4');
+            expect(db.residentUnit.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: { id: 'unit-1' },
+                    data: { building: 'A2', floor: 'G', flatNumber: '4' },
+                })
+            );
+            expect(db.user.updateMany).toHaveBeenCalledWith({
+                where: { id: 'user-1', unitNumber: 'a1-3-2' },
+                data: { unitNumber: 'A2-G-4' },
+            });
+            expect(audit.record).toHaveBeenCalledWith(
+                superAdmin,
+                'UNIT_KEY_CHANGED',
+                'ResidentUnit',
+                'unit-1',
+                expect.objectContaining({ from: 'a1-3-2', to: 'A2-G-4' })
+            );
+        });
+
+        it('normalises a sloppy key before checking it', async () => {
+            await service.updateKey(
+                'unit-1',
+                { building: ' a2 ', floor: 'g', flatNumber: '4' },
+                superAdmin
+            );
+            expect(db.residentUnit.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: { building: 'A2', floor: 'G', flatNumber: '4' },
+                })
+            );
+        });
+
+        it.each([
+            { building: 'Building A', floor: '3', flatNumber: '2' },
+            { building: 'A1', floor: 'G', flatNumber: '2' },
+            { building: 'D2', floor: '3', flatNumber: '2' },
+        ])('refuses an unknown flat %j (400 unknownFlat)', async key => {
+            await expect(
+                service.updateKey('unit-1', key, superAdmin)
+            ).rejects.toThrow('unit.error.unknownFlat');
+            expect(db.residentUnit.update).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+
+        it('refuses a key held by another unit (409 alreadyOwned)', async () => {
+            db.residentUnit.findUnique
+                .mockReset()
+                .mockResolvedValueOnce(existing())
+                .mockResolvedValueOnce({ id: 'unit-2', userId: 'user-2' });
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(db.residentUnit.update).not.toHaveBeenCalled();
+        });
+
+        it('refuses a flat with an active application (409 unitReserved)', async () => {
+            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-9' });
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).rejects.toThrow('residentLead.error.unitReserved');
+            expect(db.residentUnit.update).not.toHaveBeenCalled();
+        });
+
+        it('a lost unique race is a 409 alreadyOwned', async () => {
+            db.residentUnit.update.mockRejectedValue(
+                Object.assign(new Error('unique'), { code: 'P2002' })
+            );
+            await expect(
+                service.updateKey('unit-1', target, superAdmin)
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+
+        it('404 when the unit does not exist', async () => {
+            db.residentUnit.findUnique.mockReset().mockResolvedValue(null);
+            await expect(
+                service.updateKey('nope', target, superAdmin)
+            ).rejects.toThrow('unit.error.notFound');
+        });
+
+        it('is a no-op (no write, no audit) when the key is unchanged', async () => {
+            db.residentUnit.findUnique
+                .mockReset()
+                .mockResolvedValueOnce(
+                    existing({ building: 'A2', floor: 'G', flatNumber: '4' })
+                );
+            await service.updateKey('unit-1', target, superAdmin);
+            expect(db.residentUnit.update).not.toHaveBeenCalled();
             expect(audit.record).not.toHaveBeenCalled();
         });
     });
