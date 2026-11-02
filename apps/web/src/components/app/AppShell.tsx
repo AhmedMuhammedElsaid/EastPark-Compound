@@ -50,6 +50,9 @@ function AppShellContent({ children }: AppShellProps) {
     ...(isAdminRole(user?.role)
       ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.nav_label'), icon: ShieldCheck }]
       : []),
+    ...(user?.role === 'ACCOUNTANT'
+      ? [{ href: '/finance', label: t('finance.title'), mobileLabel: t('finance.nav_label'), icon: Landmark }]
+      : []),
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
     {
       href: '/announcements',
@@ -65,7 +68,9 @@ function AppShellContent({ children }: AppShellProps) {
   const mobileNavItems = navItems.filter(({ href }) =>
     (isAdminRole(user?.role)
       ? ['/home', '/admin', '/announcements', '/governance', accountHref]
-      : ['/home', '/directory', '/announcements', '/governance', accountHref]
+      : user?.role === 'ACCOUNTANT'
+        ? ['/home', '/finance', '/announcements', '/governance', accountHref]
+        : ['/home', '/directory', '/announcements', '/governance', accountHref]
     ).includes(href),
   );
 

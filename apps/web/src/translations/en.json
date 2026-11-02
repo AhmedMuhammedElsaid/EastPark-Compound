@@ -4,6 +4,10 @@
     "admin_denied_title": "Administrator access required",
     "admin_unavailable_body": "We could not verify administrator permissions right now. Please try again.",
     "admin_unavailable_title": "Admin service unavailable",
+    "finance_denied_body": "This area is reserved for EastPark accountant and administrator accounts.",
+    "finance_denied_title": "Finance access required",
+    "finance_unavailable_body": "We could not verify finance permissions right now. Please try again.",
+    "finance_unavailable_title": "Finance service unavailable",
     "merchant_denied_body": "This area is reserved for EastPark merchant accounts.",
     "merchant_denied_title": "Merchant access required",
     "merchant_unavailable_body": "We could not verify merchant permissions right now. Please try again.",
@@ -1037,6 +1041,7 @@
     "preferences_local": "Language and appearance are stored on this browser. The account API does not currently sync these preferences.",
     "remove_photo": "Remove photo",
     "roles": {
+      "accountant": "Accountant",
       "admin": "Compound admin",
       "guest": "Guest",
       "merchant": "Merchant",
@@ -1059,6 +1064,11 @@
       "unit": "Unit number must be 100 characters or fewer.",
       "unit_not_owned": "That flat isn't linked to your account. Refresh the page and choose again."
     }
+  },
+  "finance": {
+    "nav_label": "Finance",
+    "placeholder_body": "The finance desk is being prepared. You will manage charges, payments and the compound fund here.",
+    "title": "Finance"
   },
   "nav": {
     "brand": "EastPark",

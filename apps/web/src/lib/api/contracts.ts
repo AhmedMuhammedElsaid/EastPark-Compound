@@ -1,4 +1,4 @@
-export type Role = 'GUEST' | 'RESIDENT' | 'MERCHANT' | 'ADMIN' | 'SUPER_ADMIN';
+export type Role = 'GUEST' | 'RESIDENT' | 'MERCHANT' | 'ADMIN' | 'SUPER_ADMIN' | 'ACCOUNTANT';
 
 export type ApiEnvelope<T> = { data: T };
 

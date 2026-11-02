@@ -10,7 +10,7 @@ import { PendingMark } from '@/components/PendingMark';
 import { SkipLink } from '@/components/SkipLink';
 import { RegisterUnitForm } from '@/components/form/RegisterUnitForm';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { isAdminRole } from '@/lib/auth/roles';
+import { isAdminRole, isFinanceRole } from '@/lib/auth/roles';
 import { useTranslation } from '@/lib/i18n';
 
 export default function RegisterUnitPage() {
@@ -20,7 +20,7 @@ export default function RegisterUnitPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace(isAdminRole(user.role) ? '/admin' : '/home');
+      router.replace(isAdminRole(user.role) ? '/admin' : isFinanceRole(user.role) ? '/finance' : '/home');
     }
   }, [isLoading, router, user]);
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { isBlockedApiPath, isBlockedPagePath, isOpenToRestricted, isRestrictedRole } from './access-policy';
+import {
+  isBlockedApiPath,
+  isBlockedPagePath,
+  isOpenToRestricted,
+  isPathAllowedForRole,
+  isRestrictedRole,
+} from './access-policy';
 
 describe('isRestrictedRole (home-only lockdown)', () => {
   it('confines residents to /home', () => {
@@ -59,5 +65,54 @@ describe('isOpenToRestricted (navigation links)', () => {
 
   it.each(['/directories', '/cart', '/checkout', '/orders', '/profiles', '/homework', '/notifications', '/'])('gates %s', (href) => {
     expect(isOpenToRestricted(href)).toBe(false);
+  });
+});
+
+describe('finance lockdown (accounting 8.1)', () => {
+  it('blocks staff finance for a resident, in both directions', () => {
+    for (const path of ['/finance', '/finance/flats/x']) {
+      expect(isBlockedPagePath(path)).toBe(true);
+      expect(isPathAllowedForRole('RESIDENT', path, 'page')).toBe(false);
+    }
+    expect(isBlockedApiPath('/api/finance/payments')).toBe(true);
+    expect(isPathAllowedForRole('RESIDENT', '/api/finance/payments', 'api')).toBe(false);
+    for (const path of ['/home/finance', '/home/finance/reports/1']) {
+      expect(isBlockedPagePath(path)).toBe(false);
+      expect(isPathAllowedForRole('RESIDENT', path, 'page')).toBe(true);
+    }
+    expect(isBlockedApiPath('/api/me/finance/flats')).toBe(false);
+    expect(isPathAllowedForRole('RESIDENT', '/api/me/finance/flats', 'api')).toBe(true);
+  });
+
+  it('confines ACCOUNTANT to its own allow-list and does not make it unrestricted', () => {
+    expect(isRestrictedRole('ACCOUNTANT')).toBe(true);
+    for (const path of ['/finance', '/finance/flats/1', '/home', '/profile', '/notifications']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'page')).toBe(true);
+    }
+    for (const path of ['/api/finance/payments', '/api/me/finance/flats', '/api/auth/logout', '/api/profile', '/api/uploads/image', '/api/notifications/preferences']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'api')).toBe(true);
+    }
+    for (const path of ['/orders', '/cart', '/checkout', '/merchant', '/admin', '/directory', '/directory/shop-1', '/announcements', '/governance', '/feedback', '/reports', '/financex']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'page')).toBe(false);
+    }
+    for (const path of ['/api/orders', '/api/admin/polls', '/api/merchant/orders', '/api/shops', '/api/announcements']) {
+      expect(isPathAllowedForRole('ACCOUNTANT', path, 'api')).toBe(false);
+    }
+  });
+
+  it.each(['ADMIN', 'SUPER_ADMIN', 'MERCHANT'])('leaves %s unrestricted', (role) => {
+    for (const path of ['/finance', '/admin', '/orders', '/directory']) {
+      expect(isPathAllowedForRole(role, path, 'page')).toBe(true);
+    }
+    expect(isPathAllowedForRole(role, '/api/orders', 'api')).toBe(true);
+  });
+
+  it('judges links by role: ACCOUNTANT opens /finance, a resident does not', () => {
+    expect(isOpenToRestricted('/finance', 'ACCOUNTANT')).toBe(true);
+    expect(isOpenToRestricted('/notifications', 'ACCOUNTANT')).toBe(true);
+    expect(isOpenToRestricted('/directory', 'ACCOUNTANT')).toBe(false);
+    expect(isOpenToRestricted('/finance', 'RESIDENT')).toBe(false);
+    expect(isOpenToRestricted('/finance')).toBe(false);
+    expect(isOpenToRestricted('/directory', 'RESIDENT')).toBe(true);
   });
 });

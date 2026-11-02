@@ -47,3 +47,40 @@ describe('proxy home-only lockdown', () => {
     expect(proxy(request(path, 'RESIDENT')).status).toBe(403);
   });
 });
+
+describe('proxy finance lockdown', () => {
+  it('redirects a RESIDENT away from /finance and forbids /api/finance', () => {
+    const page = proxy(request('/finance/flats/x', 'RESIDENT'));
+    expect(page.status).toBe(307);
+    expect(page.headers.get('location')).toBe('https://web.test/home');
+    expect(proxy(request('/api/finance/payments', 'RESIDENT')).status).toBe(403);
+  });
+
+  it.each(['/home/finance', '/api/me/finance/flats'])('keeps %s open to a RESIDENT', (path) => {
+    expect(proxy(request(path, 'RESIDENT')).headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it.each(['/finance', '/home', '/profile', '/notifications', '/api/finance/x', '/api/me/finance/x', '/api/auth/session', '/api/profile', '/api/notifications'])(
+    'lets an ACCOUNTANT reach %s',
+    (path) => {
+      expect(proxy(request(path, 'ACCOUNTANT')).headers.get('x-middleware-next')).toBe('1');
+    },
+  );
+
+  it.each(['/orders', '/cart', '/checkout', '/merchant', '/admin', '/directory', '/directory/shop-1', '/announcements'])(
+    'redirects an ACCOUNTANT away from %s',
+    (path) => {
+      const response = proxy(request(path, 'ACCOUNTANT'));
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('https://web.test/home');
+    },
+  );
+
+  it.each(['/api/orders', '/api/admin/polls', '/api/shops'])('returns 403 to an ACCOUNTANT for %s', (path) => {
+    expect(proxy(request(path, 'ACCOUNTANT')).status).toBe(403);
+  });
+
+  it.each(['/finance', '/admin', '/directory'])('leaves ADMIN unrestricted on %s', (path) => {
+    expect(proxy(request(path, 'ADMIN')).headers.get('x-middleware-next')).toBe('1');
+  });
+});
