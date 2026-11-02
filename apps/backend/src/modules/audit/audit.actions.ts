@@ -45,6 +45,9 @@ export const AUDIT_ACTIONS = [
     // Multi-flat owners (SUPER_ADMIN adds / removes a flat on an account)
     'UNIT_ADDED',
     'UNIT_REMOVED',
+    // Accounting slice 3: audited key repairs (SUPER_ADMIN unit key, admin lead unit)
+    'UNIT_KEY_CHANGED',
+    'LEAD_UNIT_CHANGED',
     // Flat listings (admin moderation)
     'LISTING_APPROVED',
     'LISTING_REJECTED',

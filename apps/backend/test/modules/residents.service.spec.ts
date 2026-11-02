@@ -564,6 +564,119 @@ describe('ResidentsService', () => {
         });
     });
 
+    // ── updateUnit ────────────────────────────────────────────────────────────
+
+    describe('updateUnit', () => {
+        const target = { building: 'A2', floor: 'G', flatNumber: '4' };
+
+        beforeEach(() => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            db.residentLead.findFirst.mockResolvedValue(null);
+            db.residentLead.update.mockImplementation(
+                ({ data }: { data: Record<string, unknown> }) =>
+                    Promise.resolve(mockLead(data))
+            );
+        });
+
+        it('rewrites the unit of an open lead and audits LEAD_UNIT_CHANGED without PII', async () => {
+            const result = await service.updateUnit('lead-1', target, adminActor);
+
+            expect(result).toMatchObject(target);
+            expect(db.residentLead.update).toHaveBeenCalledWith({
+                where: { id: 'lead-1' },
+                data: target,
+            });
+            const meta = audit.record.mock.calls[0]?.[4];
+            expect(audit.record).toHaveBeenCalledWith(
+                adminActor,
+                'LEAD_UNIT_CHANGED',
+                'ResidentLead',
+                'lead-1',
+                expect.objectContaining({
+                    from: 'Building A-3-2',
+                    to: 'A2-G-4',
+                })
+            );
+            expect(JSON.stringify(meta)).not.toContain('01000400163');
+            expect(JSON.stringify(meta)).not.toContain('29801011234567');
+        });
+
+        it('allows an INVITED lead (open) too', async () => {
+            db.residentLead.findUnique.mockResolvedValue(
+                mockLead({ status: ResidentLeadStatus.INVITED })
+            );
+            await expect(
+                service.updateUnit('lead-1', target, adminActor)
+            ).resolves.toBeDefined();
+        });
+
+        it.each([ResidentLeadStatus.CONVERTED, ResidentLeadStatus.REJECTED])(
+            'refuses a %s lead (history)',
+            async status => {
+                db.residentLead.findUnique.mockResolvedValue(
+                    mockLead({ status })
+                );
+                await expect(
+                    service.updateUnit('lead-1', target, adminActor)
+                ).rejects.toThrow('residentLead.error.notEditable');
+                expect(db.residentLead.update).not.toHaveBeenCalled();
+            }
+        );
+
+        it('404 for a missing lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(null);
+            await expect(
+                service.updateUnit('nope', target, adminActor)
+            ).rejects.toBeInstanceOf(NotFoundException);
+        });
+
+        it('409 when another open lead holds the flat', async () => {
+            db.residentLead.findFirst.mockResolvedValue({ id: 'lead-2' });
+            await expect(
+                service.updateUnit('lead-1', target, adminActor)
+            ).rejects.toThrow('residentLead.error.unitReserved');
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('409 when an account already owns the flat', async () => {
+            residentUnits.findOwner.mockResolvedValue({ id: 'u', userId: 'x' });
+            await expect(
+                service.updateUnit('lead-1', target, adminActor)
+            ).rejects.toThrow('residentLead.error.unitReserved');
+        });
+
+        it('a lost unique race is a 409', async () => {
+            db.residentLead.update.mockRejectedValue(
+                Object.assign(new Error('unique'), { code: 'P2002' })
+            );
+            await expect(
+                service.updateUnit('lead-1', target, adminActor)
+            ).rejects.toBeInstanceOf(ConflictException);
+        });
+
+        it('is a no-op when the unit is unchanged', async () => {
+            await service.updateUnit(
+                'lead-1',
+                { building: 'Building A', floor: '3', flatNumber: '2' },
+                adminActor
+            );
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('approval of a legacy unknown-key lead is not blocked', () => {
+        it('invite still works for a "Building A" lead', async () => {
+            db.residentLead.findUnique.mockResolvedValue(mockLead());
+            db.user.findUnique.mockResolvedValue(null);
+            invitationsService.create.mockResolvedValue(undefined);
+            db.residentLead.update.mockResolvedValue(mockLead());
+            await expect(
+                service.invite('lead-1', adminActor)
+            ).resolves.toEqual({ message: 'residentLead.success.invited' });
+        });
+    });
+
     // ── reject ────────────────────────────────────────────────────────────────
 
     describe('reject', () => {
@@ -864,12 +977,43 @@ describe('ResidentLeadQueryDto q', () => {
     });
 });
 
+describe('ResidentLeadCreateDto flat layout', () => {
+    const run = async (building: string, floor: string, flatNumber: string) => {
+        const dto = plainToInstance(ResidentLeadCreateDto, {
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            phone: '01000400163',
+            building,
+            floor,
+            flatNumber,
+        });
+        return { dto, errors: await validate(dto) };
+    };
+
+    it('accepts a real flat and normalises case', async () => {
+        const { dto, errors } = await run(' a2 ', 'g', '3');
+        expect(errors).toHaveLength(0);
+        expect(dto.building).toBe('A2');
+        expect(dto.floor).toBe('G');
+    });
+
+    it.each([
+        ['Building A', '3', '2'],
+        ['A1', 'G', '2'],
+        ['C3', 'G', '1'],
+        ['D2', '3', '2'],
+    ])('rejects %s-%s-%s as not a flat of the compound', async (b, f, n) => {
+        const { errors } = await run(b, f, n);
+        expect(errors.map(e => e.property)).toEqual(['building']);
+    });
+});
+
 describe('ResidentLeadCreateDto validation', () => {
     const base = {
         name: 'Jane Doe',
         email: 'jane@example.com',
         phone: '01000400163',
-        building: 'Building A',
+        building: 'A1',
         floor: '3',
         flatNumber: '2',
     };

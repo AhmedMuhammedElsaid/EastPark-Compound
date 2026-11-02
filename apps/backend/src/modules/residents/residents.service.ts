@@ -21,6 +21,7 @@ import {
 } from 'src/modules/units/resident-units.service';
 
 import { ResidentLeadCreateDto } from './dtos/request/resident-lead.create.dto';
+import { ResidentLeadUnitUpdateDto } from './dtos/request/resident-lead.unit.update.dto';
 import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
 import {
     ResidentLeadListResponseDto,
@@ -253,6 +254,74 @@ export class ResidentsService {
         await this.recordLead(actor, 'LEAD_APPROVED', lead);
 
         return { message: 'residentLead.success.invited' };
+    }
+
+    /**
+     * `PATCH /admin/residents/leads/:id` [ADMIN]: corrects the unit of a lead
+     * that is still open (PENDING or INVITED) before it is approved. The DTO
+     * has already normalised the key and checked it against the 690-flat
+     * layout. 404 `residentLead.error.notFound`; 409
+     * `residentLead.error.notEditable` (CONVERTED or REJECTED: history);
+     * 409 `residentLead.error.unitReserved` (another open lead or an owned
+     * flat). Audited LEAD_UNIT_CHANGED (old and new key, no PII).
+     */
+    async updateUnit(
+        id: string,
+        dto: ResidentLeadUnitUpdateDto,
+        actor: IAuthUser
+    ): Promise<ResidentLeadResponseDto> {
+        const lead = await this.db.residentLead.findUnique({ where: { id } });
+        if (!lead) throw new NotFoundException('residentLead.error.notFound');
+        if (
+            lead.status !== ResidentLeadStatus.PENDING &&
+            lead.status !== ResidentLeadStatus.INVITED
+        )
+            throw new ConflictException('residentLead.error.notEditable');
+
+        const next = {
+            building: dto.building,
+            floor: dto.floor,
+            flatNumber: dto.flatNumber,
+        };
+        if (
+            lead.building === next.building &&
+            lead.floor === next.floor &&
+            lead.flatNumber === next.flatNumber
+        )
+            return lead;
+
+        const other = await this.db.residentLead.findFirst({
+            where: {
+                ...next,
+                status: { in: ACTIVE_LEAD_STATUSES },
+                id: { not: lead.id },
+            },
+            select: { id: true },
+        });
+        if (other)
+            throw new ConflictException('residentLead.error.unitReserved');
+        if (await this.residentUnits.findOwner(next))
+            throw new ConflictException('residentLead.error.unitReserved');
+
+        let updated: ResidentLead;
+        try {
+            updated = await this.db.residentLead.update({
+                where: { id: lead.id },
+                data: next,
+            });
+        } catch (error) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('residentLead.error.unitReserved');
+            throw error;
+        }
+
+        await this.audit.record(actor, 'LEAD_UNIT_CHANGED', 'ResidentLead', lead.id, {
+            label: `${lead.name} — ${formatUnitLabel(lead)} → ${formatUnitLabel(next)}`,
+            from: formatUnitLabel(lead),
+            to: formatUnitLabel(next),
+        });
+
+        return updated;
     }
 
     /**
