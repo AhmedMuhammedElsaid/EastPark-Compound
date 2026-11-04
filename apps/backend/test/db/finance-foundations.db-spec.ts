@@ -34,7 +34,12 @@ describeDb('finance_foundations migration (real Postgres)', () => {
             db.scalar(
                 `SELECT COUNT(*) FROM "flats" WHERE "phase" = 'phase-2' AND "floor" = 'G'`
             )
-        ).toBe('90');
+        ).toBe('15');
+        expect(
+            db.scalar(
+                `SELECT COUNT(*) FROM "flats" WHERE "phase" = 'phase-3' AND "floor" = 'G'`
+            )
+        ).toBe('15');
         expect(
             db.scalar(
                 `SELECT COUNT(*) FROM "flats" WHERE "phase" IN ('phase-1','phase-4') AND "floor" = 'G'`
@@ -85,14 +90,15 @@ describeDb('finance_foundations migration (real Postgres)', () => {
 
     it('raises only a NOTICE for unknown keys and leaves flatId NULL (units and listings)', () => {
         const db = fresh();
-        db.exec(
+        const fixtures = db.exec(
             [
                 insertUser('u1'),
                 insertUnit('ru1', 'u1', 'Building A', '3', '2'),
                 insertListing('l1', 'u1', 'Z9', '1', '1'),
-                insertListing('l2', 'u1', 'Z9', '1', '1', 'PENDING'),
+                insertListing('l2', 'u1', 'Z9', '1', '2', 'PENDING'),
             ].join('\n')
         );
+        expect(fixtures.status).toBe(0);
         const r = db.applyMigration(FINANCE_MIGRATION);
         expect(r.status).toBe(0);
         expect(r.stderr).toMatch(/unknown flat key/);
