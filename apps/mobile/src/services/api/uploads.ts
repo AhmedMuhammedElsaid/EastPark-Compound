@@ -1,6 +1,6 @@
 import { client } from "./client";
 
-export type UploadPurpose = "avatar" | "feedback" | "candidate";
+export type UploadPurpose = "avatar" | "feedback" | "candidate" | "listing";
 
 type UploadResponse = { data: { url: string; path: string } };
 

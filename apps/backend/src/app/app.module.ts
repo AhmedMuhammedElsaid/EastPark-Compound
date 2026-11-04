@@ -6,6 +6,7 @@ import { CommonModule } from 'src/common/common.module';
 import { AuditModule } from 'src/modules/audit/audit.module';
 import { AnnouncementsModule } from 'src/modules/announcements/announcements.module';
 import { InvitationsModule } from 'src/modules/invitations/invitations.module';
+import { ListingsModule } from 'src/modules/listings/listings.module';
 import { FeedbackModule } from 'src/modules/feedback/feedback.module';
 import { GovernanceModule } from 'src/modules/governance/governance.module';
 import { MerchantModule } from 'src/modules/merchant/merchant.module';
@@ -67,6 +68,9 @@ import { RootController } from './controllers/root.controller';
 
         // Recycle bin: list + restore soft-deleted records [SUPER_ADMIN]
         TrashModule,
+
+        // Flat listings (sell / rent) + admin moderation
+        ListingsModule,
     ],
     controllers: [RootController, HealthController],
 })

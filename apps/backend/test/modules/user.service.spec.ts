@@ -20,6 +20,7 @@ function buildDeleteDb() {
     return {
         user: { findUnique: jest.fn(), update: jest.fn() },
         shop: { count: jest.fn() },
+        listing: { updateMany: jest.fn() },
         $transaction: jest.fn(),
     };
 }
@@ -85,8 +86,9 @@ describe('UserService.deleteUser (soft delete)', () => {
         expect(args.data.deletedAt).toBeInstanceOf(Date);
         expect(args.data.deletedById).toBe('resident-1');
         expect(args.data.pushToken).toBeNull();
-        // No anonymising and no wiping of related data.
-        expect(db.$transaction).not.toHaveBeenCalled();
+        // No anonymising and no wiping of related data: the only batch is the
+        // account update plus withdrawing open listings.
+        expect(db.$transaction).toHaveBeenCalledTimes(1);
         // No admin actor: AuditService.record ignores it.
         expect(audit.record).toHaveBeenCalledWith(
             undefined,
@@ -95,6 +97,26 @@ describe('UserService.deleteUser (soft delete)', () => {
             'resident-1',
             expect.anything()
         );
+    });
+
+    it('withdraws the owner\'s PENDING and APPROVED listings in the same transaction', async () => {
+        db.user.findUnique.mockResolvedValue(resident);
+        db.listing.updateMany.mockReturnValue('listing-op');
+        db.user.update.mockReturnValue('user-op');
+
+        await service.deleteUser('resident-1');
+
+        expect(db.listing.updateMany).toHaveBeenCalledWith({
+            where: {
+                ownerId: 'resident-1',
+                status: { in: ['PENDING', 'APPROVED'] },
+            },
+            data: { status: 'WITHDRAWN' },
+        });
+        expect(db.$transaction).toHaveBeenCalledWith([
+            'listing-op',
+            'user-op',
+        ]);
     });
 
     it('revokes every session: plain bump before the row changes and again after it', async () => {

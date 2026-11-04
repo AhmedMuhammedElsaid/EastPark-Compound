@@ -14,6 +14,7 @@ export enum ENUM_FILE_STORE {
     USER_AVATARS = 'user-avatars',
     FEEDBACK_ATTACHMENTS = 'feedback-attachments',
     CANDIDATE_PHOTOS = 'candidate-photos',
+    LISTING_PHOTOS = 'listing-photos',
     REPORTS = 'reports',
     ANNOUNCEMENTS = 'announcements',
 }

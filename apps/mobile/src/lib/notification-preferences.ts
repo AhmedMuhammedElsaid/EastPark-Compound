@@ -1,7 +1,7 @@
 import type { NotificationPreference } from "@/services/api/notifications";
 
 /** Backend `NotificationType`, in the order the settings list shows them. */
-export const NOTIFICATION_TYPES = ["ORDER_UPDATE", "ANNOUNCEMENT", "POLL", "ELECTION", "FEEDBACK_UPDATE"] as const;
+export const NOTIFICATION_TYPES = ["ORDER_UPDATE", "ANNOUNCEMENT", "POLL", "ELECTION", "FEEDBACK_UPDATE", "LISTING_UPDATE"] as const;
 
 export type PreferenceType = typeof NOTIFICATION_TYPES[number];
 

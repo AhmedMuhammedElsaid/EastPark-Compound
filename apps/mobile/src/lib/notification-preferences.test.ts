@@ -5,7 +5,7 @@ describe("notification preferences", () => {
     const rows = normalizePreferences([{ type: "POLL", enabled: false }, { type: "ORDER_UPDATE", enabled: true }]);
     expect(rows.map(r => r.type)).toEqual([...NOTIFICATION_TYPES]);
     expect(rows.find(r => r.type === "POLL")?.enabled).toBe(false);
-    expect(rows.filter(r => r.enabled)).toHaveLength(4);
+    expect(rows.filter(r => r.enabled)).toHaveLength(NOTIFICATION_TYPES.length - 1);
   });
 
   it("drops unknown types and survives a missing body", () => {

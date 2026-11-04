@@ -1,8 +1,8 @@
 import { Tabs } from "expo-router";
 import {
+  Buildings,
   Compass,
   House,
-  ShoppingBag,
   User,
   Users,
 } from "phosphor-react-native";
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ComingSoonSheet } from "@/components/auth/coming-soon-sheet";
 import { openComingSoon } from "@/lib/coming-soon";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
+import { canBrowseListings } from "@/lib/listings-access";
 import { useAppSelector } from "@/store";
 import { BRAND, FONT } from "@/theme/tokens";
 
@@ -23,10 +24,13 @@ export default function TabsLayout() {
   // gesture area itself — a fixed height would draw it underneath them.
   const { bottom } = useSafeAreaInsets();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  const role = useAppSelector(s => s.auth.user?.role);
+  // Guests see the Flats tab (it opens Coming soon); merchants cannot browse listings.
+  const hideFlats = isAuthenticated && !canBrowseListings(role);
 
-  // Guests can browse Home, Directory and Profile; Orders and Community open the
+  // Guests can browse Home, Directory and Profile; Flats and Community open the
   // Coming soon sheet instead of switching tab (web: GatedLink for restricted users).
-  const guestLocked = (feature: "market" | "community") => ({
+  const guestLocked = (feature: "listings" | "community") => ({
     tabPress: (event: { preventDefault: () => void }) => {
       if (isAuthenticated)
         return;
@@ -79,12 +83,13 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="orders"
-          listeners={guestLocked("market")}
+          name="flats"
+          listeners={guestLocked("listings")}
           options={{
-            title: t("orders.title"),
+            href: hideFlats ? null : undefined,
+            title: t("listings.tab_label"),
             tabBarIcon: ({ color, focused }) => (
-              <ShoppingBag color={color} size={24} weight={focused ? "fill" : "regular"} />
+              <Buildings color={color} size={24} weight={focused ? "fill" : "regular"} />
             ),
           }}
         />
@@ -98,6 +103,8 @@ export default function TabsLayout() {
             ),
           }}
         />
+        {/* Orders left the tab bar for Flats; it stays reachable from Profile → My orders and the Home tile. */}
+        <Tabs.Screen name="orders" options={{ href: null }} />
         <Tabs.Screen
           name="profile"
           options={{

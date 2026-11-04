@@ -20,6 +20,27 @@ All reference files live in `Documentation/` — read these before exploring the
 
 ## Status
 
+### Flat listings — 2026-10-31 (local, not deployed)
+
+- Residents sell/rent a flat; admins moderate. Contract (source of truth for web/mobile): `Documentation/LISTINGS-CONTRACT.md`.
+  Module `src/modules/listings/` (service, admin service, notifier, diff, mapper, DTOs). Models `Listing` + `ListingRevision`,
+  enums `ListingType`/`ListingStatus`, `NotificationType.LISTING_UPDATE` (preferences list it automatically).
+- Routes: `GET /v1/listings` (APPROVED + unexpired, owner not soft-deleted), `GET /v1/listings/mine` (registered BEFORE `:id`),
+  `GET|PATCH /v1/listings/:id`, `POST /v1/listings` (5/user/hour via `CacheService.incrWithTtl`, 429
+  `listing.error.tooManyCreated`), `POST /v1/listings/:id/renew|close|withdraw`; admin `GET /v1/admin/listings`, `/stats`,
+  `/:id`, `/:id/revisions`, `POST /:id/approve|reject`. Photos upload via `POST /v1/uploads/image?purpose=listing`
+  (RESIDENT/ADMIN/SUPER_ADMIN, folder `listing-photos`) and must pass the storage URL policy.
+- Status machine: create -> PENDING; approve sets 60-day `expiresAt`; owner edit (PENDING/APPROVED/REJECTED) -> PENDING with one
+  `ListingRevision` (changed fields only; no-op -> 400 `listing.error.noChanges`); renew/close APPROVED only; hourly cron
+  (`expireDue`) APPROVED past `expiresAt` -> EXPIRED. Every transition is a compare-and-set (`updateMany` with the status in
+  `where`, `count === 1`), else 409 `listing.error.invalidStatus`.
+- One active listing per flat: pre-check + partial unique index `listings_active_unit_key ... WHERE status IN
+  ('PENDING','APPROVED')`; P2002 -> 409 `listing.error.unitAlreadyListed`. Prisma cannot model that index: **never accept a
+  `migrate dev` diff that drops it** (WARNING comment in `schema.prisma`).
+- Migration `20261031000000_flat_listings` (hand-written, RLS enabled on both tables). NOT applied anywhere; no DB was available
+  here, so it was checked only with `prisma validate` + an offline `prisma migrate diff`. Deploy runs it on Render boot.
+- Tests: `test/modules/listings.{pure,service,update,admin}.spec.ts`.
+
 ### Invitations + admin shops — 2026-10-08 (pushed, live on Render)
 
 - Accept-invitation: DTO password is shape-only (non-empty, ≤256); strength (`PASSWORD_REGEX`) is enforced in the service only

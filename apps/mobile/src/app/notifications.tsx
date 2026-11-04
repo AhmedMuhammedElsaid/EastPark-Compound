@@ -75,6 +75,7 @@ const TYPE_COLOR: Record<string, string> = {
   POLL: SEMANTIC.success,
   ELECTION: SEMANTIC.warning,
   FEEDBACK_UPDATE: SEMANTIC.info,
+  LISTING_UPDATE: BRAND.gold,
 };
 
 export default function NotificationsScreen() {

@@ -6,7 +6,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, Role } from '@prisma/client';
+import { ListingStatus, Prisma, Role } from '@prisma/client';
 
 import { SessionVersionService } from 'src/common/auth/services/session-version.service';
 import { isSuperAdmin } from 'src/common/auth/utils/roles';
@@ -199,14 +199,29 @@ export class UserService {
         // key would later reset the version below tokens minted after restore.
         await this.sessions.bump(userId);
 
-        await this.db.user.update({
-            where: { id: userId },
-            data: {
-                deletedAt: new Date(),
-                deletedById: actor?.userId ?? userId,
-                pushToken: null,
-            },
-        });
+        // One transaction: the account and its open listings go together. A
+        // PENDING / APPROVED listing would otherwise keep holding its flat
+        // (partial unique index) while hidden from browse. Restore leaves
+        // them WITHDRAWN.
+        await this.db.$transaction([
+            this.db.listing.updateMany({
+                where: {
+                    ownerId: userId,
+                    status: {
+                        in: [ListingStatus.PENDING, ListingStatus.APPROVED],
+                    },
+                },
+                data: { status: ListingStatus.WITHDRAWN },
+            }),
+            this.db.user.update({
+                where: { id: userId },
+                data: {
+                    deletedAt: new Date(),
+                    deletedById: actor?.userId ?? userId,
+                    pushToken: null,
+                },
+            }),
+        ]);
 
         await this.audit.record(actor, 'USER_DELETED', 'User', userId, {
             label: userLabel(user),

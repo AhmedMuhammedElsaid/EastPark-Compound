@@ -2,13 +2,13 @@
  * Maps a notification (push payload or in-app record) to the screen it opens.
  *
  * Backend contract (NotificationType enum): ORDER_UPDATE, ANNOUNCEMENT, POLL,
- * ELECTION, FEEDBACK_UPDATE. Push payloads currently carry only the `data`
+ * ELECTION, FEEDBACK_UPDATE, LISTING_UPDATE. Push payloads currently carry only the `data`
  * object (e.g. ORDER_UPDATE → `{ orderId, status }`) — no `type` and no
  * `referenceId` — so the type is inferred from the id key when absent.
  * `referenceId` is still honoured for forward compatibility.
  */
 
-export type NotificationType = "ORDER_UPDATE" | "ANNOUNCEMENT" | "POLL" | "ELECTION" | "FEEDBACK_UPDATE";
+export type NotificationType = "ORDER_UPDATE" | "ANNOUNCEMENT" | "POLL" | "ELECTION" | "FEEDBACK_UPDATE" | "LISTING_UPDATE";
 
 export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "ORDER_UPDATE",
@@ -16,6 +16,7 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "POLL",
   "ELECTION",
   "FEEDBACK_UPDATE",
+  "LISTING_UPDATE",
 ];
 
 const ID_KEY_BY_TYPE: Record<NotificationType, string> = {
@@ -24,6 +25,7 @@ const ID_KEY_BY_TYPE: Record<NotificationType, string> = {
   POLL: "pollId",
   ELECTION: "electionId",
   FEEDBACK_UPDATE: "feedbackId",
+  LISTING_UPDATE: "listingId",
 };
 
 const ROUTE_BY_TYPE: Record<NotificationType, (id: string) => string> = {
@@ -32,6 +34,8 @@ const ROUTE_BY_TYPE: Record<NotificationType, (id: string) => string> = {
   POLL: id => `/(tabs)/community/governance/polls/${id}`,
   ELECTION: id => `/(tabs)/community/governance/elections/${id}`,
   FEEDBACK_UPDATE: id => `/(tabs)/community/feedback/${id}`,
+  // The owner's view (reject reason, actions), per LISTINGS-CONTRACT §6.
+  LISTING_UPDATE: id => `/(tabs)/profile/listings/${id}`,
 };
 
 function isNotificationType(value: unknown): value is NotificationType {

@@ -936,6 +936,7 @@
     "type_ANNOUNCEMENT": "Announcements",
     "type_ELECTION": "Elections",
     "type_FEEDBACK_UPDATE": "Feedback updates",
+    "type_LISTING_UPDATE": "Flat listing updates",
     "type_ORDER_UPDATE": "Order updates",
     "type_POLL": "Polls",
     "unavailable": "Notifications could not be updated. Please try again.",

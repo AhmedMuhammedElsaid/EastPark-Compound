@@ -1,0 +1,30 @@
+{
+    "success": {
+        "created": "Your listing was submitted for review",
+        "updated": "Your listing was updated and sent for review again",
+        "renewed": "Your listing was renewed",
+        "closed": "Your listing was marked as closed",
+        "withdrawn": "Your listing was withdrawn",
+        "approved": "The listing was approved",
+        "rejected": "The listing was rejected"
+    },
+    "error": {
+        "notFound": "Listing not found",
+        "unitNotOwned": "This flat is not on your account. Contact the admin to add it.",
+        "changedSinceLoaded": "The owner edited this listing after you opened it. Review it again.",
+        "unitAlreadyListed": "This flat already has an active listing",
+        "ownerDeleted": "The owner's account was deleted, so this listing cannot be approved",
+        "invalidStatus": "This action is not allowed for the listing's current status",
+        "noChanges": "Nothing was changed in the listing",
+        "photosRequired": "A listing needs between 1 and 8 photos",
+        "tooManyCreated": "You have created too many listings recently. Please try again later."
+    },
+    "notification": {
+        "approvedTitle": "Your listing was approved",
+        "approvedBody": "Your listing for flat {unit} is now visible to residents.",
+        "rejectedTitle": "Your listing needs changes",
+        "rejectedBody": "Your listing for flat {unit} was not approved. Open it to see the reason.",
+        "expiredTitle": "Your listing expired",
+        "expiredBody": "Your listing for flat {unit} has expired. You can create a new one."
+    }
+}

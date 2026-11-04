@@ -2,7 +2,7 @@ import type { NotificationPreference } from "@/services/api/notifications";
 import { FlashList } from "@shopify/flash-list";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { BellSimple, ChatCircle, CheckSquare, Medal, Megaphone, Package } from "phosphor-react-native";
+import { BellSimple, ChatCircle, CheckSquare, HouseLine, Medal, Megaphone, Package } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Switch, Text, View } from "react-native";
@@ -56,6 +56,7 @@ const TYPE_ICONS: Record<string, typeof BellSimple> = {
   POLL: CheckSquare,
   ELECTION: Medal,
   FEEDBACK_UPDATE: ChatCircle,
+  LISTING_UPDATE: HouseLine,
 };
 
 /** Per-type notification switches (`GET/PUT /notifications/preferences`). */

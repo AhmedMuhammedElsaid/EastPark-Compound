@@ -6,6 +6,7 @@ export const notificationTypes = [
   'POLL',
   'ELECTION',
   'FEEDBACK_UPDATE',
+  'LISTING_UPDATE',
 ] as const;
 
 export type NotificationType = (typeof notificationTypes)[number];
@@ -24,9 +25,11 @@ const notificationSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
 });
 
+// Items and preferences are validated one by one (see `keepKnown`) so a notification type
+// added by a newer backend is ignored instead of failing the whole page.
 const notificationPageEnvelopeSchema = z.object({
   data: z.object({
-    items: z.array(notificationSchema),
+    items: z.array(z.unknown()),
     nextCursor: z.string().optional(),
     unreadCount: z.number().int().nonnegative(),
   }),
@@ -38,7 +41,7 @@ const notificationPreferenceSchema = z.object({
 });
 
 const notificationPreferencesEnvelopeSchema = z.object({
-  data: z.array(notificationPreferenceSchema),
+  data: z.array(z.unknown()),
 });
 
 const markAllReadEnvelopeSchema = z.object({
@@ -46,19 +49,31 @@ const markAllReadEnvelopeSchema = z.object({
 });
 
 export type AppNotification = z.infer<typeof notificationSchema>;
-export type NotificationPage = z.infer<typeof notificationPageEnvelopeSchema>['data'];
+export type NotificationPage = Omit<z.infer<typeof notificationPageEnvelopeSchema>['data'], 'items'> & {
+  items: AppNotification[];
+};
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 
 export function isNotificationType(value: string): value is NotificationType {
   return notificationTypes.some((type) => type === value);
 }
 
+function keepKnown<T>(rows: unknown[], schema: z.ZodType<T>): T[] {
+  const kept: T[] = [];
+  for (const row of rows) {
+    const parsed = schema.safeParse(row);
+    if (parsed.success) kept.push(parsed.data);
+  }
+  return kept;
+}
+
 export function parseNotificationPage(payload: unknown): NotificationPage {
-  return notificationPageEnvelopeSchema.parse(payload).data;
+  const data = notificationPageEnvelopeSchema.parse(payload).data;
+  return { ...data, items: keepKnown(data.items, notificationSchema) };
 }
 
 export function parseNotificationPreferences(payload: unknown): NotificationPreference[] {
-  return notificationPreferencesEnvelopeSchema.parse(payload).data;
+  return keepKnown(notificationPreferencesEnvelopeSchema.parse(payload).data, notificationPreferenceSchema);
 }
 
 export function parseNotificationPreference(payload: unknown): NotificationPreference {

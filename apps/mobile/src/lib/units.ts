@@ -48,3 +48,34 @@ export function canChoosePrimaryFlat(user: UnitSource): boolean {
 
 /** `PUT /user` 400 when the chosen primary flat is not one of the account's flats. */
 export const UNIT_NOT_OWNED_CODE = "user.error.unitNotOwned";
+
+export type ListingFlatOption = { label: string; building: string; floor: string; flatNumber: string };
+
+/** `A1-3-2` → its parts, or null when the label is not `building-floor-flat`. */
+export function parseUnitLabel(label: string): ListingFlatOption | null {
+  const parts = label.trim().split("-").map(part => part.trim());
+  if (parts.length !== 3 || parts.some(part => !part))
+    return null;
+  const [building, floor, flatNumber] = parts as [string, string, string];
+  return { label: `${building}-${floor}-${flatNumber}`, building, floor, flatNumber };
+}
+
+/**
+ * Flats the resident may list: exactly the account's flats (primary first),
+ * mirroring the backend's `assertOwnsFlat` (real `units`, else the legacy
+ * `unitNumber`). Labels that cannot be split into building-floor-flat are skipped.
+ */
+export function getListingFlatOptions(user: UnitSource): ListingFlatOption[] {
+  const byLabel = new Map<string, ListingFlatOption>();
+  for (const unit of user?.units ?? []) {
+    const option = { building: unit.building, floor: unit.floor, flatNumber: unit.flatNumber, label: unit.label.trim() };
+    if (option.label)
+      byLabel.set(option.label, option);
+  }
+  for (const label of getDeliveryUnitOptions(user)) {
+    const option = byLabel.get(label) ?? parseUnitLabel(label);
+    if (option)
+      byLabel.set(label, option);
+  }
+  return getDeliveryUnitOptions(user).map(label => byLabel.get(label)).filter((o): o is ListingFlatOption => !!o);
+}
