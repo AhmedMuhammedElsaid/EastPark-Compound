@@ -199,6 +199,9 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
     const message = errors[name]?.message;
     return message ? t(message as any) : undefined;
   };
+  const flatError = (errors.building || errors.floor || errors.flatNumber) && t("listings.error_flat_details");
+  const firstError = Object.values(errors).find(error => error?.message)?.message;
+  const submitError = flatError ?? (firstError ? t(firstError as any) : photoError);
   const fieldProps = { control, styles, colors };
 
   return (
@@ -217,7 +220,7 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
               <Text style={styles.hint}>{t("listings.no_flat_body")}</Text>
             </View>
           )
-        : <FlatPicker control={control} setValue={setValue} flats={flats} />}
+        : <FlatPicker control={control} setValue={setValue} flats={flats} error={flatError} />}
 
       <Field
         {...fieldProps}
@@ -258,6 +261,8 @@ export function ListingForm({ listingId, initialValues, initialPhotos }: Props) 
       />
 
       {isEdit ? <Text style={styles.note}>{t("listings.edit_review_note")}</Text> : null}
+
+      {submitError ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>{submitError}</Text> : null}
 
       <GoldButton
         label={uploading ? t("feedback.uploading") : t(isEdit ? "listings.save" : "listings.submit")}

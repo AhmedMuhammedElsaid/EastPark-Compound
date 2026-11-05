@@ -694,6 +694,7 @@
     "error_changed_since_loaded": "The owner edited this listing after you opened it. Review it again.",
     "error_description": "Keep it under 2,000 characters",
     "error_flat": "Enter a flat number from 1 to 5",
+    "error_flat_details": "Your registered flat details cannot be used for a listing. Ask an admin to correct the building, floor and flat number.",
     "error_floor": "Enter G or a floor from 1 to 11",
     "error_invalid_status": "This listing changed. Refresh and try again.",
     "error_no_changes": "Nothing changed",
