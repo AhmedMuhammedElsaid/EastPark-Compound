@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
+import { redactUrlForLog } from 'src/common/logger/redact-url';
 import { MessageService } from 'src/common/message/services/message.service';
 
 import { IApiErrorResponse } from '../interfaces/response.interface';
@@ -96,14 +97,15 @@ export class ResponseExceptionFilter implements ExceptionFilter {
         };
         if (code) errorResponse.code = code;
 
+        const logUrl = redactUrlForLog(request.url);
         if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
             this.logger.error(
-                `${request.method} ${request.url} - ${statusCode}: ${message}`,
+                `${request.method} ${logUrl} - ${statusCode}: ${message}`,
                 exception instanceof Error ? exception.stack : undefined
             );
         } else if (statusCode >= HttpStatus.BAD_REQUEST) {
             this.logger.warn(
-                `${request.method} ${request.url} - ${statusCode}: ${message}`
+                `${request.method} ${logUrl} - ${statusCode}: ${message}`
             );
         }
 

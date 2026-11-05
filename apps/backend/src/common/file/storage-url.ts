@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { FINANCE_STORE_FOLDERS } from './enums/files.enum';
+
 /**
  * Public-object URL prefix of our upload bucket, exactly as supabase-js
  * `getPublicUrl` builds it: `<SUPABASE_URL>/storage/v1/object/public/<bucket>/`.
@@ -40,8 +42,27 @@ export function isStoragePublicUrl(
         parsed.username === '' &&
         parsed.password === '' &&
         parsed.pathname.startsWith(prefix.pathname) &&
-        parsed.pathname.length > prefix.pathname.length
+        parsed.pathname.length > prefix.pathname.length &&
+        !isFinanceObjectPath(parsed.pathname.slice(prefix.pathname.length))
     );
+}
+
+/**
+ * True when an object path (relative to a bucket) lies in a finance folder
+ * (`staging/`, `receipts/`, ...). Finance files live only in the private
+ * bucket; refusing these folders here as well means a finance path can never
+ * pass as a public image URL, even if one were ever copied into the public
+ * bucket by mistake.
+ */
+export function isFinanceObjectPath(objectPath: string): boolean {
+    const first = objectPath.split('/')[0] ?? '';
+    let segment: string;
+    try {
+        segment = decodeURIComponent(first).trim().toLowerCase();
+    } catch {
+        return true;
+    }
+    return FINANCE_STORE_FOLDERS.includes(segment);
 }
 
 /**

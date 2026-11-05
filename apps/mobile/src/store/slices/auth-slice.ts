@@ -16,7 +16,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  role: "RESIDENT" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN";
+  role: "RESIDENT" | "MERCHANT" | "ADMIN" | "SUPER_ADMIN" | "ACCOUNTANT";
   isVerified: boolean;
   avatarUrl: string | null;
   /** Primary flat label (legacy single-flat field; kept by the backend). */

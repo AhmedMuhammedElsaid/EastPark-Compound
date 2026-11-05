@@ -8,8 +8,9 @@
  * "Coming soon" popup instead of navigating, and direct requests to other app
  * routes are redirected to /home by `src/proxy.ts`. ADMIN, SUPER_ADMIN and MERCHANT accounts are never restricted
  * (owner decision, REV-45): merchants must reach /merchant/* and /api/merchant/*
- * to run their shops. Guests are not restricted either. Set the flag to false to
- * restore full access everywhere.
+ * to run their shops. Guests are not restricted either. ACCOUNTANT is NOT unrestricted: it gets its
+ * own explicit allow-list (`FINANCE_ROLE_OPEN_PREFIXES`) and nothing else, whatever the flag says.
+ * Set the flag to false to restore full access to residents.
  *
  * This file is dependency-free so the proxy, server code and client UI share it.
  */
@@ -23,9 +24,19 @@ export const REFRESH_COOKIE_NAME = 'eastpark_refresh';
 /** Roles that keep full access during the lockdown. */
 const UNRESTRICTED_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'MERCHANT']);
 
-/** True when the signed-in role must stay on the home page. Guests, admins and merchants are not restricted. */
-export function isRestrictedRole(role: string | null | undefined): boolean {
-  return RESIDENT_HOME_ONLY && Boolean(role) && !UNRESTRICTED_ROLES.has(role as string);
+/** ACCOUNTANT: finance desk access, but NOT admin-like and NOT unrestricted. */
+export function isAccountantRole(role: string | null | undefined): boolean {
+  return role === 'ACCOUNTANT';
+}
+
+/**
+ * True when the signed-in role must stay inside its allow-list. ACCOUNTANT is always confined: that
+ * never depends on the resident lockdown flag, so lifting `RESIDENT_HOME_ONLY` frees residents only.
+ * Guests, admins and merchants are not restricted. `homeOnly` exists so tests can exercise the flag-off state.
+ */
+export function isRestrictedRole(role: string | null | undefined, homeOnly: boolean = RESIDENT_HOME_ONLY): boolean {
+  if (isAccountantRole(role)) return true;
+  return homeOnly && Boolean(role) && !UNRESTRICTED_ROLES.has(role as string);
 }
 
 /** App route prefixes a restricted user may not open directly. */
@@ -35,6 +46,7 @@ const BLOCKED_PAGE_PREFIXES = [
   '/cart',
   '/checkout',
   '/feedback',
+  '/finance',
   '/governance',
   '/merchant',
   '/notifications',
@@ -51,6 +63,7 @@ const BLOCKED_API_PREFIXES = [
   '/api/admin',
   '/api/announcements',
   '/api/feedback',
+  '/api/finance',
   '/api/governance',
   '/api/merchant',
   '/api/notifications',
@@ -65,9 +78,47 @@ function matches(pathname: string, prefixes: string[]): boolean {
 /** In-app pages a restricted user may open; navigation to anything else shows Coming soon. */
 const OPEN_PAGE_PREFIXES = [HOME_PATH, '/profile', '/directory'];
 
-/** True when a restricted user may navigate to `href` (query string and hash are ignored). */
-export function isOpenToRestricted(href: string): boolean {
+/**
+ * ACCOUNTANT's explicit allow-list (never `OPEN_PAGE_PREFIXES`: `/finance` must stay closed to residents).
+ * Pages: finance desk, home, profile, notifications. BFF: finance, the resident finance prefix
+ * (`/api/me/finance`, a separate prefix from the blocked `/api/reports`/`/api/admin`), auth, profile,
+ * uploads (avatar) and notifications. Everything else (directory, orders, cart, checkout, merchant,
+ * admin, announcements, ...) is denied for this role.
+ */
+export const FINANCE_ROLE_OPEN_PREFIXES = {
+  page: ['/finance', HOME_PATH, '/profile', '/notifications'],
+  api: [
+    '/api/finance',
+    '/api/me/finance',
+    '/api/auth',
+    '/api/profile',
+    '/api/uploads',
+    '/api/notifications',
+  ],
+};
+
+/**
+ * Whether `role` may open `pathname`. Unrestricted roles and guests: always. ACCOUNTANT: only inside
+ * `FINANCE_ROLE_OPEN_PREFIXES`. Other restricted roles (RESIDENT): unless the path is on the deny lists.
+ */
+export function isPathAllowedForRole(
+  role: string | null | undefined,
+  pathname: string,
+  kind: 'page' | 'api',
+  homeOnly: boolean = RESIDENT_HOME_ONLY,
+): boolean {
+  if (!isRestrictedRole(role, homeOnly)) return true;
+  if (isAccountantRole(role)) return matches(pathname, FINANCE_ROLE_OPEN_PREFIXES[kind]);
+  return !(kind === 'api' ? isBlockedApiPath(pathname) : isBlockedPagePath(pathname));
+}
+
+/**
+ * True when a restricted user may navigate to `href` (query string and hash are ignored). Pass the
+ * role so ACCOUNTANT is judged against its own allow-list; without it the resident list applies.
+ */
+export function isOpenToRestricted(href: string, role?: string | null): boolean {
   const pathname = href.split(/[?#]/, 1)[0] ?? '';
+  if (isAccountantRole(role)) return matches(pathname, FINANCE_ROLE_OPEN_PREFIXES.page);
   return matches(pathname, OPEN_PAGE_PREFIXES);
 }
 

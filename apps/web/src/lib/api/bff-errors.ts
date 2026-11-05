@@ -61,6 +61,9 @@ const KNOWN_BACKEND_CODES: Record<string, string> = {
   // one of the caller's (POST /orders).
   'unit.error.alreadyOwned': 'unit_already_owned',
   'user.error.unitNotOwned': 'unit_not_owned',
+  // Accept-invitation: the invited role cannot be combined with the account's existing role
+  // (an accountant is never silently upgraded or downgraded).
+  'invitation.error.roleConflict': 'role_conflict',
   'order.error.deliveryUnitInvalid': 'delivery_unit_invalid',
   // POST /orders (400): the computed total is above the backend cap.
   'order.error.totalTooLarge': 'order_total_too_large',

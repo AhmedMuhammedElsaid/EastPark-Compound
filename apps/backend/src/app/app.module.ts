@@ -8,6 +8,7 @@ import { AnnouncementsModule } from 'src/modules/announcements/announcements.mod
 import { InvitationsModule } from 'src/modules/invitations/invitations.module';
 import { ListingsModule } from 'src/modules/listings/listings.module';
 import { FeedbackModule } from 'src/modules/feedback/feedback.module';
+import { FinanceModule } from 'src/modules/finance/finance.module';
 import { GovernanceModule } from 'src/modules/governance/governance.module';
 import { MerchantModule } from 'src/modules/merchant/merchant.module';
 import { OrdersModule } from 'src/modules/orders/orders.module';
@@ -71,6 +72,9 @@ import { RootController } from './controllers/root.controller';
 
         // Flat listings (sell / rent) + admin moderation
         ListingsModule,
+
+        // Accounting: finance desk [ACCOUNTANT, ADMIN]
+        FinanceModule,
     ],
     controllers: [RootController, HealthController],
 })

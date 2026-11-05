@@ -35,7 +35,12 @@ export class NotificationsController {
     constructor(private readonly notificationsService: NotificationsService) {}
 
     @Get()
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({
         summary: 'Get my in-app notification feed (cursor-paginated)',
@@ -48,7 +53,12 @@ export class NotificationsController {
     }
 
     @Patch('read-all')
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Mark all notifications as read' })
     async markAllRead(
@@ -58,7 +68,12 @@ export class NotificationsController {
     }
 
     @Get('preferences')
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Get my notification preferences' })
     async getPreferences(
@@ -68,7 +83,12 @@ export class NotificationsController {
     }
 
     @Put('preferences/:type')
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Update a notification preference' })
     @ApiParam({
@@ -90,7 +110,12 @@ export class NotificationsController {
     }
 
     @Patch(':id/read')
-    @AllowedRoles([Role.RESIDENT, Role.MERCHANT, Role.ADMIN])
+    @AllowedRoles([
+        Role.RESIDENT,
+        Role.MERCHANT,
+        Role.ADMIN,
+        Role.ACCOUNTANT,
+    ])
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Mark a single notification as read' })
     async markRead(

@@ -65,7 +65,7 @@ export function ChangeRoleDialog({
 
           <fieldset className="mt-5">
             <legend className="text-[length:var(--text-label)] font-semibold">{t('admin_team.dialog_choose')}</legend>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {ASSIGNABLE_ROLES.map((role) => {
                 const current = role === shown.role;
                 const selected = choice === role;

@@ -24,7 +24,9 @@ import { IRefreshTokenPayload } from '../../helper/interfaces/encryption.interfa
 import { HelperEncryptionService } from '../../helper/services/helper.encryption.service';
 import { normalizeEmail } from '../../helper/transforms/normalize-email.transform';
 import { formatUnitLabel } from '../../helper/utils/unit-label';
+import { FlatOwnershipService } from '../../finance/flat-ownership.service';
 import { IAuthUser } from '../../request/interfaces/request.interface';
+import { resolveInvitedRole } from '../utils/roles';
 import {
     AcceptInvitationDto,
     AuthForgotPasswordDto,
@@ -48,15 +50,6 @@ const FORGOT_REQUEST_WINDOW = 900; // 15 minutes
 const FORGOT_PASSWORD_MESSAGE =
     'If that email exists, a reset link has been sent';
 
-/** Privilege order used so an invitation can upgrade but never downgrade. */
-const ROLE_RANK: Record<Role, number> = {
-    [Role.GUEST]: -1,
-    [Role.RESIDENT]: 0,
-    [Role.MERCHANT]: 1,
-    [Role.ADMIN]: 2,
-    [Role.SUPER_ADMIN]: 3,
-};
-
 /** Canonical `User.unitNumber` built from a resident lead's unit fields. */
 export function formatLeadUnit(
     lead: Pick<ResidentLead, 'building' | 'floor' | 'flatNumber'>
@@ -75,7 +68,8 @@ export class AuthService {
         private readonly email: EmailService,
         private readonly encryption: HelperEncryptionService,
         private readonly config: ConfigService,
-        private readonly sessions: SessionVersionService
+        private readonly sessions: SessionVersionService,
+        private readonly ownership: FlatOwnershipService
     ) {
         this.appUrl =
             config.get<string>('app.webUrl') ?? 'http://localhost:3000';
@@ -342,6 +336,11 @@ export class AuthService {
                 );
         }
 
+        // Decided before anything is claimed: a conflict leaves the invitation unused.
+        const nextRole = existing
+            ? resolveInvitedRole(invitation.role, existing.role)
+            : invitation.role;
+
         const leads =
             invitation.role === Role.RESIDENT
                 ? await this.findInvitationLeads(email)
@@ -363,15 +362,19 @@ export class AuthService {
             if (claimed.count === 0)
                 throw new BadRequestException('Invitation already used');
 
+            // Existing account: lock it so a concurrent delete cannot leave
+            // the new units' periods open on a deleted account (review M1).
+            if (existing) {
+                const live = await this.ownership.lockUser(tx, existing.id);
+                if (!live || live.deletedAt)
+                    throw new ConflictException('user.error.accountDeleted');
+            }
+
             const saved = existing
                 ? await tx.user.update({
                       where: { id: existing.id },
                       data: {
-                          role:
-                              ROLE_RANK[invitation.role] >
-                              ROLE_RANK[existing.role]
-                                  ? invitation.role
-                                  : existing.role,
+                          role: nextRole,
                           isVerified: true,
                           ...(phoneLead && !existing.phone
                               ? { phone: phoneLead.phone }
@@ -401,6 +404,9 @@ export class AuthService {
                 // The flat becomes owned by this account. Another owner of ANY
                 // of the flats (unique flat key) rolls the whole claim back:
                 // the invitation stays unused.
+                // Path 1: the flat link and its ownership period commit with
+                // the unit (a held period is also 409 alreadyOwned).
+                const flatId = await this.ownership.resolveFlatId(tx, lead);
                 try {
                     await tx.residentUnit.create({
                         data: {
@@ -409,6 +415,7 @@ export class AuthService {
                             floor: lead.floor,
                             flatNumber: lead.flatNumber,
                             leadId: lead.id,
+                            flatId,
                         },
                     });
                 } catch (error) {
@@ -416,6 +423,12 @@ export class AuthService {
                         throw new ConflictException('unit.error.alreadyOwned');
                     throw error;
                 }
+
+                if (flatId)
+                    await this.ownership.openForNewUnit(tx, {
+                        flatId,
+                        userId: saved.id,
+                    });
 
                 await tx.residentLead.update({
                     where: { id: lead.id },

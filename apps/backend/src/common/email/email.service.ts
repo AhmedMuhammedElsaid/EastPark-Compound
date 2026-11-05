@@ -130,7 +130,9 @@ export class EmailService {
                 ? 'مشرف'
                 : role === 'MERCHANT'
                   ? 'تاجر'
-                  : 'ساكن';
+                  : role === 'ACCOUNTANT'
+                    ? 'محاسب'
+                    : 'ساكن';
 
         return this.send({
             to,

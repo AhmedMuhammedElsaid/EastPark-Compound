@@ -7,7 +7,7 @@
  * `/api/*` routes) falls back to a known in-app path.
  */
 
-import { isAdminRole } from './roles';
+import { isAdminRole, isFinanceRole } from './roles';
 
 const PLACEHOLDER_ORIGIN = 'https://eastpark.invalid';
 const MAX_RETURN_PATH_LENGTH = 2048;
@@ -64,7 +64,7 @@ export function sessionRefreshPath(next: string, options: { optional?: boolean }
  * at an auth page would loop, so it falls back to the role default.
  */
 export function postLoginPath(role: string | null | undefined, next: string | null | undefined): string {
-  const fallback = isAdminRole(role) ? '/admin' : DEFAULT_RETURN_PATH;
+  const fallback = isAdminRole(role) ? '/admin' : isFinanceRole(role) ? '/finance' : DEFAULT_RETURN_PATH;
   const path = safeReturnPath(next, fallback);
   return /^\/login(?:[/?#]|$)/.test(path) ? fallback : path;
 }

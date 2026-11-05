@@ -4,7 +4,9 @@ import { Role } from '@prisma/client';
 
 import {
     isAdminRole,
+    isFinanceRole,
     isSuperAdmin,
+    resolveInvitedRole,
     roleSatisfies,
 } from 'src/common/auth/utils/roles';
 import { RolesGuard } from 'src/common/request/guards/roles.guard';
@@ -105,5 +107,71 @@ describe('role helpers', () => {
         expect(roleSatisfies(Role.SUPER_ADMIN, Role.ADMIN)).toBe(true);
         expect(roleSatisfies(Role.ADMIN, Role.SUPER_ADMIN)).toBe(false);
         expect(roleSatisfies(Role.SUPER_ADMIN, Role.RESIDENT)).toBe(false);
+    });
+});
+
+describe('ACCOUNTANT role', () => {
+    it('is a finance role but never admin-like', () => {
+        expect(isFinanceRole(Role.ACCOUNTANT)).toBe(true);
+        expect(isFinanceRole(Role.ADMIN)).toBe(true);
+        expect(isFinanceRole(Role.SUPER_ADMIN)).toBe(true);
+        expect(isFinanceRole(Role.RESIDENT)).toBe(false);
+        expect(isFinanceRole(Role.MERCHANT)).toBe(false);
+        expect(isFinanceRole(undefined)).toBe(false);
+        expect(isAdminRole(Role.ACCOUNTANT)).toBe(false);
+    });
+
+    it('ACCOUNTANT satisfies only ACCOUNTANT', () => {
+        expect(roleSatisfies(Role.ACCOUNTANT, Role.ADMIN)).toBe(false);
+        expect(roleSatisfies(Role.ACCOUNTANT, Role.RESIDENT)).toBe(false);
+        expect(roleSatisfies(Role.ACCOUNTANT, Role.ACCOUNTANT)).toBe(true);
+        expect(roleSatisfies(Role.SUPER_ADMIN, Role.ACCOUNTANT)).toBe(false);
+        expect(roleSatisfies(Role.ADMIN, Role.ACCOUNTANT)).toBe(false);
+    });
+
+    it('is rejected by an ADMIN-only route', () => {
+        expect(() =>
+            guardAllowing([Role.ADMIN]).canActivate(contextFor(Role.ACCOUNTANT))
+        ).toThrow(ForbiddenException);
+        expect(
+            guardAllowing([Role.ACCOUNTANT, Role.ADMIN]).canActivate(
+                contextFor(Role.ACCOUNTANT)
+            )
+        ).toBe(true);
+        expect(
+            guardAllowing([Role.ACCOUNTANT, Role.ADMIN]).canActivate(
+                contextFor(Role.SUPER_ADMIN)
+            )
+        ).toBe(true);
+    });
+});
+
+describe('resolveInvitedRole', () => {
+    const R = Role;
+    const cases: [Role, Role, Role | 'conflict'][] = [
+        // invited, existing, result
+        [R.ACCOUNTANT, R.RESIDENT, R.ACCOUNTANT],
+        [R.ACCOUNTANT, R.ACCOUNTANT, R.ACCOUNTANT],
+        [R.ACCOUNTANT, R.MERCHANT, 'conflict'],
+        [R.ACCOUNTANT, R.ADMIN, 'conflict'],
+        [R.ACCOUNTANT, R.SUPER_ADMIN, 'conflict'],
+        [R.MERCHANT, R.ACCOUNTANT, 'conflict'],
+        [R.ADMIN, R.ACCOUNTANT, 'conflict'],
+        [R.RESIDENT, R.ACCOUNTANT, R.ACCOUNTANT],
+        // unchanged upgrade-only behaviour
+        [R.MERCHANT, R.RESIDENT, R.MERCHANT],
+        [R.ADMIN, R.MERCHANT, R.ADMIN],
+        [R.RESIDENT, R.MERCHANT, R.MERCHANT],
+        [R.MERCHANT, R.ADMIN, R.ADMIN],
+        [R.ADMIN, R.SUPER_ADMIN, R.SUPER_ADMIN],
+    ];
+    it.each(cases)('%s invitation to an existing %s -> %s', (invited, existing, want) => {
+        if (want === 'conflict') {
+            expect(() => resolveInvitedRole(invited, existing)).toThrow(
+                'invitation.error.roleConflict'
+            );
+        } else {
+            expect(resolveInvitedRole(invited, existing)).toBe(want);
+        }
     });
 });

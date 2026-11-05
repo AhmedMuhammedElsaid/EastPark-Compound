@@ -10,6 +10,7 @@ import { feedbackLabel } from 'src/modules/feedback/feedback.service';
 import { InvitationCreateDto } from 'src/modules/invitations/dtos/request/invitation.create.dto';
 import { AdminUserRoleUpdateDto } from 'src/modules/user/dtos/request/user.admin.request';
 import { UserService } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 async function errors<T extends object>(
     cls: new () => T,
@@ -19,13 +20,27 @@ async function errors<T extends object>(
 }
 
 describe('no API grants SUPER_ADMIN', () => {
-    it('role change accepts RESIDENT, MERCHANT, ADMIN only', async () => {
-        for (const role of [Role.RESIDENT, Role.MERCHANT, Role.ADMIN]) {
+    it('role change accepts RESIDENT, MERCHANT, ADMIN, ACCOUNTANT only', async () => {
+        for (const role of [
+            Role.RESIDENT,
+            Role.MERCHANT,
+            Role.ADMIN,
+            Role.ACCOUNTANT,
+        ]) {
             expect(await errors(AdminUserRoleUpdateDto, { role })).toBe(0);
         }
         for (const role of [Role.SUPER_ADMIN, Role.GUEST, 'OWNER', undefined]) {
             expect(await errors(AdminUserRoleUpdateDto, { role })).toBe(1);
         }
+    });
+
+    it('an invitation can carry ACCOUNTANT', async () => {
+        expect(
+            await errors(InvitationCreateDto, {
+                email: 'someone@example.com',
+                role: Role.ACCOUNTANT,
+            })
+        ).toBe(0);
     });
 
     it('an invitation can never carry SUPER_ADMIN', async () => {
@@ -71,7 +86,8 @@ describe('an audit write failure does not break the request', () => {
             db as unknown as DatabaseService,
             sessions as unknown as SessionVersionService,
             {} as ConfigService,
-            audit
+            audit,
+            asOwnership(mockFlatOwnership())
         );
 
         await expect(

@@ -21,6 +21,7 @@ import { TrashAdminController } from 'src/modules/trash/trash.admin.controller';
 import { TrashService } from 'src/modules/trash/trash.service';
 import { UserAdminController } from 'src/modules/user/controllers/user.admin.controller';
 import { deletedUserEmail } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 const superAdmin = { userId: 'owner-1', role: Role.SUPER_ADMIN };
 const deletedAt = new Date('2026-10-04T10:00:00Z');
@@ -41,11 +42,14 @@ const db = {
     shopPhoto: model(),
     product: model(),
     review: model(),
+    $transaction: jest.fn(),
 };
 const audit = { record: jest.fn() };
+const ownership = mockFlatOwnership();
 const service = new TrashService(
     db as unknown as DatabaseService,
-    audit as unknown as AuditService
+    audit as unknown as AuditService,
+    asOwnership(ownership)
 );
 
 const liveShop = { name: 'Cafe', deletedAt: null };
@@ -57,7 +61,12 @@ const busyMerchant = { deletedAt: null, role: Role.MERCHANT, shops: [{ id: 's2' 
 
 beforeEach(() => {
     jest.clearAllMocks();
-    for (const m of Object.values(db)) m.update.mockResolvedValue({});
+    for (const m of [db.user, db.shop, db.shopPhoto, db.product, db.review])
+        m.update.mockResolvedValue({});
+    db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+        fn(db)
+    );
+    ownership.reopenForUser.mockResolvedValue([]);
 });
 
 describe('TrashService.list', () => {
@@ -222,6 +231,57 @@ describe('TrashService.restore', () => {
             'u1',
             { label: 'Sara (sara@x.com)' }
         );
+    });
+
+    it('restoring a user reopens its linked flats in the same transaction and audits them', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'u1',
+            name: 'Sara',
+            email: 'sara@x.com',
+            role: Role.RESIDENT,
+            unitNumber: 'A1-3-2',
+            deletedAt,
+            deletedBy: owner,
+        });
+        ownership.reopenForUser.mockResolvedValue(['A1-3-2', 'B2-G-5']);
+
+        await service.restore('USER', 'u1', superAdmin);
+
+        expect(db.$transaction).toHaveBeenCalledTimes(1);
+        expect(ownership.reopenForUser).toHaveBeenCalledWith(
+            db,
+            'u1',
+            'owner-1'
+        );
+        const [update] = db.user.update.mock.invocationCallOrder;
+        const [reopen] = ownership.reopenForUser.mock.invocationCallOrder;
+        expect(update).toBeLessThan(reopen);
+        expect(audit.record).toHaveBeenCalledWith(
+            superAdmin,
+            'USER_RESTORED',
+            'User',
+            'u1',
+            { label: 'Sara (sara@x.com)', reopenedFlats: 'A1-3-2, B2-G-5' }
+        );
+    });
+
+    it('a failed reopen (flat taken meanwhile) fails the restore with no audit', async () => {
+        db.user.findUnique.mockResolvedValue({
+            id: 'u1',
+            name: 'Sara',
+            email: 'sara@x.com',
+            role: Role.RESIDENT,
+            unitNumber: null,
+            deletedAt,
+            deletedBy: owner,
+        });
+        ownership.reopenForUser.mockRejectedValue(
+            new ConflictException('unit.error.alreadyOwned')
+        );
+        await expect(service.restore('USER', 'u1', superAdmin)).rejects.toThrow(
+            'unit.error.alreadyOwned'
+        );
+        expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('a legacy anonymised account is 409 notRestorable', async () => {

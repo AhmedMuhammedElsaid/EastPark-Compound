@@ -11,6 +11,7 @@ import {
     Matches,
 } from 'class-validator';
 
+import { IsKnownFlat } from 'src/common/finance/is-known-flat.decorator';
 import { NormalizeEmail } from 'src/common/helper/transforms/normalize-email.transform';
 
 export class ResidentLeadCreateDto {
@@ -46,19 +47,25 @@ export class ResidentLeadCreateDto {
     })
     phone: string;
 
-    // Trimmed so "A1 " and "A1" are the same flat for every unique key
-    // (also the admin add-flat DTO, which picks this field).
-    @ApiProperty({ example: 'Building A' })
+    // Trimmed and upper-cased so "a1 " and "A1" are the same flat for every
+    // unique key (also the admin add-flat DTO, which picks this field).
+    // The whole key must be one of the compound's 690 flats (accounting 2.2,
+    // staged step 2); this only rejects NEW input, existing leads are untouched.
+    @ApiProperty({ example: 'A1' })
     @Transform(({ value }: { value: unknown }) =>
-        typeof value === 'string' ? value.trim() : value
+        typeof value === 'string' ? value.trim().toUpperCase() : value
     )
     @IsString()
     @IsNotEmpty()
+    @IsKnownFlat()
     building: string;
 
     // String, not Int: ground floor is submitted as "G" (phases 2 and 3 only),
     // and leading-zero forms like "01" must survive round-tripping.
     @ApiProperty({ example: '3', description: '"G" (ground) or "1".."11"' })
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim().toUpperCase() : value
+    )
     @IsString()
     @IsNotEmpty()
     @Matches(/^(G|[1-9]|1[01])$/, {

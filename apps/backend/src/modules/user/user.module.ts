@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FlatOwnershipModule } from 'src/common/finance/flat-ownership.module';
 
 import { AuthModule } from 'src/common/auth/auth.module';
 import { DatabaseModule } from 'src/common/database/database.module';
@@ -18,6 +19,7 @@ import { UserService } from './services/user.service';
         DatabaseModule,
         ShopsModule,
         ResidentUnitsModule,
+        FlatOwnershipModule,
     ],
     controllers: [
         UserAdminController,

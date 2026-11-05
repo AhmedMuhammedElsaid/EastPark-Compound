@@ -24,10 +24,18 @@ Full detail lives in `FrontendPlan.md` and `BackendPlan.md`.
 - `.impeccable.md` — design context for skill commands
 - `.github/copilot-instructions.md` — same design context synced for GitHub Copilot
 - `eastpark.jpg` — official brand logo (source of color palette)
+- `Documentation/HANDOFF.md` — live cross-machine state (branches, accounting slices, owner rules, traps)
 
 ---
 
 ## Current Status
+
+> ### 2026-11-02 — FLAT LISTINGS + ACCOUNTING IN PROGRESS (NEWEST — READ `Documentation/HANDOFF.md` FIRST)
+>
+> `Documentation/HANDOFF.md` is the portable state for every machine: branches, slice status, owner decisions,
+> working rules and traps. Work is on `feature/flat-listings` (done, PR-ready) and `feature/accounting` (built on
+> it; slices 1–4 built and reviewed, slice 4 findings + slices 5–8 remain). Nothing deployed; build all slices
+> first, then the owner runs root `steps.md` (written at the end) from their own machine.
 
 > ### 2026-10-12 — STORE-PUBLISH PREP, LAUNCH FIX, OTA, PRIVACY POLICY (NEWEST; 5 commits local, NOT pushed)
 >

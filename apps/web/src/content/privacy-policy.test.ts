@@ -39,6 +39,18 @@ describe('privacy policy content', () => {
     }
   });
 
+  it('numbers the section headings 1..n in both languages', () => {
+    for (const doc of [ar, en]) {
+      doc.sections.forEach((section, index) => {
+        expect(section.heading.startsWith(`${index + 1}. `), section.id).toBe(true);
+      });
+    }
+  });
+
+  it('discloses the compound accounts (finance) before any finance data reaches prod', () => {
+    expect(en.sections.some((s) => s.id === 'compound-accounts')).toBe(true);
+  });
+
   it('names the contact address and the effective date in both languages', () => {
     expect(PRIVACY_EFFECTIVE_DATE).toBe('2026-11-02');
     for (const doc of [ar, en]) {

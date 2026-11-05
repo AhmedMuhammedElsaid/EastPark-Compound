@@ -10,6 +10,7 @@ import {
     PRISMA_UNIQUE_VIOLATION,
 } from 'src/common/database/prisma-errors';
 import { DatabaseService } from 'src/common/database/services/database.service';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
 import { cursorArgs, toCursorPage } from 'src/common/helper/pagination';
 import { formatUnitLabel } from 'src/common/helper/utils/unit-label';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
@@ -21,6 +22,7 @@ import {
 } from 'src/modules/units/resident-units.service';
 
 import { ResidentLeadCreateDto } from './dtos/request/resident-lead.create.dto';
+import { ResidentLeadUnitUpdateDto } from './dtos/request/resident-lead.unit.update.dto';
 import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
 import {
     ResidentLeadListResponseDto,
@@ -52,7 +54,8 @@ export class ResidentsService {
         private readonly db: DatabaseService,
         private readonly invitationsService: InvitationsService,
         private readonly audit: AuditService,
-        private readonly residentUnits: ResidentUnitsService
+        private readonly residentUnits: ResidentUnitsService,
+        private readonly ownership: FlatOwnershipService
     ) {}
 
     async create(dto: ResidentLeadCreateDto): Promise<ResidentLeadResponseDto> {
@@ -72,6 +75,10 @@ export class ResidentsService {
             if (isSameSubmission(existing, dto, name, email)) return existing;
             throw new ConflictException('residentLead.error.unitReserved');
         }
+
+        // A legacy non-canonical active lead (`a1`) reserves the flat too.
+        if (await this.residentUnits.findActiveLead(dto))
+            throw new ConflictException('residentLead.error.unitReserved');
 
         // An owned flat is reserved too: same message, ownership never leaks.
         if (await this.residentUnits.findOwner(dto))
@@ -256,6 +263,81 @@ export class ResidentsService {
     }
 
     /**
+     * `PATCH /admin/residents/leads/:id` [ADMIN]: corrects the unit of a lead
+     * that is still open (PENDING or INVITED) before it is approved. The DTO
+     * has already normalised the key and checked it against the 690-flat
+     * layout. 404 `residentLead.error.notFound`; 409
+     * `residentLead.error.notEditable` (CONVERTED or REJECTED: history);
+     * 409 `residentLead.error.unitReserved` (another open lead or an owned
+     * flat). Audited LEAD_UNIT_CHANGED (old and new key plus the lead's name; no
+     * phone, national id or passport).
+     */
+    async updateUnit(
+        id: string,
+        dto: ResidentLeadUnitUpdateDto,
+        actor: IAuthUser
+    ): Promise<ResidentLeadResponseDto> {
+        const lead = await this.db.residentLead.findUnique({ where: { id } });
+        if (!lead) throw new NotFoundException('residentLead.error.notFound');
+        if (
+            lead.status !== ResidentLeadStatus.PENDING &&
+            lead.status !== ResidentLeadStatus.INVITED
+        )
+            throw new ConflictException('residentLead.error.notEditable');
+
+        const next = {
+            building: dto.building,
+            floor: dto.floor,
+            flatNumber: dto.flatNumber,
+        };
+        if (
+            lead.building === next.building &&
+            lead.floor === next.floor &&
+            lead.flatNumber === next.flatNumber
+        )
+            return lead;
+
+        if (await this.residentUnits.findActiveLead(next, lead.id))
+            throw new ConflictException('residentLead.error.unitReserved');
+        if (await this.residentUnits.findOwner(next))
+            throw new ConflictException('residentLead.error.unitReserved');
+
+        // Conditional write: only while the lead is still active and still has
+        // the key that was read, so a concurrent accept/reject/edit is never
+        // overwritten (0 rows = lost the race).
+        try {
+            const result = await this.db.residentLead.updateMany({
+                where: {
+                    id: lead.id,
+                    status: { in: ACTIVE_LEAD_STATUSES },
+                    building: lead.building,
+                    floor: lead.floor,
+                    flatNumber: lead.flatNumber,
+                },
+                data: next,
+            });
+            if (result.count === 0)
+                throw new ConflictException('residentLead.error.notEditable');
+        } catch (error) {
+            if (isPrismaError(error, PRISMA_UNIQUE_VIOLATION))
+                throw new ConflictException('residentLead.error.unitReserved');
+            throw error;
+        }
+        const updated = await this.db.residentLead.findUnique({
+            where: { id: lead.id },
+        });
+        if (!updated) throw new NotFoundException('residentLead.error.notFound');
+
+        await this.audit.record(actor, 'LEAD_UNIT_CHANGED', 'ResidentLead', lead.id, {
+            label: `${lead.name} — ${formatUnitLabel(lead)} → ${formatUnitLabel(next)}`,
+            from: formatUnitLabel(lead),
+            to: formatUnitLabel(next),
+        });
+
+        return updated;
+    }
+
+    /**
      * Existing account: adds the flat (unless it already owns it), sets the
      * primary unitNumber when empty and marks the lead CONVERTED, atomically.
      * Returns whether a flat row was created. A lost ownership race is a 409.
@@ -268,7 +350,14 @@ export class ResidentsService {
     ): Promise<boolean> {
         try {
             await this.db.$transaction(async tx => {
+                // A delete racing the approval would otherwise leave an open
+                // period on a deleted account (review M1).
+                const live = await this.ownership.lockUser(tx, userId);
+                if (!live || live.deletedAt)
+                    throw new ConflictException('user.error.accountDeleted');
                 if (createUnit) {
+                    // Path 2: link the finance flat and open its period.
+                    const flatId = await this.ownership.resolveFlatId(tx, lead);
                     await tx.residentUnit.create({
                         data: {
                             userId,
@@ -277,8 +366,15 @@ export class ResidentsService {
                             flatNumber: lead.flatNumber,
                             leadId: lead.id,
                             addedById: actor.userId,
+                            flatId,
                         },
                     });
+                    if (flatId)
+                        await this.ownership.openForNewUnit(tx, {
+                            flatId,
+                            userId,
+                            actorId: actor.userId,
+                        });
                     await tx.user.updateMany({
                         where: { id: userId, unitNumber: null },
                         data: { unitNumber: formatUnitLabel(lead) },

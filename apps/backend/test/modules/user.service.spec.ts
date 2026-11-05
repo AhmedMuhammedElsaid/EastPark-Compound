@@ -15,6 +15,7 @@ import {
     isDeletedUserEmail,
     UserService,
 } from 'src/modules/user/services/user.service';
+import { asOwnership, mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
 
 function buildDeleteDb() {
     return {
@@ -29,11 +30,13 @@ describe('UserService.deleteUser (soft delete)', () => {
     const db = buildDeleteDb();
     const sessions = { bump: jest.fn() };
     const audit = { record: jest.fn() };
+    const ownership = mockFlatOwnership();
     const service = new UserService(
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
         {} as ConfigService,
-        audit as unknown as AuditService
+        audit as unknown as AuditService,
+        asOwnership(ownership)
     );
 
     const resident = {
@@ -103,6 +106,7 @@ describe('UserService.deleteUser (soft delete)', () => {
         db.user.findUnique.mockResolvedValue(resident);
         db.listing.updateMany.mockReturnValue('listing-op');
         db.user.update.mockReturnValue('user-op');
+        ownership.closeAllForUser.mockReturnValue('ownership-op');
 
         await service.deleteUser('resident-1');
 
@@ -113,9 +117,16 @@ describe('UserService.deleteUser (soft delete)', () => {
             },
             data: { status: 'WITHDRAWN' },
         });
+        // Ownership periods close (ACCOUNT_DELETED) in the same batch.
+        expect(ownership.closeAllForUser).toHaveBeenCalledWith(
+            db,
+            'resident-1',
+            'resident-1'
+        );
         expect(db.$transaction).toHaveBeenCalledWith([
-            'listing-op',
             'user-op',
+            'listing-op',
+            'ownership-op',
         ]);
     });
 
@@ -190,7 +201,8 @@ describe('UserService super-admin protections on delete', () => {
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
         {} as ConfigService,
-        audit as unknown as AuditService
+        audit as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
     const admin = { userId: 'admin-1', role: Role.ADMIN };
     const superAdmin = { userId: 'owner-1', role: Role.SUPER_ADMIN };
@@ -276,7 +288,8 @@ describe('UserService.updateUser avatar URL', () => {
         db as unknown as DatabaseService,
         {} as SessionVersionService,
         config as unknown as ConfigService,
-        { record: jest.fn() } as unknown as AuditService
+        { record: jest.fn() } as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
 
     beforeEach(() => {
@@ -333,7 +346,8 @@ describe('UserService.changeRole', () => {
         db as unknown as DatabaseService,
         sessions as unknown as SessionVersionService,
         {} as ConfigService,
-        audit as unknown as AuditService
+        audit as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
     const superAdmin = { userId: 'owner-1', role: Role.SUPER_ADMIN };
     const resident = {
@@ -466,7 +480,8 @@ describe('UserService.listUsers', () => {
         db as unknown as DatabaseService,
         {} as SessionVersionService,
         {} as ConfigService,
-        { record: jest.fn() } as unknown as AuditService
+        { record: jest.fn() } as unknown as AuditService,
+        asOwnership(mockFlatOwnership())
     );
 
     beforeEach(() => jest.clearAllMocks());

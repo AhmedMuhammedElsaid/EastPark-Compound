@@ -71,10 +71,13 @@ describe('postLoginPath', () => {
     expect(postLoginPath('MERCHANT', undefined)).toBe('/home');
     expect(postLoginPath('ADMIN', 'https://evil.example')).toBe('/admin');
     expect(postLoginPath('SUPER_ADMIN', null)).toBe('/admin');
+    expect(postLoginPath('ACCOUNTANT', null)).toBe('/finance');
+    expect(postLoginPath('ACCOUNTANT', 'https://evil.example')).toBe('/finance');
   });
 
   it('never sends a signed-in user back to the login page', () => {
     expect(postLoginPath('RESIDENT', '/login?next=%2Fhome')).toBe('/home');
     expect(postLoginPath('ADMIN', '/login')).toBe('/admin');
+    expect(postLoginPath('ACCOUNTANT', '/login')).toBe('/finance');
   });
 });

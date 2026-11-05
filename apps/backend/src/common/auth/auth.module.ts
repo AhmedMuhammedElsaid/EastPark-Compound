@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { CacheModule } from '../cache/cache.module';
 import { DatabaseModule } from '../database/database.module';
 import { EmailModule } from '../email/email.module';
+import { FlatOwnershipModule } from '../finance/flat-ownership.module';
 import { HelperModule } from '../helper/helper.module';
 
 import { AuthPublicController } from './controllers/auth.public.controller';
@@ -20,6 +21,7 @@ import { SessionVersionService } from './services/session-version.service';
         DatabaseModule,
         CacheModule,
         EmailModule,
+        FlatOwnershipModule,
     ],
     providers: [
         AuthService,

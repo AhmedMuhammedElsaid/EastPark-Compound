@@ -1,0 +1,118 @@
+# EastPark: session handoff (portable state)
+
+Updated **2026-11-02**. This file travels with `git pull`, so any machine or Claude session can continue
+from it. Read it after root `CLAUDE.md`. No secrets, credentials or personal data here: the GitHub repo is
+public. Credentials stay in each machine's `.env` and in the owner's password manager.
+
+## Where work stands
+
+| Branch | Tip | State |
+|---|---|---|
+| `main` | `f806451` | live in prod (Vercel web, Render backend). Untouched by listings/accounting. |
+| `feature/flat-listings` | `5e4d421` | Sell/Rent flats done, reviewed, fixed, **incl. its own privacy-policy update** (listings-only text), so it can ship alone. Pushed. |
+| `feature/accounting` | latest `git log` | all 8 accounting slices; contains every listings commit (merge `9849ec7`; accounting's policy is a superset). Pushed. Merge PRs listings first, then accounting. |
+
+### Accounting (Phase 1a, 8 slices; spec `Documentation/ACCOUNTING-PHASE-1A-TASKS.md`)
+
+| Slice | What | State |
+|---|---|---|
+| 1+2 | ACCOUNTANT role: backend, web, mobile confinement | done, Opus-reviewed, fixed |
+| 3 | 690-flat layout, `check-flat-keys.sql`, unit/lead key-repair PATCHes | done, reviewed, fixed |
+| 4 | `finance_foundations` migration (14 tables, 690 flats, ownership backfill, view, RLS) | built (`e0596e2`, `b9f1e23`) and reviewed, M1/L1/L4/L5 fixed; SQL never executed (gate G1 in root `steps.md`) |
+| 5 | ownership writers + listings link, M2 catch-up + invariant SQL, M3 `finance.goLiveAt` | built (`cf20fc8`, `f327c19`), reviewed (`ACCOUNTING-SLICE-5-REVIEW.md`), M1/M2/L1–L4 fixed; scripts' db-spec runs at gate G1 |
+| 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | built (`37cf341` policy, `cd3a31f` kernel), reviewed (`ACCOUNTING-SLICE-6-REVIEW.md`), M1/M2/L1–L7 fixed; db-specs run at gate G1 |
+| 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | built (`52cf951`), reviewed (`ACCOUNTING-SLICE-7-REVIEW.md`), M1–M3/L1–L5 fixed; db-specs run at gate G1. Slice 8 clients must send `Idempotency-Key` on payments and `expectedCredit` on apply-credit |
+| 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`), M1/M2/L1–L5 fixed (web `3ba205c`, mobile after it). **All 8 slices done.** Next: fold `RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root `steps.md`, then the owner runs `steps.md` |
+
+**Immediate next steps (as of 2026-11-02 evening, all code pushed):**
+1. **Code (only task left):** fold the draft `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root
+   `steps.md` (gates G1–G4 incl. G2b policy-in-same-push and G2c private bucket, after-push A1/A2 already there),
+   then delete or mark the draft superseded.
+2. **Owner (from `steps.md`):** G1 `pnpm test:db` on Postgres 15 (no db-spec has EVER run: slices 4–7 SQL,
+   locks, counter, idempotency races are only unit-tested with fakes); G2 prod PG ≥ 15; G2c create private
+   `eastpark-finance` bucket; G3 flat-key preflight; G4 backup; PRs (listings, then accounting); deploy; A1; A2;
+   Play Data safety form before the mobile finance OTA.
+
+**Open items / known gaps (not bugs, flagged so nothing is lost):**
+- Finance gaps by design: no statement endpoint (flat ledger shows open charges + payments only, paid/voided
+  charges not listed); no dashboard income/expense/fund/arrears figures (Phase 2/3 report endpoints); web apply-
+  credit has no explicit charge picker; mobile payments can be dated today/yesterday only; web slip upload cap
+  4.4 MB (Vercel body limit; backend allows 5 MB photos / 10 MB PDFs).
+- Decisions made by the build agents, owner may revisit: audit action `CREDIT_APPLIED` added (plan had no name);
+  finance rate limits are per IP (throttler runs before auth); `POST /finance/charges` is not idempotent (plan
+  scope; a duplicate is voidable the same day); apply-credit guarded by `expectedCredit` (409 `creditChanged`)
+  instead of an idempotency key (needs a migration); a back-dated cheque bounce locks every month from the bounce
+  date to today and is refused if dated before an allocation it reverses.
+- Mobile camera/photo permission strings still say "feedback": change only with the next EAS build (native).
+- Privacy policy text should be read by an Egyptian lawyer (`ACCOUNTING-PRIVACY-DECISION.md`); after deploy, post
+  the in-app "policy changed" announcement (A2).
+- The policy promises slip links expire in exactly 60 s and every open is audited; any later change to
+  `PrivateFileService` must keep that or update `apps/web/src/content/privacy-policy.ts` first.
+
+**Machine-local leftovers on the Windows PC (`C:\Unite\EastPark-App`), NOT on GitHub:**
+- 12 old local branches `parity/*` (2026-09-30/10-01 web-parity work), each checked out in a worktree under
+  `C:\Unite\EastPark-parity\<name>`. Never pushed; `git cherry main` shows their commits as not in `main` (the
+  same work may have landed on `main` under other commits; unverified). Nothing current depends on them. Decide:
+  push for safekeeping, or verify and delete (`git worktree remove`, then `git branch -D`).
+- Untracked `eastpark-frontend/` (legacy snapshot with a `.env.local`): never commit it.
+- Plain `git push` from that PC's terminal fails (no credential prompt); pushes there went through the GitKraken
+  integration. Stale `apps/web/.next` after switching branches breaks `tsc`/`check` with missing-route errors:
+  delete `apps/web/.next` (gitignored cache) and rerun.
+- Commits from that session carry a `Co-authored-by: Copilot` trailer instead of the Claude Code one listed
+  under "Commits" below (history not rewritten).
+
+### Owner decisions (final)
+- 690 flats; phase 4 buildings are **C3, E2, F2** (follow `apps/web/src/config/compound.ts`).
+  Approval threshold seed: **5000 EGP**.
+- Flats decisions: `Documentation/LISTINGS-DECISIONS.md`. Privacy timing: `Documentation/ACCOUNTING-PRIVACY-DECISION.md`.
+- The policy finance section goes live with slice 6, web first. No ACCOUNTANT invite and no finance or slip
+  data in prod before that. The Play Data safety form is updated before the slice 8 OTA.
+- **Build ALL slices before any deploy.** Then follow `steps.md`.
+
+## How the owner wants the work done
+
+- **Orchestration:** for big features, the assistant orchestrates subagents and fires an independent Opus
+  review after every plan and slice. Give the reviewer the diff and the spec, not conclusions. Fix the
+  findings, run the gates, commit.
+- **Reviewer output cap:** subagents die at 8192 output tokens. Make them write the report file
+  incrementally: a short Write, then small Edit appends. Keep replies under about 150 words.
+- **One branch per feature** (`feature/<name>` off `main`), so each can be reviewed in a PR. Ask before
+  any push or PR.
+- **Code vs operations split:** the dev machine does code only. Every action on prod or on service
+  providers goes into `steps.md` as copy-pasteable commands, which the owner runs from their own machine.
+  That includes Supabase SQL and buckets, backups, Render, Vercel, EAS, Play Console and merging to
+  `main`. Secrets appear as placeholders such as `$DIRECT_DATABASE_URL`. Never use the claude.ai Supabase
+  MCP: it is linked to a different project.
+- **Commits:** `[AhmedMuhammedElsaid][feat|fix|docs|chore]: ...`, `--no-verify`, trailer
+  `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
+
+## Traps (cost real time before)
+
+- **Migrations:** never run `prisma migrate dev`. It drops the unmodelled partial indexes
+  (`listings_active_unit_key`, `resident_leads_active_unit_key`). Generate offline instead:
+  `git show HEAD:apps/backend/prisma/schema.prisma > /tmp/before.prisma`, then
+  `prisma migrate diff --from-schema-datamodel /tmp/before.prisma --to-schema-datamodel prisma/schema.prisma --script`,
+  then edit by hand and audit every `DROP`. Enum values are added with `ALTER TYPE ... ADD VALUE` in their
+  own migration.
+- **Render and Vercel deploy every push to `main`**, and Render runs `prisma migrate deploy` on boot. A
+  failed migration blocks every deploy until `prisma migrate resolve --rolled-back <name>`. Back up first.
+- **Mobile:**
+  - never put `*.test.tsx` under `src/app/`;
+  - run `npx expo export --platform android` before a build, then `git checkout apps/mobile/uniwind-types.d.ts`;
+  - OTA is fine for JS-only changes; bump `version` only for native changes (`runtimeVersion: appVersion`);
+  - don't add listings to `PERSISTED_QUERY_ROOTS` (PII).
+- **WSL dev machine:**
+  - WSL node is too old, so run gates through `powershell.exe -NoProfile -Command "cd C:\...; npx ..."`;
+  - node_modules are owned by Windows pnpm, so don't `pnpm install` from WSL;
+  - Windows tools cause CRLF churn, so `git fetch` and check ahead/behind at session start.
+- **Docker/psql** were unavailable on the dev machine, so the slice 4 SQL and `pnpm test:db` have never
+  run. They must run against Postgres 15 before deploying (a `steps.md` step). Prod Postgres must be 15 or
+  newer: the view uses `security_invoker`.
+- **Untracked `eastpark-frontend/`** is a stale legacy snapshot. It is not the mobile app (`apps/mobile`
+  is). Don't commit it; it contains a `.env.local`.
+
+## Gates
+
+- backend: `prisma validate`, tsc, eslint, `jest --config test/jest.json`; `pnpm test:db` needs `TEST_DATABASE_URL`.
+- web: `pnpm --dir apps/web check` (eslint, tsc, vitest, build).
+- mobile: `pnpm check:mobile` plus `npx expo export --platform android`.

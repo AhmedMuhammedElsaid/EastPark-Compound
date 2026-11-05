@@ -1,7 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
+import { FINANCE_AUDIT_ACTIONS } from 'src/modules/audit/audit.actions';
 import { AuditService } from 'src/modules/audit/audit.service';
+
+const HIDE_FINANCE = { action: { notIn: [...FINANCE_AUDIT_ACTIONS] } };
 
 describe('AuditService', () => {
     let db: { auditLog: { create: jest.Mock; findMany: jest.Mock } };
@@ -107,7 +110,7 @@ describe('AuditService', () => {
 
             expect(db.auditLog.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    where: {},
+                    where: HIDE_FINANCE,
                     take: 3,
                     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                 })
@@ -140,7 +143,7 @@ describe('AuditService', () => {
             });
             expect(db.auditLog.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    where: { userId: 'a1' },
+                    where: { userId: 'a1', ...HIDE_FINANCE },
                     take: 21,
                     skip: 1,
                     cursor: { id: 'e2' },
@@ -148,6 +151,24 @@ describe('AuditService', () => {
             );
             expect(page.nextCursor).toBeUndefined();
             expect(page.items[0].meta).toBeNull();
+        });
+
+        it('hides finance actions by default; scope=finance shows only them, scope=all both (plan 3.7)', async () => {
+            db.auditLog.findMany.mockResolvedValue([]);
+            await service.listActivity({ scope: 'finance' });
+            expect(db.auditLog.findMany.mock.calls[0][0].where).toEqual({
+                action: { in: [...FINANCE_AUDIT_ACTIONS] },
+            });
+            await service.listActivity({ scope: 'all', actorId: 'a1' });
+            expect(db.auditLog.findMany.mock.calls[1][0].where).toEqual({
+                userId: 'a1',
+            });
+            await service.listActivity({ scope: 'admin' });
+            expect(db.auditLog.findMany.mock.calls[2][0].where).toEqual(
+                HIDE_FINANCE
+            );
+            expect(FINANCE_AUDIT_ACTIONS).toContain('PAYMENT_RECORDED');
+            expect(FINANCE_AUDIT_ACTIONS).not.toContain('LEAD_APPROVED');
         });
     });
 });

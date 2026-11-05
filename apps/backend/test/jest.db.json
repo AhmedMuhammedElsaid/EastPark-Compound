@@ -1,0 +1,13 @@
+{
+    "testTimeout": 120000,
+    "rootDir": "../",
+    "modulePaths": ["."],
+    "testEnvironment": "node",
+    "testMatch": ["<rootDir>/test/db/**/*.db-spec.ts"],
+    "collectCoverage": false,
+    "moduleFileExtensions": ["js", "ts", "json"],
+    "transform": {
+        "^.+\\.(t|j)sx?$": ["@swc/jest", { "sourceMaps": true }]
+    },
+    "modulePathIgnorePatterns": ["<rootDir>/dist"]
+}

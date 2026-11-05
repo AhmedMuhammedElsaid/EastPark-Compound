@@ -1,4 +1,6 @@
+import { FINANCE_STORE_FOLDERS } from 'src/common/file/enums/files.enum';
 import {
+    isFinanceObjectPath,
     isStoragePublicUrl,
     storagePublicPrefix,
 } from 'src/common/file/storage-url';
@@ -70,5 +72,50 @@ describe('isStoragePublicUrl', () => {
                 BUCKET
             )
         ).toBe(true);
+    });
+});
+
+describe('finance paths are never public URLs (accounting plan 5.3 point 5)', () => {
+    const SUPABASE = 'https://proj.supabase.co';
+    const BUCKET = 'eastpark-uploads';
+    const ok = (url: unknown) => isStoragePublicUrl(url, SUPABASE, BUCKET);
+    const pub = `${SUPABASE}/storage/v1/object/public`;
+
+    it.each([
+        ['a raw staging path', 'staging/usr_1/1730550000000-a.jpg'],
+        ['a raw receipt path', 'receipts/2026/R-2026-000123/1-a.jpg'],
+        [
+            'the private bucket, public form',
+            `${pub}/eastpark-finance/receipts/2026/R-2026-000001/a.jpg`,
+        ],
+        [
+            'a signed private URL',
+            `${SUPABASE}/storage/v1/object/sign/eastpark-finance/receipts/2026/R-2026-000001/a.jpg?token=x`,
+        ],
+        [
+            'a finance folder copied into the public bucket',
+            `${pub}/${BUCKET}/receipts/2026/a.jpg`,
+        ],
+        [
+            'staging/ in the public bucket',
+            `${pub}/${BUCKET}/staging/usr_1/a.jpg`,
+        ],
+        ['an encoded finance folder', `${pub}/${BUCKET}/%72eceipts/2026/a.jpg`],
+        ['an upper-case finance folder', `${pub}/${BUCKET}/EXPENSES/a.pdf`],
+        ['revenues/', `${pub}/${BUCKET}/revenues/a.pdf`],
+    ])('rejects %s', (_label, url) => {
+        expect(ok(url)).toBe(false);
+    });
+
+    it('still accepts the normal public folders', () => {
+        expect(ok(`${pub}/${BUCKET}/user-avatars/u1/a.jpg`)).toBe(true);
+        expect(ok(`${pub}/${BUCKET}/feedback-attachments/u1/a.jpg`)).toBe(true);
+    });
+
+    it('isFinanceObjectPath knows every finance folder', () => {
+        for (const folder of FINANCE_STORE_FOLDERS)
+            expect(isFinanceObjectPath(`${folder}/x/y.jpg`)).toBe(true);
+        expect(isFinanceObjectPath('user-avatars/x/y.jpg')).toBe(false);
+        expect(isFinanceObjectPath('%E0%A4%A/x.jpg')).toBe(true); // undecodable: refuse
     });
 });

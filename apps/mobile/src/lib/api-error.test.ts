@@ -71,6 +71,11 @@ describe("deleted-account 409 mapping", () => {
     expect(acceptInvitationErrorKey({ response: { status: 409, data: { code: "order.error.other" } } })).toBe("common.error");
   });
 
+  it("accept-invitation: a role conflict is not a password problem", () => {
+    const conflict = { response: { status: 409, data: { statusCode: 409, code: "invitation.error.roleConflict", message: "invitation.error.roleConflict" } } };
+    expect(acceptInvitationErrorKey(conflict)).toBe("auth.errors.invitation_role_conflict");
+  });
+
   it("accept-invitation: used, expired or unknown invitations need a new invitation", () => {
     const used = { response: { status: 400, data: { statusCode: 400, message: "Invitation already used" } } };
     const expired = { response: { status: 400, data: { statusCode: 400, message: "Invitation expired", error: "BadRequestException: Invitation expired (stack)" } } };
@@ -97,6 +102,7 @@ describe("deleted-account 409 mapping", () => {
       expect(json.admin.invite_account_deleted).toEqual(expect.any(String));
       expect(json.auth.errors.invitation_account_deleted).toEqual(expect.any(String));
       expect(json.auth.errors.invitation_unit_owned).toEqual(expect.any(String));
+      expect(json.auth.errors.invitation_role_conflict).toEqual(expect.any(String));
     }
   });
 });

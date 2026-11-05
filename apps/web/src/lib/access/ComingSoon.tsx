@@ -12,6 +12,8 @@ import { useTranslation } from '@/lib/i18n';
 type ComingSoonContextValue = {
   /** True when the signed-in user is confined to /home by the access policy. */
   restricted: boolean;
+  /** The signed-in role, so links are judged against the right allow-list (ACCOUNTANT has its own). */
+  role: string | null;
   open: (trigger?: HTMLElement | null, opts?: { feature?: ComingSoonFeature }) => void;
 };
 
@@ -27,6 +29,7 @@ export function featureForHref(href: string): ComingSoonFeature | undefined {
 
 const ComingSoonContext = React.createContext<ComingSoonContextValue>({
   restricted: false,
+  role: null,
   open: () => undefined,
 });
 
@@ -67,7 +70,8 @@ export function ComingSoonProvider({ children }: { children: React.ReactNode }) 
     }, EXIT_MS);
   }, []);
 
-  const value = React.useMemo(() => ({ restricted, open }), [restricted, open]);
+  const role = user?.role ?? null;
+  const value = React.useMemo(() => ({ restricted, role, open }), [restricted, role, open]);
 
   return (
     <ComingSoonContext.Provider value={value}>
@@ -176,8 +180,8 @@ type GatedLinkProps = Omit<React.ComponentProps<typeof Link>, 'href'> & { href: 
  * /profile becomes a real button that opens the Coming soon popup instead of navigating.
  */
 export function GatedLink({ href, children, onClick, prefetch, ...rest }: GatedLinkProps) {
-  const { restricted, open } = useComingSoon();
-  if (restricted && !isOpenToRestricted(href)) {
+  const { restricted, role, open } = useComingSoon();
+  if (restricted && !isOpenToRestricted(href, role)) {
     // A button is not a page link, so aria-current is deliberately dropped; only button-safe props pass through.
     const { className, id, title, lang, dir, style, tabIndex } = rest;
     const ariaLabel = rest['aria-label'];

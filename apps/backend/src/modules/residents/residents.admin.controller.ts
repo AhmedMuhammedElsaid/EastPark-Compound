@@ -1,4 +1,5 @@
 import {
+    Body,
     Controller,
     Get,
     HttpCode,
@@ -20,9 +21,11 @@ import { AllowedRoles } from 'src/common/request/decorators/request.role.decorat
 import { AuthUser } from 'src/common/request/decorators/request.user.decorator';
 import { IAuthUser } from 'src/common/request/interfaces/request.interface';
 
+import { ResidentLeadUnitUpdateDto } from './dtos/request/resident-lead.unit.update.dto';
 import { ResidentLeadQueryDto } from './dtos/request/resident-lead.query.dto';
 import {
     ResidentLeadListResponseDto,
+    ResidentLeadResponseDto,
     ResidentLeadStatsResponseDto,
 } from './dtos/response/resident-lead.response.dto';
 import { ResidentsService } from './residents.service';
@@ -61,6 +64,22 @@ export class ResidentsAdminController {
         @AuthUser() actor: IAuthUser,
     ): Promise<{ message: string }> {
         return this.residentsService.invite(id, actor);
+    }
+
+    @Patch('leads/:id')
+    @AllowedRoles([Role.ADMIN])
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary:
+            'Correct the unit of an open (PENDING/INVITED) lead [ADMIN] (400 unknown flat, 409 reserved or not editable)',
+    })
+    @ApiOkResponse({ type: ResidentLeadResponseDto })
+    updateUnit(
+        @Param('id') id: string,
+        @Body() dto: ResidentLeadUnitUpdateDto,
+        @AuthUser() actor: IAuthUser,
+    ): Promise<ResidentLeadResponseDto> {
+        return this.residentsService.updateUnit(id, dto, actor);
     }
 
     @Patch('leads/:id/reject')

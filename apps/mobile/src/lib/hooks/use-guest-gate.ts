@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useCallback } from "react";
 
 import { openComingSoon } from "@/lib/coming-soon";
+import { isAccountantRole } from "@/lib/roles";
 import { useAppSelector } from "@/store";
 
 /**
@@ -19,14 +20,19 @@ import { useAppSelector } from "@/store";
  */
 export function useGuestGate() {
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
+  const role = useAppSelector(s => s.auth.user?.role);
+  const isAccountant = isAccountantRole(role);
 
   const gate = useCallback(
     (action: () => void, feature?: ComingSoonFeature) => {
-      if (isAuthenticated)
-        action();
-      else openComingSoon(feature);
+      // The accountant role is confined like a guest, but only for the named market / community
+      // features; calls without a feature (notifications) stay open because the backend allows them.
+      const locked = !isAuthenticated || (isAccountant && feature !== undefined);
+      if (locked)
+        openComingSoon(feature);
+      else action();
     },
-    [isAuthenticated],
+    [isAuthenticated, isAccountant],
   );
 
   const gateNavigation = useCallback(

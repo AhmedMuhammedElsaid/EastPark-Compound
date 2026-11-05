@@ -77,6 +77,17 @@ describe('upload purpose → storage folder', () => {
         expect(image('', Role.RESIDENT)).toBe(ENUM_FILE_STORE.USER_AVATARS);
     });
 
+    it('lets an ACCOUNTANT upload an avatar and feedback image, nothing staff-only', () => {
+        expect(image('avatar', Role.ACCOUNTANT)).toBe(
+            ENUM_FILE_STORE.USER_AVATARS
+        );
+        expect(image('feedback', Role.ACCOUNTANT)).toBe(
+            ENUM_FILE_STORE.FEEDBACK_ATTACHMENTS
+        );
+        expect(() => image('product', Role.ACCOUNTANT)).toThrow();
+        expect(() => image('announcement', Role.ACCOUNTANT)).toThrow();
+    });
+
     it('routes feedback attachments to their own folder', () => {
         expect(image('feedback', Role.RESIDENT)).toBe(
             ENUM_FILE_STORE.FEEDBACK_ATTACHMENTS

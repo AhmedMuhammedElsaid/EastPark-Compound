@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useAuthGuard } from "@/lib/hooks/use-auth-guard";
 import { canBrowseListings } from "@/lib/listings-access";
+import { isAccountantRole } from "@/lib/roles";
 import { communityApi } from "@/services/api/community";
 import { shopsApi } from "@/services/api/shops";
 import { useAppSelector } from "@/store";
@@ -160,23 +161,10 @@ export function ResidentHome() {
           <QuickActionsGrid requireAuthNavigation={requireAuthNavigation} colors={colors} />
         </View>
 
-        {/* What's new */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t("home.whats_new")}</Text>
-            <Pressable
-              style={styles.seeAllBtn}
-              onPress={() => router.push("/(tabs)/community")}
-              accessibilityRole="button"
-              accessibilityLabel={t("common.see_all")}
-            >
-              <Text style={styles.seeAll}>{t("common.see_all")}</Text>
-            </Pressable>
-          </View>
-          {annLoading
-            ? <HomeSectionSkeleton />
-            : <AnnouncementsPreview announcements={announcements} isAr={isAr} />}
-        </View>
+        {/* What's new — the community area is closed to the accountant role */}
+        {isAccountantRole(user?.role)
+          ? null
+          : <WhatsNewSection loading={annLoading} announcements={announcements} isAr={isAr} />}
 
         {/* Shops */}
         <View style={styles.section}>
@@ -202,21 +190,46 @@ export function ResidentHome() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+function WhatsNewSection({ loading, announcements, isAr }: { loading: boolean; announcements: any[]; isAr: boolean }) {
+  const { t } = useTranslation();
+  const styles = useStyles();
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{t("home.whats_new")}</Text>
+        <Pressable
+          style={styles.seeAllBtn}
+          onPress={() => router.push("/(tabs)/community")}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.see_all")}
+        >
+          <Text style={styles.seeAll}>{t("common.see_all")}</Text>
+        </Pressable>
+      </View>
+      {loading
+        ? <HomeSectionSkeleton />
+        : <AnnouncementsPreview announcements={announcements} isAr={isAr} />}
+    </View>
+  );
+}
+
+const notAccountant = (role: string | undefined) => !isAccountantRole(role);
+
 const QUICK_ACTIONS: Array<{
   renderIcon: (color: string) => ReactNode;
   labelKey: string;
   route: string;
   authRequired?: boolean;
-  /** Hidden for roles the backend refuses (merchants cannot browse listings). */
+  /** Hidden for roles the backend refuses (merchants cannot browse listings, accountants only get finance). */
   visible?: (role: string | undefined) => boolean;
 }> = [
   { renderIcon: color => <Storefront size={24} color={color} />, labelKey: "home.shops", route: "/(tabs)/directory" },
   { renderIcon: color => <Buildings size={24} color={color} />, labelKey: "listings.title", route: "/(tabs)/flats", visible: canBrowseListings },
-  { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community" },
-  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false },
-  { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders?from=home", authRequired: true },
+  { renderIcon: color => <Megaphone size={24} color={color} />, labelKey: "home.community", route: "/(tabs)/community", visible: notAccountant },
+  { renderIcon: color => <CheckSquare size={24} color={color} />, labelKey: "governance.title", route: "/(tabs)/community/governance?from=home", authRequired: false, visible: notAccountant },
+  { renderIcon: color => <Package size={24} color={color} />, labelKey: "home.my_orders", route: "/(tabs)/orders?from=home", authRequired: true, visible: notAccountant },
   { renderIcon: color => <ChatCircle size={24} color={color} />, labelKey: "feedback.title", route: "/(tabs)/community/feedback?from=home", authRequired: true },
-  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports?from=home" },
+  { renderIcon: color => <FileText size={24} color={color} />, labelKey: "community.reports", route: "/(tabs)/community/reports?from=home", visible: notAccountant },
 ];
 
 function QuickActionsGrid({ requireAuthNavigation, colors }: { requireAuthNavigation: (href: string) => void; colors: any }) {

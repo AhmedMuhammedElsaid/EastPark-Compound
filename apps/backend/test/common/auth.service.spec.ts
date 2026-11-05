@@ -23,6 +23,10 @@ import { CacheService } from 'src/common/cache/services/cache.service';
 import { DatabaseService } from 'src/common/database/services/database.service';
 import { EmailService } from 'src/common/email/email.service';
 import { HelperEncryptionService } from 'src/common/helper/services/helper.encryption.service';
+import { mockFlatOwnership } from 'test/mocks/flat-ownership.mock';
+import { FlatOwnershipService } from 'src/common/finance/flat-ownership.service';
+
+export const ownership = mockFlatOwnership();
 
 // ─── Shared mock factories ────────────────────────────────────────────────────
 
@@ -125,6 +129,8 @@ describe('AuthService', () => {
             fn(db)
         );
         db.residentLead.findMany.mockResolvedValue([]);
+        ownership.resolveFlatId.mockReset().mockResolvedValue(null);
+        ownership.openForNewUnit.mockReset().mockResolvedValue(undefined);
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -135,6 +141,10 @@ describe('AuthService', () => {
                 { provide: HelperEncryptionService, useValue: encryption },
                 { provide: ConfigService, useValue: config },
                 { provide: SessionVersionService, useValue: sessions },
+                {
+                    provide: FlatOwnershipService,
+                    useValue: ownership,
+                },
             ],
         }).compile();
 
@@ -763,6 +773,69 @@ describe('AuthService', () => {
             expect(result.accessToken).toBe(mockTokens.accessToken);
         });
 
+        it('ACCOUNTANT invitation upgrades an existing RESIDENT to ACCOUNTANT', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.ACCOUNTANT,
+            });
+            db.user.findUnique.mockResolvedValue(mockUser());
+            encryption.match.mockResolvedValue(true);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.update.mockResolvedValue(
+                mockUser({ role: Role.ACCOUNTANT })
+            );
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'Pass123!',
+            });
+
+            expect(db.user.update.mock.calls[0][0].data.role).toBe(
+                Role.ACCOUNTANT
+            );
+        });
+
+        it('ACCOUNTANT invitation to an existing MERCHANT is a 409 roleConflict and stays unused', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.ACCOUNTANT,
+            });
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.MERCHANT })
+            );
+            encryption.match.mockResolvedValue(true);
+
+            const attempt = service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Ali',
+                password: 'Pass123!',
+            });
+            await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+            await expect(attempt).rejects.toThrow(
+                'invitation.error.roleConflict'
+            );
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+            expect(db.user.update).not.toHaveBeenCalled();
+        });
+
+        it('MERCHANT invitation to an existing ACCOUNTANT is a 409 roleConflict', async () => {
+            db.invitation.findUnique.mockResolvedValue(validInvitation);
+            db.user.findUnique.mockResolvedValue(
+                mockUser({ role: Role.ACCOUNTANT })
+            );
+            encryption.match.mockResolvedValue(true);
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Ali',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('invitation.error.roleConflict');
+            expect(db.invitation.updateMany).not.toHaveBeenCalled();
+        });
+
         it('rejects a concurrent second use of the same invitation', async () => {
             db.invitation.findUnique.mockResolvedValue(validInvitation);
             db.user.findUnique.mockResolvedValue(null);
@@ -828,8 +901,91 @@ describe('AuthService', () => {
                     floor: '3',
                     flatNumber: '12',
                     leadId: 'lead-1',
+                    flatId: null,
                 },
             });
+        });
+
+        it('path 1: each lead with a real flat is linked and gets a period today, before the lead converts', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(null);
+            db.residentLead.findMany.mockResolvedValue([
+                { id: 'lead-1', phone: '01000400163', building: 'a1', floor: '3', flatNumber: '2' },
+                { id: 'lead-2', phone: '01000400163', building: 'Building A', floor: '3', flatNumber: '2' },
+            ]);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(mockUser({ id: 'user-9' }));
+            ownership.resolveFlatId
+                .mockResolvedValueOnce('flat-a132')
+                .mockResolvedValueOnce(null);
+
+            await service.acceptInvitation({
+                token: 'signed-token',
+                name: 'Resident',
+                password: 'Pass123!',
+            });
+
+            expect(db.residentUnit.create.mock.calls.map(c => c[0].data.flatId)).toEqual(['flat-a132', null]);
+            expect(ownership.openForNewUnit).toHaveBeenCalledTimes(1);
+            expect(ownership.openForNewUnit).toHaveBeenCalledWith(db, {
+                flatId: 'flat-a132',
+                userId: 'user-9',
+            });
+            const [open] = ownership.openForNewUnit.mock.invocationCallOrder;
+            const [convert] = db.residentLead.update.mock.invocationCallOrder;
+            expect(open).toBeLessThan(convert);
+        });
+
+        it('path 1: a period conflict rolls the whole acceptance back as 409', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(null);
+            db.residentLead.findMany.mockResolvedValue([
+                { id: 'lead-1', phone: '01000400163', building: 'A1', floor: '3', flatNumber: '2' },
+            ]);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            db.user.create.mockResolvedValue(mockUser({ id: 'user-9' }));
+            ownership.resolveFlatId.mockResolvedValue('flat-a132');
+            ownership.openForNewUnit.mockRejectedValue(
+                new ConflictException('unit.error.alreadyOwned')
+            );
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Resident',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('unit.error.alreadyOwned');
+            expect(db.residentLead.update).not.toHaveBeenCalled();
+        });
+
+        it('existing account deleted after the pre-check: 409 accountDeleted under the user lock, no unit (review M1)', async () => {
+            db.invitation.findUnique.mockResolvedValue({
+                ...validInvitation,
+                role: Role.RESIDENT,
+            });
+            db.user.findUnique.mockResolvedValue(mockUser({ id: 'user-1' }));
+            encryption.match.mockResolvedValue(true);
+            db.residentLead.findMany.mockResolvedValue([
+                { id: 'lead-1', phone: '01000400163', building: 'A1', floor: '3', flatNumber: '2' },
+            ]);
+            db.invitation.updateMany.mockResolvedValue({ count: 1 });
+            ownership.lockUser.mockResolvedValueOnce({ deletedAt: new Date() });
+
+            await expect(
+                service.acceptInvitation({
+                    token: 'signed-token',
+                    name: 'Resident',
+                    password: 'Pass123!',
+                })
+            ).rejects.toThrow('user.error.accountDeleted');
+            expect(ownership.lockUser).toHaveBeenCalledWith(db, 'user-1');
+            expect(db.residentUnit.create).not.toHaveBeenCalled();
         });
 
         it('existing account accepting a RESIDENT invitation with a lead: owns the flat, unitNumber kept', async () => {
@@ -975,6 +1131,7 @@ describe('AuthService', () => {
                     floor: '4',
                     flatNumber: '1',
                     leadId: 'lead-p',
+                    flatId: null,
                 },
             });
             expect(db.residentLead.update).toHaveBeenCalledWith({
@@ -1055,6 +1212,7 @@ describe('AuthService', () => {
                     floor: '3',
                     flatNumber: '2',
                     leadId: 'lead-old',
+                    flatId: null,
                 },
                 {
                     userId: 'user-9',
@@ -1062,6 +1220,7 @@ describe('AuthService', () => {
                     floor: 'G',
                     flatNumber: '5',
                     leadId: 'lead-new',
+                    flatId: null,
                 },
             ]);
             expect(db.residentLead.update.mock.calls.map(c => c[0])).toEqual([

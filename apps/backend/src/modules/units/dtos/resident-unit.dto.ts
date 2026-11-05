@@ -15,6 +15,12 @@ export class ResidentUnitCreateDto extends PickType(ResidentLeadCreateDto, [
     'flatNumber',
 ] as const) {}
 
+/**
+ * `PATCH /admin/resident-units/:id` body: the corrected key. Same validators as
+ * the add-flat body, so the key must be one of the compound's 690 flats.
+ */
+export class ResidentUnitKeyUpdateDto extends ResidentUnitCreateDto {}
+
 /** One flat owned by an account. Every field is exposed (profile serializer). */
 export class ResidentUnitDto {
     @ApiProperty({ example: 'clx1234567890' })

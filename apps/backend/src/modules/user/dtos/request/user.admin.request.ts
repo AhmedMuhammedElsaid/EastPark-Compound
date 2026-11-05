@@ -13,7 +13,12 @@ import {
 } from 'class-validator';
 
 /** Roles the SUPER_ADMIN can assign. SUPER_ADMIN/GUEST are never assignable. */
-export const ASSIGNABLE_ROLES = [Role.RESIDENT, Role.MERCHANT, Role.ADMIN] as const;
+export const ASSIGNABLE_ROLES = [
+    Role.RESIDENT,
+    Role.MERCHANT,
+    Role.ADMIN,
+    Role.ACCOUNTANT,
+] as const;
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 export class AdminUserQueryDto {

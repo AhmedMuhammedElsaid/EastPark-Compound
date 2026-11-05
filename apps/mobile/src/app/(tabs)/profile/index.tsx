@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Bell, Buildings, CaretRight, ChatCircle, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
+import { Bell, Buildings, CaretRight, ChatCircle, Coins, FaceMask, Fingerprint, Heart, House, IdentificationCard, LockKey, Package, ShieldCheck, SignOut, Storefront, User, WarningOctagon } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -20,7 +20,7 @@ import { useBiometric } from "@/lib/hooks/use-biometric";
 import { useRefreshProfileUnits } from "@/lib/hooks/use-profile-units";
 import { useSelectedTheme } from "@/lib/hooks/use-selected-theme";
 import { useSelectedLanguage } from "@/lib/i18n";
-import { isAdminRole, roleLabelKey } from "@/lib/roles";
+import { isAccountantRole, isAdminRole, isFinanceRole, roleLabelKey } from "@/lib/roles";
 import { getPrimaryUnit } from "@/lib/units";
 import { openPrivacyPolicy } from "@/lib/web-links";
 import { usersApi } from "@/services/api/users";
@@ -262,7 +262,11 @@ function AuthenticatedProfile({ user, styles, colors }: { user: any; styles: App
         />
       )}
       <PreferencesSection styles={styles} />
-      <DangerSection onLogout={handleLogout} onDeleteAccount={handleDeleteAccount} styles={styles} />
+      <DangerSection
+        onLogout={handleLogout}
+        onDeleteAccount={canDeleteAccount(user.role) ? handleDeleteAccount : undefined}
+        styles={styles}
+      />
     </>
   );
 }
@@ -317,7 +321,8 @@ function UserAvatar({ user, unitNumber, styles, colors }: {
 function ManagementSection({ role, styles, colors }: { role: string; styles: AppStyles; colors: AppColors }) {
   const { t } = useTranslation();
   const admin = isAdminRole(role);
-  if (!admin && role !== "MERCHANT")
+  const finance = isFinanceRole(role);
+  if (!admin && role !== "MERCHANT" && !finance)
     return null;
   const g = gold(colors);
   return (
@@ -325,6 +330,9 @@ function ManagementSection({ role, styles, colors }: { role: string; styles: App
       <Text style={styles.sectionTitle}>{t("profile.management")}</Text>
       {admin && (
         <ProfileRow icon={<ShieldCheck size={20} color={g} />} label={t("profile.admin_dashboard")} onPress={() => router.push("/(admin)/overview")} styles={styles} colors={colors} />
+      )}
+      {finance && (
+        <ProfileRow icon={<Coins size={20} color={g} />} label={t("profile.finance_dashboard")} onPress={() => router.push("/finance/today" as Href)} styles={styles} colors={colors} />
       )}
       {role === "MERCHANT" && (
         <ProfileRow icon={<Storefront size={20} color={g} />} label={t("profile.merchant_dashboard")} onPress={() => router.push("/(merchant)/dashboard")} styles={styles} colors={colors} />
@@ -349,7 +357,10 @@ function AccountSection({ role, styles, colors }: { role: string; styles: AppSty
         <ProfileRow icon={<Buildings size={20} color={g} />} label={t("listings.my_listings")} onPress={() => router.push("/(tabs)/profile/listings" as Href)} styles={styles} colors={colors} />
       )}
       <ProfileRow icon={<Bell size={20} color={g} />} label={t("profile.notification_prefs")} onPress={() => router.push("/(tabs)/profile/notifications")} styles={styles} colors={colors} />
-      <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
+      {/* The accountant role has no orders. */}
+      {!isAccountantRole(role) && (
+        <ProfileRow icon={<Package size={20} color={g} />} label={t("profile.my_orders")} onPress={() => router.push("/(tabs)/orders?from=profile")} styles={styles} colors={colors} />
+      )}
       <ProfileRow icon={<ChatCircle size={20} color={g} />} label={t("profile.my_feedback")} onPress={() => router.push("/(tabs)/community/feedback?from=profile")} styles={styles} colors={colors} />
       {/* Saving shops is RESIDENT-only (the shop heart is hidden for other roles too). */}
       {role === "RESIDENT" && (
@@ -434,7 +445,12 @@ function PreferencesSection({ styles }: { styles: AppStyles }) {
   );
 }
 
-function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => void; onDeleteAccount: () => void; styles: AppStyles }) {
+/** Self-delete is RESIDENT/MERCHANT only on the backend (staff accounts are removed by the super admin). */
+function canDeleteAccount(role: string): boolean {
+  return role === "RESIDENT" || role === "MERCHANT";
+}
+
+function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => void; onDeleteAccount?: () => void; styles: AppStyles }) {
   const { t } = useTranslation();
   return (
     <View style={styles.section}>
@@ -450,18 +466,20 @@ function DangerSection({ onLogout, onDeleteAccount, styles }: { onLogout: () => 
         <View style={styles.rowIconWrapDanger}><SignOut mirrored={I18nManager.isRTL} size={20} color={SEMANTIC.error} /></View>
         <Text style={styles.rowLabelDanger}>{t("auth.logout")}</Text>
       </Pressable>
-      <Pressable
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onDeleteAccount();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t("profile.delete_account")}
-      >
-        <View style={styles.rowIconWrapDanger}><WarningOctagon size={20} color={SEMANTIC.error} /></View>
-        <Text style={styles.rowLabelDanger}>{t("profile.delete_account")}</Text>
-      </Pressable>
+      {onDeleteAccount && (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onDeleteAccount();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t("profile.delete_account")}
+        >
+          <View style={styles.rowIconWrapDanger}><WarningOctagon size={20} color={SEMANTIC.error} /></View>
+          <Text style={styles.rowLabelDanger}>{t("profile.delete_account")}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

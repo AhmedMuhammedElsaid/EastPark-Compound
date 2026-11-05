@@ -9,7 +9,7 @@ export function AccessNotice({
   area,
   unavailable,
 }: {
-  area: 'admin' | 'merchant';
+  area: 'admin' | 'finance' | 'merchant';
   unavailable: boolean;
 }) {
   const { t } = useTranslation();
