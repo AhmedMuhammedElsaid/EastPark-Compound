@@ -9,7 +9,7 @@
       "distribution": "store",
       "environment": "production",
       "ios": {
-        "image": "latest"
+        "image": "default"
       },
       "android": {
         "buildType": "app-bundle",
@@ -27,7 +27,7 @@
       "autoIncrement": true,
       "distribution": "internal",
       "ios": {
-        "image": "latest"
+        "image": "default"
       },
       "android": {
         "buildType": "apk",
@@ -47,7 +47,7 @@
       "distribution": "internal",
       "environment": "development",
       "ios": {
-        "image": "latest"
+        "image": "default"
       },
       "android": {
         "image": "latest"
@@ -60,7 +60,7 @@
       "environment": "development",
       "ios": {
         "simulator": true,
-        "image": "latest"
+        "image": "default"
       },
       "android": {
         "image": "latest"
