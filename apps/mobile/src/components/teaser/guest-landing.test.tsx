@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import * as React from "react";
-import { Linking } from "react-native";
 
 import { GuestLanding } from "./guest-landing";
 
@@ -35,16 +34,15 @@ describe("guest landing", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it("opens the web unit-registration form from both Register your unit buttons", () => {
-    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+  it("opens the in-app unit-registration screen from both Register your unit buttons", () => {
     render(<GuestLanding />);
 
     fireEvent.press(screen.getByLabelText("landing.hero_cta"));
     fireEvent.press(screen.getByLabelText("landing.closing_cta"));
 
-    expect(openURL).toHaveBeenCalledTimes(2);
-    expect(openURL).toHaveBeenNthCalledWith(1, "https://eastpark-web-app.vercel.app/register-unit");
-    expect(openURL).toHaveBeenNthCalledWith(2, "https://eastpark-web-app.vercel.app/register-unit");
+    expect(mockPush).toHaveBeenCalledTimes(2);
+    expect(mockPush).toHaveBeenNthCalledWith(1, "/(auth)/register-unit");
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/(auth)/register-unit");
   });
 
   it("sends Sign in to the login screen", () => {
