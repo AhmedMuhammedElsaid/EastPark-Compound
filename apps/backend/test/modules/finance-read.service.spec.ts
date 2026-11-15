@@ -426,3 +426,102 @@ describe('FinanceDeskService', () => {
         });
     });
 });
+
+describe('FinanceFlatsService.list sort=balance (slice 9 drilldowns)', () => {
+    function owing() {
+        const built = buildFlats();
+        built.db.charge.findMany.mockResolvedValue([
+            {
+                id: 'c1',
+                flatId: 'flat_A2-G-1',
+                amount: D('450'),
+                dueDate: day('2026-10-10'),
+            },
+            {
+                id: 'c2',
+                flatId: 'flat_A1-2-5',
+                amount: D('450'),
+                dueDate: day('2026-07-01'),
+            },
+            {
+                id: 'c3',
+                flatId: 'flat_A1-10-1',
+                amount: D('100'),
+                dueDate: day('2026-11-01'),
+            },
+        ]);
+        return built;
+    }
+
+    it('orders by balance DESC then id ASC (ties stable) and pages every owing flat once', async () => {
+        const { service } = owing();
+        const seen: string[] = [];
+        let cursor: string | undefined;
+        do {
+            const page = await service.list({
+                sort: 'balance',
+                hasBalance: true,
+                asOf: '2026-11-02',
+                limit: 1,
+                cursor,
+            });
+            expect(page.asOf).toBe('2026-11-02');
+            seen.push(...page.items.map(i => i.id));
+            cursor = page.nextCursor;
+        } while (cursor);
+        expect(seen).toEqual(['flat_A1-2-5', 'flat_A2-G-1', 'flat_A1-10-1']);
+    });
+
+    it('applies the figure filters before locating the cursor', async () => {
+        const { service } = owing();
+        // overdue >= 20 days: A1-2-5 (124 days) and A2-G-1 (23), not A1-10-1 (1)
+        const first = await service.list({
+            sort: 'balance',
+            overdueDays: 20,
+            asOf: '2026-11-02',
+            limit: 1,
+        });
+        expect(first.items.map(i => i.id)).toEqual(['flat_A1-2-5']);
+        expect(first.nextCursor).toBe('flat_A1-2-5');
+        const second = await service.list({
+            sort: 'balance',
+            overdueDays: 20,
+            asOf: '2026-11-02',
+            limit: 1,
+            cursor: first.nextCursor,
+        });
+        expect(second.items.map(i => i.id)).toEqual(['flat_A2-G-1']);
+        expect(second.nextCursor).toBeUndefined();
+    });
+
+    it('400s a cursor that is not in the filtered, sorted set', async () => {
+        const { service } = owing();
+        await expect(
+            service.list({
+                sort: 'balance',
+                hasBalance: true,
+                cursor: 'flat_A1-2-1',
+            })
+        ).rejects.toThrow(
+            new BadRequestException('finance.error.invalidCursor')
+        );
+    });
+
+    it('without a filter every flat is listed, zero balances last; the default sort stays layout order', async () => {
+        const { service } = owing();
+        const all = await service.list({ sort: 'balance', asOf: '2026-11-02' });
+        expect(all.items.map(i => i.id)).toEqual([
+            'flat_A1-2-5',
+            'flat_A2-G-1',
+            'flat_A1-10-1',
+            'flat_A1-2-1',
+        ]);
+        const layout = await service.list({ asOf: '2026-11-02' });
+        expect(layout.items.map(i => i.label)).toEqual([
+            'A1-2-1',
+            'A1-2-5',
+            'A1-10-1',
+            'A2-G-1',
+        ]);
+    });
+});

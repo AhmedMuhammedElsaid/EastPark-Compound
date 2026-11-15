@@ -16,6 +16,11 @@ import { FINANCE_AUDIT_ACTIONS } from 'src/modules/audit/audit.actions';
 
 import { IsDateOnly, IsPeriod, TrimString } from './finance.validators';
 
+export const FINANCE_FLAT_SORTS = ['layout', 'balance'] as const;
+export type FinanceFlatSort = (typeof FINANCE_FLAT_SORTS)[number];
+
+export const FINANCE_DASHBOARD_MONTHS = [6, 12] as const;
+
 /** Shared cursor + limit (plan 7: default 20, max 100). */
 export class FinancePageQueryDto {
     @ApiPropertyOptional()
@@ -99,6 +104,34 @@ export class FinanceFlatsQueryDto extends FinancePageQueryDto {
     @IsDateOnly()
     @IsOptional()
     asOf?: string;
+
+    @ApiPropertyOptional({
+        enum: FINANCE_FLAT_SORTS,
+        default: 'layout',
+        description:
+            'layout: building, floor, flat (default); balance: balance DESC, then id ASC (filters apply before the cursor)',
+    })
+    @IsIn(FINANCE_FLAT_SORTS)
+    @IsOptional()
+    sort?: FinanceFlatSort;
+}
+
+/** `GET /finance/dashboard` (slice 9). */
+export class FinanceDashboardQueryDto {
+    @ApiPropertyOptional({
+        example: '2026-11-15',
+        description:
+            'Figures as of this Cairo date (default today; not in the future)',
+    })
+    @IsDateOnly()
+    @IsOptional()
+    asOf?: string;
+
+    @ApiPropertyOptional({ enum: FINANCE_DASHBOARD_MONTHS, default: 12 })
+    @Type(() => Number)
+    @IsIn(FINANCE_DASHBOARD_MONTHS)
+    @IsOptional()
+    months?: number;
 }
 
 /** `GET /finance/audit`. */

@@ -72,3 +72,18 @@ export function liveAllocationWhere(
         payment: livePaymentWhere(asOf),
     };
 }
+
+/**
+ * Live fund entry as of D (R4): dated by D (`entryDate`) and not voided by D
+ * (Cairo day of `voidedAt`). Whether it counts in the fund total
+ * (`countsInFundTotal`) is a separate filter, not part of liveness.
+ */
+export function liveFundEntryWhere(asOf: Date): Prisma.FundEntryWhereInput {
+    return {
+        entryDate: { lte: asOf },
+        OR: [
+            { status: PostingStatus.POSTED },
+            { voidedAt: { gte: endOfCairoDay(asOf) } },
+        ],
+    };
+}

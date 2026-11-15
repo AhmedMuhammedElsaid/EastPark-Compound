@@ -394,3 +394,23 @@ owner's yes. The owner does the click-tests himself (list handed over at the end
 
 Also corrected while revising: rule 3 claimed the existing DTOs send strings (they send numbers); the flat
 count is about 690, not 400.
+
+## 10. Build notes for the 9.6 review
+
+### 9.1 (backend, built 2026-11-15)
+
+Deviations the 9.6 review must rule on:
+
+- `collected` counts every charge except `MAINTENANCE_DEPOSIT`, so collections against `OPENING_BALANCE`
+  charges count (Q4, L-4 and the opening-row tests; the 3.2 table's "operating charges" wording is stale).
+- Deltas divide by |previous|, not previous.
+- `owingFlats` and `totalFlats` are top-level numbers.
+- Extra fields: floors carry counts; unapplied rows carry `receivedAt`.
+- A deleted owner is `ownerDeleted: true` with no name; the clients render "former owner".
+- `daysPastDue` is floored at 0 and differs from the flats list's `oldestDueDays`.
+- No separate contract-freeze task exists; the 9.1 response DTO is the frozen contract for 9.2–9.5.
+
+Gates: `pnpm test` 56 suites / 1085 tests; `pnpm lint:check` clean; `tsc --noEmit` only the 3 pre-existing
+`src/main.ts` errors; `pnpm test:db` 56 passed on a local Postgres 16 (G1 on Postgres 15 still the owner's).
+Benchmark (690 flats × 24 months, local): p50 339 ms, p95 388 ms; no index added; cache decided from the
+Render logs. `format:check` already fails on 94 untouched files (pre-existing).
