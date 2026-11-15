@@ -62,6 +62,7 @@ describe("expo-router URL collisions", () => {
       "/finance/flats": ["(finance)/finance/flats/index.tsx"],
       "/finance/flats/[id]": ["(finance)/finance/flats/[id].tsx"],
       "/finance/payment/new": ["(finance)/finance/payment/new.tsx"],
+      "/finance/period": ["(finance)/finance/period.tsx"],
       "/finance/today": ["(finance)/finance/today.tsx"],
     });
     // Listings keep /flats and /flats/[id]; no finance index can claim / or /finance.

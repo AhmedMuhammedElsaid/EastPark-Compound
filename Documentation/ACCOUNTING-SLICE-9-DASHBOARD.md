@@ -440,3 +440,12 @@ Render logs. `format:check` already fails on 94 untouched files (pre-existing).
 - The timeline shows day + time and is capped at the latest 8 rows (review to rule).
 - The flats page reads `building`, `hasBalance`, `sort`, `asOf` and `overdueDays` from the URL.
 - Gate: `pnpm --dir apps/web check` exit 0 (33 files, 591 tests).
+
+### 9.5 (mobile screens, built 2026-11-15)
+
+- The header keeps the existing find-flat and profile icons next to the pill and bell. The finance stack
+  has no tab bar, so these are the ACCOUNTANT's only way to reach them (§6 #13).
+- Tapping the unapplied check row does nothing; its Apply button opens the flat (review to rule).
+- The flats list honours `building`, `hasBalance`, `overdueDays`, `sort` and `asOf`; the dashboard query is
+  excluded from the offline cache (test in `src/__tests__/finance-dashboard-cache.test.ts`).
+- Gates: type-check clean; jest 68 suites / 506 tests; eslint 0 errors; `expo export --platform android` ok.
