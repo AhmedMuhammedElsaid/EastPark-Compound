@@ -8,8 +8,8 @@ import "tsx/cjs";
 // eslint-disable-next-line perfectionist/sort-imports
 import Env from "./env";
 
-// EAS project under the volunteering-apps account (relinked 2026-10-07)
-const EAS_PROJECT_ID = "7c09d58b-c103-461c-ad6f-7fc77a279133";
+// EAS project @ahmedmuhammedelsaid/eastpark (relinked 2026-11-15 for the Play Store build)
+const EAS_PROJECT_ID = "062399ed-48df-4d4f-ba1a-a0801a86b1bc";
 
 const appIconBadgeConfig: AppIconBadgeConfig = {
   // Only local development builds get the env/version ribbon; preview APKs
@@ -32,11 +32,11 @@ const appIconBadgeConfig: AppIconBadgeConfig = {
 // eslint-disable-next-line max-lines-per-function -- one declarative Expo config object
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  owner: "volunteering-apps",
+  owner: "ahmedmuhammedelsaid",
   name: Env.EXPO_PUBLIC_NAME,
   description: "EastPark — Residential Compound Super-App",
   scheme: Env.EXPO_PUBLIC_SCHEME,
-  slug: "eastpark-app",
+  slug: "eastpark",
   version: Env.EXPO_PUBLIC_VERSION.toString(),
   orientation: "portrait",
   icon: "./assets/icon.png",
