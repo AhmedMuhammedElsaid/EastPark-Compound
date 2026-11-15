@@ -120,7 +120,13 @@ export const flatsQuerySchema = z.object({
   phase: z.string().trim().min(1).max(20).optional(),
   hasBalance: z.enum(['true', 'false']).optional(),
   overdueDays: z.coerce.number().int().min(1).max(36500).optional(),
+  sort: z.enum(['balance']).optional(),
   asOf: dateOnlySchema.optional(),
+});
+
+export const dashboardQuerySchema = z.object({
+  asOf: dateOnlySchema.optional(),
+  months: z.enum(['6', '12']).optional(),
 });
 
 export const asOfQuerySchema = z.object({ asOf: dateOnlySchema.optional() });

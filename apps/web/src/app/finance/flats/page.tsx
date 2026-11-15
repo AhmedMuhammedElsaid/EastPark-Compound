@@ -1,12 +1,8 @@
-import { FinanceFlats, type FlatsFilters } from '@/components/finance/FinanceFlats';
+import { FinanceFlats } from '@/components/finance/FinanceFlats';
+import { parseFlatsParams } from '@/lib/finance/flats-params';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function FinanceFlatsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const initial: FlatsFilters = {
-    hasBalance: params.hasBalance === 'true' || params.hasBalance === 'false' ? params.hasBalance : undefined,
-    overdueDays: typeof params.overdueDays === 'string' ? params.overdueDays : undefined,
-  };
-  return <FinanceFlats initial={initial} />;
+  return <FinanceFlats initial={parseFlatsParams(await searchParams)} />;
 }

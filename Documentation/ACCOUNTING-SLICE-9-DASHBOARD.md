@@ -431,3 +431,12 @@ Render logs. `format:check` already fails on 94 untouched files (pre-existing).
 - The sheet takes its flats from the parent (§6 #9); no "Remind all" (§6 #1).
 - Gates: type-check clean; jest 63 suites / 482 tests; eslint 0 errors (12 warnings); `expo export` ok
   (charts not yet imported by a screen, so the bundle check repeats in 9.5).
+
+### 9.3 (web screen, built 2026-11-15)
+
+- The map opens with the building with the highest outstanding selected (ties: code order), as in sample 4.
+  No "All buildings" state.
+- The period pill is plain text (web has no period page); the period card and checklist link to `/finance/audit`.
+- The timeline shows day + time and is capped at the latest 8 rows (review to rule).
+- The flats page reads `building`, `hasBalance`, `sort`, `asOf` and `overdueDays` from the URL.
+- Gate: `pnpm --dir apps/web check` exit 0 (33 files, 591 tests).
