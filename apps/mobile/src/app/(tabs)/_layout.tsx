@@ -26,12 +26,12 @@ export default function TabsLayout() {
   const { bottom } = useSafeAreaInsets();
   const isAuthenticated = useAppSelector(s => s.auth.isAuthenticated);
   const role = useAppSelector(s => s.auth.user?.role);
-  // Guests see the Flats tab (it opens Coming soon); merchants cannot browse listings.
-  const hideFlats = isAuthenticated && !canBrowseListings(role);
+  // Flats and Community exist only after sign-in: guests see Home, Directory and Profile.
+  // Merchants cannot browse listings either.
+  const hideFlats = !isAuthenticated || !canBrowseListings(role);
+  const hideCommunity = !isAuthenticated;
 
-  // Guests can browse Home, Directory and Profile; Flats and Community open the
-  // Coming soon sheet instead of switching tab (web: GatedLink for restricted users).
-  // The accountant role is confined the same way (Community is closed to it).
+  // The accountant role is confined: Community stays visible but opens the Coming soon sheet.
   const lockedFor = (feature: "listings" | "community") => ({
     tabPress: (event: { preventDefault: () => void }) => {
       if (isAuthenticated && !isAccountantRole(role))
@@ -99,6 +99,7 @@ export default function TabsLayout() {
           name="community"
           listeners={lockedFor("community")}
           options={{
+            href: hideCommunity ? null : undefined,
             title: t("community.title"),
             tabBarIcon: ({ color, focused }) => (
               <Users color={color} size={24} weight={focused ? "fill" : "regular"} />

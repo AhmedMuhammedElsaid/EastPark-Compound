@@ -122,7 +122,7 @@ export default function NotificationsScreen() {
       markRead(notification.id);
     const href = getNotificationHref(notification.type, notification.data);
     if (href)
-      router.push(href as Href);
+      router.push(href as Href, { withAnchor: true });
   }
 
   return (

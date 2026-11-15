@@ -92,7 +92,7 @@ export default function FlatsScreen() {
           {role === "RESIDENT" && (
             <Pressable
               style={({ pressed }) => [styles.listBtn, pressed && styles.pressed]}
-              onPress={() => router.push("/(tabs)/profile/listings" as Href)}
+              onPress={() => router.push("/(tabs)/profile/listings" as Href, { withAnchor: true })}
               accessibilityRole="button"
               accessibilityLabel={t("listings.my_listings")}
             >

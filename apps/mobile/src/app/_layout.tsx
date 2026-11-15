@@ -136,7 +136,7 @@ function Providers({ children }: { children: React.ReactNode }) {
       const data = response.notification.request.content.data as Record<string, unknown> | null;
       const href = getNotificationHref(data?.type, data);
       if (href)
-        router.push(href as Href);
+        router.push(href as Href, { withAnchor: true });
     }
     // A tap that cold-starts the app arrives before this listener exists.
     const launchResponse = Notifications.getLastNotificationResponse();
