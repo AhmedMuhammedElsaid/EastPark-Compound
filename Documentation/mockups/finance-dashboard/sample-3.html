@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EastPark Finance — Sample 3 — Compound Map / Story</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>:root{--bg:#0d0c0b;--card:#221f1c;--elev:#2e2a26;--line:#3b3631;--tx:#efe9df;--mut:#a89f93;--gold:#b8966a;--goldtx:#c9a97c;--ok:#7d9f74;--warn:#d9a043;--err:#d0564a;--info:#7b9bba;
+--c1:#b8966a;--c2:#7d9f74;--c3:#7b9bba;--c4:#d9a043;--c5:#9a8b7a;--a1:#7d9f74;--a2:#d9a043;--a3:#c4723a;--a4:#d0564a;--shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.35)}
+:root[data-theme=light]{--bg:#f1ece4;--card:#faf8f5;--elev:#ebe5db;--line:#ddd5c8;--tx:#2a2622;--mut:#665d52;--gold:#b8966a;--goldtx:#7a5e38;--ok:#4a6a42;--warn:#8f6312;--err:#9a3126;--info:#3d5a77;
+--c1:#9a7a4e;--c2:#5A7A52;--c3:#4A6B8A;--c4:#C48B2F;--c5:#8a7a6a;--a1:#5A7A52;--a2:#C48B2F;--a3:#b0602a;--a4:#B03A2E;--shadow:0 1px 2px rgba(60,45,25,.08),0 6px 18px rgba(60,45,25,.07)}
+@media (prefers-color-scheme:light){:root:not([data-theme]){}}
+*{box-sizing:border-box;margin:0}html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font-family:'Alexandria',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow-x:hidden;padding-top:44px}
+.num,.n{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";direction:ltr;unicode-bidi:isolate;display:inline-block}
+.serif{font-family:'Cormorant Garamond',serif;font-weight:500;letter-spacing:.01em}
+:lang(ar) .serif{font-family:'Alexandria',sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.sample-tag{position:fixed;top:0;inset-inline:0;z-index:50;height:44px;display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--elev);border-bottom:1px solid var(--line);font-size:12px;color:var(--mut)}
+.sample-tag b{color:var(--goldtx);font-weight:600;white-space:nowrap}
+.sample-tag .sp{flex:1}
+.sample-tag a{color:var(--mut);text-decoration:none;min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
+.tbtn{min-height:44px;min-width:44px;padding:0 12px;background:transparent;border:1px solid var(--line);border-radius:10px;color:var(--tx);font-size:13px}
+.sample-tag .tbtn{min-height:36px;min-width:36px;padding:0 10px}
+.tbtn:hover{border-color:var(--gold)}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--elev);color:var(--tx);font-size:13px;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.btn:hover{border-color:var(--gold)}
+.btn.pri{background:var(--gold);border-color:var(--gold);color:#1a1612;font-weight:600}
+.btn.sm{min-height:44px;padding:0 12px;font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.mut{color:var(--mut)}.up{color:var(--ok)}.down{color:var(--err)}
+.chart{width:100%;position:relative}.chart svg{display:block;overflow:visible}
+.chart text{font-family:'Alexandria',sans-serif;fill:var(--mut);font-size:11px}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th{font-weight:500;font-size:12px;color:var(--mut);text-align:start;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--mut)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:6px;vertical-align:-1px}
+#tip{position:fixed;z-index:100;pointer-events:none;background:var(--elev);border:1px solid var(--gold);color:var(--tx);padding:6px 10px;border-radius:8px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;max-width:240px;white-space:pre-line}
+.sk{background:linear-gradient(90deg,var(--elev),var(--line),var(--elev));background-size:200% 100%;animation:sk 1.4s linear infinite;border-radius:8px}
+@keyframes sk{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.grid>*,.g2>*,.two>*,.mapsec>*,.hero>*{min-width:0}html,body{max-width:100vw}
+
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 64px;display:flex;flex-direction:column;gap:24px}
+.pad{padding:20px}
+.hero{display:grid;grid-template-columns:240px 1fr;gap:28px;align-items:center;padding:28px;background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--gold) 14%,var(--card)),var(--card) 60%)}
+.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--goldtx);text-transform:uppercase}
+.story h1{font-size:clamp(26px,4vw,40px);line-height:1.5;font-weight:400;margin:6px 0 8px}
+.gold{color:var(--goldtx)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.lnk{color:var(--goldtx);text-decoration:none;display:inline-flex;min-height:44px;align-items:center}
+.sec{font-size:15px;font-weight:500;margin-bottom:12px;color:var(--mut)}
+.att{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.ac{padding:18px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-top:3px solid var(--ac)}
+.ai{font-size:18px;color:var(--ac)}.at{font-weight:500;line-height:1.5}.ad{font-size:13px;color:var(--mut);flex:1}
+.mapsec{display:grid;grid-template-columns:1.7fr 1fr;gap:16px}
+.sh{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h2{font-size:15px;font-weight:500}
+.bl{cursor:pointer;outline:none}.bl:hover rect,.bl:focus-visible rect{stroke:var(--gold);stroke-width:2.5}
+.bl text{pointer-events:none}.chart .bl text{fill:#f4eee4}
+:root[data-theme=light] .chart .bl text{fill:#2a2622}
+.legend.hl{align-items:center}.ramp{width:90px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--elev),var(--err));margin:0 6px;vertical-align:middle;display:inline-block}
+.hint{font-size:12px;margin-top:6px}
+.bn{font-size:32px;color:var(--goldtx)}
+.dnum{font-size:28px;font-weight:300;margin-top:4px}
+.sub{font-size:12px;color:var(--mut);margin:16px 0 6px;letter-spacing:.05em}
+.tr{display:grid;grid-template-columns:70px 1fr auto;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.two{display:grid;grid-template-columns:1fr 1.3fr;gap:16px}
+.tl{list-style:none;padding:0;position:relative}
+.tl li{display:grid;grid-template-columns:48px 14px 1fr;gap:10px;padding:8px 0;align-items:center;position:relative}
+.tl li::after{content:"";position:absolute;inset-inline-start:calc(48px + 10px + 6px);top:26px;bottom:-8px;width:1px;background:var(--line)}
+.tl li:last-child::after{display:none}
+.tm{font-size:12px;color:var(--mut)}
+.d{width:12px;height:12px;border-radius:50%;background:var(--c2);border:2px solid var(--card);box-shadow:0 0 0 1px var(--c2);z-index:1}
+.d.unap{background:var(--warn);box-shadow:0 0 0 1px var(--warn)}.d.late{background:var(--err);box-shadow:0 0 0 1px var(--err)}.d.fund{background:var(--c3);box-shadow:0 0 0 1px var(--c3)}
+.stack{display:flex;height:12px;border-radius:99px;overflow:hidden;gap:2px;margin-bottom:8px}
+.tcards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.tc{padding:16px;display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit;min-height:44px}.tc:hover{border-color:var(--gold)}
+.tcode{font-size:20px;font-weight:500}
+@media(max-width:980px){.att{grid-template-columns:1fr 1fr}.mapsec,.two{grid-template-columns:1fr}.tcards{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr;justify-items:center;text-align:center}.chips{justify-content:center}}
+@media(max-width:560px){.att{grid-template-columns:1fr}.hero{padding:20px}.pad{padding:16px}}
+</style></head><body>
+<div class="sample-tag"><b>Sample 3 — Compound Map / Story</b><span class="sp"></span><a href="index.html" id="backA">Index</a><button class="tbtn" id="langBtn" aria-label="Language">EN</button><button class="tbtn" id="themeBtn" aria-label="Theme">◐</button></div>
+<div id="app"></div>
+<script>/* ---------- shared data + helpers ---------- */
+let seed=42;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const MON={ar:['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],en:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']};
+const MIDX=[11,0,1,2,3,4,5,6,7,8,9,10]; // Dec 2025 .. Nov 2026
+const rates=[.91,.89,.93,.88,.9,.92,.87,.89,.91,.88,.9];
+const billed=MIDX.map((m,i)=>Math.round((468000+i*4000)/500)*500);billed[11]=512500;
+const collected=billed.map((b,i)=>i<11?Math.round(b*rates[i]/250)*250:441000);
+const DATA={
+ flats:400,owing:137,fund:3420000,outstanding:1284000,
+ aging:[412000,301000,228000,343000],
+ methods:[['cash',148000],['transfer',171000],['instapay',96000],['cheque',26000]],
+ buildings:[['A1',52,168000,18],['A2',48,131000,14],['B1',56,207000,22],['B2',52,189000,19],['C1',60,254000,26],['D1',44,96000,10],['E2',48,142000,16],['F2',40,97000,12]],
+ top:[['A1-3-5','محمد عبد الرحمن',18750,214],['C1-2-3','سامح فتحي',16250,187],['B2-4-1','منى السيد',15000,172],['E2-4-5','كريم شوقي',13750,141],['D1-1-2','هشام جابر',12500,128],['F2-6-4','دينا عادل',12500,109],['A2-5-6','نهى إبراهيم',11250,97],['B1-2-2','طارق منصور',10000,93],['C1-7-1','إيمان حسن',8750,74],['A1-1-4','عمرو زكي',7500,66]],
+ unapplied:[['A2-3-1','transfer',3750,2],['B1-6-3','instapay',2500,3],['C1-4-2','cash',1250,5],['E2-2-6','cheque',5000,6],['D1-5-1','instapay',1250,8]],
+ credit:{count:23,total:41250},
+ close:[['c1',1],['c2',0,'5'],['c3',1],['c4',0],['c5',0],['c6',1]],
+ events:[['09:12','pay','A1-2-3','1,250'],['09:40','pay','C1-4-1','2,500'],['10:05','unap','B2-1-5','3,750'],['11:30','pay','F2-3-2','1,250'],['12:15','late','D1-2-4',''],['13:02','pay','E2-5-6','3,750'],['14:20','fund','—','25,000']]
+};
+// building x floor arrears
+DATA.heat=DATA.buildings.map(b=>{const w=Array.from({length:8},()=>.3+rnd()*1.4);const s=w.reduce((a,c)=>a+c,0);let v=w.map(x=>Math.round(b[2]*x/s/250)*250);v[7]+=b[2]-v.reduce((a,c)=>a+c,0);return v});
+const T={
+ ar:{egp:'ج.م',collected:'المحصّل هذا الشهر',billed:'المفوتر هذا الشهر',rate:'نسبة التحصيل',outstanding:'إجمالي المتأخرات',owing:'الشقق المتأخرة',fund:'رصيد صندوق الصيانة',vs:'عن الشهر الماضي',
+ bvc:'المفوتر مقابل المحصّل — آخر 12 شهراً',aging:'أعمار الديون',methods:'التحصيل حسب طريقة الدفع',bybld:'المتأخرات حسب المبنى',top:'أعلى 10 شقق متأخرة',unap:'دفعات غير مطبّقة ورصيد دائن',close:'إقفال الفترة',actions:'إجراءات سريعة',
+ record:'تسجيل دفعة',find:'بحث عن شقة',d30:'0–30 يوم',d60:'31–60 يوم',d90:'61–90 يوم',d90p:'+90 يوم',cash:'نقدي',transfer:'تحويل بنكي',instapay:'إنستاباي',cheque:'شيك',
+ flat:'الشقة',owner:'المالك',amount:'المبلغ',days:'أيام التأخر',open:'فتح',day:'يوم',period:'الفترة',building:'المبنى',all:'كل المباني',
+ c1:'مطابقة المدفوعات النقدية',c2:'تخصيص الدفعات غير المطبّقة',c3:'مراجعة الرسوم المتأخرة',c4:'مطابقة كشف البنك',c5:'إصدار كشوف الشقق',c6:'مراجعة سجل التدقيق',left:'متبقٍ',done:'تم',
+ open_p:'مفتوحة',credits:'أرصدة دائنة',paymentsN:'دفعات',billedS:'المفوتر',collS:'المحصّل',ago:'منذ',days_:'أيام',
+ title:'المالية',sub:'نوفمبر 2026',fl:'الدور',remind:'تذكير',pay:'دفعة',apply:'تخصيص',lang:'EN',theme:'الوضع',back:'الفهرس',
+ flats:'شقة',of:'من',late:'تأخر',fundDep:'إيداع صندوق',payRec:'دفعة مسجّلة',unapRec:'دفعة غير مطبّقة',lateRec:'رسوم تأخير'},
+ en:{egp:'EGP',collected:'Collected this month',billed:'Billed this month',rate:'Collection rate',outstanding:'Total outstanding',owing:'Owing flats',fund:'Maintenance fund',vs:'vs last month',
+ bvc:'Billed vs collected — last 12 months',aging:'Debt aging',methods:'Collections by method',bybld:'Outstanding by building',top:'Top 10 owing flats',unap:'Unapplied payments & credits',close:'Period close',actions:'Quick actions',
+ record:'Record payment',find:'Find a flat',d30:'0–30 days',d60:'31–60 days',d90:'61–90 days',d90p:'90+ days',cash:'Cash',transfer:'Bank transfer',instapay:'InstaPay',cheque:'Cheque',
+ flat:'Flat',owner:'Owner',amount:'Amount',days:'Days overdue',open:'Open',day:'d',period:'Period',building:'Building',all:'All buildings',
+ c1:'Reconcile cash payments',c2:'Apply unapplied payments',c3:'Review late fees',c4:'Match bank statement',c5:'Issue flat statements',c6:'Review audit log',left:'left',done:'Done',
+ open_p:'OPEN',credits:'Credit balances',paymentsN:'payments',billedS:'Billed',collS:'Collected',ago:'',days_:'days ago',
+ title:'Finance',sub:'November 2026',fl:'Floor',remind:'Remind',pay:'Pay',apply:'Apply',lang:'ع',theme:'Theme',back:'Index',
+ flats:'flats',of:'of',late:'Late',fundDep:'Fund deposit',payRec:'Payment recorded',unapRec:'Unapplied payment',lateRec:'Late fee'}};
+let LANG='ar';const t=k=>(T[LANG][k]??k);
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const k=n=>n>=1e6?(n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M':Math.round(n/1000)+'k';
+const money=n=>`<span class="n">${fmt(n)}</span> <small class="mut">${t('egp')}</small>`;
+const mname=i=>MON[LANG][MIDX[i]];
+const pct=(a,b)=>(a/b*100).toFixed(1);
+const dlt=(v)=>`<span class="${v>=0?'up':'down'} n">${v>=0?'▲':'▼'} ${Math.abs(v).toFixed(1)}%</span>`;
+const sum=a=>a.reduce((x,y)=>x+y,0);
+/* ---------- chart registry ---------- */
+const CH=[];let chn=0;
+function chart(fn,minH){const id='ch'+(chn++);CH.push([id,fn]);return `<div class="chart" id="${id}" dir="ltr"></div>`}
+function drawCharts(){CH.forEach(([id,fn])=>{const el=document.getElementById(id);if(el&&el.clientWidth)el.innerHTML=fn(el.clientWidth)})}
+function tipAttr(s){return `data-tip="${s.replace(/"/g,'&quot;')}" tabindex="0"`}
+/* sparkline */
+function spark(vals,w=110,h=34,col='var(--c1)'){const mn=Math.min(...vals),mx=Math.max(...vals);const p=vals.map((v,i)=>[i*(w-6)/(vals.length-1)+3,h-4-(v-mn)/(mx-mn||1)*(h-10)]);const d=p.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join('');const l=p[p.length-1];return `<svg width="${w}" height="${h}" aria-hidden="true"><path d="${d}L${l[0]} ${h}L3 ${h}Z" fill="${col}" opacity=".12"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${l[0]}" cy="${l[1]}" r="2.6" fill="${col}"/></svg>`}
+/* billed vs collected bars */
+function barsBvC(w,h=260,opt={}){const m={l:40,r:8,t:10,b:26},iw=w-m.l-m.r,ih=h-m.t-m.b,mx=600000;const gw=iw/12,bw=Math.max(5,Math.min(16,gw*.32));let s=`<svg width="${w}" height="${h}" role="img" aria-label="${t('bvc')}">`;
+ [0,200000,400000,600000].forEach(v=>{const y=m.t+ih-v/mx*ih;s+=`<line x1="${m.l}" x2="${w-m.r}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-dasharray="${v?'3 4':''}"/><text x="${m.l-6}" y="${y+4}" text-anchor="end">${k(v)}</text>`});
+ billed.forEach((b,i)=>{const c=collected[i],x=m.l+gw*i+gw/2,hb=b/mx*ih,hc=c/mx*ih;
+  s+=`<rect x="${x-bw-1}" y="${m.t+ih-hb}" width="${bw}" height="${hb}" rx="3" fill="var(--c5)" opacity=".5"/><rect x="${x+1}" y="${m.t+ih-hc}" width="${bw}" height="${hc}" rx="3" fill="var(--c1)"/>`;
+  s+=`<text x="${x}" y="${h-8}" text-anchor="middle">${w<520?mname(i).slice(0,LANG=='ar'?3:1):mname(i).slice(0,LANG=='ar'?5:3)}</text>`;
+  s+=`<rect x="${x-gw/2}" y="${m.t}" width="${gw}" height="${ih}" fill="transparent" ${tipAttr(mname(i)+'\n'+t('billedS')+': '+fmt(b)+'\n'+t('collS')+': '+fmt(c)+'\n'+pct(c,b)+'%')}/>`});
+ return s+'</svg>'}
+/* donut */
+function donut(items,size=170,center=''){const r=size/2-14,C=2*Math.PI*r,tot=sum(items.map(i=>i.v));let off=0;const cols=['var(--c1)','var(--c3)','var(--c2)','var(--c4)'];let s=`<svg width="${size}" height="${size}" role="img"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--elev)" stroke-width="16"/>`;
+ items.forEach((it,i)=>{const len=it.v/tot*C;s+=`<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${it.c||cols[i]}" stroke-width="16" stroke-dasharray="${Math.max(0,len-2)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size/2} ${size/2})" ${tipAttr(it.l+'\n'+fmt(it.v)+' '+t('egp')+' ('+pct(it.v,tot)+'%)')}/>`;off+=len});
+ return s+center+'</svg>'}
+/* ring progress */
+function ring(p,size=220,sw=18){const r=size/2-sw,C=2*Math.PI*r;return `<svg width="${size}" height="${size}" role="img" aria-label="${p}%"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--elev)" stroke-width="${sw}"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--c1)" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${C*p/100} ${C}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="48%" text-anchor="middle" style="font-size:${size/4.4}px;fill:var(--tx);font-weight:300" class="n">${p}%</text><text x="50%" y="48%" dy="${size/6}" text-anchor="middle" style="font-size:12px">${t('rate')}</text></svg>`}
+/* horizontal bars */
+function hbar(items,w,rowH=30,col='var(--c1)',lw=44){const vw=w-lw-60,mx=Math.max(...items.map(i=>i.v));let s=`<svg width="${w}" height="${items.length*rowH}">`;items.forEach((it,i)=>{const y=i*rowH,bw=it.v/mx*vw;s+=`<text x="${lw-8}" y="${y+rowH/2+4}" text-anchor="end" style="fill:var(--tx)">${it.l}</text><rect x="${lw}" y="${y+6}" width="${vw}" height="${rowH-12}" rx="4" fill="var(--elev)"/><rect x="${lw}" y="${y+6}" width="${bw}" height="${rowH-12}" rx="4" fill="${it.c||col}" ${tipAttr(it.tip||it.l+': '+fmt(it.v))}/><text x="${lw+vw+8}" y="${y+rowH/2+4}">${k(it.v)}</text>`});return s+'</svg>'}
+const agingItems=()=>[['d30','a1'],['d60','a2'],['d90','a3'],['d90p','a4']].map((a,i)=>({l:t(a[0]),v:DATA.aging[i],c:`var(--${a[1]})`}));
+const methodItems=()=>DATA.methods.map((m,i)=>({l:t(m[0]),v:m[1],c:['var(--c1)','var(--c3)','var(--c2)','var(--c4)'][i]}));
+const heatBg=v=>`color-mix(in srgb,var(--err) ${Math.min(80,Math.round(v/60000*100))}%,var(--elev))`;
+/* ---------- shell ---------- */
+function setTheme(x){document.documentElement.dataset.theme=x;try{localStorage.setItem('ep-theme',x)}catch(e){}}
+function initShell(render){
+ let th='dark';try{th=localStorage.getItem('ep-theme')||'dark'}catch(e){}setTheme(th);
+ const tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);
+ const show=(e)=>{const el=e.target.closest&&e.target.closest('[data-tip]');if(!el){tip.style.opacity=0;return}tip.textContent=el.dataset.tip;tip.style.opacity=1;const r=el.getBoundingClientRect(),x=e.clientX||r.left+r.width/2,y=e.clientY||r.top;tip.style.left=Math.max(8,Math.min(innerWidth-tip.offsetWidth-8,x-tip.offsetWidth/2))+'px';tip.style.top=Math.max(52,y-tip.offsetHeight-14)+'px'};
+ document.addEventListener('mousemove',show);document.addEventListener('focusin',show);document.addEventListener('click',show);document.addEventListener('mouseleave',()=>tip.style.opacity=0);document.addEventListener('focusout',()=>tip.style.opacity=0);
+ const apply=()=>{document.documentElement.lang=LANG;document.documentElement.dir=LANG=='ar'?'rtl':'ltr';CH.length=0;chn=0;render();document.getElementById('langBtn').textContent=t('lang');drawCharts()};
+ document.getElementById('themeBtn').onclick=()=>setTheme(document.documentElement.dataset.theme=='dark'?'light':'dark');
+ document.getElementById('langBtn').onclick=()=>{LANG=LANG=='ar'?'en':'ar';apply()};
+ let lw=0;new ResizeObserver(()=>{if(innerWidth!==lw){lw=innerWidth;drawCharts()}}).observe(document.body);
+ apply();
+}
+
+const S={sel:'C1'};
+function mapSvg(w){
+ const B=DATA.buildings,cols=4,gap=w<500?8:14,bw=(w-gap*(cols-1))/cols,H=w<500?250:330,rowH=(H-gap*3)/2;
+ let s=`<svg width="${w}" height="${H+30}" role="group" aria-label="${LANG=='ar'?'مخطط المجمع':'Compound plan'}">`;
+ s+=`<rect x="0" y="${rowH+gap*1.5-3}" width="${w}" height="6" rx="3" fill="var(--elev)"/>`;
+ s+=`<text x="${w/2}" y="${H+22}" text-anchor="middle" style="font-size:11px">${LANG=='ar'?'المدخل الرئيسي':'Main gate'} ▲</text>`;
+ B.forEach((b,i)=>{const r=Math.floor(i/cols),c=i%cols,x=c*(bw+gap),yy=r?rowH+gap*2:0;const ratio=b[2]/b[1];const intens=Math.round(Math.max(8,Math.min(80,(ratio-1800)/2600*72+8)));const hh=rowH*(.7+.3*b[1]/60);const y=r?yy:rowH-hh;const on=S.sel==b[0];
+  s+=`<g class="bl" data-b="${b[0]}" tabindex="0" role="button" aria-label="${b[0]}" ${tipAttr(b[0]+'\n'+fmt(b[2])+' '+t('egp')+'\n'+b[3]+' / '+b[1]+' '+t('flats'))}><rect x="${x}" y="${y}" width="${bw}" height="${hh}" rx="10" fill="color-mix(in srgb,var(--err) ${intens}%,var(--elev))" stroke="${on?'var(--gold)':'var(--line)'}" stroke-width="${on?2.5:1}"/>`;
+  for(let f=0;f<5;f++)s+=`<line x1="${x+10}" x2="${x+bw-10}" y1="${y+hh-14-f*(hh-34)/5}" y2="${y+hh-14-f*(hh-34)/5}" stroke="var(--bg)" opacity=".25"/>`;
+  s+=`<text x="${x+12}" y="${y+22}" style="fill:var(--tx);font-size:${w<500?14:18}px;font-weight:600">${b[0]}</text><text x="${x+12}" y="${y+hh-10}" style="fill:var(--tx);font-size:11px" class="n">${k(b[2])} · ${b[3]}/${b[1]}</text></g>`});
+ return s+'</svg>'}
+function render(){
+ const B=DATA.buildings,b=B.find(x=>x[0]==S.sel),bi=B.indexOf(b),p=+pct(441000,512500);
+ const top=DATA.top.filter(r=>r[0].startsWith(S.sel+'-'));
+ const att=[['⚠',LANG=='ar'?'دفعات تنتظر التخصيص':'Payments waiting to be applied',`<b class="n">${DATA.unapplied.length}</b> · ${fmt(sum(DATA.unapplied.map(u=>u[2])))} ${t('egp')}`,t('apply'),'var(--warn)'],
+  ['●',LANG=='ar'?'ديون تجاوزت 90 يوماً':'Debts over 90 days',`<b class="n">${fmt(343000)}</b> ${t('egp')} · <span class="n">27%</span>`,t('open'),'var(--err)'],
+  ['▦',LANG=='ar'?'المبنى الأعلى تأخراً: C1':'Most behind: building C1',`<b class="n">${fmt(254000)}</b> ${t('egp')} · <span class="n">26/60</span> ${t('flats')}`,t('open'),'var(--c1)'],
+  ['⏳',LANG=='ar'?'إقفال الفترة: 3 بنود متبقية':'Period close: 3 items left',`<span class="n">3 / 6</span> ${t('done')}`,t('close'),'var(--c3)']];
+ document.getElementById('app').innerHTML=`<main class="wrap">
+ <section class="hero card"><div class="ringbox">${chart(w=>ring(p,Math.min(w,240)))}</div>
+  <div class="story"><div class="eyebrow">${t('sub')} · ${t('open_p')}</div>
+   <h1 class="serif">${LANG=='ar'?`حصّلنا <span class="n gold">${fmt(441000)}</span> ج.م من <span class="n">${fmt(512500)}</span>`:`Collected <span class="gold n">${fmt(441000)}</span> of <span class="n">${fmt(512500)}</span> EGP`}</h1>
+   <p class="mut">${LANG=='ar'?'تبقّى 71,500 ج.م من فاتورة الشهر. 137 شقة من 400 عليها متأخرات إجمالها 1,284,000 ج.م.':'71,500 EGP of this month is still open. 137 of 400 flats carry arrears totalling 1,284,000 EGP.'}</p>
+   <div class="chips"><span class="pill">${t('fund')} <b class="n">${k(3420000)}</b></span><span class="pill">${t('collected')} ${dlt(2.1)}</span><span class="pill"><a class="lnk" href="#">${t('record')} ›</a></span></div></div></section>
+ <section><h2 class="sec">${LANG=='ar'?'يحتاج انتباهك':'What needs attention'}</h2><div class="att">${att.map(a=>`<article class="card ac" style="--ac:${a[4]}"><span class="ai">${a[0]}</span><div class="at">${a[1]}</div><div class="ad">${a[2]}</div><a class="btn sm" href="#">${a[3]} ›</a></article>`).join('')}</div></section>
+ <section class="mapsec"><div class="card pad"><div class="sh"><h2>${LANG=='ar'?'خريطة المجمع — المتأخرات لكل مبنى':'Compound map — arrears by building'}</h2><div class="legend hl"><span>${LANG=='ar'?'أقل':'Less'}</span><i class="ramp"></i><span>${LANG=='ar'?'أكثر':'More'}</span></div></div>${chart(mapSvg)}<p class="mut hint">${LANG=='ar'?'اضغط على مبنى لعرض التفاصيل':'Select a building for details'}</p></div>
+  <aside class="card pad det"><div class="sh"><h2><span class="serif bn">${b[0]}</span></h2><span class="pill n">${b[3]} / ${b[1]} ${t('flats')}</span></div>
+   <div class="dnum">${money(b[2])}</div><div class="mut">${t('outstanding')}</div>
+   <div class="sub">${t('fl')}</div>${chart(w=>hbar(DATA.heat[bi].map((v,f)=>({l:String(f+1),v,c:'var(--a3)',tip:t('fl')+' '+(f+1)+': '+fmt(v)})),w,26,'',30))}
+   <div class="sub">${t('top')}</div>${top.length?top.map(r=>`<div class="tr"><b class="n">${r[0]}</b><span>${r[1]}</span><span class="n">${fmt(r[2])}</span></div>`).join(''):`<div class="mut">—</div>`}</aside></section>
+ <div class="two">
+ <section class="card pad"><div class="sh"><h2>${LANG=='ar'?'خط شهر نوفمبر':'November timeline'}</h2></div><ol class="tl">${DATA.events.slice().reverse().map(e=>`<li><span class="tm n">${e[0]}</span><i class="d ${e[1]}"></i><div>${t({pay:'payRec',unap:'unapRec',late:'lateRec',fund:'fundDep'}[e[1]])} ${e[2]!='—'?`<b class="n">${e[2]}</b>`:''} ${e[3]?`<span class="mut n">${e[3]} ${t('egp')}</span>`:''}</div></li>`).join('')}</ol></section>
+ <section class="card pad"><div class="sh"><h2>${t('bvc')}</h2></div>${chart(w=>barsBvC(w,220))}<div class="legend"><span><i style="background:var(--c5);opacity:.6"></i>${t('billedS')}</span><span><i style="background:var(--c1)"></i>${t('collS')}</span></div>
+  <div class="sub">${t('aging')}</div><div class="stack">${agingItems().map(a=>`<i style="flex:${a.v};background:${a.c}" ${tipAttr(a.l+'\n'+fmt(a.v))}></i>`).join('')}</div><div class="legend">${agingItems().map(a=>`<span><i style="background:${a.c}"></i>${a.l}</span>`).join('')}</div>
+  <div class="sub">${t('methods')}</div><div class="stack">${methodItems().map(a=>`<i style="flex:${a.v};background:${a.c}" ${tipAttr(a.l+'\n'+fmt(a.v))}></i>`).join('')}</div><div class="legend">${methodItems().map(a=>`<span><i style="background:${a.c}"></i>${a.l} <b class="n">${pct(a.v,441000)}%</b></span>`).join('')}</div></section>
+ </div>
+ <section><h2 class="sec">${t('top')}</h2><div class="tcards">${DATA.top.slice(0,5).map((r,i)=>`<a class="card tc" href="#"><span class="mut n">#${i+1}</span><b class="n tcode">${r[0]}</b><span>${r[1]}</span><span class="n down">${fmt(r[2])} ${t('egp')}</span><small class="mut n">${r[3]} ${t('day')}</small></a>`).join('')}</div></section>
+ </main>`;
+ document.querySelectorAll('.bl').forEach(g=>{const go=()=>{S.sel=g.dataset.b;CH.length=0;chn=0;render();drawCharts()};g.onclick=go;g.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();go()}}});
+}
+
+initShell(render);</script></body></html>
