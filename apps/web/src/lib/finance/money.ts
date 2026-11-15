@@ -82,6 +82,17 @@ export function formatDate(value: string, lang: 'ar' | 'en'): string {
   }).format(date);
 }
 
+/**
+ * A backend decimal STRING (`"12500.00"`, may be negative) for display. Intl formats the string
+ * itself, so no float rounds a displayed figure (slice 9, rule 3).
+ */
+export function formatDecimalAmount(value: string, lang: 'ar' | 'en', fractionDigits = 0): string {
+  return new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-US', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value as unknown as number);
+}
+
 export type AllocationPreviewLine = { chargeId: string; cents: number };
 
 /**

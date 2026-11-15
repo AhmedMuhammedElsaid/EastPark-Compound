@@ -136,6 +136,41 @@
   --color-primary-foreground:   #faf8f5;
 }
 
+/* ─── Finance chart palette (slice 9; sample-4 --c1..--c5 / --a1..--a4) ──
+   Dark is the default, `.light` overrides, like the surface tokens above. */
+:root {
+  --chart-1: #b8966a;
+  --chart-2: #7d9f74;
+  --chart-3: #7b9bba;
+  --chart-4: #d9a043;
+  --chart-5: #9a8b7a;
+  --chart-a1: #7d9f74;
+  --chart-a2: #d9a043;
+  --chart-a3: #c4723a;
+  --chart-a4: #d0564a;
+}
+
+.light {
+  --chart-1: #9a7a4e;
+  --chart-2: #5a7a52;
+  --chart-3: #4a6b8a;
+  --chart-4: #c48b2f;
+  --chart-5: #8a7a6a;
+  --chart-a1: #5a7a52;
+  --chart-a2: #c48b2f;
+  --chart-a3: #b0602a;
+  --chart-a4: #b03a2e;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fc-ring-arc {
+    transition: stroke-dasharray 0.6s var(--ease-out-soft);
+  }
+  .fc-bar {
+    transition: height 0.4s var(--ease-out-soft), y 0.4s var(--ease-out-soft);
+  }
+}
+
 /* ─── Base wiring ─────────────────────────────────────────────────────── */
 body {
   background: var(--color-background);

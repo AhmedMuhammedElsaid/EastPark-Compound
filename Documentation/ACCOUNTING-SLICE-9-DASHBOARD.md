@@ -414,3 +414,20 @@ Gates: `pnpm test` 56 suites / 1085 tests; `pnpm lint:check` clean; `tsc --noEmi
 `src/main.ts` errors; `pnpm test:db` 56 passed on a local Postgres 16 (G1 on Postgres 15 still the owner's).
 Benchmark (690 flats × 24 months, local): p50 339 ms, p95 388 ms; no index added; cache decided from the
 Render logs. `format:check` already fails on 94 untouched files (pre-existing).
+
+### 9.2 (web charts, built 2026-11-15)
+
+- One shared custom tooltip (`charts/tooltip.ts`) replaces native `<title>`, same text as sample 4.
+- Every chart has a visually-hidden table; Donut and StackedBar keep their visible legends.
+- Map tint is normalised to the real data range instead of the mockup's fixed range (review to rule).
+- Tokens `--chart-1..5`, `--chart-a1..a4` added in `globals.css` (dark + light).
+- Gate: `pnpm --dir apps/web check` exit 0 (572 tests, 64 pages).
+
+### 9.4 (mobile charts, built 2026-11-15)
+
+- Taps go through a button overlay above the SVG; 12M month columns are ~25 dp wide, under the 48 dp
+  target (same density as sample 5; review to rule).
+- Ring size set to the mockup's 132. The charts have no motion; with reduced motion the sheet animates in 1 ms.
+- The sheet takes its flats from the parent (§6 #9); no "Remind all" (§6 #1).
+- Gates: type-check clean; jest 63 suites / 482 tests; eslint 0 errors (12 warnings); `expo export` ok
+  (charts not yet imported by a screen, so the bundle check repeats in 9.5).
