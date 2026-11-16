@@ -2,7 +2,7 @@ import type { FlashListRef } from "@shopify/flash-list";
 import type { LayoutChangeEvent } from "react-native";
 import type { FinanceAuditItem } from "@/services/api/finance";
 import { FlashList } from "@shopify/flash-list";
-import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -29,7 +29,7 @@ type ScrollArgs = {
   ready: boolean;
 };
 
-/** How long after a scroll a growing list may still pull the view back to the timeline. */
+/** Fixed deadline, from the FIRST scroll, for a growing list to pull the view back to the timeline. */
 const SETTLE_MS = 1500;
 
 /**
@@ -47,6 +47,7 @@ function useScrollToTimeline({ section, listRef, ready }: ScrollArgs) {
   const contentHeight = React.useRef(0);
   const settling = React.useRef(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focused = React.useRef(true);
 
   const stopSettling = React.useCallback(() => {
     settling.current = false;
@@ -58,13 +59,14 @@ function useScrollToTimeline({ section, listRef, ready }: ScrollArgs) {
   const scrollNow = React.useCallback(() => {
     const list = listRef.current;
     const y = timelineY.current;
-    if (!list || y === null || contentHeight.current <= 0)
+    if (!focused.current || !list || y === null || contentHeight.current <= 0)
       return false;
     list.scrollToOffset({ offset: y, animated: true });
-    settling.current = true;
-    if (timer.current)
-      clearTimeout(timer.current);
-    timer.current = setTimeout(stopSettling, SETTLE_MS);
+    // Corrections never extend the window: the deadline is fixed at the first scroll.
+    if (!settling.current) {
+      settling.current = true;
+      timer.current = setTimeout(stopSettling, SETTLE_MS);
+    }
     return true;
   }, [listRef, stopSettling]);
 
@@ -82,6 +84,15 @@ function useScrollToTimeline({ section, listRef, ready }: ScrollArgs) {
       tryScroll();
   }, [ready, tryScroll]);
   React.useEffect(() => stopSettling, [stopSettling]);
+  // Blur (a route pushed on top) blocks attempts and clears the timer; a still-pending scroll resumes on refocus.
+  useFocusEffect(React.useCallback(() => {
+    focused.current = true;
+    tryScroll();
+    return () => {
+      focused.current = false;
+      stopSettling();
+    };
+  }, [tryScroll, stopSettling]));
 
   return {
     onContentSizeChange: (_width: number, height: number) => {
@@ -179,7 +190,6 @@ export default function FinancePeriod() {
         ref={listRef}
         onContentSizeChange={scroll.onContentSizeChange}
         onScrollBeginDrag={scroll.onUserScroll}
-        onMomentumScrollBegin={scroll.onUserScroll}
         data={audit.data?.items ?? []}
         keyExtractor={item => item.id}
         ListHeaderComponent={header}

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function -- one describe per screen; the timeline-scroll cases share helpers */
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import * as React from "react";
 
@@ -11,8 +12,20 @@ const mockAuditHook = jest.fn((..._a: unknown[]) => mockAudit);
 let mockParams: Record<string, string> = {};
 const mockScrollToOffset = jest.fn();
 let mockContentSize: ((w: number, h: number) => void) | undefined;
+let mockFocused = true;
+const mockFocusSubs = new Set<() => void>();
+let mockMomentum: unknown;
 let mockDrag: (() => void) | undefined;
-jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() }, useLocalSearchParams: () => mockParams }));
+jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() }, useLocalSearchParams: () => mockParams, useFocusEffect: (effect: () => void | (() => void)) => {
+  const React = require("react");
+  const [focused, setFocused] = React.useState(mockFocused);
+  React.useEffect(() => {
+    const sync = () => setFocused(mockFocused);
+    mockFocusSubs.add(sync);
+    return () => mockFocusSubs.delete(sync);
+  }, []);
+  React.useEffect(() => (focused ? effect() : undefined), [focused, effect]);
+} }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock("expo-haptics", () => ({ selectionAsync: jest.fn(), impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 0 } }));
@@ -28,9 +41,10 @@ jest.mock("@/components/finance/use-refocus-effect", () => ({ useRefocusEffect: 
 jest.mock("@shopify/flash-list", () => {
   const { View } = require("react-native");
   return {
-    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent, onContentSizeChange, onScrollBeginDrag }: any) => {
+    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent, onContentSizeChange, onScrollBeginDrag, ...props }: any) => {
       mockContentSize = onContentSizeChange;
       mockDrag = onScrollBeginDrag;
+      mockMomentum = props.onMomentumScrollBegin;
       require("react").useImperativeHandle(ref, () => ({ scrollToOffset: (...a: unknown[]) => mockScrollToOffset(...a) }));
       return (
         <View>
@@ -53,6 +67,7 @@ const event = (id: string, action: string) => ({ id, action, entity: "Payment", 
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = {};
+  mockFocused = true;
   mockDash = { data: makeDashboard(), refetch: jest.fn() };
   mockAudit = { data: { items: [event("e1", "PAYMENT_RECORDED"), event("e2", "NEW_UNKNOWN")], hasMore: false }, refetch: jest.fn() };
 });
@@ -145,6 +160,72 @@ describe("period close timeline scroll", () => {
     });
     act(() => mockContentSize?.(360, 2000));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  const setFocus = (value: boolean) => act(() => {
+    mockFocused = value;
+    mockFocusSubs.forEach(sync => sync());
+  });
+
+  it("does not treat momentum events as the user taking over (Android emits them for our own scroll)", () => {
+    mockParams = { section: "timeline" };
+    mockAudit = loaded;
+    render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 900));
+    expect(mockMomentum).toBeUndefined();
+    act(() => mockContentSize?.(360, 1800));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks attempts while blurred and resumes the pending scroll on refocus", () => {
+    mockParams = { section: "timeline" };
+    mockAudit = { ...loaded, isFetching: true };
+    const { rerender } = render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 1400));
+    setFocus(false);
+    mockAudit = { ...loaded, isFetching: false };
+    rerender(<FinancePeriod />);
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    setFocus(true);
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the settling timer on blur and stops correcting", () => {
+    jest.useFakeTimers();
+    mockParams = { section: "timeline" };
+    mockAudit = loaded;
+    render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 900));
+    expect(jest.getTimerCount()).toBe(1);
+    setFocus(false);
+    expect(jest.getTimerCount()).toBe(0);
+    act(() => mockContentSize?.(360, 2000));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  it("ends the correction window 1.5 s after the first scroll, however often the content grows", () => {
+    jest.useFakeTimers();
+    mockParams = { section: "timeline" };
+    mockAudit = loaded;
+    render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 900));
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    act(() => mockContentSize?.(360, 1200));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    act(() => mockContentSize?.(360, 1500));
+    act(() => mockContentSize?.(360, 1800));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
   });
 
