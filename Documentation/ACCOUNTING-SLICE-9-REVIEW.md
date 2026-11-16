@@ -344,6 +344,7 @@ errors (74 warnings, all existing patterns), `expo export --platform android` ok
 | --- | --- | --- |
 | R1 [Medium] back listener survived navigation (`building-sheet.tsx`) | fixed | The listener is registered with `useFocusEffect`, so it exists only while the screen is focused and the sheet is open. Today clears the selection (dismisses the sheet) before pushing a flat or "View flats". Tests: no listener while unfocused; the sheet is gone after the push |
 | R2 [Medium] scroll-to-timeline ran too early (`period.tsx`) | fixed | The scroll runs once the dashboard and audit queries have settled and the timeline title has laid out (next animation frame, once). Test with delayed audit data: no scroll while loading, one scroll after the rows arrive |
+| R2b [Medium] scroll flag cleared too early (`period.tsx`) | fixed | The pending flag is cleared only after `scrollToOffset` runs on a mounted list. A scroll needs a successful, settled dashboard and audit, and a timeline layout measured after the data (the layout resets on error so Retry re-measures). Test: error, then Retry, then late layout, then exactly one scroll |
 | R3 [Medium] error state dropped the FAB (`today.tsx`) | fixed | `RecordPaymentFab` is rendered in the error state too, next to the header navigation. Test |
 | R4 [Low, L12] contract test | fixed | Walks every array element, compares key paths and value types, and asserts the backend, web and mobile fixture copies are byte-identical |
 

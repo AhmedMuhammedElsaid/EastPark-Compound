@@ -101,6 +101,22 @@ describe("period close screen", () => {
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for the timeline layout and for the dashboard to succeed: error, Retry, then it scrolls", async () => {
+    mockParams = { section: "timeline" };
+    mockDash = { data: undefined, isError: true, refetch: jest.fn() };
+    const { rerender } = render(<FinancePeriod />);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    // Retry succeeded: data is back, but the timeline has not been laid out yet.
+    mockDash = { data: makeDashboard(), refetch: jest.fn() };
+    rerender(<FinancePeriod />);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 520, width: 360, height: 40 } } });
+    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 520, animated: true }));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the flat and amount of a timeline row, not the actor", () => {
     mockAudit = { data: { items: [{ ...event("e9", "PAYMENT_RECORDED"), meta: { flatLabel: "A1-2-3", amount: "1250.00" } }], hasMore: false }, refetch: jest.fn() };
     render(<FinancePeriod />);

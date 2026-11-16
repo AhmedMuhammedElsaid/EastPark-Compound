@@ -21,6 +21,42 @@ import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 const TIMELINE_LIMIT = 20;
 
+type ScrollArgs = {
+  section: string | undefined;
+  listRef: React.RefObject<FlashListRef<FinanceAuditItem> | null>;
+  timelineY: number | null;
+  setTimelineY: (y: number | null) => void;
+  dashError: boolean;
+  ready: boolean;
+};
+
+/** Scrolls Period close to the timeline when opened from the bell (`?section=timeline`). */
+function useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError, ready: readyData }: ScrollArgs) {
+  const scrolledTo = React.useRef(false);
+  // The error state unmounts the list, so a layout measured before it is stale: wait for a fresh one after Retry.
+  React.useEffect(() => {
+    if (dashError)
+      setTimelineY(null);
+  }, [dashError]);
+
+  // Scroll to the timeline only when the dashboard succeeded, the audit rows have settled, the list is mounted and
+  // the timeline title has been laid out after the data. The pending flag is cleared only once the scroll was
+  // actually issued on a mounted list; scrolling earlier is clamped by the native list and would never retry.
+  const ready = readyData && timelineY !== null;
+  React.useEffect(() => {
+    if (section !== "timeline" || scrolledTo.current || !ready)
+      return undefined;
+    const frame = requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list || timelineY === null)
+        return;
+      list.scrollToOffset({ offset: timelineY, animated: true });
+      scrolledTo.current = true;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, ready, timelineY]);
+}
+
 /** Period close (sample 5 frame 4): advisory checklist, unapplied payments and the month's timeline. */
 export default function FinancePeriod() {
   const { t, i18n } = useTranslation();
@@ -31,7 +67,6 @@ export default function FinancePeriod() {
   const { section } = useLocalSearchParams<{ section?: string }>();
   const listRef = React.useRef<FlashListRef<FinanceAuditItem>>(null);
   const [timelineY, setTimelineY] = React.useState<number | null>(null);
-  const scrolledTo = React.useRef(false);
   const dash = useFinanceDashboard(6);
   const data = dash.data;
   // Both ends inclusive: the first day of the period up to the as-of day (spec 3.4).
@@ -42,18 +77,7 @@ export default function FinancePeriod() {
   };
   useRefocusEffect(refetchAll);
 
-  // Scroll to the timeline only once both queries have settled (rows laid out): scrolling earlier is clamped to the
-  // shorter content by the native list and never retried.
-  const settled = !!data && !audit.isLoading && !audit.isFetching && timelineY !== null;
-  React.useEffect(() => {
-    if (section !== "timeline" || scrolledTo.current || !settled)
-      return undefined;
-    const frame = requestAnimationFrame(() => {
-      scrolledTo.current = true;
-      listRef.current?.scrollToOffset({ offset: timelineY ?? 0, animated: true });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [section, settled, timelineY]);
+  useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError: dash.isError, ready: !!data && !dash.isError && !dash.isFetching && !audit.isLoading && !audit.isFetching });
 
   // A failed fetch replaces the figures: TanStack keeps old `data` after a failed refetch, which must not read as current.
   if (dash.isError) {
