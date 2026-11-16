@@ -1,6 +1,7 @@
 import type { AxiosResponse } from "axios";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import type { DashAging, DashBuilding, DashMethod, DashMoney, DashMonthAmount } from "@/components/finance/charts/types";
 
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { client } from "./client";
 
 /**
@@ -146,8 +147,82 @@ export type FinanceFlatsParams = {
   building?: string;
   hasBalance?: boolean;
   overdueDays?: number;
+  /** `balance` = highest balance first (dashboard drilldowns); default is layout order. */
+  sort?: "layout" | "balance";
+  /** Cairo day `YYYY-MM-DD`: page 1's returned `asOf`, re-sent so a list read at midnight never mixes days. */
+  asOf?: string;
   cursor?: string;
   limit?: number;
+};
+
+export type FinanceAuditParams = {
+  /** Cairo dates `YYYY-MM-DD`, both inclusive. */
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+export type FinanceAuditItem = {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+  actor: { id: string; name: string; role: string };
+};
+
+export type FinancePeriodStatus = "OPEN" | "CLOSED";
+
+export type DashCohort = { charges: DashMoney; allocated: DashMoney; open: DashMoney; rate: string | null };
+
+/**
+ * `GET /finance/dashboard` (backend `FinanceDashboardDto`). Money is a 2-dp decimal STRING, percentages 1-dp
+ * strings (null when undefined). Strings are parsed in `lib/finance-dashboard.ts` only.
+ */
+export type FinanceDashboard = {
+  asOf: string;
+  months: 6 | 12;
+  period: { period: string; status: FinancePeriodStatus };
+  cohort: DashCohort;
+  billed: DashMonthAmount[];
+  collected: DashMonthAmount[];
+  receiptsByMethod: DashMethod[];
+  outstanding: DashMoney;
+  credit: { netCreditFlats: number; netCreditTotal: DashMoney; creditTotal: DashMoney };
+  aging: DashAging;
+  owingFlats: number;
+  totalFlats: number;
+  fundBalance: DashMoney;
+  deposits: { billed: DashMoney; collected: DashMoney };
+  unapplied: {
+    count: number;
+    total: DashMoney;
+    oldest: Array<{
+      paymentId: string;
+      flatId: string;
+      flatLabel: string;
+      method: FinancePaymentMethod;
+      receivedAt: string;
+      unallocated: DashMoney;
+      ageDays: number;
+    }>;
+  };
+  pendingCheques: { count: number; total: DashMoney };
+  checks: { previewBillingRuns: number; previewImportBatches: number; operatingChargesInMonth: number };
+  byBuilding: DashBuilding[];
+  topOwing: Array<{
+    flatId: string;
+    label: string;
+    ownerName: string | null;
+    ownerDeleted: boolean;
+    balance: DashMoney;
+    daysPastDue: number;
+  }>;
+  series: Array<{ period: string; date: string; outstanding: DashMoney; owingFlats: number; fundBalance: DashMoney }>;
+  previous: { asOf: string; cohort: DashCohort; collected: DashMoney; outstanding: DashMoney; owingFlats: number; fundBalance: DashMoney };
+  deltas: { collected: string | null; outstanding: string | null; owingFlats: string | null; fundBalance: string | null; rate: string | null };
 };
 
 export type FinancePaymentsParams = {
@@ -161,6 +236,7 @@ export type FinancePaymentsParams = {
 };
 
 export type FinanceFlatPage = { asOf: string; items: FinanceFlatListItem[]; nextCursor?: string | null };
+export type FinanceAuditPage = { items: FinanceAuditItem[]; nextCursor?: string | null };
 export type FinancePaymentPage = { items: FinancePayment[]; nextCursor?: string | null };
 type Envelope<T> = { data: T };
 
@@ -180,6 +256,12 @@ function slipFileName(uri: string, mime: string): string {
 export const financeApi = {
   flats: (params: FinanceFlatsParams) =>
     client.get<Envelope<FinanceFlatPage>>("/finance/flats", { params }),
+
+  dashboard: (params: { months: 6 | 12; asOf?: string }) =>
+    client.get<Envelope<FinanceDashboard>>("/finance/dashboard", { params }),
+
+  audit: (params: FinanceAuditParams) =>
+    client.get<Envelope<FinanceAuditPage>>("/finance/audit", { params }),
 
   flat: (id: string) => client.get<Envelope<FinanceFlatDetail>>(`/finance/flats/${id$(id)}`),
 
@@ -213,7 +295,10 @@ export const financeApi = {
 export const financeKeys = {
   all: ["finance"] as const,
   flats: (params: Omit<FinanceFlatsParams, "cursor" | "limit">) =>
-    ["finance", "flats", params.q ?? "", params.hasBalance ?? "any", params.overdueDays ?? 0] as const,
+    ["finance", "flats", params.q ?? "", params.hasBalance ?? "any", params.overdueDays ?? 0, params.building ?? "", params.sort ?? "layout", params.asOf ?? ""] as const,
+  /** Root is `finance`: never persisted (owner names + balances). */
+  dashboard: (months: 6 | 12) => ["finance", "dashboard", months] as const,
+  audit: (params: Omit<FinanceAuditParams, "cursor" | "limit">) => ["finance", "audit", params.from ?? "", params.to ?? ""] as const,
   flat: (id: string) => ["finance", "flat", id] as const,
   payments: (params: Omit<FinancePaymentsParams, "cursor" | "limit">) =>
     ["finance", "payments", params.flatId ?? "", params.from ?? "", params.to ?? "", params.status ?? ""] as const,
@@ -224,12 +309,18 @@ const MONEY_QUERY = { gcTime: 0, staleTime: 0, refetchOnMount: "always" as const
 
 type FlatPageResponse = AxiosResponse<Envelope<FinanceFlatPage>>;
 
+/** A flats page request: the cursor plus page 1's `asOf`, re-sent so a list read at midnight never mixes days. */
+type FlatsPageParam = { cursor?: string; asOf?: string };
+
 export function useFinanceFlats(params: Omit<FinanceFlatsParams, "cursor" | "limit">, options?: { enabled?: boolean; limit?: number }) {
   const limit = options?.limit ?? 20;
-  return useInfiniteQuery<FlatPageResponse, Error, { pages: FlatPageResponse[] }, readonly unknown[], string | undefined>({
+  return useInfiniteQuery<FlatPageResponse, Error, { pages: FlatPageResponse[] }, readonly unknown[], FlatsPageParam | undefined>({
     queryKey: [...financeKeys.flats(params), limit],
-    queryFn: ({ pageParam }) => financeApi.flats({ ...params, cursor: pageParam, limit }),
-    getNextPageParam: last => last.data.data.nextCursor ?? undefined,
+    queryFn: ({ pageParam }) => financeApi.flats({ ...params, cursor: pageParam?.cursor, asOf: pageParam?.asOf ?? params.asOf, limit }),
+    getNextPageParam: (last) => {
+      const cursor = last.data.data.nextCursor;
+      return cursor ? { cursor, asOf: last.data.data.asOf } : undefined;
+    },
     initialPageParam: undefined,
     enabled: options?.enabled ?? true,
     ...MONEY_QUERY,
@@ -250,6 +341,30 @@ export function useFinancePayments(params: Omit<FinancePaymentsParams, "cursor" 
   return useQuery({
     queryKey: [...financeKeys.payments(params), limit],
     queryFn: () => financeApi.payments({ ...params, limit }).then(r => ({
+      items: r.data.data.items,
+      hasMore: !!r.data.data.nextCursor,
+    })),
+    enabled,
+    ...MONEY_QUERY,
+  });
+}
+
+/** The finance home dashboard. Never cached or persisted: offline shows the error state, not stale figures. */
+export function useFinanceDashboard(months: 6 | 12) {
+  return useQuery({
+    queryKey: financeKeys.dashboard(months),
+    queryFn: () => financeApi.dashboard({ months }).then(r => r.data.data),
+    // Switching 6M / 12M keeps the figures on screen while the other window loads (selection and scroll stay).
+    placeholderData: keepPreviousData,
+    ...MONEY_QUERY,
+  });
+}
+
+/** First page of the finance audit trail between two Cairo dates (the period timeline). */
+export function useFinanceAudit(params: Omit<FinanceAuditParams, "cursor" | "limit">, limit = 20, enabled = true) {
+  return useQuery({
+    queryKey: [...financeKeys.audit(params), limit],
+    queryFn: () => financeApi.audit({ ...params, limit }).then(r => ({
       items: r.data.data.items,
       hasMore: !!r.data.data.nextCursor,
     })),

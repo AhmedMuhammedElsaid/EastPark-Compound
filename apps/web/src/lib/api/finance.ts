@@ -1,5 +1,7 @@
 import type { z } from 'zod';
 
+import { dashboardSchema } from '@/lib/finance/dashboard';
+
 import {
   applyCreditResultSchema,
   attachmentUploadSchema,
@@ -75,7 +77,11 @@ export type FlatsQuery = {
   phase?: string;
   hasBalance?: boolean;
   overdueDays?: number;
+  sort?: 'balance';
+  asOf?: string;
 };
+
+export type DashboardQuery = { asOf?: string; months?: 6 | 12 };
 
 export type PaymentsQuery = {
   cursor?: string;
@@ -116,6 +122,7 @@ export const financeApi = {
   chequeBounced: (paymentId: string, date?: string) =>
     request(`/payments/${id(paymentId)}/cheque-bounced`, paymentDetailSchema, { method: 'POST', body: JSON.stringify({ date }) }),
   audit: (query: AuditQuery = {}) => request(`/audit${financeQuery(query)}`, auditPageSchema),
+  dashboard: (query: DashboardQuery = {}) => request(`/dashboard${financeQuery(query)}`, dashboardSchema),
   periods: () => request('/periods', periodListSchema),
   uploadSlip: (file: File) => {
     const body = new FormData();

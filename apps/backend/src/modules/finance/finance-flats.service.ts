@@ -59,6 +59,12 @@ export class FinanceFlatsService {
      * flats are sorted in layout order in memory and paged by flat id; the
      * figures are computed for the page only, or for every candidate when a
      * figure filter (`hasBalance`, `overdueDays`) is set.
+     *
+     * `sort=balance` (slice 9 drilldowns): every candidate is summarised, the
+     * figure filters applied, the rest ordered by balance DESC then id ASC
+     * (code-unit order, the dashboard's `topOwing` order), and only then is
+     * the cursor (still a flat id) located and the page sliced. Clients pass
+     * page 1's `asOf` on every later page.
      */
     async list(query: FinanceFlatsQueryDto): Promise<FinanceFlatPageDto> {
         const limit = query.limit ?? 20;
@@ -74,41 +80,60 @@ export class FinanceFlatsService {
             await this.db.flat.findMany({ where, select: FLAT_SELECT })
         ).sort(compareFlats);
 
-        let start = 0;
-        if (query.cursor) {
-            const index = flats.findIndex(f => f.id === query.cursor);
+        const afterCursor = (rows: FlatRow[]): FlatRow[] => {
+            if (!query.cursor) return rows;
+            const index = rows.findIndex(f => f.id === query.cursor);
             if (index < 0)
                 throw new BadRequestException('finance.error.invalidCursor');
-            start = index + 1;
-        }
-        const rest = flats.slice(start);
+            return rows.slice(index + 1);
+        };
+        const keep = (s: FlatFinanceSummary | undefined): boolean => {
+            if (!s) return false;
+            if (query.hasBalance === true && !s.balance.gt(0)) return false;
+            if (query.hasBalance === false && s.balance.gt(0)) return false;
+            if (
+                query.overdueDays !== undefined &&
+                (s.oldestDueDays ?? -1) < query.overdueDays
+            )
+                return false;
+            return true;
+        };
         const filtered =
             query.hasBalance !== undefined || query.overdueDays !== undefined;
 
         let page: FlatRow[];
         let summaries: Map<string, FlatFinanceSummary>;
         let hasMore: boolean;
-        if (filtered) {
+        if (query.sort === 'balance') {
+            summaries = await summariseFlats(
+                this.db,
+                flats.map(f => f.id),
+                asOf
+            );
+            const ordered = flats
+                .filter(f => keep(summaries.get(f.id)))
+                .sort((a, b) => {
+                    const ba = summaries.get(a.id)?.balance;
+                    const bb = summaries.get(b.id)?.balance;
+                    const byBalance = ba && bb ? bb.cmp(ba) : 0;
+                    if (byBalance !== 0) return byBalance;
+                    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+                });
+            const rest = afterCursor(ordered);
+            page = rest.slice(0, limit);
+            hasMore = rest.length > limit;
+        } else if (filtered) {
+            const rest = afterCursor(flats);
             summaries = await summariseFlats(
                 this.db,
                 rest.map(f => f.id),
                 asOf
             );
-            const matching = rest.filter(f => {
-                const s = summaries.get(f.id);
-                if (!s) return false;
-                if (query.hasBalance === true && !s.balance.gt(0)) return false;
-                if (query.hasBalance === false && s.balance.gt(0)) return false;
-                if (
-                    query.overdueDays !== undefined &&
-                    (s.oldestDueDays ?? -1) < query.overdueDays
-                )
-                    return false;
-                return true;
-            });
+            const matching = rest.filter(f => keep(summaries.get(f.id)));
             page = matching.slice(0, limit);
             hasMore = matching.length > limit;
         } else {
+            const rest = afterCursor(flats);
             page = rest.slice(0, limit);
             hasMore = rest.length > limit;
             summaries = await summariseFlats(

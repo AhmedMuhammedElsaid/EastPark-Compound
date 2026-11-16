@@ -87,3 +87,34 @@ export const TYPE = {
   label: { fontFamily: FONT.sans, fontWeight: "500" as const, fontSize: 13, lineHeight: 20 },
   caption: { fontFamily: FONT.sans, fontWeight: "400" as const, fontSize: 12, lineHeight: 18 },
 } as const;
+
+/** Finance dashboard chart palette (sample-5 mockup `--c1..c5`, `--a1..a4`); each set meets 3:1 on its theme's card. */
+export const CHART_DARK = {
+  c1: "#b8966a",
+  c2: "#7d9f74",
+  c3: "#7b9bba",
+  c4: "#d9a043",
+  c5: "#9a8b7a",
+  a1: "#7d9f74",
+  a2: "#d9a043",
+  a3: "#c4723a",
+  a4: "#d0564a",
+  err: "#d0564a",
+  warn: "#d9a043",
+  ok: "#7d9f74",
+} as const;
+
+export const CHART_LIGHT = {
+  c1: "#9a7a4e",
+  c2: "#5A7A52",
+  c3: "#4A6B8A",
+  c4: "#C48B2F",
+  c5: "#8a7a6a",
+  a1: "#5A7A52",
+  a2: "#C48B2F",
+  a3: "#b0602a",
+  a4: "#B03A2E",
+  err: "#9a3126",
+  warn: "#8f6312",
+  ok: "#4a6a42",
+} as const;

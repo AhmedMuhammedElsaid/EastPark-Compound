@@ -1,0 +1,275 @@
+{
+  "asOf": "2026-06-20",
+  "months": 6,
+  "period": {
+    "period": "2026-06",
+    "status": "OPEN"
+  },
+  "cohort": {
+    "charges": "2100.00",
+    "allocated": "1600.00",
+    "open": "500.00",
+    "rate": "76.2"
+  },
+  "billed": [
+    {
+      "period": "2026-01",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-02",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-03",
+      "amount": "40.00"
+    },
+    {
+      "period": "2026-04",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-05",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-06",
+      "amount": "2060.00"
+    }
+  ],
+  "collected": [
+    {
+      "period": "2026-01",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-02",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-03",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-04",
+      "amount": "0.00"
+    },
+    {
+      "period": "2026-05",
+      "amount": "300.00"
+    },
+    {
+      "period": "2026-06",
+      "amount": "400.00"
+    }
+  ],
+  "receiptsByMethod": [
+    {
+      "method": "CASH",
+      "gross": "700.00",
+      "reversed": "0.00",
+      "net": "700.00"
+    },
+    {
+      "method": "BANK_TRANSFER",
+      "gross": "0.00",
+      "reversed": "0.00",
+      "net": "0.00"
+    },
+    {
+      "method": "INSTAPAY",
+      "gross": "0.00",
+      "reversed": "0.00",
+      "net": "0.00"
+    },
+    {
+      "method": "CHEQUE",
+      "gross": "0.00",
+      "reversed": "-300.00",
+      "net": "-300.00"
+    }
+  ],
+  "outstanding": "6750.00",
+  "credit": {
+    "netCreditFlats": 1,
+    "netCreditTotal": "700.00",
+    "creditTotal": "1350.00"
+  },
+  "aging": {
+    "current": "3800.00",
+    "d31_60": "300.00",
+    "d61_90": "250.00",
+    "over90": "2400.00"
+  },
+  "owingFlats": 4,
+  "totalFlats": 690,
+  "fundBalance": "1700.00",
+  "deposits": {
+    "billed": "5000.00",
+    "collected": "2000.00"
+  },
+  "unapplied": {
+    "count": 3,
+    "total": "1350.00",
+    "oldest": [
+      {
+        "paymentId": "p3",
+        "flatId": "f3",
+        "flatLabel": "A1-1-3",
+        "method": "BANK_TRANSFER",
+        "receivedAt": "2026-06-01",
+        "unallocated": "1000.00",
+        "ageDays": 19
+      }
+    ]
+  },
+  "pendingCheques": {
+    "count": 1,
+    "total": "800.00"
+  },
+  "checks": {
+    "previewBillingRuns": 1,
+    "previewImportBatches": 0,
+    "operatingChargesInMonth": 4
+  },
+  "byBuilding": [
+    {
+      "building": "A1",
+      "totalFlats": 5,
+      "owingFlats": 2,
+      "outstanding": "1540.00",
+      "floors": [
+        {
+          "floor": "1",
+          "totalFlats": 5,
+          "owingFlats": 2,
+          "outstanding": "1540.00"
+        }
+      ]
+    },
+    {
+      "building": "A2",
+      "totalFlats": 10,
+      "owingFlats": 1,
+      "outstanding": "10.00",
+      "floors": [
+        {
+          "floor": "G",
+          "totalFlats": 5,
+          "owingFlats": 1,
+          "outstanding": "10.00"
+        },
+        {
+          "floor": "2",
+          "totalFlats": 5,
+          "owingFlats": 0,
+          "outstanding": "0.00"
+        }
+      ]
+    },
+    {
+      "building": "B1",
+      "totalFlats": 5,
+      "owingFlats": 2,
+      "outstanding": "5200.00",
+      "floors": [
+        {
+          "floor": "1",
+          "totalFlats": 5,
+          "owingFlats": 2,
+          "outstanding": "5200.00"
+        }
+      ]
+    }
+  ],
+  "topOwing": [
+    {
+      "flatId": "f5",
+      "label": "B1-1-2",
+      "ownerName": null,
+      "ownerDeleted": false,
+      "balance": "3250.00",
+      "daysPastDue": 26
+    },
+    {
+      "flatId": "f2",
+      "label": "A1-1-2",
+      "ownerName": null,
+      "ownerDeleted": true,
+      "balance": "850.00",
+      "daysPastDue": 91
+    },
+    {
+      "flatId": "f1",
+      "label": "A1-1-1",
+      "ownerName": "Sara",
+      "ownerDeleted": false,
+      "balance": "400.00",
+      "daysPastDue": 10
+    }
+  ],
+  "series": [
+    {
+      "period": "2026-01",
+      "date": "2026-01-31",
+      "outstanding": "100.00",
+      "owingFlats": 3,
+      "fundBalance": "0.00"
+    },
+    {
+      "period": "2026-02",
+      "date": "2026-02-28",
+      "outstanding": "100.00",
+      "owingFlats": 3,
+      "fundBalance": "0.00"
+    },
+    {
+      "period": "2026-03",
+      "date": "2026-03-31",
+      "outstanding": "100.00",
+      "owingFlats": 3,
+      "fundBalance": "0.00"
+    },
+    {
+      "period": "2026-04",
+      "date": "2026-04-30",
+      "outstanding": "100.00",
+      "owingFlats": 3,
+      "fundBalance": "0.00"
+    },
+    {
+      "period": "2026-05",
+      "date": "2026-05-31",
+      "outstanding": "100.00",
+      "owingFlats": 3,
+      "fundBalance": "0.00"
+    },
+    {
+      "period": "2026-06",
+      "date": "2026-06-20",
+      "outstanding": "6750.00",
+      "owingFlats": 4,
+      "fundBalance": "1700.00"
+    }
+  ],
+  "previous": {
+    "asOf": "2026-05-20",
+    "cohort": {
+      "charges": "600.00",
+      "allocated": "300.00",
+      "open": "300.00",
+      "rate": "50.0"
+    },
+    "collected": "300.00",
+    "outstanding": "3050.00",
+    "owingFlats": 3,
+    "fundBalance": "0.00"
+  },
+  "deltas": {
+    "collected": "33.3",
+    "outstanding": "121.3",
+    "owingFlats": "33.3",
+    "fundBalance": null,
+    "rate": "26.2"
+  }
+}

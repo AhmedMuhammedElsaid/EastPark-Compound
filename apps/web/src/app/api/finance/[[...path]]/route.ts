@@ -10,6 +10,7 @@ import {
   auditQuerySchema,
   chargeCreateSchema,
   chequeDateSchema,
+  dashboardQuerySchema,
   emptyQuerySchema,
   financeIdSchema,
   flatsQuerySchema,
@@ -68,6 +69,7 @@ function routeFor(method: string, path: readonly string[]): FinanceRoute | null 
     return null;
   }
   if (id !== undefined || method !== 'GET') return null;
+  if (head === 'dashboard') return { backendPath: '/finance/dashboard', query: dashboardQuerySchema };
   if (head === 'audit') return { backendPath: '/finance/audit', query: auditQuerySchema };
   if (head === 'periods') return { backendPath: '/finance/periods', query: periodsQuerySchema };
   if (head === 'settings') return { backendPath: '/finance/settings', query: emptyQuerySchema };

@@ -7,25 +7,27 @@ import * as React from 'react';
 import { EmptyState, LoadMoreButton, RowsSkeleton } from '@/components/admin/team/panel-parts';
 import { BUILDINGS, PHASES } from '@/config/compound';
 import { financeApi, type FlatsQuery } from '@/lib/api/finance';
+import { initialFlatsState, OVERDUE_OPTIONS, type FlatsFilters } from '@/lib/finance/flats-params';
 import { formatDate } from '@/lib/finance/money';
 import type { FlatListItem } from '@/lib/finance/schemas';
 import { useTranslation } from '@/lib/i18n';
 
 import { Badge, fetchPage, FOCUS, INPUT_CLASS, Money, Notice, PageHeader, TableShell, TD, TH, useDebounced, useFinanceError } from './parts';
 
-export type FlatsFilters = { hasBalance?: 'true' | 'false'; overdueDays?: string };
-
-const OVERDUE = ['30', '60', '90'] as const;
+export type { FlatsFilters };
 
 /** Flat registry: label search, phase/building/owes/overdue filters, cursor paging. */
 export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
   const { t, lang } = useTranslation();
   const errorMessage = useFinanceError();
   const [q, setQ] = React.useState('');
-  const [phase, setPhase] = React.useState('');
-  const [building, setBuilding] = React.useState('');
-  const [owes, setOwes] = React.useState<'' | 'true' | 'false'>(initial.hasBalance ?? '');
-  const [overdue, setOverdue] = React.useState(OVERDUE.includes(initial.overdueDays as never) ? initial.overdueDays! : '');
+  const start = React.useMemo(() => initialFlatsState(initial), [initial]);
+  const [phase, setPhase] = React.useState(start.phase);
+  const [building, setBuilding] = React.useState(start.building);
+  const [owes, setOwes] = React.useState<'' | 'true' | 'false'>(start.owes);
+  const [overdue, setOverdue] = React.useState(start.overdue);
+  // Page 1 reads the URL's day (or today); every later page pins page 1's returned day.
+  const pinnedAsOf = React.useRef<string | undefined>(undefined);
   const search = useDebounced(q.trim(), 300);
 
   const [items, setItems] = React.useState<FlatListItem[]>([]);
@@ -34,6 +36,8 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
   const [loading, setLoading] = React.useState(true);
   const [more, setMore] = React.useState(false);
   const [error, setError] = React.useState('');
+  // "Load more" found the cursor stale (the list moved) and the list restarted from page 1.
+  const [restarted, setRestarted] = React.useState(false);
 
   const query = React.useMemo<FlatsQuery>(
     () => ({
@@ -42,9 +46,10 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
       building: building || undefined,
       hasBalance: owes === '' ? undefined : owes === 'true',
       overdueDays: overdue ? Number(overdue) : undefined,
+      sort: start.sort,
       limit: 30,
     }),
-    [search, phase, building, owes, overdue],
+    [search, phase, building, owes, overdue, start.sort],
   );
 
   const load = React.useCallback(
@@ -52,11 +57,14 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
       if (next) setMore(true);
       else setLoading(true);
       setError('');
+      setRestarted(false);
       try {
-        const { page, append } = await fetchPage((cursor) => financeApi.flats({ ...query, cursor }), next);
+        const { page, append } = await fetchPage((cursor) => financeApi.flats({ ...query, asOf: next ? pinnedAsOf.current : start.asOf, cursor }), next);
         setItems((old) => (append ? [...old, ...page.items] : page.items));
+        if (next && !append) setRestarted(true);
         setCursor(page.nextCursor ?? null);
         setAsOf(page.asOf);
+        if (!next) pinnedAsOf.current = page.asOf;
       } catch (caught) {
         setError(errorMessage(caught));
       } finally {
@@ -64,7 +72,7 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
         setMore(false);
       }
     },
-    [query, errorMessage],
+    [query, errorMessage, start.asOf],
   );
 
   React.useEffect(() => {
@@ -136,9 +144,9 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
           {t('finance.flats.overdue')}
           <select value={overdue} onChange={(event) => setOverdue(event.target.value)} className={INPUT_CLASS}>
             <option value="">{t('finance.flats.overdue_any')}</option>
-            {OVERDUE.map((days) => (
+            {OVERDUE_OPTIONS.map((days) => (
               <option key={days} value={days}>
-                {t('finance.flats.overdue_days', { days })}
+                {days === '91' ? t('finance.flats.overdue_over90') : t('finance.flats.overdue_days', { days })}
               </option>
             ))}
           </select>
@@ -147,6 +155,7 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
 
       {asOf && !loading && <p className="text-[length:var(--text-caption)] text-muted-foreground">{t('finance.flats.as_of', { date: formatDate(asOf, lang) })}</p>}
       {error && <Notice tone="error">{error}</Notice>}
+      {restarted && <Notice tone="info">{t('finance.errors.invalidCursor')}</Notice>}
 
       {loading ? (
         <RowsSkeleton rows={6} />

@@ -6,6 +6,8 @@ import { FileModule } from 'src/common/file/file.module';
 import { FinanceAttachmentsService } from './finance-attachments.service';
 import { FinanceChargesController } from './finance-charges.controller';
 import { FinanceChargesService } from './finance-charges.service';
+import { FinanceDashboardController } from './finance-dashboard.controller';
+import { FinanceDashboardService } from './finance-dashboard.service';
 import { FinanceDeskController } from './finance-desk.controller';
 import { FinanceDeskService } from './finance-desk.service';
 import { FinanceFlatsController } from './finance-flats.controller';
@@ -30,6 +32,7 @@ import { FinanceAuditService } from './kernel/finance-audit.service';
         FinanceFlatsController,
         FinanceChargesController,
         FinanceDeskController,
+        FinanceDashboardController,
         FinancePaymentsController,
         FinanceCreditController,
         FinanceAttachmentsController,
@@ -39,6 +42,7 @@ import { FinanceAuditService } from './kernel/finance-audit.service';
         FinanceFlatsService,
         FinanceChargesService,
         FinanceDeskService,
+        FinanceDashboardService,
         FinancePaymentsService,
         FinanceAttachmentsService,
     ],

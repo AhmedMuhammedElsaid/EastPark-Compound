@@ -23,6 +23,7 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | built (`37cf341` policy, `cd3a31f` kernel), reviewed (`ACCOUNTING-SLICE-6-REVIEW.md`), M1/M2/L1–L7 fixed; db-specs run at gate G1 |
 | 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | built (`52cf951`), reviewed (`ACCOUNTING-SLICE-7-REVIEW.md`), M1–M3/L1–L5 fixed; db-specs run at gate G1. Slice 8 clients must send `Idempotency-Key` on payments and `expectedCredit` on apply-credit |
 | 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`), M1/M2/L1–L5 fixed (web `3ba205c`, mobile after it). **All 8 slices done.** Next: fold `RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root `steps.md`, then the owner runs `steps.md` |
+| 9 | finance dashboard, web + mobile (spec `ACCOUNTING-SLICE-9-DASHBOARD.md`, approved mockups `Documentation/mockups/finance-dashboard/sample-4.html` web, `sample-5-mobile.html` mobile; build must match them, plan §2 rule 6) | built 2026-11-15/16 (`5e8cfa7` endpoint, `aac2483` web charts, `d6a90aa` web screen, `93ac8b8` mobile charts, `3065fee` mobile screens); Opus review `ACCOUNTING-SLICE-9-REVIEW.md` + Astra (Codex) reviews, all fixes in (`56bef58`..`3e1fa5d`), Astra verdict ship; db-specs 56/56 on Postgres 15 (2026-11-16, local docker). Owner to decide spec §6 #16–19 and click-test. Not pushed |
 
 **Immediate next steps (as of 2026-11-02 evening, all code pushed):**
 1. **Code (only task left):** fold the draft `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root
@@ -35,7 +36,7 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 
 **Open items / known gaps (not bugs, flagged so nothing is lost):**
 - Finance gaps by design: no statement endpoint (flat ledger shows open charges + payments only, paid/voided
-  charges not listed); no dashboard income/expense/fund/arrears figures (Phase 2/3 report endpoints); web apply-
+  charges not listed); dashboard figures since slice 9 (`GET /v1/finance/dashboard`: R3/R4/R6/R8 subset); income/expense reports still Phase 2/3; web apply-
   credit has no explicit charge picker; mobile payments can be dated today/yesterday only; web slip upload cap
   4.4 MB (Vercel body limit; backend allows 5 MB photos / 10 MB PDFs).
 - Decisions made by the build agents, owner may revisit: audit action `CREDIT_APPLIED` added (plan had no name);
