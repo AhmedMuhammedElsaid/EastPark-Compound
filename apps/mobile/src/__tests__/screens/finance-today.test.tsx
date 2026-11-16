@@ -73,6 +73,11 @@ beforeEach(() => {
 });
 
 describe("finance home dashboard", () => {
+  it("shows the deposits line on the fund card only (spec 6 #18)", () => {
+    render(<FinanceToday />);
+    expect(screen.getAllByTestId("kpi-fund-deposits")).toHaveLength(1);
+  });
+
   it("renders the sections in the mockup order", () => {
     render(<FinanceToday />);
     expect(screen.getByTestId("dash-hero")).toBeTruthy();

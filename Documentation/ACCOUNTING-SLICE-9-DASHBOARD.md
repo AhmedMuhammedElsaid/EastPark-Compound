@@ -305,13 +305,13 @@ Changed:
 15. **Bell.** Opens the timeline section of Period close (section 5; `/finance/period?section=timeline`), not
     a notification feed. The period pill opens the top of the same screen.
 
-Added during build, proposed in the 9.6 review (**awaiting the owner's acceptance**):
+Added during build, proposed in the 9.6 review, **accepted by the owner 2026-11-16** (#18 changed as below):
 
 16. **"View flats" link in the web building panel** (review L10). Mirrors mobile frame 3; not in sample 4.
 17. **Mobile unapplied and cheque attention cards** open `/finance/period` (review L11), because mobile has no
     payments list; web opens `/finance/payments`.
-18. **Deposits figure.** Web shows it in the fund tile's tooltip (risk 2). Mobile has no tooltips, so it is in
-    the fund card's screen-reader label only (review L4).
+18. **Deposits figure.** Web shows it in the fund tile's tooltip (risk 2). Mobile has no tooltips, so the fund
+    card shows it as a visible line under "vs last month" (owner decision), and its screen-reader label keeps it.
 19. **Over-90 drilldown.** The card links to `overdueDays=91` without `hasBalance`, so a net-credit flat that
     still holds a 91-day-old charge stays in the list the card's amount was summed from (review L7).
 
