@@ -10,13 +10,14 @@ import { I18nManager, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { listingUnitLabel } from "@/lib/listings";
 import { parseUnitLabel } from "@/lib/units";
-import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
+import { BRAND, FONT, RADIUS, SEMANTIC, SPACING } from "@/theme/tokens";
 
 type Props = {
   control: Control<ListingFormInput, unknown, ListingFormOutput>;
   setValue: UseFormSetValue<ListingFormInput>;
   /** The caller's own flats (backend `assertOwnsFlat` accepts only these). */
   flats: ListingFlatOption[];
+  error?: string;
 };
 
 function buildStyles(colors: ReturnType<typeof useAppColors>) {
@@ -25,6 +26,7 @@ function buildStyles(colors: ReturnType<typeof useAppColors>) {
     wrap: { gap: SPACING.xs },
     label: { ...align, fontFamily: FONT.sans, fontWeight: "600", fontSize: 13, lineHeight: 20, color: colors.text },
     hint: { ...align, fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    error: { ...align, fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: SEMANTIC.error },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
     chip: {
       minHeight: 48,
@@ -49,7 +51,7 @@ function buildStyles(colors: ReturnType<typeof useAppColors>) {
  * shows as a single selected chip). An edit keeps its stored flat as an extra
  * chip even when it has left the account, so the backend can refuse it.
  */
-export function FlatPicker({ control, setValue, flats }: Props) {
+export function FlatPicker({ control, setValue, flats, error }: Props) {
   const { t } = useTranslation();
   const colors = useAppColors();
   const styles = React.useMemo(() => buildStyles(colors), [colors]);
@@ -99,6 +101,7 @@ export function FlatPicker({ control, setValue, flats }: Props) {
         })}
       </View>
       <Text style={styles.hint}>{t("listings.flat_picker_hint")}</Text>
+      {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
     </View>
   );
 }

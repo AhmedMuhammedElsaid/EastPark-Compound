@@ -6,7 +6,7 @@ import { showMessage } from "react-native-flash-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/ui/app-header";
-import { openPrivacyPolicy, openRegisterUnit } from "@/lib/web-links";
+import { openPrivacyPolicy } from "@/lib/web-links";
 import { SEMANTIC, SPACING } from "@/theme/tokens";
 
 import { ClosingCta } from "./closing-cta";
@@ -28,9 +28,8 @@ export function GuestLanding() {
   const insets = useSafeAreaInsets();
   const palette = useTeaserPalette();
 
-  const register = React.useCallback(() => {
-    openRegisterUnit(() => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }));
-  }, [t]);
+  // Unit registration is a native screen: the guest never leaves the app.
+  const register = React.useCallback(() => router.push("/(auth)/register-unit"), []);
   const openPrivacy = React.useCallback(() => {
     openPrivacyPolicy(() => showMessage({ message: t("common.error"), type: "danger", backgroundColor: SEMANTIC.error }));
   }, [t]);

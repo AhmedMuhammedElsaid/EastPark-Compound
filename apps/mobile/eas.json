@@ -9,7 +9,7 @@
       "distribution": "store",
       "environment": "production",
       "ios": {
-        "image": "latest"
+        "image": "sdk-54"
       },
       "android": {
         "buildType": "app-bundle",
@@ -27,7 +27,7 @@
       "autoIncrement": true,
       "distribution": "internal",
       "ios": {
-        "image": "latest"
+        "image": "sdk-54"
       },
       "android": {
         "buildType": "apk",
@@ -47,7 +47,7 @@
       "distribution": "internal",
       "environment": "development",
       "ios": {
-        "image": "latest"
+        "image": "sdk-54"
       },
       "android": {
         "image": "latest"
@@ -60,7 +60,7 @@
       "environment": "development",
       "ios": {
         "simulator": true,
-        "image": "latest"
+        "image": "sdk-54"
       },
       "android": {
         "image": "latest"
@@ -72,6 +72,13 @@
   },
   "submit": {
     "preview": {},
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6834782755",
+        "ascApiKeyPath": "C:\\Users\\Ahmed Elsaid\\keys\\AuthKey_8PZGLCZ4SW.p8",
+        "ascApiKeyIssuerId": "d9fefa6b-8179-41bf-a34f-d79f87505fdb",
+        "ascApiKeyId": "8PZGLCZ4SW"
+      }
+    }
   }
 }
