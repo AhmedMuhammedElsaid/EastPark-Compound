@@ -18,6 +18,14 @@ jest.mock("@gorhom/bottom-sheet", () => {
     useBottomSheetTimingConfigs: () => ({}),
   };
 });
+let mockFocused = true;
+jest.mock("expo-router", () => ({
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const React = require("react");
+    // Runs the effect while the screen is focused and cleans up when it loses focus, like the real hook.
+    React.useEffect(() => (mockFocused ? effect() : undefined), [effect]);
+  },
+}));
 jest.mock("expo-haptics", () => ({ selectionAsync: jest.fn() }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -75,6 +83,15 @@ describe("building sheet", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     rerender(<BuildingSheet building={null} flats={[]} onFlatPress={jest.fn()} onViewFlats={jest.fn()} onClose={onClose} />);
     expect(remove).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("does not consume Android back while its screen is not focused (a pushed route gets the press)", () => {
+    const spy = jest.spyOn(BackHandler, "addEventListener").mockImplementation((() => ({ remove: jest.fn() })) as never);
+    mockFocused = false;
+    render(<BuildingSheet building={building} flats={[]} onFlatPress={jest.fn()} onViewFlats={jest.fn()} onClose={jest.fn()} />);
+    expect(spy).not.toHaveBeenCalled();
+    mockFocused = true;
     spy.mockRestore();
   });
 });

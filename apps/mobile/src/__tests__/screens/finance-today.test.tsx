@@ -111,6 +111,9 @@ describe("finance home dashboard", () => {
     expect(mockFlatsHook).toHaveBeenLastCalledWith({ building: "C1", hasBalance: true, sort: "balance", asOf: "2026-11-15" }, { enabled: true, limit: 10 });
     fireEvent.press(screen.getByText("view-flats"));
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats?building=C1&hasBalance=true&sort=balance&asOf=2026-11-15");
+    // The sheet is dismissed before the route is pushed, so Today holds no back listener under the new screen.
+    expect(screen.queryByText("sheet-C1")).toBeNull();
+    fireEvent.press(screen.getByText("map-C1"));
     fireEvent.press(screen.getByText("close-sheet"));
     expect(screen.queryByText("sheet-C1")).toBeNull();
   });
@@ -143,6 +146,10 @@ describe("finance home dashboard", () => {
     expect(screen.queryByText("A1-3-5")).toBeNull();
     fireEvent.press(screen.getByText("load-error"));
     expect(refetch).toHaveBeenCalled();
+    // The error state keeps Record payment and the header navigation.
+    fireEvent.press(screen.getByTestId("fab"));
+    expect(mockPush).toHaveBeenLastCalledWith("/finance/payment/new");
+    expect(screen.getByTestId("find-flat")).toBeTruthy();
   });
 
   it("keeps showing the requested window as pending while the other one loads", () => {

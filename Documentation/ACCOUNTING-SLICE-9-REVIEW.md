@@ -337,3 +337,14 @@ files, 4 tests, 1 fixture; mobile 17 source/translation files, 8 tests, 2 libs, 
 last edit: backend `pnpm test` 56 suites / 1086 tests and `pnpm lint:check` exit 0; `pnpm --dir apps/web check`
 exit 0 (34 files / 604 tests, 64/64 pages); mobile `tsc --noemit` clean, jest 70 suites / 527 tests, eslint 0
 errors (74 warnings, all existing patterns), `expo export --platform android` ok, `uniwind-types.d.ts` restored.
+
+### Follow-up fixes after the Astra re-review (2026-11-16)
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| R1 [Medium] back listener survived navigation (`building-sheet.tsx`) | fixed | The listener is registered with `useFocusEffect`, so it exists only while the screen is focused and the sheet is open. Today clears the selection (dismisses the sheet) before pushing a flat or "View flats". Tests: no listener while unfocused; the sheet is gone after the push |
+| R2 [Medium] scroll-to-timeline ran too early (`period.tsx`) | fixed | The scroll runs once the dashboard and audit queries have settled and the timeline title has laid out (next animation frame, once). Test with delayed audit data: no scroll while loading, one scroll after the rows arrive |
+| R3 [Medium] error state dropped the FAB (`today.tsx`) | fixed | `RecordPaymentFab` is rendered in the error state too, next to the header navigation. Test |
+| R4 [Low, L12] contract test | fixed | Walks every array element, compares key paths and value types, and asserts the backend, web and mobile fixture copies are byte-identical |
+
+Gates after these edits: mobile `tsc --noemit` clean, jest 70 suites / 530 tests, eslint 0 errors, `expo export --platform android` ok, `uniwind-types.d.ts` restored. Web and backend untouched.

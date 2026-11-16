@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import * as React from "react";
 
 import { makeDashboard } from "../fixtures/finance-dashboard";
@@ -75,7 +75,7 @@ describe("period close screen", () => {
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats/f1");
   });
 
-  it("opens at the top from the period pill and scrolls to the timeline from the bell", () => {
+  it("opens at the top from the period pill and scrolls to the timeline from the bell", async () => {
     const { unmount } = render(<FinancePeriod />);
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
     expect(mockScrollToOffset).not.toHaveBeenCalled();
@@ -83,8 +83,21 @@ describe("period close screen", () => {
     mockParams = { section: "timeline" };
     render(<FinancePeriod />);
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
-    expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true });
+    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 700, width: 360, height: 40 } } });
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls to the timeline only after the audit rows have loaded", async () => {
+    mockParams = { section: "timeline" };
+    mockAudit = { data: undefined, isLoading: true, refetch: jest.fn() };
+    const { rerender } = render(<FinancePeriod />);
+    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    mockAudit = { data: { items: [event("e1", "PAYMENT_RECORDED")], hasMore: false }, isLoading: false, refetch: jest.fn() };
+    rerender(<FinancePeriod />);
+    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   });
 

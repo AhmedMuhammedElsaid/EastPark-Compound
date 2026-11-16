@@ -2,6 +2,7 @@ import type { DashBuilding } from "./types";
 import type { FinanceFlatListItem } from "@/services/api/finance";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView, useBottomSheetTimingConfigs } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
+import { useFocusEffect } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
@@ -52,9 +53,10 @@ export function BuildingSheet({ building, flats, flatsLoading, flatsError, onRet
     else sheetRef.current?.dismiss();
   }, [building]);
 
-  // Android back closes the sheet (gorhom does not handle it): consume the press while the sheet is open.
+  // Android back closes the sheet (gorhom does not handle it): consume the press while the sheet is open AND this
+  // screen is focused, so a route pushed from the sheet (flat, "View flats") gets its own back press.
   // `dismiss()` animates down and fires `onDismiss` -> `onClose`, which returns focus to the building.
-  React.useEffect(() => {
+  useFocusEffect(React.useCallback(() => {
     if (!building)
       return undefined;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -62,7 +64,7 @@ export function BuildingSheet({ building, flats, flatsLoading, flatsError, onRet
       return true;
     });
     return () => sub.remove();
-  }, [building]);
+  }, [building]));
 
   const floors = (shown?.floors ?? []).map(f => ({
     key: f.floor,

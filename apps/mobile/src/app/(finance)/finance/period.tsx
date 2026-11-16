@@ -42,12 +42,18 @@ export default function FinancePeriod() {
   };
   useRefocusEffect(refetchAll);
 
+  // Scroll to the timeline only once both queries have settled (rows laid out): scrolling earlier is clamped to the
+  // shorter content by the native list and never retried.
+  const settled = !!data && !audit.isLoading && !audit.isFetching && timelineY !== null;
   React.useEffect(() => {
-    if (section !== "timeline" || scrolledTo.current || timelineY === null)
-      return;
-    scrolledTo.current = true;
-    listRef.current?.scrollToOffset({ offset: timelineY, animated: true });
-  }, [section, timelineY]);
+    if (section !== "timeline" || scrolledTo.current || !settled)
+      return undefined;
+    const frame = requestAnimationFrame(() => {
+      scrolledTo.current = true;
+      listRef.current?.scrollToOffset({ offset: timelineY ?? 0, animated: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, settled, timelineY]);
 
   // A failed fetch replaces the figures: TanStack keeps old `data` after a failed refetch, which must not read as current.
   if (dash.isError) {

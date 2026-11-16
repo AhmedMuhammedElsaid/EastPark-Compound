@@ -25,6 +25,26 @@ function go(href: string) {
   router.push(href as Href);
 }
 
+/** Record payment shortcut; also shown in the error state so the desk stays usable when the dashboard cannot load. */
+function RecordPaymentFab() {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const c = useChartColors();
+  const styles = React.useMemo(() => buildStyles(c), [c]);
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.fab, { bottom: insets.bottom + SPACING.base }, pressed && styles.pressed]}
+      onPress={() => go("/finance/payment/new")}
+      accessibilityRole="button"
+      accessibilityLabel={t("finance.record_payment")}
+      testID="fab"
+    >
+      <Plus size={22} weight="bold" color={BRAND.ink} />
+      <Text style={styles.fabText}>{t("finance.record_payment")}</Text>
+    </Pressable>
+  );
+}
+
 /** Finance home (`/finance/today`): the dashboard of sample 5 frames 1-2 plus the building sheet (frame 3). */
 export default function FinanceToday() {
   const { t } = useTranslation();
@@ -61,6 +81,7 @@ export default function FinanceToday() {
       <View style={styles.container}>
         <FinanceHomeHeader />
         <ErrorState message={t("finance.dash.load_error")} onRetry={() => dash.refetch()} />
+        <RecordPaymentFab />
       </View>
     );
   }
@@ -103,24 +124,21 @@ export default function FinanceToday() {
         onRefresh={() => dash.refetch()}
         refreshing={dash.isRefetching && !dash.isPlaceholderData}
       />
-      <Pressable
-        style={({ pressed }) => [styles.fab, { bottom: insets.bottom + SPACING.base }, pressed && styles.pressed]}
-        onPress={() => go("/finance/payment/new")}
-        accessibilityRole="button"
-        accessibilityLabel={t("finance.record_payment")}
-        testID="fab"
-      >
-        <Plus size={22} weight="bold" color={BRAND.ink} />
-        <Text style={styles.fabText}>{t("finance.record_payment")}</Text>
-      </Pressable>
+      <RecordPaymentFab />
       <BuildingSheet
         building={building}
         flats={sheetFlats.data?.pages[0]?.data.data.items}
         flatsLoading={sheetFlats.isLoading}
         flatsError={sheetFlats.isError}
         onRetryFlats={() => sheetFlats.refetch()}
-        onFlatPress={flat => go(`/finance/flats/${encodeURIComponent(flat.id)}`)}
-        onViewFlats={code => go(flatsHref({ building: code, hasBalance: true, sort: "balance", asOf: data?.asOf }))}
+        onFlatPress={(flat) => {
+          setSelected(null);
+          go(`/finance/flats/${encodeURIComponent(flat.id)}`);
+        }}
+        onViewFlats={(code) => {
+          setSelected(null);
+          go(flatsHref({ building: code, hasBalance: true, sort: "balance", asOf: data?.asOf }));
+        }}
         onClose={closeSheet}
       />
     </View>
