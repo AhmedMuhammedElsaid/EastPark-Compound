@@ -15,7 +15,7 @@ import {
   StackedBar,
 } from '@/components/finance/charts';
 import { compoundLayout } from '@/components/finance/charts/compound-layout';
-import { donutSlices, ringArc } from '@/components/finance/charts/geometry';
+import { donutSlices, mapCells, ringArc } from '@/components/finance/charts/geometry';
 import en from '@/translations/en.json';
 import ar from '@/translations/ar.json';
 
@@ -47,6 +47,41 @@ const buildings = [
   { building: 'A1', totalFlats: 52, owingFlats: 18, outstanding: '168000.00' },
   { building: 'C1', totalFlats: 60, owingFlats: 26, outstanding: '254000.00' },
 ];
+
+describe('compound map with the 12 real buildings', () => {
+  const codes = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'C3', 'D1', 'E1', 'E2', 'F1', 'F2'];
+  const flats = [60, 52, 48, 40, 60, 56, 44, 36, 60, 52, 48, 30];
+  const items = codes.map((code, i) => ({ code, totalFlats: flats[i]!, outstanding: (i + 1) * 1000 }));
+
+  it.each([320, 390, 720, 1100])('lays them out on 3 rows without overlap at %i px', (width) => {
+    const { cells, height, roads } = mapCells(items, compoundLayout(codes), width);
+    expect(cells).toHaveLength(12);
+    expect(roads).toHaveLength(2);
+    for (const a of cells) {
+      expect(a.y).toBeGreaterThanOrEqual(0);
+      expect(a.y + a.h).toBeLessThanOrEqual(height);
+    }
+    cells.forEach((a, i) => cells.slice(i + 1).forEach((b) => {
+      expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false);
+    }));
+    for (const y of roads) for (const a of cells) expect(y + 3 <= a.y || y - 3 >= a.y + a.h).toBe(true);
+  });
+
+  it('keeps the two-row canvas heights of sample 4 for 8 buildings', () => {
+    const eight = items.slice(0, 8);
+    expect(mapCells(eight, compoundLayout(eight.map((i) => i.code)), 390).height).toBe(260);
+    expect(mapCells(eight, compoundLayout(eight.map((i) => i.code)), 720).height).toBe(330);
+  });
+
+  it('renders one independently selectable button per building', () => {
+    const html = renderToStaticMarkup(h(CompoundMap, {
+      buildings: codes.map((building, i) => ({ building, totalFlats: flats[i]!, owingFlats: i, outstanding: `${(i + 1) * 1000}.00` })),
+      lang: 'en', labels: mapLabels, selected: 'C3', onSelect: () => {}, width: 720,
+    }));
+    expect(html.match(/role="button"/g)).toHaveLength(12);
+    for (const code of codes) expect(html).toContain(`>${code}<`);
+  });
+});
 
 describe('geometry', () => {
   it('clamps the ring arc but keeps null as an empty track', () => {

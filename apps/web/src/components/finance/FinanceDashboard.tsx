@@ -14,7 +14,6 @@ import {
 import Link from 'next/link';
 import * as React from 'react';
 
-import { useAuth } from '@/lib/auth/AuthProvider';
 import { financeApi } from '@/lib/api/finance';
 import {
   attentionCards,
@@ -45,6 +44,7 @@ import {
   useChartLabels,
 } from './charts';
 import { monthName } from './charts/geometry';
+import { tipProps } from './charts/tooltip';
 import { FOCUS, Notice, PRIMARY_BUTTON, SECONDARY_BUTTON, useFinanceError } from './parts';
 
 const CARD = 'rounded-lg border border-border bg-card shadow-sm';
@@ -53,6 +53,9 @@ const LINK = `inline-flex min-h-11 items-center gap-1 rounded-md px-2 font-semib
 const TH = 'px-3 py-2 text-start text-[length:var(--text-label)] font-semibold text-muted-foreground';
 
 type Lang = 'ar' | 'en';
+
+/** Display serif for hero-level figures in English only (Cormorant never in Arabic or functional UI). */
+const displayFont = (lang: Lang) => (lang === 'en' ? { fontFamily: 'var(--font-family-display)' } : undefined);
 
 const intl = (lang: Lang) => (lang === 'ar' ? 'ar-EG' : 'en-US');
 
@@ -144,7 +147,6 @@ function DashboardSkeleton() {
 /** sample-4 landing: ledger-and-map dashboard for the finance desk (accounting slice 9). */
 export function FinanceDashboard() {
   const { t, lang } = useTranslation();
-  const { user } = useAuth();
   const errorMessage = useFinanceError();
   const [data, setData] = React.useState<Dashboard | null>(null);
   const [error, setError] = React.useState('');
@@ -167,6 +169,12 @@ export function FinanceDashboard() {
     setAttempt((n) => n + 1);
   };
 
+  return <FinanceDashboardView data={data} error={error} onRetry={retry} />;
+}
+
+/** The dashboard's three states: loading skeleton, inline error with Retry, and the loaded body. */
+export function FinanceDashboardView({ data, error, onRetry }: { data: Dashboard | null; error: string; onRetry: () => void }) {
+  const { t, lang } = useTranslation();
   const monthLabel = data ? `${monthName(data.period.period, lang, 'long')} ${data.period.period.slice(0, 4)}` : '';
 
   return (
@@ -176,8 +184,8 @@ export function FinanceDashboard() {
           <div className="text-[length:var(--text-label)] font-semibold text-muted-foreground">
             {data ? t('finance.dashboard.eyebrow', { month: monthLabel }) : t('finance.desk')}
           </div>
-          <h1 className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight">
-            {user?.name ? t('finance.dashboard.title_named', { name: user.name }) : t('finance.dashboard.title')}
+          <h1 className="mt-1 text-[length:var(--text-h1)] font-bold leading-tight" style={displayFont(lang)}>
+            {t('finance.dashboard.title')}
           </h1>
           <div aria-hidden="true" className="mt-3 h-0.5 w-16 rounded-full bg-primary" />
         </div>
@@ -185,10 +193,7 @@ export function FinanceDashboard() {
           {data && (
             <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border px-3 text-[length:var(--text-caption)] font-semibold">
               <i aria-hidden="true" className={`size-2 rounded-full ${data.period.status === 'OPEN' ? 'bg-success' : 'bg-warning'}`} />
-              {t('finance.dashboard.period_pill', {
-                period: data.period.period,
-                status: t(`finance.dashboard.status_${data.period.status}`),
-              })}
+              {t('finance.dashboard.period_pill', { status: t(`finance.dashboard.status_${data.period.status}`) })}
             </span>
           )}
           <Link href="/finance/payments/new" className={PRIMARY_BUTTON}>
@@ -206,7 +211,7 @@ export function FinanceDashboard() {
           <p>{error}</p>
           <button
             type="button"
-            onClick={retry}
+            onClick={onRetry}
             className={`mt-2 inline-flex min-h-11 items-center rounded-md border border-border px-4 font-semibold hover:bg-muted ${FOCUS}`}
           >
             {t('finance.dashboard.retry')}
@@ -302,10 +307,12 @@ function DashboardBody({ data }: { data: Dashboard }) {
           <Ring rate={data.cohort.rate} lang={lang} caption={t('finance.dashboard.ring_caption')} size={200} />
         </div>
         <div className="text-center md:text-start">
-          <div className="text-[length:var(--text-label)] font-semibold text-muted-foreground">{monthLabel}</div>
+          <div className="text-[length:var(--text-label)] font-semibold text-muted-foreground">
+            {t('finance.dashboard.hero_eyebrow', { month: `${monthLabel} ${data.period.period.slice(0, 4)}`, status: t(`finance.dashboard.status_${data.period.status}`) })}
+          </div>
           {isPositive(data.cohort.charges) ? (
             <>
-              <h2 className="mt-1 text-[length:var(--text-h1)] font-light leading-snug">
+              <h2 className="mt-1 text-[length:var(--text-h1)] font-light leading-snug" style={displayFont(lang)}>
                 {t('finance.dashboard.story_collected')}{' '}
                 <bdi className="font-bold tabular-nums text-primary">{formatDecimalAmount(data.cohort.allocated, lang)}</bdi>{' '}
                 {t('finance.dashboard.story_of')} <bdi className="tabular-nums">{formatDecimalAmount(data.cohort.charges, lang)}</bdi> {egp}
@@ -345,9 +352,9 @@ function DashboardBody({ data }: { data: Dashboard }) {
       {/* KPI tiles */}
       <section aria-label={t('finance.dashboard.kpi_title')} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
-          <article key={k.id} className={`${CARD} p-5`}>
+          <article key={k.id} className={`${CARD} p-5${k.note ? ` ${FOCUS}` : ''}`} {...(k.note ? tipProps(k.note) : {})}>
             <div className="text-[length:var(--text-caption)] font-semibold text-muted-foreground">{k.label}</div>
-            <div className="my-2 text-[length:var(--text-h2)] font-light leading-snug">{k.value}</div>
+            <div className="my-2 text-[length:var(--text-h2)] font-light leading-snug" style={displayFont(lang)}>{k.value}</div>
             <div className="flex items-center justify-between gap-2 text-[length:var(--text-caption)]">
               <span>
                 <Delta view={k.delta} /> <span className="text-muted-foreground">{t('finance.dashboard.vs_last')}</span>
@@ -360,11 +367,6 @@ function DashboardBody({ data }: { data: Dashboard }) {
                 color={k.color}
               />
             </div>
-            {k.note && (
-              <p className="mt-2 text-[length:var(--text-caption)] text-muted-foreground" title={k.note}>
-                {k.note}
-              </p>
-            )}
           </article>
         ))}
       </section>
@@ -611,7 +613,7 @@ function AttentionCardView({ card, lang }: { card: AttentionCard; lang: Lang }) 
       break;
     case 'over90':
       title = t('finance.dashboard.att_over90_title');
-      body = card.share === null ? money(card.amount) : `${money(card.amount)} · ${formatDecimalAmount(card.share, lang, 1)}%`;
+      body = card.share === null ? money(card.amount) : `${money(card.amount)} · ${formatDecimalAmount(card.share, lang)}%`;
       break;
     case 'building':
       title = t('finance.dashboard.att_building_title', { building: card.building });
@@ -626,7 +628,7 @@ function AttentionCardView({ card, lang }: { card: AttentionCard; lang: Lang }) 
       body = `${count(card.count)} · ${money(card.total)}`;
       break;
     default:
-      title = t('finance.dashboard.att_period_title', { period: card.period });
+      title = t('finance.dashboard.att_period_title', { status: t(`finance.dashboard.status_${card.status === 'OPEN' ? 'OPEN' : 'CLOSED'}`) });
       body = t(`finance.dashboard.att_period_${card.status === 'OPEN' ? 'open' : 'closed'}`);
   }
   return (
@@ -663,7 +665,7 @@ function BuildingPanel({
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-border pb-3">
-        <h2 className="text-[length:var(--text-h1)] font-bold text-primary">
+        <h2 className="text-[length:var(--text-h1)] font-bold text-primary" style={displayFont(lang)}>
           <bdi dir="ltr">{building.building}</bdi>
         </h2>
         <span className="rounded-full border border-border px-3 py-1 text-[length:var(--text-caption)] tabular-nums">

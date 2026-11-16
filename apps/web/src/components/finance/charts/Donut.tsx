@@ -1,6 +1,7 @@
+import { isPositive, percentTenths, sumDecimal } from '@/lib/finance/dashboard';
 import { formatDecimalAmount } from '@/lib/finance/money';
 
-import { compact, donutSlices, geo, pct } from './geometry';
+import { compact, donutSlices, geo } from './geometry';
 import { NUM, SrTable, type ChartLang } from './shared';
 import { tipProps, useChartTooltip } from './tooltip';
 
@@ -50,15 +51,14 @@ export function Donut({ methods, lang, labels, size = 170 }: DonutProps) {
     methods.map((m) => ({ key: m.method, value: geo(m.gross) })),
     C,
   );
-  const totalGross = methods.reduce((s, m) => s + Math.max(0, geo(m.gross)), 0);
+  const positiveGross = (v: string) => (isPositive(v) ? v : '0.00');
+  const totalGross = sumDecimal(methods.map((m) => positiveGross(m.gross)));
   const name = (m: string) => labels.method[m] ?? m;
-  // Display sums stay decimal strings: add in whole piasters.
-  const cents = (v: string) => Math.round(geo(v) * 100);
-  const fmtCents = (c: number) => formatDecimalAmount(`${c < 0 ? '-' : ''}${Math.floor(Math.abs(c) / 100)}.${String(Math.abs(c) % 100).padStart(2, '0')}`, lang);
-  const reversedText = fmtCents(methods.reduce((s, m) => s + cents(m.reversed), 0));
-  const netText = fmtCents(methods.reduce((s, m) => s + cents(m.net), 0));
+  // Display sums stay decimal strings, added as whole piasters.
+  const reversedText = formatDecimalAmount(sumDecimal(methods.map((m) => m.reversed)), lang);
+  const netText = formatDecimalAmount(sumDecimal(methods.map((m) => m.net)), lang);
   const summary = methods.map((m) => `${name(m.method)}: ${formatDecimalAmount(m.gross, lang)}`).join(', ');
-  const empty = totalGross === 0;
+  const empty = !isPositive(totalGross);
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
       <div dir="ltr" className="shrink-0">
@@ -78,7 +78,7 @@ export function Donut({ methods, lang, labels, size = 170 }: DonutProps) {
                   strokeDasharray={`${Math.max(0, s.length - 2)} ${C}`}
                   strokeDashoffset={-s.offset}
                   transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                  {...tipProps(`${name(s.key)}\n${formatDecimalAmount(methods.find((m) => m.method === s.key)?.gross ?? '0', lang)} ${labels.currency} (${s.share.toFixed(1)}%)`)}
+                  {...tipProps(`${name(s.key)}\n${formatDecimalAmount(methods.find((m) => m.method === s.key)?.gross ?? '0', lang)} ${labels.currency} (${percentTenths(positiveGross(methods.find((m) => m.method === s.key)?.gross ?? '0'), totalGross) ?? '0.0'}%)`)}
                 />
               ))}
           {empty ? (
@@ -93,7 +93,7 @@ export function Donut({ methods, lang, labels, size = 170 }: DonutProps) {
                 textAnchor="middle"
                 style={{ ...NUM, fill: 'var(--color-foreground)', fontSize: 20, fontWeight: 300 }}
               >
-                {compact(totalGross)}
+                {compact(geo(totalGross))}
               </text>
               <text x="50%" y="48%" dy={18} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}>
                 {labels.currency}
@@ -116,7 +116,7 @@ export function Donut({ methods, lang, labels, size = 170 }: DonutProps) {
               </span>
               <span className="tabular-nums" dir="ltr">
                 {formatDecimalAmount(m.gross, lang)}{' '}
-                <small className="text-muted-foreground">{pct(Math.max(0, geo(m.gross)), totalGross)}%</small>
+                <small className="text-muted-foreground">{percentTenths(positiveGross(m.gross), totalGross) ?? '0.0'}%</small>
               </span>
             </li>
           ))}

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -532,6 +532,21 @@ describe('FinanceDashboardService', () => {
         expect(client.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
             client.fiscalPeriod.findUnique.mock.invocationCallOrder[0] as number
         );
+    });
+
+    // Cross-client contract (accounting slice 9, review L12): the same JSON is copied into the web and mobile
+    // test fixtures, where web parses it with `dashboardSchema.strict()` and mobile checks the key set and types.
+    // After an intentional response change run `UPDATE_CONTRACT_FIXTURE=1 pnpm test finance-dashboard.spec` and
+    // copy the file to apps/web/src/test/fixtures and apps/mobile/src/__tests__/fixtures.
+    it('serialises to the shared client contract fixture', async () => {
+        const { client, service } = fakeClient();
+        const result = await service.build(client as never, day('2026-06-20'), 6);
+        const json = JSON.parse(JSON.stringify(result)) as unknown;
+        const path = join(__dirname, '../fixtures/finance-dashboard.contract.json');
+        if (process.env.UPDATE_CONTRACT_FIXTURE === '1')
+            writeFileSync(path, `${JSON.stringify(json, null, 2)}
+`);
+        expect(json).toEqual(JSON.parse(readFileSync(path, 'utf8')));
     });
 
     it('assembles every field as Decimal strings', async () => {

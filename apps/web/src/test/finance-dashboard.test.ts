@@ -9,6 +9,8 @@ import {
   furthestBehind,
   highestOutstanding,
   percentOf,
+  percentTenths,
+  sumDecimal,
   stringToCents,
   timelineKind,
   timelineLabelKey,
@@ -58,15 +60,34 @@ describe('decimal helpers', () => {
     expect(stringToCents('12500.00')).toBe(BigInt(1250000));
     expect(stringToCents('-0.05')).toBe(BigInt(-5));
     expect(stringToCents('0.1')).toBe(BigInt(10));
+    expect(stringToCents('0.004')).toBe(BigInt(0));
+    expect(stringToCents('0.005')).toBe(BigInt(1));
+    expect(stringToCents('-0.005')).toBe(BigInt(-1));
     expect(stringToCents('nope')).toBe(BigInt(0));
   });
 
-  it('computes a one-decimal half-up share, null on a zero whole', () => {
-    expect(percentOf('343000.00', '1284000.00')).toBe('26.7');
-    expect(percentOf('1.00', '8.00')).toBe('12.5');
-    expect(percentOf('1.00', '3.00')).toBe('33.3');
-    expect(percentOf('2.00', '3.00')).toBe('66.7');
+  it('computes a whole-number half-up share like the mockup (27%), null on a zero whole', () => {
+    expect(percentOf('343000.00', '1284000.00')).toBe('27');
+    expect(percentOf('1.00', '8.00')).toBe('13');
+    expect(percentOf('1.00', '3.00')).toBe('33');
+    expect(percentOf('0.005', '1.00')).toBe('1');
+    expect(percentOf('9007199254740993.00', '9007199254740994.00')).toBe('100');
     expect(percentOf('5.00', '0.00')).toBeNull();
+  });
+
+  it('computes one-decimal half-up shares for the donut', () => {
+    expect(percentTenths('343000.00', '1284000.00')).toBe('26.7');
+    expect(percentTenths('1.00', '8.00')).toBe('12.5');
+    expect(percentTenths('2.00', '3.00')).toBe('66.7');
+    expect(percentTenths('5.00', '0.00')).toBeNull();
+  });
+
+  it('sums decimal strings in whole piasters, without float drift', () => {
+    expect(sumDecimal(['0.10', '0.20'])).toBe('0.30');
+    expect(sumDecimal(['-0.10', '-0.20'])).toBe('-0.30');
+    expect(sumDecimal(Array.from({ length: 10 }, () => '0.10'))).toBe('1.00');
+    expect(sumDecimal(['0.05', '-0.05'])).toBe('0.00');
+    expect(sumDecimal(['9007199254740992.00', '0.01'])).toBe('9007199254740992.01');
   });
 });
 
@@ -100,8 +121,8 @@ describe('attention cards', () => {
     expect(cards.map((c) => c.id)).toEqual(['unapplied', 'over90', 'building', 'period']);
     expect(cards[0]).toMatchObject({ href: '/finance/payments', count: 5 });
     expect(cards[1]).toMatchObject({
-      href: '/finance/flats?hasBalance=true&overdueDays=91&sort=balance&asOf=2026-11-15',
-      share: '26.7',
+      href: '/finance/flats?overdueDays=91&sort=balance&asOf=2026-11-15',
+      share: '27',
     });
     expect(cards[2]).toMatchObject({
       building: 'C1',

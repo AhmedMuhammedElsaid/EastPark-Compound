@@ -106,8 +106,10 @@ export function mapCells(
   const narrow = width < 500;
   const gap = narrow ? 8 : 14;
   const rows = Math.max(1, ...items.map((b) => (positions.get(b.code)?.row ?? 0) + 1));
-  const H = narrow ? 260 : 330;
-  const rowH = (H - gap * (rows + 1)) / rows;
+  // One grid row is a fixed height (two rows reproduce sample 4's 260 / 330 canvas), so the canvas grows
+  // with the real row count: 12 buildings are 3 rows and must not be squeezed into the two-row height.
+  const rowH = narrow ? 118 : 144;
+  const H = rowH * rows + gap * (rows + 1);
   const bw = (width - gap * (cols - 1)) / cols;
   const maxFlats = Math.max(1, ...items.map((b) => b.totalFlats));
   const ratios = items.map((b) => (b.totalFlats > 0 ? b.outstanding / b.totalFlats : 0));

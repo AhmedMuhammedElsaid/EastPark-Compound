@@ -94,21 +94,39 @@ const TEN = BigInt(10);
 const HUNDRED = BigInt(100);
 const TWO_THOUSAND = BigInt(2000);
 
-/** A backend decimal string as whole piasters. Anything unparsable is 0. */
+/** A backend decimal string as whole piasters, half away from zero at a third decimal. Unparsable is 0. */
 export function stringToCents(value: string | null | undefined): bigint {
-  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec((value ?? '').trim());
+  const match = /^(-?)(\d+)(?:\.(\d*))?$/.exec((value ?? '').trim());
   if (!match) return ZERO;
-  const cents = BigInt(match[2]!) * HUNDRED + BigInt((match[3] ?? '').padEnd(2, '0').slice(0, 2));
+  const fraction = match[3] ?? '';
+  let cents = BigInt(match[2]!) * HUNDRED + BigInt(fraction.slice(0, 2).padEnd(2, '0'));
+  if (fraction.length > 2 && fraction.charCodeAt(2) >= 53) cents += BigInt(1);
   return match[1] ? -cents : cents;
 }
 
-/** `part ÷ whole` as a one-decimal percentage string, half up; null when whole is not positive. */
+/** `part ÷ whole` as a whole-number percentage ("27"), half up, as the mockup shows; null when whole is not positive. */
 export function percentOf(part: string, whole: string): string | null {
   const p = stringToCents(part);
   const w = stringToCents(whole);
   if (w <= ZERO) return null;
-  const tenths = (p * TWO_THOUSAND + w) / (TWO * w); // round(p / w * 1000) half up, for p >= 0
+  return String((p * TWO * HUNDRED + w) / (TWO * w)); // round(p / w * 100) half up, for p >= 0
+}
+
+/** `part ÷ whole` as a one-decimal percentage string ("26.7"), half up; null when whole is not positive. */
+export function percentTenths(part: string, whole: string): string | null {
+  const p = stringToCents(part);
+  const w = stringToCents(whole);
+  if (w <= ZERO) return null;
+  const tenths = (p * TWO_THOUSAND + w) / (TWO * w);
   return `${tenths / TEN}.${tenths % TEN}`;
+}
+
+/** The exact sum of decimal strings, as a 2-dp decimal string (whole piasters, never float). */
+export function sumDecimal(values: readonly string[]): string {
+  const total = values.reduce((sum, v) => sum + stringToCents(v), ZERO);
+  const negative = total < ZERO;
+  const abs = negative ? -total : total;
+  return `${negative ? '-' : ''}${abs / HUNDRED}.${String(abs % HUNDRED).padStart(2, '0')}`;
 }
 
 export function isPositive(value: string): boolean {
@@ -194,7 +212,8 @@ export function attentionCards(d: Dashboard): AttentionCard[] {
     cards.push({
       id: 'over90',
       tone: 'error',
-      href: flatsHref({ hasBalance: true, overdueDays: 91, sort: 'balance', asOf: d.asOf }),
+      // `overdueDays` alone filters flats with a charge 91+ days old, so a net-credit flat that still holds one stays listed.
+      href: flatsHref({ overdueDays: 91, sort: 'balance', asOf: d.asOf }),
       amount: d.aging.over90,
       share: percentOf(d.aging.over90, d.outstanding),
     });

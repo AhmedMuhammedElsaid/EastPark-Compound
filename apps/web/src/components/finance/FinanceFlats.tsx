@@ -36,6 +36,8 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
   const [loading, setLoading] = React.useState(true);
   const [more, setMore] = React.useState(false);
   const [error, setError] = React.useState('');
+  // "Load more" found the cursor stale (the list moved) and the list restarted from page 1.
+  const [restarted, setRestarted] = React.useState(false);
 
   const query = React.useMemo<FlatsQuery>(
     () => ({
@@ -55,9 +57,11 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
       if (next) setMore(true);
       else setLoading(true);
       setError('');
+      setRestarted(false);
       try {
         const { page, append } = await fetchPage((cursor) => financeApi.flats({ ...query, asOf: next ? pinnedAsOf.current : start.asOf, cursor }), next);
         setItems((old) => (append ? [...old, ...page.items] : page.items));
+        if (next && !append) setRestarted(true);
         setCursor(page.nextCursor ?? null);
         setAsOf(page.asOf);
         if (!next) pinnedAsOf.current = page.asOf;
@@ -151,6 +155,7 @@ export function FinanceFlats({ initial }: { initial: FlatsFilters }) {
 
       {asOf && !loading && <p className="text-[length:var(--text-caption)] text-muted-foreground">{t('finance.flats.as_of', { date: formatDate(asOf, lang) })}</p>}
       {error && <Notice tone="error">{error}</Notice>}
+      {restarted && <Notice tone="info">{t('finance.errors.invalidCursor')}</Notice>}
 
       {loading ? (
         <RowsSkeleton rows={6} />
