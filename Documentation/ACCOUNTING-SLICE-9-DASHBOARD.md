@@ -77,8 +77,9 @@ queries, never as per-flat loops in JS.
 - **Percentages** are computed on the server from Decimals and sent as strings with one decimal place,
   rounded half up (`"87.4"`). A rate whose denominator is 0 is `null`.
 - **Deltas** (the "vs last month" chips): relative change `(x − x′) ÷ x′` as a one-decimal percentage
-  string, where x′ is the same figure as of D′. `null` when x′ is 0 or null; the UI shows "—". The rate's
-  delta is in percentage points.
+  string, where x′ is the same figure as of D′. The divisor is `|x′|`, so the sign stays right on a negative
+  baseline (a debt that shrinks from −100 to −50 reads +50 %). `null` when x′ is 0 or null; the UI shows "—".
+  The rate's delta is in percentage points.
 - **Reproducibility**: for a D in a CLOSED period, every **money and count-of-money** figure is the same on
   every later read. Owner names, `totalFlats` and other registry fields are current state and may change.
 
@@ -89,7 +90,7 @@ queries, never as per-flat loops in JS.
 | `asOf`, `period` | D; `{ period: M, status }` (missing row = `OPEN`) | slice 6 |
 | `cohort` | the ring and hero: `charges` = Σ live operating charges as of D with `accrualPeriod` = M; `allocated` = Σ live allocations as of D to those charges; `open` = `charges − allocated` (≥ 0 by construction); `rate` = `allocated ÷ charges` (`null` when 0, Q1). The same measures as of D′ in `previous.cohort` | R6 / R8 |
 | `billed[]` per month | flow of live operating charges by `accrualPeriod` (3.1) | R8 |
-| `collected[]` per month | flow of live allocations to operating charges by `allocatedAt` (3.1). No filter on `isOpening` (L-4, see Q4) | R8 |
+| `collected[]` per month | flow of live allocations to every charge except `MAINTENANCE_DEPOSIT`, by `allocatedAt` (3.1). Allocations to `OPENING_BALANCE` charges count (L-4, Q4); there is no filter on `isOpening` | R8 |
 | `receiptsByMethod` (month M) | per `FinancePaymentMethod`, payments with `isOpening = false`: `gross` (received in M, as of their receipt), `reversed` (bounced or voided in M, ≤ 0), `net` = gross + reversed. Cash basis: deposit receipts included, as R3 does | R3 |
 | `outstanding` | Σ `openAmount` over all flats as of D. Equals Σ balance + Σ credit (`ledger.ts`: `balance = openAmount − credit`), not Σ balance | R6 |
 | `credit` | `netCreditFlats` (count of balance < 0) and `netCreditTotal` (Σ −balance over them), plus `creditTotal` = Σ `credit` (unallocated payments, every flat) | R6, "prepayments held" |
@@ -223,9 +224,11 @@ not billing runs, so quarterly or manual billing does not need a run.
 ### 4.2 Interactions and states
 
 - Building selection: click or Enter/Space on a map building selects it, updates the panel, keeps the
-  scroll position and returns focus to the building (as the mockup does). "All buildings" clears it.
+  scroll position and returns focus to the building (as the mockup does). The map opens with the building
+  that owes the most selected; there is no "All buildings" control (sample 4 has none).
 - Mobile 6M / 12M switch (sample 5): refetches with `months`; the selection and scroll stay.
-- Period pill: shows M and its status; links to the period page.
+- Period pill: shows the status ("Period: Open"). On web it is plain text (there is no web period page yet;
+  the period attention card and the checklist link to the audit trail). On mobile it opens Period close.
 - Empty states: no charges yet ("—" in the ring, empty charts with one line of copy); no owing flats
   (aging and top 10 show "No overdue flats"). Error: one inline banner with Retry, the header actions stay
   usable. Loading: skeletons in the section shapes.
@@ -299,7 +302,18 @@ Changed:
 14. **Controls.** Web follows sample 4: a fixed 12-month chart, no 6M / 12M switch (mobile keeps the
     switch from sample 5). Adding the switch on web is a deviation only the owner can approve. The mockups'
     theme and language toggles are the app's own settings, not dashboard controls.
-15. **Bell.** Opens the timeline (section 5), not a notification feed.
+15. **Bell.** Opens the timeline section of Period close (section 5; `/finance/period?section=timeline`), not
+    a notification feed. The period pill opens the top of the same screen.
+
+Added during build, proposed in the 9.6 review (**awaiting the owner's acceptance**):
+
+16. **"View flats" link in the web building panel** (review L10). Mirrors mobile frame 3; not in sample 4.
+17. **Mobile unapplied and cheque attention cards** open `/finance/period` (review L11), because mobile has no
+    payments list; web opens `/finance/payments`.
+18. **Deposits figure.** Web shows it in the fund tile's tooltip (risk 2). Mobile has no tooltips, so it is in
+    the fund card's screen-reader label only (review L4).
+19. **Over-90 drilldown.** The card links to `overdueDays=91` without `hasBalance`, so a net-credit flat that
+    still holds a 91-day-old charge stays in the list the card's amount was summed from (review L7).
 
 ## 7. Task split (CLAUDE.md §15 rubric)
 
