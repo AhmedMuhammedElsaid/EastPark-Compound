@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import * as React from "react";
 
 import { makeDashboard } from "../fixtures/finance-dashboard";
@@ -10,6 +10,7 @@ const mockAuditHook = jest.fn((..._a: unknown[]) => mockAudit);
 
 let mockParams: Record<string, string> = {};
 const mockScrollToOffset = jest.fn();
+let mockContentSize: ((w: number, h: number) => void) | undefined;
 jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() }, useLocalSearchParams: () => mockParams }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -26,7 +27,8 @@ jest.mock("@/components/finance/use-refocus-effect", () => ({ useRefocusEffect: 
 jest.mock("@shopify/flash-list", () => {
   const { View } = require("react-native");
   return {
-    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent }: any) => {
+    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent, onContentSizeChange }: any) => {
+      mockContentSize = onContentSizeChange;
       require("react").useImperativeHandle(ref, () => ({ scrollToOffset: (...a: unknown[]) => mockScrollToOffset(...a) }));
       return (
         <View>
@@ -83,6 +85,8 @@ describe("period close screen", () => {
     mockParams = { section: "timeline" };
     render(<FinancePeriod />);
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    act(() => mockContentSize?.(360, 1400));
     await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 700, width: 360, height: 40 } } });
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
@@ -93,10 +97,17 @@ describe("period close screen", () => {
     mockAudit = { data: undefined, isLoading: true, refetch: jest.fn() };
     const { rerender } = render(<FinancePeriod />);
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
+    // The header is measured and the list reports a size while the rows are still loading: no scroll.
+    act(() => mockContentSize?.(360, 1400));
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(mockScrollToOffset).not.toHaveBeenCalled();
     mockAudit = { data: { items: [event("e1", "PAYMENT_RECORDED")], hasMore: false }, isLoading: false, refetch: jest.fn() };
     rerender(<FinancePeriod />);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    // Audit settled but the rows have not been laid out yet (no content-size change since): still no scroll.
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    // The content grows after the rows are laid out: exactly one scroll, to the measured offset.
+    act(() => mockContentSize?.(360, 2200));
     await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   });
@@ -113,6 +124,9 @@ describe("period close screen", () => {
     await new Promise(resolve => setTimeout(resolve, 30));
     expect(mockScrollToOffset).not.toHaveBeenCalled();
     fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 520, width: 360, height: 40 } } });
+    await new Promise(resolve => setTimeout(resolve, 30));
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    act(() => mockContentSize?.(360, 1400));
     await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 520, animated: true }));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   });

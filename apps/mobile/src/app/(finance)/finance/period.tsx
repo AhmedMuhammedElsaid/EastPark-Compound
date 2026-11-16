@@ -1,4 +1,5 @@
 import type { FlashListRef } from "@shopify/flash-list";
+import type { LayoutChangeEvent } from "react-native";
 import type { FinanceAuditItem } from "@/services/api/finance";
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams } from "expo-router";
@@ -27,34 +28,50 @@ type ScrollArgs = {
   timelineY: number | null;
   setTimelineY: (y: number | null) => void;
   dashError: boolean;
+  /** The dashboard succeeded and the audit rows have settled (not loading, not fetching). */
   ready: boolean;
 };
 
-/** Scrolls Period close to the timeline when opened from the bell (`?section=timeline`). */
-function useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError, ready: readyData }: ScrollArgs) {
+/**
+ * Scrolls Period close to the timeline when opened from the bell (`?section=timeline`). The native list clamps a
+ * scroll to the content it has laid out, so the scroll is attempted only when the dashboard succeeded, the audit
+ * settled, the list is mounted, the timeline title was measured, and the list reported a content size AFTER the
+ * audit settled. The pending flag survives error/remount and is cleared only once `scrollToOffset` was issued.
+ */
+function useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError, ready }: ScrollArgs) {
   const scrolledTo = React.useRef(false);
-  // The error state unmounts the list, so a layout measured before it is stale: wait for a fresh one after Retry.
+  const readyRef = React.useRef(ready);
+  readyRef.current = ready;
+  const viewport = React.useRef(0);
+  const [contentAfterSettled, setContentAfterSettled] = React.useState<number | null>(null);
+
+  // The error state unmounts the list: a layout and content size measured before it are stale.
   React.useEffect(() => {
-    if (dashError)
+    if (dashError) {
       setTimelineY(null);
+      setContentAfterSettled(null);
+    }
   }, [dashError]);
 
-  // Scroll to the timeline only when the dashboard succeeded, the audit rows have settled, the list is mounted and
-  // the timeline title has been laid out after the data. The pending flag is cleared only once the scroll was
-  // actually issued on a mounted list; scrolling earlier is clamped by the native list and would never retry.
-  const ready = readyData && timelineY !== null;
   React.useEffect(() => {
-    if (section !== "timeline" || scrolledTo.current || !ready)
-      return undefined;
-    const frame = requestAnimationFrame(() => {
-      const list = listRef.current;
-      if (!list || timelineY === null)
-        return;
-      list.scrollToOffset({ offset: timelineY, animated: true });
-      scrolledTo.current = true;
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [section, ready, timelineY]);
+    if (section !== "timeline" || scrolledTo.current || !ready || timelineY === null || contentAfterSettled === null)
+      return;
+    const list = listRef.current;
+    if (!list)
+      return;
+    list.scrollToOffset({ offset: timelineY, animated: true });
+    scrolledTo.current = true;
+  }, [section, ready, timelineY, contentAfterSettled]);
+
+  return {
+    onContentSizeChange: (_width: number, height: number) => {
+      if (readyRef.current)
+        setContentAfterSettled(height);
+    },
+    onListLayout: (event: LayoutChangeEvent) => {
+      viewport.current = event.nativeEvent.layout.height;
+    },
+  };
 }
 
 /** Period close (sample 5 frame 4): advisory checklist, unapplied payments and the month's timeline. */
@@ -77,7 +94,7 @@ export default function FinancePeriod() {
   };
   useRefocusEffect(refetchAll);
 
-  useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError: dash.isError, ready: !!data && !dash.isError && !dash.isFetching && !audit.isLoading && !audit.isFetching });
+  const scroll = useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError: dash.isError, ready: !!data && !dash.isError && !dash.isFetching && !audit.isLoading && !audit.isFetching });
 
   // A failed fetch replaces the figures: TanStack keeps old `data` after a failed refetch, which must not read as current.
   if (dash.isError) {
@@ -135,6 +152,8 @@ export default function FinancePeriod() {
       <ScreenHeader title={t("finance.dash.period_title")} right={pill} />
       <FlashList
         ref={listRef}
+        onContentSizeChange={scroll.onContentSizeChange}
+        onLayout={scroll.onListLayout}
         data={audit.data?.items ?? []}
         keyExtractor={item => item.id}
         ListHeaderComponent={header}
