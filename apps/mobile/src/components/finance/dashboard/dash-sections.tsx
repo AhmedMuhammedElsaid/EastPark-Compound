@@ -110,7 +110,7 @@ export function KpiCarousel({ data }: { data: FinanceDashboard }) {
               </View>
               <Text style={styles.kpiHint}>{t("finance.dash.vs_last")}</Text>
               {kpi.key === "fund" && (
-                <Text style={styles.kpiHint} numberOfLines={2} testID="kpi-fund-deposits">
+                <Text style={styles.kpiHint} testID="kpi-fund-deposits">
                   {t("finance.dash.kpi_fund_deposits", { billed: formatMoney(data.deposits.billed), collected: formatMoney(data.deposits.collected) })}
                 </Text>
               )}

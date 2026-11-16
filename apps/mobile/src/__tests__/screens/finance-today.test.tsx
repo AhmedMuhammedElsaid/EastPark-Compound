@@ -3,6 +3,7 @@ import * as React from "react";
 
 import { makeDashboard } from "../fixtures/finance-dashboard";
 
+type TestNode = ReturnType<typeof screen.getByTestId>;
 const mockPush = jest.fn();
 let mockDash: { data?: unknown; isError?: boolean; isRefetching?: boolean; isPlaceholderData?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
 const mockFlatsHook = jest.fn((..._a: unknown[]) => ({ data: { pages: [{ data: { data: { items: [{ id: "x", label: "C1-1-1" }] } } }] }, isLoading: false, isError: false, refetch: jest.fn() }));
@@ -10,7 +11,7 @@ const mockFlatsHook = jest.fn((..._a: unknown[]) => ({ data: { pages: [{ data: {
 const mockUseDashboard = jest.fn((months: number) => ({ ...mockDash, data: mockDash.data ? { ...(mockDash.data as object), months } : undefined }));
 
 jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() } }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o && o.code ? `${k}:${o.code}` : k), i18n: { language: "en" } }) }));
+jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o && o.code ? `${k}:${o.code}` : o && o.billed ? `${k}:${o.billed}|${o.collected}` : k), i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock("expo-haptics", () => ({ selectionAsync: jest.fn(), impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 0 } }));
 jest.mock("phosphor-react-native", () => new Proxy({}, { get: () => () => null }));
@@ -74,8 +75,17 @@ beforeEach(() => {
 
 describe("finance home dashboard", () => {
   it("shows the deposits line on the fund card only (spec 6 #18)", () => {
+    mockDash = { data: makeDashboard({ deposits: { billed: "1234.50", collected: "25000.00" } }), refetch: jest.fn() };
     render(<FinanceToday />);
-    expect(screen.getAllByTestId("kpi-fund-deposits")).toHaveLength(1);
+    const expected = "finance.dash.kpi_fund_deposits:EGP 1234.5|EGP 25000";
+    const lines = screen.getAllByTestId("kpi-fund-deposits");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toHaveTextContent(expected);
+    const cards = screen.getByTestId("kpi-carousel").findAll((n: TestNode) => typeof n.type === "string" && n.props.accessible === true && typeof n.props.accessibilityLabel === "string");
+    const withDeposits = cards.filter((n: TestNode) => (n.props.accessibilityLabel as string).includes(expected));
+    expect(withDeposits).toHaveLength(1);
+    expect(withDeposits[0].props.accessibilityLabel).toContain("finance.dash.kpi_fund");
+    expect(withDeposits[0]).toContainElement(lines[0]);
   });
 
   it("renders the sections in the mockup order", () => {
