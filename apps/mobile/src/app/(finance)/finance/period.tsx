@@ -25,52 +25,78 @@ const TIMELINE_LIMIT = 20;
 type ScrollArgs = {
   section: string | undefined;
   listRef: React.RefObject<FlashListRef<FinanceAuditItem> | null>;
-  timelineY: number | null;
-  setTimelineY: (y: number | null) => void;
-  dashError: boolean;
-  /** The dashboard succeeded and the audit rows have settled (not loading, not fetching). */
+  /** The dashboard succeeded and the audit rows have settled (not loading, not fetching, no error). */
   ready: boolean;
 };
 
+/** How long after a scroll a growing list may still pull the view back to the timeline. */
+const SETTLE_MS = 1500;
+
 /**
- * Scrolls Period close to the timeline when opened from the bell (`?section=timeline`). The native list clamps a
- * scroll to the content it has laid out, so the scroll is attempted only when the dashboard succeeded, the audit
- * settled, the list is mounted, the timeline title was measured, and the list reported a content size AFTER the
- * audit settled. The pending flag survives error/remount and is cleared only once `scrollToOffset` was issued.
+ * Scrolls Period close to the timeline when opened from the bell (`?section=timeline`). The latest content height
+ * and timeline offset are always recorded; `tryScroll` runs when the queries settle, when the content size changes
+ * and when the timeline is laid out, and scrolls once everything is known (the native list clamps a scroll to the
+ * content it has laid out). Afterwards a short settling window corrects the position if the content keeps growing,
+ * until the user drags or the window ends.
  */
-function useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError, ready }: ScrollArgs) {
-  const scrolledTo = React.useRef(false);
+function useScrollToTimeline({ section, listRef, ready }: ScrollArgs) {
+  const pending = React.useRef(section === "timeline");
   const readyRef = React.useRef(ready);
   readyRef.current = ready;
-  const viewport = React.useRef(0);
-  const [contentAfterSettled, setContentAfterSettled] = React.useState<number | null>(null);
+  const timelineY = React.useRef<number | null>(null);
+  const contentHeight = React.useRef(0);
+  const settling = React.useRef(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // The error state unmounts the list: a layout and content size measured before it are stale.
-  React.useEffect(() => {
-    if (dashError) {
-      setTimelineY(null);
-      setContentAfterSettled(null);
-    }
-  }, [dashError]);
+  const stopSettling = React.useCallback(() => {
+    settling.current = false;
+    if (timer.current)
+      clearTimeout(timer.current);
+    timer.current = null;
+  }, []);
 
-  React.useEffect(() => {
-    if (section !== "timeline" || scrolledTo.current || !ready || timelineY === null || contentAfterSettled === null)
-      return;
+  const scrollNow = React.useCallback(() => {
     const list = listRef.current;
-    if (!list)
-      return;
-    list.scrollToOffset({ offset: timelineY, animated: true });
-    scrolledTo.current = true;
-  }, [section, ready, timelineY, contentAfterSettled]);
+    const y = timelineY.current;
+    if (!list || y === null || contentHeight.current <= 0)
+      return false;
+    list.scrollToOffset({ offset: y, animated: true });
+    settling.current = true;
+    if (timer.current)
+      clearTimeout(timer.current);
+    timer.current = setTimeout(stopSettling, SETTLE_MS);
+    return true;
+  }, [listRef, stopSettling]);
+
+  const tryScroll = React.useCallback(() => {
+    if (pending.current && readyRef.current && scrollNow())
+      pending.current = false;
+  }, [scrollNow]);
+
+  React.useEffect(() => {
+    if (section === "timeline")
+      pending.current = true;
+  }, [section]);
+  React.useEffect(() => {
+    if (ready)
+      tryScroll();
+  }, [ready, tryScroll]);
+  React.useEffect(() => stopSettling, [stopSettling]);
 
   return {
     onContentSizeChange: (_width: number, height: number) => {
-      if (readyRef.current)
-        setContentAfterSettled(height);
+      const grew = height > contentHeight.current;
+      contentHeight.current = height;
+      if (pending.current)
+        tryScroll();
+      else if (settling.current && grew && readyRef.current)
+        scrollNow();
     },
-    onListLayout: (event: LayoutChangeEvent) => {
-      viewport.current = event.nativeEvent.layout.height;
+    onTimelineLayout: (event: LayoutChangeEvent) => {
+      timelineY.current = event.nativeEvent.layout.y;
+      tryScroll();
     },
+    onUserScroll: stopSettling,
   };
 }
 
@@ -83,7 +109,6 @@ export default function FinancePeriod() {
   // The bell opens the timeline section (`?section=timeline`); the period pill opens the top.
   const { section } = useLocalSearchParams<{ section?: string }>();
   const listRef = React.useRef<FlashListRef<FinanceAuditItem>>(null);
-  const [timelineY, setTimelineY] = React.useState<number | null>(null);
   const dash = useFinanceDashboard(6);
   const data = dash.data;
   // Both ends inclusive: the first day of the period up to the as-of day (spec 3.4).
@@ -94,7 +119,7 @@ export default function FinancePeriod() {
   };
   useRefocusEffect(refetchAll);
 
-  const scroll = useScrollToTimeline({ section, listRef, timelineY, setTimelineY, dashError: dash.isError, ready: !!data && !dash.isError && !dash.isFetching && !audit.isLoading && !audit.isFetching });
+  const scroll = useScrollToTimeline({ section, listRef, ready: !!data && !dash.isError && !dash.isFetching && !audit.isLoading && !audit.isFetching });
 
   // A failed fetch replaces the figures: TanStack keeps old `data` after a failed refetch, which must not read as current.
   if (dash.isError) {
@@ -119,7 +144,7 @@ export default function FinancePeriod() {
           <PeriodProgress month={month} okCount={okCount} total={checks.length} />
           <ChecksCard data={data} />
           <UnappliedCard data={data} />
-          <View style={styles.timelineTitle} onLayout={e => setTimelineY(e.nativeEvent.layout.y)} testID="period-timeline-title">
+          <View style={styles.timelineTitle} onLayout={scroll.onTimelineLayout} testID="period-timeline-title">
             <SectionTitle title={t("finance.dash.timeline_title", { month })} />
           </View>
         </View>
@@ -153,7 +178,8 @@ export default function FinancePeriod() {
       <FlashList
         ref={listRef}
         onContentSizeChange={scroll.onContentSizeChange}
-        onLayout={scroll.onListLayout}
+        onScrollBeginDrag={scroll.onUserScroll}
+        onMomentumScrollBegin={scroll.onUserScroll}
         data={audit.data?.items ?? []}
         keyExtractor={item => item.id}
         ListHeaderComponent={header}

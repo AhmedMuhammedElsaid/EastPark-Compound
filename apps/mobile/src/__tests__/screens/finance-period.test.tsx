@@ -1,16 +1,17 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import * as React from "react";
 
 import { makeDashboard } from "../fixtures/finance-dashboard";
 
 const mockPush = jest.fn();
 let mockDash: { data?: unknown; isError?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
-let mockAudit: { data?: unknown; isLoading?: boolean; isError?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
+let mockAudit: { data?: unknown; isFetching?: boolean; isLoading?: boolean; isError?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
 const mockAuditHook = jest.fn((..._a: unknown[]) => mockAudit);
 
 let mockParams: Record<string, string> = {};
 const mockScrollToOffset = jest.fn();
 let mockContentSize: ((w: number, h: number) => void) | undefined;
+let mockDrag: (() => void) | undefined;
 jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() }, useLocalSearchParams: () => mockParams }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -27,8 +28,9 @@ jest.mock("@/components/finance/use-refocus-effect", () => ({ useRefocusEffect: 
 jest.mock("@shopify/flash-list", () => {
   const { View } = require("react-native");
   return {
-    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent, onContentSizeChange }: any) => {
+    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent, onContentSizeChange, onScrollBeginDrag }: any) => {
       mockContentSize = onContentSizeChange;
+      mockDrag = onScrollBeginDrag;
       require("react").useImperativeHandle(ref, () => ({ scrollToOffset: (...a: unknown[]) => mockScrollToOffset(...a) }));
       return (
         <View>
@@ -76,86 +78,114 @@ describe("period close screen", () => {
     fireEvent.press(screen.getAllByText("finance.dash.apply")[0]);
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats/f1");
   });
+});
 
-  it("opens at the top from the period pill and scrolls to the timeline from the bell", async () => {
-    const { unmount } = render(<FinancePeriod />);
-    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
-    expect(mockScrollToOffset).not.toHaveBeenCalled();
-    unmount();
-    mockParams = { section: "timeline" };
+describe("period close timeline scroll", () => {
+  const layoutTimeline = (y: number) => fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y, width: 360, height: 40 } } });
+  const loaded = { data: { items: [event("e1", "PAYMENT_RECORDED")], hasMore: false }, isLoading: false, refetch: jest.fn() };
+
+  it("opens at the top from the period pill (no section) without scrolling", () => {
     render(<FinancePeriod />);
-    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
-    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    layoutTimeline(640);
     act(() => mockContentSize?.(360, 1400));
-    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
-    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 700, width: 360, height: 40 } } });
-    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
   });
 
-  it("scrolls to the timeline only after the audit rows have loaded", async () => {
+  it("scrolls once when the content was laid out during a refetch and the queries then settle with no further size event", () => {
+    mockParams = { section: "timeline" };
+    mockAudit = { ...loaded, isFetching: true };
+    const { rerender } = render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 1400));
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    mockAudit = { ...loaded, isFetching: false };
+    rerender(<FinancePeriod />);
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true });
+  });
+
+  it("scrolls when settled and corrects the position once the content grows", () => {
     mockParams = { section: "timeline" };
     mockAudit = { data: undefined, isLoading: true, refetch: jest.fn() };
     const { rerender } = render(<FinancePeriod />);
-    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
-    // The header is measured and the list reports a size while the rows are still loading: no scroll.
-    act(() => mockContentSize?.(360, 1400));
-    await new Promise(resolve => setTimeout(resolve, 50));
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 700));
     expect(mockScrollToOffset).not.toHaveBeenCalled();
-    mockAudit = { data: { items: [event("e1", "PAYMENT_RECORDED")], hasMore: false }, isLoading: false, refetch: jest.fn() };
+    mockAudit = loaded;
     rerender(<FinancePeriod />);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // Audit settled but the rows have not been laid out yet (no content-size change since): still no scroll.
-    expect(mockScrollToOffset).not.toHaveBeenCalled();
-    // The content grows after the rows are laid out: exactly one scroll, to the measured offset.
-    act(() => mockContentSize?.(360, 2200));
-    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true }));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    act(() => mockContentSize?.(360, 1600));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+    expect(mockScrollToOffset).toHaveBeenLastCalledWith({ offset: 640, animated: true });
+    act(() => mockContentSize?.(360, 1500));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops correcting once the user drags", () => {
+    mockParams = { section: "timeline" };
+    mockAudit = loaded;
+    render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 900));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    act(() => mockDrag?.());
+    act(() => mockContentSize?.(360, 2000));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
   });
 
-  it("waits for the timeline layout and for the dashboard to succeed: error, Retry, then it scrolls", async () => {
+  it("stops correcting when the settling window ends", () => {
+    jest.useFakeTimers();
+    mockParams = { section: "timeline" };
+    mockAudit = loaded;
+    render(<FinancePeriod />);
+    layoutTimeline(640);
+    act(() => mockContentSize?.(360, 900));
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    act(() => mockContentSize?.(360, 2000));
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  it("error, then Retry, then it scrolls", () => {
     mockParams = { section: "timeline" };
     mockDash = { data: undefined, isError: true, refetch: jest.fn() };
     const { rerender } = render(<FinancePeriod />);
-    await new Promise(resolve => setTimeout(resolve, 30));
     expect(mockScrollToOffset).not.toHaveBeenCalled();
-    // Retry succeeded: data is back, but the timeline has not been laid out yet.
     mockDash = { data: makeDashboard(), refetch: jest.fn() };
     rerender(<FinancePeriod />);
-    await new Promise(resolve => setTimeout(resolve, 30));
-    expect(mockScrollToOffset).not.toHaveBeenCalled();
-    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 520, width: 360, height: 40 } } });
-    await new Promise(resolve => setTimeout(resolve, 30));
-    expect(mockScrollToOffset).not.toHaveBeenCalled();
-    act(() => mockContentSize?.(360, 1400));
-    await waitFor(() => expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 520, animated: true }));
+    layoutTimeline(520);
+    act(() => mockContentSize?.(360, 1200));
     expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+    expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 520, animated: true });
   });
+});
 
-  it("shows the flat and amount of a timeline row, not the actor", () => {
-    mockAudit = { data: { items: [{ ...event("e9", "PAYMENT_RECORDED"), meta: { flatLabel: "A1-2-3", amount: "1250.00" } }], hasMore: false }, refetch: jest.fn() };
-    render(<FinancePeriod />);
-    expect(screen.getByText("A1-2-3 · EGP 1250")).toBeTruthy();
-    expect(screen.queryByText("Sara")).toBeNull();
-  });
+it("shows the flat and amount of a timeline row, not the actor", () => {
+  mockAudit = { data: { items: [{ ...event("e9", "PAYMENT_RECORDED"), meta: { flatLabel: "A1-2-3", amount: "1250.00" } }], hasMore: false }, refetch: jest.fn() };
+  render(<FinancePeriod />);
+  expect(screen.getByText("A1-2-3 · EGP 1250")).toBeTruthy();
+  expect(screen.queryByText("Sara")).toBeNull();
+});
 
-  it("replaces the figures with the error and Retry when a refetch fails after a success", () => {
-    const refetch = jest.fn();
-    mockDash = { data: makeDashboard(), isError: true, refetch };
-    render(<FinancePeriod />);
-    expect(screen.queryByTestId("period-checks")).toBeNull();
-    fireEvent.press(screen.getByText("load-error"));
-    expect(refetch).toHaveBeenCalled();
-  });
+it("replaces the figures with the error and Retry when a refetch fails after a success", () => {
+  const refetch = jest.fn();
+  mockDash = { data: makeDashboard(), isError: true, refetch };
+  render(<FinancePeriod />);
+  expect(screen.queryByTestId("period-checks")).toBeNull();
+  fireEvent.press(screen.getByText("load-error"));
+  expect(refetch).toHaveBeenCalled();
+});
 
-  it("shows the empty timeline copy and an error with Retry", () => {
-    mockAudit = { data: { items: [], hasMore: false }, refetch: jest.fn() };
-    const { unmount } = render(<FinancePeriod />);
-    expect(screen.getByText("finance.dash.timeline_empty")).toBeTruthy();
-    unmount();
-    const refetch = jest.fn();
-    mockDash = { data: undefined, isError: true, refetch };
-    render(<FinancePeriod />);
-    fireEvent.press(screen.getByText("load-error"));
-    expect(refetch).toHaveBeenCalled();
-  });
+it("shows the empty timeline copy and an error with Retry", () => {
+  mockAudit = { data: { items: [], hasMore: false }, refetch: jest.fn() };
+  const { unmount } = render(<FinancePeriod />);
+  expect(screen.getByText("finance.dash.timeline_empty")).toBeTruthy();
+  unmount();
+  const refetch = jest.fn();
+  mockDash = { data: undefined, isError: true, refetch };
+  render(<FinancePeriod />);
+  fireEvent.press(screen.getByText("load-error"));
+  expect(refetch).toHaveBeenCalled();
 });
