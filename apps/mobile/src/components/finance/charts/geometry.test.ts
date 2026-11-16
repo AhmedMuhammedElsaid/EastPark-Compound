@@ -13,6 +13,9 @@ describe("chart geometry", () => {
     expect(compactMoney(441000, "en")).toBe("441K");
     expect(compactMoney(1_250_000, "en")).toBe("1.3M");
     expect(compactMoney(-2500, "en")).toBe("-2.5K");
+    expect(compactMoney("1250000.00", "en")).toBe("1.3M");
+    expect(compactMoney("840.40", "en")).toBe("840");
+    expect(compactMoney("999.50", "en")).toBe("1,000");
     expect(percentLabel("87.4", "en")).toBe("87.4%");
     expect(percentLabel(null, "en")).toBe("—");
   });
@@ -86,5 +89,44 @@ describe("chart geometry", () => {
     expect(items[0].intensity).toBe(55);
     expect(items[1].intensity).toBeLessThan(items[0].intensity);
     expect(mixHex("#ff0000", "#000000", 50)).toBe("#800000");
+  });
+});
+
+describe("compound map layout", () => {
+  it("keeps all 12 real building codes on a non-overlapping 3-row grid (A1 A2 B1 B2 C1 C2 C3 D1 E1 E2 F1 F2)", () => {
+    const codes = ["A1", "A2", "B1", "B2", "C1", "C2", "C3", "D1", "E1", "E2", "F1", "F2"];
+    const flats = [60, 52, 48, 40, 60, 56, 44, 36, 60, 52, 48, 30];
+    const buildings = codes.map((building, i) => ({ building, totalFlats: flats[i], owingFlats: 1, outstanding: `${(i + 1) * 1000}.00`, floors: [] }));
+    for (const width of [300, 360, 412]) {
+      const { height, items, roadYs } = mapLayout(buildings, width);
+      expect(items).toHaveLength(12);
+      expect(new Set(items.map(i => i.row))).toEqual(new Set([0, 1, 2]));
+      expect(roadYs).toHaveLength(2);
+      for (const a of items) {
+        expect(a.y).toBeGreaterThanOrEqual(0);
+        expect(a.y + a.height).toBeLessThanOrEqual(height);
+        expect(a.x + a.width).toBeLessThanOrEqual(width + 0.001);
+      }
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const a = items[i];
+          const b = items[j];
+          const overlap = a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+          expect(overlap).toBe(false);
+        }
+      }
+      // the roads run through the gaps between rows, never across a building
+      for (const y of roadYs) {
+        for (const a of items)
+          expect(y + 6 <= a.y || y >= a.y + a.height).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the 8-building map at two rows and the original 260 dp canvas", () => {
+    const b = (building: string) => ({ building, totalFlats: 40, owingFlats: 1, outstanding: "100.00", floors: [] });
+    const { height, roadYs } = mapLayout(["A1", "A2", "B1", "B2", "C1", "C2", "D1", "E1"].map(b), 360);
+    expect(height).toBe(260);
+    expect(roadYs).toHaveLength(1);
   });
 });

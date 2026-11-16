@@ -1,9 +1,12 @@
+import type { FlashListRef } from "@shopify/flash-list";
+import type { FinanceAuditItem } from "@/services/api/finance";
 import { FlashList } from "@shopify/flash-list";
+import { useLocalSearchParams } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useChartColors } from "@/components/finance/charts/use-chart-colors";
 import { DashCard, SectionTitle } from "@/components/finance/dashboard/dash-ui";
 import { ChecksCard, PeriodProgress, TimelineRow, UnappliedCard } from "@/components/finance/dashboard/period-sections";
@@ -24,6 +27,11 @@ export default function FinancePeriod() {
   const insets = useSafeAreaInsets();
   const c = useChartColors();
   const styles = React.useMemo(() => buildStyles(c), [c]);
+  // The bell opens the timeline section (`?section=timeline`); the period pill opens the top.
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const listRef = React.useRef<FlashListRef<FinanceAuditItem>>(null);
+  const [timelineY, setTimelineY] = React.useState<number | null>(null);
+  const scrolledTo = React.useRef(false);
   const dash = useFinanceDashboard(6);
   const data = dash.data;
   // Both ends inclusive: the first day of the period up to the as-of day (spec 3.4).
@@ -34,7 +42,15 @@ export default function FinancePeriod() {
   };
   useRefocusEffect(refetchAll);
 
-  if (dash.isError && !data) {
+  React.useEffect(() => {
+    if (section !== "timeline" || scrolledTo.current || timelineY === null)
+      return;
+    scrolledTo.current = true;
+    listRef.current?.scrollToOffset({ offset: timelineY, animated: true });
+  }, [section, timelineY]);
+
+  // A failed fetch replaces the figures: TanStack keeps old `data` after a failed refetch, which must not read as current.
+  if (dash.isError) {
     return (
       <View style={styles.container}>
         <ScreenHeader title={t("finance.dash.period_title")} />
@@ -56,7 +72,7 @@ export default function FinancePeriod() {
           <PeriodProgress month={month} okCount={okCount} total={checks.length} />
           <ChecksCard data={data} />
           <UnappliedCard data={data} />
-          <View style={styles.timelineTitle}>
+          <View style={styles.timelineTitle} onLayout={e => setTimelineY(e.nativeEvent.layout.y)} testID="period-timeline-title">
             <SectionTitle title={t("finance.dash.timeline_title", { month })} />
           </View>
         </View>
@@ -88,6 +104,7 @@ export default function FinancePeriod() {
     <View style={styles.container}>
       <ScreenHeader title={t("finance.dash.period_title")} right={pill} />
       <FlashList
+        ref={listRef}
         data={audit.data?.items ?? []}
         keyExtractor={item => item.id}
         ListHeaderComponent={header}

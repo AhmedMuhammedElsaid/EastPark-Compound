@@ -101,20 +101,25 @@ export function UnappliedCard({ data }: { data: FinanceDashboard }) {
   );
 }
 
-/** One timeline row: Cairo time, dot, mapped label (never the raw action code) and the actor. */
+/** One timeline row: Cairo date and time, dot, mapped label (never the raw action code), then the flat and amount. */
 export function TimelineRow({ item }: { item: FinanceAuditItem }) {
   const { t, i18n } = useTranslation();
   const c = useChartColors();
   const styles = React.useMemo(() => buildStyles(c), [c]);
   const stamp = formatCairoStamp(item.createdAt, i18n.language);
   const label = t(auditLabelKey(item.action));
+  const flat = typeof item.meta?.flatLabel === "string" ? item.meta.flatLabel : null;
+  const raw = item.meta?.amount;
+  const amount = typeof raw === "string" || typeof raw === "number" ? formatMoney(raw) : null;
+  const detail = [flat, amount].filter(Boolean).join(" · ");
+  // The staff actor stays in the spoken label only; the visible row is the event, the flat and the amount.
   return (
-    <View style={styles.event} accessible accessibilityLabel={`${stamp}, ${label}, ${item.actor.name}`}>
+    <View style={styles.event} accessible accessibilityLabel={[stamp, label, detail, item.actor.name].filter(Boolean).join(", ")}>
       <Text style={styles.time}>{stamp}</Text>
       <View style={styles.dot} />
       <View style={styles.eventMain}>
         <Text style={styles.eventLabel}>{label}</Text>
-        <Text style={styles.small}>{item.actor.name}</Text>
+        {detail ? <Text style={styles.small}>{detail}</Text> : null}
       </View>
     </View>
   );

@@ -5,11 +5,11 @@ import { useTranslation } from "react-i18next";
 import { AccessibilityInfo, findNodeHandle, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 
-import { formatCurrency } from "@/lib/format-currency";
+import { formatMoney } from "@/lib/format-money";
 import { formatNumber } from "@/lib/format-number";
 import { FONT, SPACING } from "@/theme/tokens";
 
-import { compactMoney, mapLayout, mixHex, num } from "./geometry";
+import { compactMoney, mapLayout, mixHex } from "./geometry";
 import { useChartColors } from "./use-chart-colors";
 import { useChartWidth } from "./use-chart-width";
 
@@ -24,7 +24,7 @@ type Props = {
   onSelect: (code: string) => void;
 };
 
-/** 2x4 compound map (mockup `mapSvg`, narrow): buildings shaded by outstanding per flat; tap opens the sheet. */
+/** Compound map (4 columns, 3 rows for 12 buildings) (mockup `mapSvg`, narrow): buildings shaded by outstanding per flat; tap opens the sheet. */
 export function CompoundMap({ ref, buildings, selected, onSelect }: Props & { ref?: React.RefObject<CompoundMapHandle | null> }) {
   const { t, i18n } = useTranslation();
   const c = useChartColors();
@@ -53,7 +53,7 @@ export function CompoundMap({ ref, buildings, selected, onSelect }: Props & { re
         ? (
             <>
               <Svg width={width} height={height} pointerEvents="none" importantForAccessibility="no-hide-descendants">
-                <Rect x={0} y={layout.roadY} width={width} height={6} rx={3} fill={c.elev} />
+                {layout.roadYs.map(y => <Rect key={y} x={0} y={y} width={width} height={6} rx={3} fill={c.elev} />)}
                 <SvgText x={width / 2} y={layout.height + 22} textAnchor="middle" fontFamily={FONT.sans} fontSize={11} fill={c.mut}>{`${t("finance.dash.main_gate")} ▲`}</SvgText>
                 {layout.items.map((b) => {
                   const data = byCode.get(b.code)!;
@@ -66,7 +66,7 @@ export function CompoundMap({ ref, buildings, selected, onSelect }: Props & { re
                         <Line key={f} x1={b.x + 10} x2={b.x + b.width - 10} y1={b.y + b.height - 14 - f * lineStep} y2={b.y + b.height - 14 - f * lineStep} stroke={c.bg} opacity={0.25} />
                       ))}
                       <SvgText x={b.x + 10} y={b.y + 22} fontFamily={FONT.sans} fontWeight="600" fontSize={14} fill={c.tx}>{b.code}</SvgText>
-                      <SvgText x={b.x + 10} y={b.y + b.height - 24} fontFamily={FONT.sans} fontSize={11} fill={c.tx}>{compactMoney(num(data.outstanding), i18n.language)}</SvgText>
+                      <SvgText x={b.x + 10} y={b.y + b.height - 24} fontFamily={FONT.sans} fontSize={11} fill={c.tx}>{compactMoney(data.outstanding, i18n.language)}</SvgText>
                       <SvgText x={b.x + 10} y={b.y + b.height - 9} fontFamily={FONT.sans} fontSize={11} fill={c.tx}>{`${formatNumber(data.owingFlats, i18n.language)}/${formatNumber(data.totalFlats, i18n.language)}`}</SvgText>
                     </React.Fragment>
                   );
@@ -91,7 +91,7 @@ export function CompoundMap({ ref, buildings, selected, onSelect }: Props & { re
                     accessibilityState={{ selected: selected === b.code }}
                     accessibilityLabel={t("finance.dash.building_a11y", {
                       code: b.code,
-                      amount: formatCurrency(num(data.outstanding)),
+                      amount: formatMoney(data.outstanding),
                       owing: formatNumber(data.owingFlats, i18n.language),
                       total: formatNumber(data.totalFlats, i18n.language),
                     })}

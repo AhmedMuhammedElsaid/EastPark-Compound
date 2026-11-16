@@ -29,14 +29,33 @@ describe("attention cards (spec 4.1)", () => {
   it("lists unapplied, over-90, the building furthest behind and the period, with drilldowns", () => {
     const items = deriveAttention(makeDashboard(), "en");
     expect(items.map(i => i.kind)).toEqual(["unapplied", "over90", "building", "period"]);
-    expect(items[1].href).toBe("/finance/flats?hasBalance=true&overdueDays=91&sort=balance&asOf=2026-11-15");
+    expect(items[1].href).toBe("/finance/flats?overdueDays=91&sort=balance&asOf=2026-11-15");
     expect(items[2].params.code).toBe("C1");
     expect(items[2].href).toBe("/finance/flats?building=C1&hasBalance=true&sort=balance&asOf=2026-11-15");
+  });
+
+  it("shows the over-90 share as a whole percent, half up, from exact arithmetic", () => {
+    const d = (over90: string, outstanding: string) => makeDashboard({ outstanding, aging: { current: "0.00", d31_60: "0.00", d61_90: "0.00", over90 } });
+    const share = (over90: string, outstanding: string) => deriveAttention(d(over90, outstanding), "en").find(i => i.kind === "over90")?.params.share;
+    expect(share("343000.00", "1284000.00")).toBe("27%");
+    expect(share("1.00", "8.00")).toBe("13%");
+    expect(share("0.01", "3.00")).toBe("0%");
+    expect(share("9007199254740993.00", "9007199254740994.00")).toBe("100%");
   });
 
   it("swaps the period card for pending cheques, and hides cards with nothing to show", () => {
     const items = deriveAttention(makeDashboard({ unapplied: { count: 0, total: "0.00", oldest: [] }, aging: { current: "1.00", d31_60: "0.00", d61_90: "0.00", over90: "0.00" }, byBuilding: [], pendingCheques: { count: 2, total: "900.00" } }), "en");
     expect(items.map(i => i.kind)).toEqual(["cheques"]);
+  });
+
+  it("compares outstanding per flat exactly, even for amounts a float cannot tell apart", () => {
+    const d = makeDashboard({
+      byBuilding: [
+        { building: "A1", totalFlats: 3, owingFlats: 1, outstanding: "9007199254740993.00", floors: [] },
+        { building: "B1", totalFlats: 3, owingFlats: 1, outstanding: "9007199254740992.00", floors: [] },
+      ],
+    });
+    expect(furthestBehind(d)?.building).toBe("A1");
   });
 
   it("picks the highest outstanding per flat, ties broken by code", () => {

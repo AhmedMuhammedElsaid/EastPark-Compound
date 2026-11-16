@@ -8,7 +8,9 @@ let mockDash: { data?: unknown; isError?: boolean; refetch: jest.Mock } = { refe
 let mockAudit: { data?: unknown; isLoading?: boolean; isError?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
 const mockAuditHook = jest.fn((..._a: unknown[]) => mockAudit);
 
-jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() } }));
+let mockParams: Record<string, string> = {};
+const mockScrollToOffset = jest.fn();
+jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() }, useLocalSearchParams: () => mockParams }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "en" } }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock("expo-haptics", () => ({ selectionAsync: jest.fn(), impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 0 } }));
@@ -24,12 +26,15 @@ jest.mock("@/components/finance/use-refocus-effect", () => ({ useRefocusEffect: 
 jest.mock("@shopify/flash-list", () => {
   const { View } = require("react-native");
   return {
-    FlashList: ({ data, renderItem, ListHeaderComponent, ListEmptyComponent }: any) => (
-      <View>
-        {ListHeaderComponent}
-        {data.length === 0 ? ListEmptyComponent : data.map((item: unknown, index: number) => <View key={index}>{renderItem({ item, index })}</View>)}
-      </View>
-    ),
+    FlashList: ({ ref, data, renderItem, ListHeaderComponent, ListEmptyComponent }: any) => {
+      require("react").useImperativeHandle(ref, () => ({ scrollToOffset: (...a: unknown[]) => mockScrollToOffset(...a) }));
+      return (
+        <View>
+          {ListHeaderComponent}
+          {data.length === 0 ? ListEmptyComponent : data.map((item: unknown, index: number) => <View key={index}>{renderItem({ item, index })}</View>)}
+        </View>
+      );
+    },
   };
 });
 jest.mock("@/services/api/finance", () => ({
@@ -43,6 +48,7 @@ const event = (id: string, action: string) => ({ id, action, entity: "Payment", 
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
   mockDash = { data: makeDashboard(), refetch: jest.fn() };
   mockAudit = { data: { items: [event("e1", "PAYMENT_RECORDED"), event("e2", "NEW_UNKNOWN")], hasMore: false }, refetch: jest.fn() };
 });
@@ -67,6 +73,35 @@ describe("period close screen", () => {
     render(<FinancePeriod />);
     fireEvent.press(screen.getAllByText("finance.dash.apply")[0]);
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats/f1");
+  });
+
+  it("opens at the top from the period pill and scrolls to the timeline from the bell", () => {
+    const { unmount } = render(<FinancePeriod />);
+    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
+    expect(mockScrollToOffset).not.toHaveBeenCalled();
+    unmount();
+    mockParams = { section: "timeline" };
+    render(<FinancePeriod />);
+    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 640, width: 360, height: 40 } } });
+    expect(mockScrollToOffset).toHaveBeenCalledWith({ offset: 640, animated: true });
+    fireEvent(screen.getByTestId("period-timeline-title"), "layout", { nativeEvent: { layout: { x: 0, y: 700, width: 360, height: 40 } } });
+    expect(mockScrollToOffset).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the flat and amount of a timeline row, not the actor", () => {
+    mockAudit = { data: { items: [{ ...event("e9", "PAYMENT_RECORDED"), meta: { flatLabel: "A1-2-3", amount: "1250.00" } }], hasMore: false }, refetch: jest.fn() };
+    render(<FinancePeriod />);
+    expect(screen.getByText("A1-2-3 · EGP 1250")).toBeTruthy();
+    expect(screen.queryByText("Sara")).toBeNull();
+  });
+
+  it("replaces the figures with the error and Retry when a refetch fails after a success", () => {
+    const refetch = jest.fn();
+    mockDash = { data: makeDashboard(), isError: true, refetch };
+    render(<FinancePeriod />);
+    expect(screen.queryByTestId("period-checks")).toBeNull();
+    fireEvent.press(screen.getByText("load-error"));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("shows the empty timeline copy and an error with Retry", () => {

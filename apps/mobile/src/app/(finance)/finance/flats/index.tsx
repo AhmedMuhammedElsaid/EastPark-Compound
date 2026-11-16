@@ -11,6 +11,7 @@ import { FinanceFlatRow, FinanceFlatRowSkeleton } from "@/components/finance/fin
 import { useDebounced } from "@/components/finance/use-debounced";
 import { ErrorState } from "@/components/ui/error-state";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { getErrorCode } from "@/lib/api-error";
 import { normalizeFlatQuery } from "@/lib/finance";
 import { useAppColors } from "@/lib/hooks/use-app-colors";
 import { useFinanceFlats } from "@/services/api/finance";
@@ -178,8 +179,13 @@ export default function FinanceFlatsScreen() {
                   <FinanceFlatRow flat={item} onPress={() => router.push(`/finance/flats/${encodeURIComponent(item.id)}` as Href)} />
                 )}
                 onEndReached={() => {
-                  if (hasNextPage && !isFetchingNextPage)
-                    fetchNextPage();
+                  if (hasNextPage && !isFetchingNextPage) {
+                    // The list moved under the cursor (a flat was paid off): start again from page 1 instead of stalling.
+                    void Promise.resolve(fetchNextPage()).then((res) => {
+                      if (res?.isError && getErrorCode(res.error) === "finance.error.invalidCursor")
+                        void refetch();
+                    });
+                  }
                 }}
                 onEndReachedThreshold={0.5}
                 keyboardShouldPersistTaps="handled"

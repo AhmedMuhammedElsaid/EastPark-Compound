@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
-import { formatCurrency } from "@/lib/format-currency";
+import { isZeroMoney, percentTenths, piastersToDecimal, sumMoney, sumPiasters } from "@/lib/decimal-money";
+import { formatMoney } from "@/lib/format-money";
 import { FONT, SPACING } from "@/theme/tokens";
 
-import { compactMoney, donutSegments, num, percentLabel } from "./geometry";
+import { compactMoney, donutSegments, percentLabel } from "./geometry";
 import { useChartColors } from "./use-chart-colors";
 
 type Props = {
@@ -26,14 +27,18 @@ export function Donut({ methods, size = 168 }: Props) {
   const styles = React.useMemo(() => buildStyles(c), [c]);
   const r = size / 2 - 14;
   const circumference = 2 * Math.PI * r;
-  const { total, segments } = donutSegments(methods, circumference);
-  const reversed = methods.reduce((s, m) => s + num(m.reversed), 0);
-  const net = methods.reduce((s, m) => s + num(m.net), 0);
+  const { segments } = donutSegments(methods, circumference);
+  // Exact sums: only positive gross is drawn; reversed and net are summed as whole piasters.
+  const grossTotal = piastersToDecimal(sumPiasters(methods.map(m => (m.gross.startsWith("-") ? "0" : m.gross))));
+  const hasReceipts = !isZeroMoney(grossTotal);
+  const reversed = sumMoney(methods.map(m => m.reversed));
+  const net = sumMoney(methods.map(m => m.net));
   const label = (m: DashMethod["method"]) => t(`finance.method_${m}`);
-  const share = (value: number) => percentLabel(String(Math.round(value * 1000) / 10), i18n.language);
-  const summary = total > 0
-    ? segments.map(s => `${label(s.method)}: ${formatCurrency(s.value)} (${share(s.share)})`).join(", ")
+  const share = (gross: string) => percentLabel(percentTenths(gross.startsWith("-") ? "0" : gross, grossTotal), i18n.language);
+  const summary = hasReceipts
+    ? methods.map(m => `${label(m.method)}: ${formatMoney(m.gross)} (${share(m.gross)})`).join(", ")
     : t("finance.dash.no_receipts");
+  const total = hasReceipts ? 1 : 0;
 
   return (
     <View>
@@ -58,7 +63,7 @@ export function Donut({ methods, size = 168 }: Props) {
             {total > 0
               ? (
                   <>
-                    <SvgText x={size / 2} y={size * 0.5} textAnchor="middle" fontFamily={FONT.sans} fontWeight="300" fontSize={20} fill={c.tx}>{compactMoney(total, i18n.language)}</SvgText>
+                    <SvgText x={size / 2} y={size * 0.5} textAnchor="middle" fontFamily={FONT.sans} fontWeight="300" fontSize={20} fill={c.tx}>{compactMoney(grossTotal, i18n.language)}</SvgText>
                     <SvgText x={size / 2} y={size * 0.5 + 18} textAnchor="middle" fontFamily={FONT.sans} fontSize={11} fill={c.mut}>{t("finance.dash.egp")}</SvgText>
                   </>
                 )
@@ -70,24 +75,24 @@ export function Donut({ methods, size = 168 }: Props) {
         {methods.map((m) => {
           const seg = segments.find(s => s.method === m.method);
           return (
-            <View key={m.method} style={styles.row} accessible accessibilityLabel={`${label(m.method)}: ${formatCurrency(num(m.gross))}`}>
+            <View key={m.method} style={styles.row} accessible accessibilityLabel={`${label(m.method)}: ${formatMoney(m.gross)}`}>
               <View style={styles.rowName}>
                 <View style={[styles.swatch, { backgroundColor: c[COLOR_KEY[m.method]] }]} />
                 <Text style={styles.rowText}>{label(m.method)}</Text>
               </View>
               <Text style={styles.rowText}>
-                {formatCurrency(num(m.gross))}
+                {formatMoney(m.gross)}
                 {" "}
-                <Text style={styles.muted}>{seg && total > 0 ? share(seg.share) : ""}</Text>
+                <Text style={styles.muted}>{seg && total > 0 ? share(m.gross) : ""}</Text>
               </Text>
             </View>
           );
         })}
       </View>
-      {reversed !== 0
+      {!isZeroMoney(reversed)
         ? (
             <Text style={styles.reversed} testID="donut-reversed">
-              {t("finance.dash.reversed_line", { reversed: formatCurrency(reversed), net: formatCurrency(net) })}
+              {t("finance.dash.reversed_line", { reversed: formatMoney(reversed), net: formatMoney(net) })}
             </Text>
           )
         : null}

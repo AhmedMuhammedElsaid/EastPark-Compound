@@ -5,8 +5,9 @@ import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 
+import { isZeroMoney, percentTenths, sumMoney } from "@/lib/decimal-money";
 import { formatFinanceDate } from "@/lib/finance";
-import { formatCurrency } from "@/lib/format-currency";
+import { formatMoney } from "@/lib/format-money";
 import { FONT, RADIUS, SPACING } from "@/theme/tokens";
 
 import { barsLayout, compactMoney, num, percentLabel } from "./geometry";
@@ -18,7 +19,12 @@ type Props = {
   billed: readonly DashMonthAmount[];
   /** Allocations per month, oldest first (`collected`). */
   collected: readonly DashMonthAmount[];
+  /** The window the data covers (`dashboard.months`), so the bars never draw 6 months of data as 12. */
   months: 6 | 12;
+  /** The window the user asked for; shown as selected while `pending` (defaults to `months`). */
+  requested?: 6 | 12;
+  /** The requested window is still loading: the old window stays on screen, dimmed and marked busy. */
+  pending?: boolean;
   onMonthsChange: (months: 6 | 12) => void;
   height?: number;
 };
@@ -31,7 +37,8 @@ function monthLabel(period: string, language: string, narrow: boolean): string {
 }
 
 /** Billed vs collected bars with the 6M / 12M switch (mockup `barsN`). Signed values grow down from zero. */
-export function BarsBilledCollected({ billed, collected, months, onMonthsChange, height = 210 }: Props) {
+export function BarsBilledCollected({ billed, collected, months, requested, pending = false, onMonthsChange, height = 210 }: Props) {
+  const chosen = requested ?? months;
   const { t, i18n } = useTranslation();
   const c = useChartColors();
   const { width, onLayout } = useChartWidth();
@@ -40,25 +47,25 @@ export function BarsBilledCollected({ billed, collected, months, onMonthsChange,
 
   const billedValues = billed.map(b => num(b.amount));
   const collectedValues = collected.map(b => num(b.amount));
-  const hasData = billedValues.some(v => v !== 0) || collectedValues.some(v => v !== 0);
+  const hasData = billed.some(b => !isZeroMoney(b.amount)) || collected.some(b => !isZeroMoney(b.amount));
   const layout = barsLayout(billedValues, collectedValues, { w: width, h: height });
   const periods = billed.map(b => b.period);
 
   React.useEffect(() => setSelected(null), [months]);
 
   const readout = (i: number) => {
-    const b = billedValues[i] ?? 0;
-    const col = collectedValues[i] ?? 0;
-    const rate = b > 0 ? percentLabel(String(Math.round((col / b) * 1000) / 10), i18n.language) : "—";
+    const b = billed[i]?.amount ?? "0.00";
+    const col = collected[i]?.amount ?? "0.00";
+    const rate = percentLabel(percentTenths(col, b), i18n.language);
     return t("finance.dash.month_readout", {
       month: monthLabel(periods[i] ?? "", i18n.language, false),
-      billed: formatCurrency(b),
-      collected: formatCurrency(col),
+      billed: formatMoney(b),
+      collected: formatMoney(col),
       rate,
     });
   };
   const summary = hasData
-    ? t("finance.dash.bars_a11y", { count: billed.length, billed: formatCurrency(billedValues.reduce((s, v) => s + v, 0)), collected: formatCurrency(collectedValues.reduce((s, v) => s + v, 0)) })
+    ? t("finance.dash.bars_a11y", { count: billed.length, billed: formatMoney(sumMoney(billed.map(b => b.amount))), collected: formatMoney(sumMoney(collected.map(b => b.amount))) })
     : t("finance.dash.no_data");
 
   return (
@@ -67,16 +74,16 @@ export function BarsBilledCollected({ billed, collected, months, onMonthsChange,
         {([6, 12] as const).map(m => (
           <Pressable
             key={m}
-            style={[styles.segment, months === m && styles.segmentOn]}
+            style={[styles.segment, chosen === m && styles.segmentOn]}
             onPress={() => {
               Haptics.selectionAsync();
               onMonthsChange(m);
             }}
             accessibilityRole="tab"
-            accessibilityState={{ selected: months === m }}
+            accessibilityState={{ selected: chosen === m, busy: pending && chosen === m }}
             accessibilityLabel={t(m === 6 ? "finance.dash.months_6_a11y" : "finance.dash.months_12_a11y")}
           >
-            <Text style={[styles.segmentText, months === m && styles.segmentTextOn]}>{t(m === 6 ? "finance.dash.months_6" : "finance.dash.months_12")}</Text>
+            <Text style={[styles.segmentText, chosen === m && styles.segmentTextOn]}>{t(m === 6 ? "finance.dash.months_6" : "finance.dash.months_12")}</Text>
           </Pressable>
         ))}
       </View>
@@ -90,7 +97,7 @@ export function BarsBilledCollected({ billed, collected, months, onMonthsChange,
           <Text style={styles.legendText}>{t("finance.dash.collected")}</Text>
         </View>
       </View>
-      <View onLayout={onLayout} style={{ height }} accessible={!hasData} accessibilityRole="image" accessibilityLabel={summary} testID="bars-chart">
+      <View onLayout={onLayout} style={{ height, opacity: pending ? 0.5 : 1 }} accessible={!hasData} accessibilityRole="image" accessibilityLabel={summary} testID="bars-chart">
         {width > 0
           ? (
               <Svg width={width} height={height}>

@@ -54,7 +54,9 @@ export default function FinanceToday() {
     });
   }, []);
 
-  if (dash.isError && !data) {
+  // A failed fetch (first load, refetch, pull to refresh, 6M/12M switch, offline) replaces the figures:
+  // TanStack keeps the previous `data` after a failed refetch, and stale money must never read as current.
+  if (dash.isError) {
     return (
       <View style={styles.container}>
         <FinanceHomeHeader />
@@ -72,6 +74,7 @@ export default function FinanceToday() {
           <DashCharts
             data={data}
             months={months}
+            pending={dash.isPlaceholderData}
             onMonthsChange={setMonths}
             selected={selected}
             onSelect={(code) => {

@@ -1,19 +1,16 @@
 import type { FinanceDashboard } from "@/services/api/finance";
 
 import { num } from "@/components/finance/charts/geometry";
+import { isPositiveMoney, percentInt, ratioGreater } from "@/lib/decimal-money";
 import { formatFinanceDate } from "@/lib/finance";
-import { formatCurrency } from "@/lib/format-currency";
+import { formatMoney } from "@/lib/format-money";
 
 /**
- * The finance dashboard's one money adapter (spec rule 3). The API sends decimal STRINGS; they become numbers
- * only here, for display and geometry, never for arithmetic that feeds a figure.
+ * The finance dashboard's one money adapter (spec rule 3). The API sends decimal STRINGS. Totals, comparisons and
+ * percentages use exact piaster arithmetic (`decimal-money.ts`); `parseMoney` yields a number for geometry only.
  */
 export const parseMoney = num;
-
-/** "12,500 EGP" for a decimal string. */
-export function formatMoney(value: string | null | undefined): string {
-  return formatCurrency(parseMoney(value));
-}
+export { formatMoney };
 
 /** `2026-11` as "November 2026" / "نوفمبر ٢٠٢٦". */
 export function periodLabel(period: string, language: string): string {
@@ -59,18 +56,15 @@ export type AttentionItem = {
   href: string;
 };
 
-/** The building with the highest outstanding per flat (ties: code) and outstanding > 0. */
+/** The building with the highest outstanding per flat (exact cross-multiplication; ties: code) and outstanding > 0. */
 export function furthestBehind(d: FinanceDashboard) {
   let best: FinanceDashboard["byBuilding"][number] | null = null;
-  let bestRatio = 0;
   const ordered = [...d.byBuilding].sort((a, c) => a.building.localeCompare(c.building, "en", { numeric: true }));
   for (const b of ordered) {
-    const value = parseMoney(b.outstanding);
-    const ratio = b.totalFlats > 0 ? value / b.totalFlats : 0;
-    if (value > 0 && ratio > bestRatio) {
+    if (b.totalFlats <= 0 || !isPositiveMoney(b.outstanding))
+      continue;
+    if (!best || ratioGreater({ amount: b.outstanding, flats: b.totalFlats }, { amount: best.outstanding, flats: best.totalFlats }))
       best = b;
-      bestRatio = ratio;
-    }
   }
   return best;
 }
@@ -78,18 +72,16 @@ export function furthestBehind(d: FinanceDashboard) {
 /** The attention cards of spec section 4.1, in the mockup's order. */
 export function deriveAttention(d: FinanceDashboard, language: string): AttentionItem[] {
   const items: AttentionItem[] = [];
-  const outstanding = parseMoney(d.outstanding);
   const locale = language === "ar" ? "ar-EG" : "en-US";
   if (d.unapplied.count > 0)
     items.push({ kind: "unapplied", tone: "warn", params: { count: d.unapplied.count, amount: formatMoney(d.unapplied.total) }, href: "/finance/period" });
-  const over90 = parseMoney(d.aging.over90);
-  if (over90 > 0) {
-    const share = outstanding > 0 ? Math.round((over90 / outstanding) * 100) : 0;
+  if (isPositiveMoney(d.aging.over90)) {
+    const share = Number(percentInt(d.aging.over90, d.outstanding) ?? "0");
     items.push({
       kind: "over90",
       tone: "err",
       params: { amount: formatMoney(d.aging.over90), share: `${share.toLocaleString(locale)}%` },
-      href: flatsHref({ hasBalance: true, overdueDays: 91, sort: "balance", asOf: d.asOf }),
+      href: flatsHref({ overdueDays: 91, sort: "balance", asOf: d.asOf }),
     });
   }
   const behind = furthestBehind(d);

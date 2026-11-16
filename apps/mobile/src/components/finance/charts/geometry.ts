@@ -1,5 +1,6 @@
 import type { DashBuilding, DashMethod, DashMoney } from "./types";
 
+import { compactParts } from "@/lib/decimal-money";
 import { formatNumber } from "@/lib/format-number";
 
 import { layoutCompound } from "./compound-layout";
@@ -10,16 +11,14 @@ export function num(value: DashMoney | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** "12.5K" / "1.3M" / "840", locale digits; sign kept. */
-export function compactMoney(value: number, language: string): string {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
-  const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString(language === "ar" ? "ar-EG" : "en-US", { maximumFractionDigits: 1 });
-  if (abs >= 1_000_000)
-    return `${sign}${fmt(abs / 1_000_000)}${language === "ar" ? " م" : "M"}`;
-  if (abs >= 1_000)
-    return `${sign}${fmt(abs / 1_000)}${language === "ar" ? " ألف" : "K"}`;
-  return `${sign}${formatNumber(Math.round(abs), language)}`;
+/** "12.5K" / "1.3M" / "840", locale digits; sign kept. Exact: computed from piasters, not floats. */
+export function compactMoney(value: DashMoney | number | null | undefined, language: string): string {
+  const parts = compactParts(value);
+  const sign = parts.negative ? "-" : "";
+  if (parts.unit === "")
+    return `${sign}${formatNumber(Number(parts.whole), language)}`;
+  const digits = Number(`${parts.whole}.${parts.tenth}`).toLocaleString(language === "ar" ? "ar-EG" : "en-US", { maximumFractionDigits: 1 });
+  return `${sign}${digits}${language === "ar" ? (parts.unit === "M" ? " م" : " ألف") : parts.unit}`;
 }
 
 /** Percentage for display: "87.4%" with locale digits; null -> em dash. */
@@ -175,17 +174,24 @@ export type MapBuilding = {
   intensity: number;
 };
 
+const MAP_COLS = 4;
+const MAP_GAP = 8;
+/** Height of one grid row; two rows reproduce the mockup's 260 dp canvas. */
+const MAP_ROW_H = 118;
+
 /**
- * Compound map geometry (mockup `mapSvg`, narrow variant): a 2-row grid, top row bottom-aligned, height
- * scaled by flat count, red intensity 8-55 % by outstanding-per-flat relative to the worst building.
+ * Compound map geometry (mockup `mapSvg`, narrow variant): `ceil(n / 4)` rows (12 buildings = 3 rows), the top
+ * row bottom-aligned against the first road and later rows top-aligned. The canvas height and every row's y
+ * come from the real row count, so rows never overlap. Building height scales with flat count; red intensity
+ * is 8-55 % by outstanding-per-flat relative to the worst building.
  */
-export function mapLayout(buildings: readonly DashBuilding[], w: number): { height: number; roadY: number; items: MapBuilding[] } {
-  const cols = 4;
-  const gap = 8;
-  const H = 260;
-  const bw = (w - gap * (cols - 1)) / cols;
-  const rowH = (H - gap * 3) / 2;
-  const slots = layoutCompound(buildings.map(b => b.building), cols);
+export function mapLayout(buildings: readonly DashBuilding[], w: number): { height: number; roadY: number; roadYs: number[]; items: MapBuilding[] } {
+  const gap = MAP_GAP;
+  const bw = (w - gap * (MAP_COLS - 1)) / MAP_COLS;
+  const rowH = MAP_ROW_H;
+  const slots = layoutCompound(buildings.map(b => b.building), MAP_COLS);
+  const rows = Math.max(1, ...Array.from(slots.values(), s => s.row + 1));
+  const pitch = rowH + gap * 2;
   const maxFlats = Math.max(1, ...buildings.map(b => b.totalFlats));
   const ratios = buildings.map(b => (b.totalFlats > 0 ? Math.max(0, num(b.outstanding)) / b.totalFlats : 0));
   const maxRatio = Math.max(...ratios, 0);
@@ -197,13 +203,14 @@ export function mapLayout(buildings: readonly DashBuilding[], w: number): { heig
       row: slot.row,
       col: slot.col,
       x: slot.col * (bw + gap),
-      y: slot.row ? rowH + gap * 2 : rowH - hh,
+      y: slot.row === 0 ? rowH - hh : slot.row * pitch,
       width: bw,
       height: hh,
       intensity: maxRatio > 0 ? Math.round(8 + (ratios[i] / maxRatio) * 47) : 8,
     };
   });
-  return { height: H, roadY: rowH + gap * 1.5 - 3, items };
+  const roadYs = Array.from({ length: rows - 1 }, (_, r) => rowH + gap * 1.5 - 3 + r * pitch);
+  return { height: rows * rowH + (rows - 1) * gap * 2 + gap, roadY: roadYs[0] ?? 0, roadYs, items };
 }
 
 /** Mixes `fg` over `bg` (both `#rrggbb`) at `pct` percent, like CSS color-mix. */

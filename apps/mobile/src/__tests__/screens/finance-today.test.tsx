@@ -6,7 +6,8 @@ import { makeDashboard } from "../fixtures/finance-dashboard";
 const mockPush = jest.fn();
 let mockDash: { data?: unknown; isError?: boolean; isRefetching?: boolean; isPlaceholderData?: boolean; refetch: jest.Mock } = { refetch: jest.fn() };
 const mockFlatsHook = jest.fn((..._a: unknown[]) => ({ data: { pages: [{ data: { data: { items: [{ id: "x", label: "C1-1-1" }] } } }] }, isLoading: false, isError: false, refetch: jest.fn() }));
-const mockUseDashboard = jest.fn((months: number) => ({ ...mockDash, months }));
+// The fixture's window follows the requested one, like the real endpoint.
+const mockUseDashboard = jest.fn((months: number) => ({ ...mockDash, data: mockDash.data ? { ...(mockDash.data as object), months } : undefined }));
 
 jest.mock("expo-router", () => ({ router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() } }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o && o.code ? `${k}:${o.code}` : k), i18n: { language: "en" } }) }));
@@ -91,13 +92,13 @@ describe("finance home dashboard", () => {
     fireEvent.press(screen.getByTestId("fab"));
     expect(mockPush).toHaveBeenLastCalledWith("/finance/payment/new");
     fireEvent.press(screen.getByTestId("bell"));
-    expect(mockPush).toHaveBeenLastCalledWith("/finance/period");
+    expect(mockPush).toHaveBeenLastCalledWith("/finance/period?section=timeline");
     fireEvent.press(screen.getByTestId("period-pill"));
     expect(mockPush).toHaveBeenLastCalledWith("/finance/period");
     fireEvent.press(screen.getByTestId("find-flat"));
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats");
     fireEvent.press(screen.getByLabelText(/finance\.dash\.attn_over90/));
-    expect(mockPush).toHaveBeenLastCalledWith("/finance/flats?hasBalance=true&overdueDays=91&sort=balance&asOf=2026-11-15");
+    expect(mockPush).toHaveBeenLastCalledWith("/finance/flats?overdueDays=91&sort=balance&asOf=2026-11-15");
     fireEvent.press(screen.getByText("A1-3-5"));
     expect(mockPush).toHaveBeenLastCalledWith("/finance/flats/f9");
   });
@@ -132,6 +133,22 @@ describe("finance home dashboard", () => {
     render(<FinanceToday />);
     fireEvent.press(screen.getByText("load-error"));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("replaces the figures with the error and Retry when a refetch fails after a success (no stale money)", () => {
+    const refetch = jest.fn();
+    mockDash = { data: makeDashboard(), isError: true, refetch };
+    render(<FinanceToday />);
+    expect(screen.queryByTestId("dash-hero")).toBeNull();
+    expect(screen.queryByText("A1-3-5")).toBeNull();
+    fireEvent.press(screen.getByText("load-error"));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("keeps showing the requested window as pending while the other one loads", () => {
+    mockDash = { data: makeDashboard(), isPlaceholderData: true, refetch: jest.fn() };
+    render(<FinanceToday />);
+    expect(screen.getByText("bars-6")).toBeTruthy();
   });
 
   it("shows the empty copy when nobody is overdue", () => {

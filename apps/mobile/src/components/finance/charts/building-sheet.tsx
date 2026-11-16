@@ -4,11 +4,11 @@ import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView, useBottom
 import * as Haptics from "expo-haptics";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FinanceFlatRow, FinanceFlatRowSkeleton } from "@/components/finance/finance-ui";
-import { formatCurrency } from "@/lib/format-currency";
+import { formatMoney } from "@/lib/format-money";
 import { formatNumber } from "@/lib/format-number";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { BRAND, FONT, RADIUS, SPACING } from "@/theme/tokens";
@@ -52,11 +52,23 @@ export function BuildingSheet({ building, flats, flatsLoading, flatsError, onRet
     else sheetRef.current?.dismiss();
   }, [building]);
 
+  // Android back closes the sheet (gorhom does not handle it): consume the press while the sheet is open.
+  // `dismiss()` animates down and fires `onDismiss` -> `onClose`, which returns focus to the building.
+  React.useEffect(() => {
+    if (!building)
+      return undefined;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      sheetRef.current?.dismiss();
+      return true;
+    });
+    return () => sub.remove();
+  }, [building]);
+
   const floors = (shown?.floors ?? []).map(f => ({
     key: f.floor,
     label: f.floor,
     value: num(f.outstanding),
-    a11y: t("finance.dash.floor_a11y", { floor: f.floor, amount: formatCurrency(num(f.outstanding)) }),
+    a11y: t("finance.dash.floor_a11y", { floor: f.floor, amount: formatMoney(f.outstanding) }),
   }));
 
   return (
@@ -83,7 +95,7 @@ export function BuildingSheet({ building, flats, flatsLoading, flatsError, onRet
                       <Text style={styles.pillText}>{t("finance.dash.flats_owing_pill", { owing: formatNumber(shown.owingFlats, i18n.language), total: formatNumber(shown.totalFlats, i18n.language) })}</Text>
                     </View>
                   </View>
-                  <Text style={styles.amount}>{formatCurrency(num(shown.outstanding))}</Text>
+                  <Text style={styles.amount}>{formatMoney(shown.outstanding)}</Text>
                   <Text style={styles.muted}>{t("finance.dash.outstanding")}</Text>
                   <Text style={styles.sub}>{t("finance.dash.by_floor")}</Text>
                   <HBars items={floors} label={t("finance.dash.by_floor")} color="a3" />

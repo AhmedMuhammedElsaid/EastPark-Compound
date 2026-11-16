@@ -50,7 +50,7 @@ export function FinanceHomeHeader({ data }: { data?: FinanceDashboard }) {
                 </Pressable>
               )
             : null}
-          <Pressable style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]} onPress={() => go("/finance/period")} accessibilityRole="button" accessibilityLabel={t("finance.dash.bell_a11y")} testID="bell">
+          <Pressable style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]} onPress={() => go("/finance/period?section=timeline")} accessibilityRole="button" accessibilityLabel={t("finance.dash.bell_a11y")} testID="bell">
             <Bell size={22} color={c.tx} />
           </Pressable>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]} onPress={() => go("/finance/flats")} accessibilityRole="button" accessibilityLabel={t("finance.find_flat")} testID="find-flat">
@@ -67,7 +67,10 @@ export function FinanceHomeHeader({ data }: { data?: FinanceDashboard }) {
 
 type ChartsProps = {
   data: FinanceDashboard;
+  /** The window the user asked for; `data.months` is the window the figures cover. */
   months: 6 | 12;
+  /** The requested window is still loading (the previous window is on screen). */
+  pending?: boolean;
   onMonthsChange: (months: 6 | 12) => void;
   selected: string | null;
   onSelect: (code: string) => void;
@@ -75,11 +78,11 @@ type ChartsProps = {
 };
 
 /** Frame 2 cards in order: compound map, billed vs collected, aging, receipts by method. */
-export function DashCharts({ data, months, onMonthsChange, selected, onSelect, mapRef }: ChartsProps) {
+export function DashCharts({ data, months, pending = false, onMonthsChange, selected, onSelect, mapRef }: ChartsProps) {
   const { t } = useTranslation();
   const c = useChartColors();
   const styles = React.useMemo(() => buildStyles(c), [c]);
-  const ramp = [0.15, 0.4, 0.65].map(p => mixHex(c.a4, c.elev, p));
+  const ramp = [0.15, 0.4, 0.65].map(p => ({ p, color: mixHex(c.a4, c.elev, p) }));
   return (
     <>
       <DashCard testID="dash-map">
@@ -88,7 +91,7 @@ export function DashCharts({ data, months, onMonthsChange, selected, onSelect, m
           right={(
             <View style={styles.legend} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Text style={styles.legendText}>{t("finance.dash.map_less")}</Text>
-              {ramp.map(color => <View key={color} style={[styles.ramp, { backgroundColor: color }]} />)}
+              {ramp.map(({ p, color }) => <View key={p} style={[styles.ramp, { backgroundColor: color }]} />)}
               <Text style={styles.legendText}>{t("finance.dash.map_more")}</Text>
             </View>
           )}
@@ -98,7 +101,7 @@ export function DashCharts({ data, months, onMonthsChange, selected, onSelect, m
       </DashCard>
       <DashCard testID="dash-bars">
         <SectionTitle title={t("finance.dash.chart_title")} />
-        <BarsBilledCollected billed={data.billed} collected={data.collected} months={months} onMonthsChange={onMonthsChange} />
+        <BarsBilledCollected billed={data.billed} collected={data.collected} months={data.months} requested={months} pending={pending} onMonthsChange={onMonthsChange} />
       </DashCard>
       <DashCard testID="dash-aging">
         <SectionTitle title={t("finance.dash.aging_title")} />

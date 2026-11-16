@@ -4,10 +4,10 @@ import type { AttentionItem } from "@/lib/finance-dashboard";
 import type { FinanceDashboard } from "@/services/api/finance";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { Buildings, Clock, Wallet, Warning } from "phosphor-react-native";
+import { Buildings, CaretRight, Clock, Wallet, Warning } from "phosphor-react-native";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { I18nManager, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Ring } from "@/components/finance/charts/ring";
 import { Sparkline } from "@/components/finance/charts/sparkline";
@@ -22,7 +22,7 @@ import { DashCard, DashRow, SectionTitle } from "./dash-ui";
 export function DashHero({ data }: { data: FinanceDashboard }) {
   const { t, i18n } = useTranslation();
   const c = useChartColors();
-  const styles = React.useMemo(() => buildStyles(c), [c]);
+  const styles = React.useMemo(() => buildStyles(c, i18n.language), [c, i18n.language]);
   const empty = data.cohort.rate === null;
   return (
     <DashCard style={styles.hero} testID="dash-hero">
@@ -61,7 +61,7 @@ function buildKpis(data: FinanceDashboard, language: string): Kpi[] {
 export function KpiCarousel({ data }: { data: FinanceDashboard }) {
   const { t, i18n } = useTranslation();
   const c = useChartColors();
-  const styles = React.useMemo(() => buildStyles(c), [c]);
+  const styles = React.useMemo(() => buildStyles(c, i18n.language), [c, i18n.language]);
   const { width } = useWindowDimensions();
   const [active, setActive] = React.useState(0);
   const kpis = buildKpis(data, i18n.language);
@@ -94,7 +94,10 @@ export function KpiCarousel({ data }: { data: FinanceDashboard }) {
               key={kpi.key}
               style={[styles.kpi, { width: cardWidth }]}
               accessible
-              accessibilityLabel={t("finance.dash.kpi_a11y", { label, value: kpi.value, delta: delta.text })}
+              accessibilityLabel={[
+                t("finance.dash.kpi_a11y", { label, value: kpi.value, delta: delta.text }),
+                kpi.key === "fund" ? t("finance.dash.kpi_fund_deposits", { billed: formatMoney(data.deposits.billed), collected: formatMoney(data.deposits.collected) }) : "",
+              ].filter(Boolean).join(" ")}
             >
               <Text style={styles.kpiLabel}>{label}</Text>
               <Text style={styles.kpiValue} numberOfLines={1} adjustsFontSizeToFit>{kpi.value}</Text>
@@ -175,22 +178,25 @@ export function TopOwingRow({ row }: { row: FinanceDashboard["topOwing"][number]
         <Text style={styles.topAmount}>{formatMoney(row.balance)}</Text>
         {row.daysPastDue > 0 ? <OverdueBadge days={row.daysPastDue} /> : null}
       </View>
+      <CaretRight mirrored={I18nManager.isRTL} size={18} color={c.mut} />
     </Pressable>
   );
 }
 
-function buildStyles(c: ReturnType<typeof useChartColors>) {
+/** Display serif (Cormorant) for hero and KPI figures in English only; Arabic keeps the UI font (DESIGN rule). */
+function buildStyles(c: ReturnType<typeof useChartColors>, language = "en") {
+  const display = language === "ar" ? FONT.sans : FONT.display;
   return StyleSheet.create({
     hero: { flexDirection: "row", alignItems: "center", gap: SPACING.base },
     heroText: { flex: 1, gap: 4 },
     eyebrow: { fontFamily: FONT.sans, fontSize: 11, lineHeight: 16, letterSpacing: 0.5, color: c.gold, textAlign: "left" },
-    heroTitle: { fontFamily: FONT.sans, fontWeight: "300", fontSize: 18, lineHeight: 28, color: c.tx, textAlign: "left" },
+    heroTitle: { fontFamily: display, fontWeight: "300", fontSize: 18, lineHeight: 28, color: c.tx, textAlign: "left" },
     heroDetail: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 19, color: c.mut, textAlign: "left" },
     carouselWrap: { marginTop: SPACING.md },
     carousel: { paddingHorizontal: SPACING.base, gap: SPACING.md },
     kpi: { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: RADIUS.lg, padding: SPACING.base, gap: 4 },
     kpiLabel: { fontFamily: FONT.sans, fontSize: 12, lineHeight: 18, color: c.mut, textAlign: "left" },
-    kpiValue: { fontFamily: FONT.sans, fontWeight: "300", fontSize: 26, lineHeight: 38, color: c.tx, textAlign: "left" },
+    kpiValue: { fontFamily: display, fontWeight: "300", fontSize: 26, lineHeight: 38, color: c.tx, textAlign: "left" },
     kpiFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 34 },
     chip: { fontFamily: FONT.sans, fontWeight: "600", fontSize: 12, lineHeight: 18, borderWidth: 1, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 2, overflow: "hidden" },
     kpiHint: { fontFamily: FONT.sans, fontSize: 11, lineHeight: 16, color: c.mut, textAlign: "left" },
