@@ -24,6 +24,17 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`), M1/M2/L1–L5 fixed (web `3ba205c`, mobile after it). **All 8 slices done.** Next: fold `RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root `steps.md`, then the owner runs `steps.md` |
 | 9 | finance dashboard, web + mobile (spec `ACCOUNTING-SLICE-9-DASHBOARD.md`, approved mockups `Documentation/mockups/finance-dashboard/sample-4.html` web, `sample-5-mobile.html` mobile; build must match them, plan §2 rule 6) | built 2026-11-15/16 (`5e8cfa7` endpoint, `aac2483` web charts, `d6a90aa` web screen, `93ac8b8` mobile charts, `3065fee` mobile screens); Opus review `ACCOUNTING-SLICE-9-REVIEW.md` + Astra (Codex) reviews, all fixes in (`56bef58`..`3e1fa5d`), Astra verdict ship; db-specs 56/56 on Postgres 15 (2026-11-16, local docker). Spec §6 #16–19 accepted by the owner (`25675f3`). Merged in PR #4 (2026-11-16) |
 
+**Technical audit (2026-11-20, `main` @ `f52641f`, no code changed):**
+- Six read-only Opus auditors plus an independent Astra (Codex) validation reviewed the code.
+- The reports live **only on the dev machine**, under `docs/technical-audit/` (untracked, deliberately not committed while the repo is public). The owner also has a private claude.ai copy.
+- Next work follows its roadmap, starting with Phase 1 items 1.1–1.6b.
+- The owner must decide five things first (listed in `FINAL_RECOMMENDATION.md` §5):
+  - rewriting history;
+  - a paid always-on backend;
+  - voting eligibility;
+  - an AI budget;
+  - how long ID numbers are kept.
+
 **Next steps (as of 2026-11-20, all code merged to `main`):**
 1. **Owner, prod (from root `steps.md`; not verified from the dev machine whether these were done after the
    2026-11-05 merge):** G2c private `eastpark-finance` bucket exists; A1 ownership catch-up + invariant check;
