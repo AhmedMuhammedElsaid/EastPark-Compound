@@ -1,6 +1,6 @@
 # EastPark: session handoff (portable state)
 
-Updated **2026-11-02**. This file travels with `git pull`, so any machine or Claude session can continue
+Updated **2026-11-20**. This file travels with `git pull`, so any machine or Claude session can continue
 from it. Read it after root `CLAUDE.md`. No secrets, credentials or personal data here: the GitHub repo is
 public. Credentials stay in each machine's `.env` and in the owner's password manager.
 
@@ -8,9 +8,8 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 
 | Branch | Tip | State |
 |---|---|---|
-| `main` | `f806451` | live in prod (Vercel web, Render backend). Untouched by listings/accounting. |
-| `feature/flat-listings` | `5e4d421` | Sell/Rent flats done, reviewed, fixed, **incl. its own privacy-policy update** (listings-only text), so it can ship alone. Pushed. |
-| `feature/accounting` | latest `git log` | all 8 accounting slices; contains every listings commit (merge `9849ec7`; accounting's policy is a superset). Pushed. Merge PRs listings first, then accounting. |
+| `main` | `3c5fc63` | everything is merged: PR #1 flat listings, PR #2 accounting slices 1–8 (2026-11-05), PR #3 listing submit errors, PR #4 finance dashboard slice 9 (2026-11-16), plus the mobile store-prep commits (`31ed2bc`, `d3d7958`, `fc8ff69` new EAS project). Every push to `main` deploys (Vercel + Render). |
+| `feature/flat-listings`, `feature/accounting`, `feature/finance-dashboard`, `fix/listing-submit-feedback` | merged | can be deleted locally and on origin once the owner agrees. |
 
 ### Accounting (Phase 1a, 8 slices; spec `Documentation/ACCOUNTING-PHASE-1A-TASKS.md`)
 
@@ -23,16 +22,19 @@ public. Credentials stay in each machine's `.env` and in the owner's password ma
 | 6 | finance kernel + privacy-policy finance section (own web commit, deploys first) | built (`37cf341` policy, `cd3a31f` kernel), reviewed (`ACCOUNTING-SLICE-6-REVIEW.md`), M1/M2/L1–L7 fixed; db-specs run at gate G1 |
 | 7 | payments + private attachments (`eastpark-finance` bucket). **Must match the live policy:** signed slip URLs expire after exactly 60 s and every open writes an audit row; private bucket only | built (`52cf951`), reviewed (`ACCOUNTING-SLICE-7-REVIEW.md`), M1–M3/L1–L5 fixed; db-specs run at gate G1. Slice 8 clients must send `Idempotency-Key` on payments and `expectedCredit` on apply-credit |
 | 8 | accountant UI, web + mobile | built (`4e596d1` mobile, `83f1b6e` web), gates green; reviewed (`ACCOUNTING-SLICE-8-REVIEW.md`), M1/M2/L1–L5 fixed (web `3ba205c`, mobile after it). **All 8 slices done.** Next: fold `RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root `steps.md`, then the owner runs `steps.md` |
-| 9 | finance dashboard, web + mobile (spec `ACCOUNTING-SLICE-9-DASHBOARD.md`, approved mockups `Documentation/mockups/finance-dashboard/sample-4.html` web, `sample-5-mobile.html` mobile; build must match them, plan §2 rule 6) | built 2026-11-15/16 (`5e8cfa7` endpoint, `aac2483` web charts, `d6a90aa` web screen, `93ac8b8` mobile charts, `3065fee` mobile screens); Opus review `ACCOUNTING-SLICE-9-REVIEW.md` + Astra (Codex) reviews, all fixes in (`56bef58`..`3e1fa5d`), Astra verdict ship; db-specs 56/56 on Postgres 15 (2026-11-16, local docker). Owner to decide spec §6 #16–19 and click-test. Not pushed |
+| 9 | finance dashboard, web + mobile (spec `ACCOUNTING-SLICE-9-DASHBOARD.md`, approved mockups `Documentation/mockups/finance-dashboard/sample-4.html` web, `sample-5-mobile.html` mobile; build must match them, plan §2 rule 6) | built 2026-11-15/16 (`5e8cfa7` endpoint, `aac2483` web charts, `d6a90aa` web screen, `93ac8b8` mobile charts, `3065fee` mobile screens); Opus review `ACCOUNTING-SLICE-9-REVIEW.md` + Astra (Codex) reviews, all fixes in (`56bef58`..`3e1fa5d`), Astra verdict ship; db-specs 56/56 on Postgres 15 (2026-11-16, local docker). Spec §6 #16–19 accepted by the owner (`25675f3`). Merged in PR #4 (2026-11-16) |
 
-**Immediate next steps (as of 2026-11-02 evening, all code pushed):**
-1. **Code (only task left):** fold the draft `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` into root
-   `steps.md` (gates G1–G4 incl. G2b policy-in-same-push and G2c private bucket, after-push A1/A2 already there),
-   then delete or mark the draft superseded.
-2. **Owner (from `steps.md`):** G1 `pnpm test:db` on Postgres 15 (no db-spec has EVER run: slices 4–7 SQL,
-   locks, counter, idempotency races are only unit-tested with fakes); G2 prod PG ≥ 15; G2c create private
-   `eastpark-finance` bucket; G3 flat-key preflight; G4 backup; PRs (listings, then accounting); deploy; A1; A2;
-   Play Data safety form before the mobile finance OTA.
+**Next steps (as of 2026-11-20, all code merged to `main`):**
+1. **Owner, prod (from root `steps.md`; not verified from the dev machine whether these were done after the
+   2026-11-05 merge):** G2c private `eastpark-finance` bucket exists; A1 ownership catch-up + invariant check;
+   A2 policy-changed announcement, and only then invite ACCOUNTANT users; Play Data safety form updated before
+   the mobile finance build reaches users.
+2. **Owner, stores:** Play closed test `.aab` versionCode 2 sent for review 2026-11-15; then 12+ testers opted
+   in for 14 days, then "Apply for production". iOS build 6 on TestFlight; App Store 1.0 still needs
+   screenshots, Arabic keywords/name/subtitle, review contact + test account, App Privacy, availability, APNs.
+   Check the Android keystore/versionCode in the new EAS project match what Play holds.
+3. **Prod data:** clean up the `seedshot_*` demo rows and the demo user once store screenshots are final.
+4. `Documentation/RELEASE-RUNBOOK-LISTINGS-ACCOUNTING.md` is superseded by root `steps.md` (kept for history).
 
 **Open items / known gaps (not bugs, flagged so nothing is lost):**
 - Finance gaps by design: no statement endpoint (flat ledger shows open charges + payments only, paid/voided

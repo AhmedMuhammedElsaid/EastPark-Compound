@@ -1,7 +1,10 @@
 # Release runbook: flat listings + accounting (slices 1 to 3)
 
-> **DRAFT** (2026-11-02). It will be folded into root `steps.md` once all accounting slices are built. Do not
-> run the prod parts yet.
+> **SUPERSEDED** (2026-11-20) by root `steps.md`, which holds the gates (G1–G4) and after-push steps (A1, A2).
+> Kept for history only; do not run anything from this file.
+>
+> Original note: DRAFT (2026-11-02). It will be folded into root `steps.md` once all accounting slices are
+> built. Do not run the prod parts yet.
 
 Written 2026-11-02. Branches on GitHub:
 - `feature/flat-listings` (tip `0ab5997`);

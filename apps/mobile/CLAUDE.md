@@ -8,7 +8,7 @@
 ### Device audit + fix batches — 2026-10-08
 
 - A72 walks (owner, resident, checkout/order) → findings + per-ID fix commits in `Documentation/ANDROID-UI-AUDIT-2026-10-07.md`
-  (AUTH-*, RES-*, MA-*, LTR-*, DEV-*, RW-*). Preview versionCode 7 = `0aab2f5`. EAS project now `@volunteering-apps/eastpark-app`.
+    (AUTH-*, RES-*, MA-*, LTR-*, DEV-*, RW-*). Preview versionCode 7 = `0aab2f5`. (EAS project at the time was `@volunteering-apps/eastpark-app`; since 2026-11-15 it is `@ahmedmuhammedelsaid/eastpark`.)
 - Biometric sign-in is bound to ONE account (`src/lib/biometric-binding.ts`, `src/services/auth/session.ts`:
   `signInWithKeptBiometricSession`, `rehydrateSession`, `signOut` local-teardown-first). Only `completeLogin` writes the
   access token; relaunch restores only an access+refresh pair. Open: refresh in flight during sign-out can re-save a pair (`client.ts` `runTokenRefresh`).
@@ -91,7 +91,7 @@ Last commits: `3ea3f75` → `a498a15` (maintenance pass + review pass + TS fixes
 - Maintenance pass (April 2026): all 9 TD items + 7/9 UX items fixed — commits `0c74e20`–`43025a1`
 - Review pass + static analysis + TS fixes — commits `2ab46a8`–`1e8a72a`
 - Jest fix pass — commits `23a39fe`, `a498a15` (RTK/react-redux ESM fixed via global store mock)
-- `EAS_PROJECT_ID` already populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — `eas init` is done
+- `EAS_PROJECT_ID` already populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc` — EAS project `@ahmedmuhammedelsaid/eastpark`, owner `ahmedmuhammedelsaid`, slug `eastpark`; relinked 2026-11-15 `fc8ff69`, new signing keys. The earlier `@volunteering-apps/eastpark-app` project (`7c09d58b-…`) is retired; its builds, including the preview APK on the A72, cannot be updated in place) — `eas init` is done
 
 ### Audit 2026-07-19 → status 2026-07-26 (full detail in `frontend_review.md`)
 - **FE-1 ✅ FIXED backend-side:** the backend now exposes a `/merchant/*` controller (`apps/backend/src/modules/merchant/`) that resolves the merchant's shop from the JWT. `src/services/api/merchant.ts` and all `(merchant)` screens work UNCHANGED — do NOT rewrite them to `/shops/:id`. Also solved B-7 (no way to discover own shopId).
@@ -380,7 +380,7 @@ pnpm build:production:ios   # EAS production iOS
 ## Known Environment Notes
 
 - All commits use `--no-verify` — WSL cannot run node/pnpm, pre-commit hook always fails
-- `EAS_PROJECT_ID` is already populated (`7c09d58b-c103-461c-ad6f-7fc77a279133` (EAS project `@volunteering-apps/eastpark-app`, owner `volunteering-apps`, slug `eastpark-app`; relinked 2026-10-08 `e64e711`, new signing key — old 062399ed builds cannot be updated in place)) — `eas init` is done
+- `EAS_PROJECT_ID` is already populated (`062399ed-48df-4d4f-ba1a-a0801a86b1bc` — EAS project `@ahmedmuhammedelsaid/eastpark`, owner `ahmedmuhammedelsaid`, slug `eastpark`; relinked 2026-11-15 `fc8ff69`, new signing keys. The earlier `@volunteering-apps/eastpark-app` project (`7c09d58b-…`) is retired) — `eas init` is done
 - `apps/mobile/` is its own git repo — commits must be made from inside this directory
 - `deleteAccount` (`DELETE /user`): the backend self-delete endpoint exists and is used by Profile.
 - Shop profile editor uses `PATCH /merchant/shop` (shop resolved from the JWT); `PATCH /shops/:id` also accepts MERCHANT for its own shop.
