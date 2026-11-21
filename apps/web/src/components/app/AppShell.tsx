@@ -12,7 +12,7 @@ import { SkipLink } from '@/components/SkipLink';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ComingSoonProvider, GatedLink } from '@/lib/access/ComingSoon';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { isAdminRole } from '@/lib/auth/roles';
+import { isAdminRole, isFinanceRole } from '@/lib/auth/roles';
 import { useCart } from '@/lib/cart/CartProvider';
 import { useTranslation } from '@/lib/i18n';
 
@@ -50,7 +50,7 @@ function AppShellContent({ children }: AppShellProps) {
     ...(isAdminRole(user?.role)
       ? [{ href: '/admin', label: t('admin.title'), mobileLabel: t('admin.nav_label'), icon: ShieldCheck }]
       : []),
-    ...(user?.role === 'ACCOUNTANT'
+    ...(isFinanceRole(user?.role)
       ? [{ href: '/finance', label: t('finance.title'), mobileLabel: t('finance.nav_label'), icon: Landmark }]
       : []),
     { href: '/directory', label: t('directory.title'), mobileLabel: t('directory.title'), icon: Store },
